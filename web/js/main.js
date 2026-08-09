@@ -187,15 +187,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const orig = btn.textContent;
       btn.disabled = true; btn.textContent = '…';
       try {
-        const fd = new FormData(cf);
+        const bg = window.krBG ? await window.krBG.prove() : {};
         const res = await fetch('/api/contact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: JSON.stringify(Object.assign({
             name: fd.get('name'), email: fd.get('email'),
             phone: fd.get('phone') || '', subject: fd.get('subject') || '',
             message: fd.get('message')
-          })
+          }, bg))
         });
         const data = await res.json();
         if (data.ok) { krToast('Message sent — we\'ll reply within 24h ✓'); cf.reset(); }
@@ -216,9 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = nf.querySelector('button');
       btn.disabled = true;
       try {
+        const bg = window.krBG ? await window.krBG.prove() : {};
         const res = await fetch('/api/newsletter', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: val })
+          body: JSON.stringify(Object.assign({ email: val }, bg))
         });
         const data = await res.json();
         const d = (window.KR_I18N && KR_I18N[krLang()]) || {};

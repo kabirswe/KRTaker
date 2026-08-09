@@ -42,7 +42,7 @@ def build_files():
         ('css/style.css', '/css/'), ('css/share.css', '/css/'), ('js/main.js', '/js/'),
         ('js/i18n.js', '/js/'), ('js/cms-hydrate.js', '/js/'), ('js/blog-hydrate.js', '/js/'),
         ('js/plans-hydrate.js', '/js/'), ('js/chat.js', '/js/'), ('js/share.js', '/js/'),
-        ('js/tools.js', '/js/'), ('js/register.js', '/js/'), ('i18n/i18n-dict.js', '/i18n/'),
+        ('js/tools.js', '/js/'), ('js/register.js', '/js/'), ('js/botguard.js', '/js/'), ('i18n/i18n-dict.js', '/i18n/'),
         ('manifest.json', '/'), ('manifest-dash.json', '/'), ('sw.js', '/'),
         ('sitemap.xml', '/'), ('robots.txt', '/'), ('.htaccess', '/'),
     ]

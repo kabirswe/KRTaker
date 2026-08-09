@@ -21,6 +21,60 @@ register_shutdown_function(function () use ($action) {
     api_log_hit($action, $_SERVER['REQUEST_METHOD'] ?? 'POST', http_response_code() ?: 200, $ms);
 });
 
+/* ── SA1-v26: bot guard for public form endpoints ────────────────────────────
+   Zero-dependency: honeypot + time-trap + proof-of-work (WebCrypto SHA-256).
+   Turnstile-ready: if admin_cfg turnstile_secret is set, the token is verified
+   too. Toggle with admin_cfg bot_guard (1=on default). Difficulty in bot_pow_bits. */
+if (in_array($action, ['register', 'resend-otp', 'forgot-password', 'reset-password', 'contact', 'newsletter', 'app-login'], true)) {
+    $bgp = db();
+    if ((int)admin_cfg($bgp, 'bot_guard', 1) === 1) {
+        bot_guard_check($bgp, $body);
+    }
+}
+
+function bot_guard_check($pdo, $body) {
+    $t = microtime(true) * 1000;
+    /* honeypot: invisible field — real users never fill it */
+    if (!empty($body['hp'])) bot_guard_reject();
+    /* time-trap: form must be at least 2s old (naive bots POST in <1s) */
+    $ft = (float)($body['ft'] ?? 0);
+    if ($ft <= 0 || ($t - $ft) < 2000) bot_guard_reject();
+    /* proof-of-work: sha256(window:nonce) must have >= N leading zero bits.
+       window = epoch/300 (5 min) — client computes from its own clock; we accept
+       the current, previous and next window (clock skew tolerance). */
+    $difficulty = max(8, min(24, (int)admin_cfg($pdo, 'bot_pow_bits', 12)));
+    $pow = (string)($body['pow'] ?? '');
+    if ($pow === '' || strlen($pow) > 16 || !ctype_xdigit($pow)) bot_guard_reject();
+    $win = (int)floor(time() / 300);
+    $ok = false;
+    foreach ([$win, $win - 1, $win + 1] as $w) {
+        $h = hash('sha256', $w . ':' . $pow);
+        $bin = '';
+        foreach (str_split($h) as $c) $bin .= str_pad(base_convert($c, 16, 2), 4, '0', STR_PAD_LEFT);
+        if (strspn($bin, '0') >= $difficulty) { $ok = true; break; }
+    }
+    if (!$ok) bot_guard_reject();
+    /* Turnstile (optional): only when a secret is configured */
+    $ts = trim((string)admin_cfg($pdo, 'turnstile_secret', ''));
+    if ($ts !== '') {
+        $tok = (string)($body['cf-turnstile-response'] ?? '');
+        if ($tok === '' || !function_exists('curl_init')) bot_guard_reject();
+        $ch = curl_init('https://challenges.cloudflare.com/turnstile/v0/siteverify');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query(['secret' => $ts, 'response' => $tok, 'remoteip' => client_ip()]),
+        ]);
+        $r = json_decode((string)curl_exec($ch), true);
+        curl_close($ch);
+        if (empty($r['success'])) bot_guard_reject();
+    }
+}
+function bot_guard_reject() {
+    http_response_code(422);
+    echo json_encode(['ok' => false, 'error' => 'Human verification failed. Please reload the page and try again.']);
+    exit;
+}
+
 /* ── SA1-fullsite-v3/v9: optional API-key enforcement on keyed endpoints (web/mobile/tenant keys) ── */
 if (in_array($action, ['app-photo', 'app-job-media', 'app-tenant-me'], true)) {
     $pdo0 = db();

@@ -14,6 +14,8 @@
 <!-- Google Analytics (GA4) — conversion events: sign_up / trial_started (landing), payment_completed (dashboard) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-C68G5Q03ZT"></script>
 <script>
+/* KRTaker bot guard v3.87 — honeypot + time-trap + PoW (see web/js/botguard.js) */
+(function(){'use strict';var D=12;function sh(s){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)).then(function(b){var o='';new Uint8Array(b).forEach(function(x){o+=x.toString(16).padStart(2,'0')});return o})}function lb(h){var n=0;for(var i=0;i<h.length;i++){var v=parseInt(h[i],16);if(v===0){n+=4;continue}for(var b=3;b>=0;b--){if(v&(1<<b))break;n++}break}return n}function prove(){var ft=Date.now(),ch=String(Math.floor(ft/1000/300)),n=0;function t(){return sh(ch+':'+n.toString(16)).then(function(h){if(lb(h)>=D||n>=400000){var f={hp:'',ft:ft,pow:n.toString(16)};try{var tk=document.querySelector('[name="cf-turnstile-response"]');if(tk&&tk.value)f['cf-turnstile-response']=tk.value}catch(e){}return f}n++;return t()})}return t()}window.krBG={prove:prove};})();
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
@@ -1538,7 +1540,8 @@ async function doLogin() {
   if (!email || !pass) { err.textContent = 'Enter your email and password.'; err.classList.add('show'); return; }
   const btn = $('authBtn'); btn.disabled = true; btn.textContent = 'Signing in…';
   try {
-    const payload = { email, password: pass }; if (code) payload['2fa_code'] = code;
+    const bg = window.krBG ? await window.krBG.prove() : {};
+    const payload = Object.assign({ email, password: pass }, bg); if (code) payload['2fa_code'] = code;
     const d = await apiCall('app-login', payload);
     if (d.ok && d.token) {
       TOKEN=d.token;
