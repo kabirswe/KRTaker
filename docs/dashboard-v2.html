@@ -1538,6 +1538,7 @@ async function doLogin() {
     const d = await apiCall('app-login', { email, password: pass });
     if (d.ok && d.token) {
       TOKEN=d.token;
+      trackGA('login', { method: 'email' });
       try { localStorage.setItem('krtaker_dash_token', TOKEN); } catch (x) {}
       const b = await apiCall('app-bootstrap');
       if (b.ok) applyLive(b);

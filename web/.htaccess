@@ -75,6 +75,9 @@ ErrorDocument 403 /403.html
   RewriteRule ^([^/.]+)/?$ $1.html [L]
 
   RewriteRule ^api/(.*)$ api/index.php [L,QSA]
+  # sitemap.xml -> API (always-fresh index incl. blog posts + property pages).
+  # Without this, a stale static sitemap.xml on disk shadows the dynamic one.
+  RewriteRule ^sitemap\.xml$ api/index.php [L,QSA]
   RewriteRule ^blog/([a-z0-9-]+)/?$ api/index.php [L,QSA]
   RewriteRule ^building/([A-Za-z0-9_-]+)/?$ api/index.php [L,QSA]
   RewriteRule ^area/([a-z0-9-]+)/?$ area.html?jur=$1 [L,QSA]

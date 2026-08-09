@@ -9533,6 +9533,9 @@ function seed_app() {
 $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 $seg  = preg_replace('#^api/#', '', $path);
 $action = $seg ?: 'health';
+/* sitemap.xml is rewritten to api/index.php from .htaccess so the index is ALWAYS
+   dynamic (blog posts + properties included); normalize the action here. */
+if ($action === 'sitemap.xml') $action = 'sitemap';
 /* SA1 v21: cap request body size before parsing (DoS guard — 2MB is far beyond any legit payload) */
 $clen = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
 if ($clen > 2 * 1024 * 1024) {
