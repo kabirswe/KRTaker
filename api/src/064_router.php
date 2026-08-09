@@ -1384,6 +1384,7 @@ case 'app-invoice-email': {
         'tenant_name' => $r['tname'], 'invoice_id' => $invId, 'month' => $r['m'],
         'property' => $r['pname'], 'unit' => $r['uname'], 'amount' => number_format((int)$r['net']),
         'due' => number_format(max(0, $due)), 'due_color' => $due > 0 ? '#B91C1C' : '#065F46',
+        'pay_url' => 'https://krtaker.com/dashboard-v2.html?inv=' . rawurlencode($invId) . '&pay=1',
     ]);
     $ok = send_mail($r['temail'], $subj, $html, null, true);
     audit($u['name'], 'Invoice emailed', 'invoices', $invId, $r['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
@@ -3484,10 +3485,10 @@ case 'app-premium-billing': {
                 $st = $pdo->prepare('SELECT name FROM properties WHERE id=?'); $st->execute([$s['prop']]);
                 $pn = $st->fetchColumn() ?: '';
                 list($subj, $html) = email_render('invoice', [
-                    'invoice' => $cid, 'tenant' => $nm, 'month' => $s['next_invoice'],
-                    'property' => $pn, 'gross' => number_format((int)$s['price']),
-                    'net' => number_format((int)$s['price']), 'due' => gmdate('d M Y', strtotime($s['next_invoice'] . '-01 +20 days')),
-                    'workspace_url' => 'https://krtaker.com/dashboard-v2.html',
+                    'tenant_name' => $nm, 'invoice_id' => $cid, 'month' => $s['next_invoice'],
+                    'property' => $pn, 'unit' => 'Workspace', 'amount' => number_format((int)$s['price']),
+                    'due' => number_format((int)$s['price']), 'due_color' => '#B91C1C',
+                    'pay_url' => 'https://krtaker.com/dashboard-v2.html',
                 ]);
                 send_mail($s['user_email'], $subj, $html, null);
             }

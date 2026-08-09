@@ -1527,6 +1527,7 @@ function applyLive(d, silent) {
   renderNav(); render(); updateCrumb();
   if (!silent) toast('Signed in as ' + LIVE.user.name + ' — ' + LIVE.user.role);
   gatewayReturn();   /* handle real-gateway callback (returned from bKash/SSLCommerz/Nagad) */
+  deepPayLink();     /* rent self-service: ?inv=X&pay=1 from reminder/invoice email → open checkout */
 }
 async function doLogin() {
   const email = $('authEmail').value.trim().toLowerCase();
@@ -6367,6 +6368,16 @@ function portalHtml(d){
     stat(t('Lease countdown','লিজ কাউন্টডাউন'),S.min_days_left!=null?(S.min_days_left+' '+t('days','দিন')):'—',S.min_days_left!=null?(S.min_days_left<60?t('renews soon — plan ahead','শীঘ্রই মেয়াদ শেষ — আগাম পরিকল্পনা করুন'):t('of your tenancy','আপনার টেন্যান্সির')):t('no active lease','কোনো সক্রিয় লিজ নেই'),S.min_days_left!=null&&S.min_days_left<60?'warn':'up','⏳'),
     stat(t('My tickets','আমার টিকিট'),S.tickets_open||0,t('repairs & requests','মেরামত ও অনুরোধ'),'','🔧')
   ]);
+  const firstDue=(d.invoices||[]).find(i=>i.due>0);
+  if(S.outstanding>0 && firstDue){
+    h+=`<div class="panel" style="margin-bottom:18px;border:1px solid #FFD9A0;background:linear-gradient(135deg,#FFF9F0,#FFFFFF)">
+      <div class="panel-b" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
+        <div><div style="font-size:15px;font-weight:800">💳 ${t('Rent due — pay online','ভাড়া বকেয়া — অনলাইনে পরিশোধ করুন')}</div>
+        <div class="c-sub" style="margin-top:4px">${t('Pay by bKash, Nagad or SSLCommerz card. Instant receipt, auto-reconciled.','বিকাশ, নগদ বা SSLCommerz কার্ডে পরিশোধ করুন। তাৎক্ষণিক রসিদ, স্বয়ংক্রিয় রিকনসাইলেশন।')}</div></div>
+        <div style="display:flex;align-items:center;gap:14px"><span class="t-amount" style="font-size:24px;font-weight:800;color:#B45309">${money(S.outstanding)}</span>
+        <button class="btn-primary" style="padding:11px 22px" onclick="gatewayPay('${esc(firstDue.id)}')">🔐 ${t('Pay now','এখনই পরিশোধ করুন')}</button></div>
+      </div></div>`;
+  }
   const profileHtml = portalProfilePanelHtml(d);
   if(profileHtml){
     h+=`<div class="grid grid-2" style="margin-bottom:18px">`;
@@ -9425,6 +9436,15 @@ async function recordPaymentFromForm(){
 function trackGA(event, params){ try{ if(window.gtag) gtag('event', event, params||{}); }catch(e){} }
 
 /* Gateway checkout */
+function deepPayLink(){
+  try{
+    const p=new URLSearchParams(location.search);
+    const inv=p.get('inv');
+    if(!inv || p.get('pay')!=='1') return;
+    history.replaceState(null,'',location.pathname);   /* don't re-trigger on refresh */
+    setTimeout(()=>{ gatewayPay(inv); }, 600);         /* let the first paint settle */
+  }catch(e){}
+}
 function gatewayPay(invId){
   const inv=invoiceById(invId); if(!inv){toast('Not found');return}
   const l=leaseById(inv.l);

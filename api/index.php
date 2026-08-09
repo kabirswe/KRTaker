@@ -2532,10 +2532,12 @@ function reminder_send_one($pdo, $r, $cfg) {
     $t = $cfg['tiers'][(string)$tier];
     if (empty($r['email'])) return ['inv' => $r['inv'], 'ok' => false, 'reason' => 'no-email'];
     $tier_note = render_merge($t['note'], ['month' => $r['m']]);
+    $pay_url = 'https://krtaker.com/dashboard-v2.html?inv=' . rawurlencode($r['inv']) . '&pay=1';
     list($subj, $html) = email_render('rent_reminder', [
         'tenant_name' => $r['tenant'], 'invoice_id' => $r['inv'], 'month' => $r['m'],
         'amount' => number_format($r['due']), 'property' => $r['property'], 'unit' => $r['unit'],
         'tier' => $tier, 'days_overdue' => $r['days_overdue'], 'tier_note' => $tier_note, 'late_fee' => $cfg['late_fee'],
+        'pay_url' => $pay_url,
     ]);
     $ok = send_mail($r['email'], $subj, $html, null, true);
     if ($ok) {
@@ -3020,7 +3022,8 @@ HTML,
     <p style="margin:0 0 14px;color:#475467;font-size:14px">Dear {{tenant_name}},</p>
     <p style="margin:0 0 14px;color:#475467;font-size:14px;line-height:1.7">Invoice <b>{{invoice_id}}</b> for <b>{{month}}</b> — <b>৳{{amount}}</b> — is due for <b>{{property}}</b> ({{unit}}).</p>
     <div style="background:#FFF4E5;border:1px solid #FFD9A0;border-radius:12px;padding:14px 18px;font-size:13px;color:#7A4A00;margin-bottom:16px">⚠️ <b>Tier {{tier}} reminder</b> · {{days_overdue}} day(s) past due — {{tier_note}}</div>
-    <div style="background:#F6F9FE;border:1px solid #E4EAF3;border-radius:12px;padding:14px 18px;font-size:13px;color:#1A2433;margin-bottom:18px">Please pay via bKash, Nagad or SSLCommerz from your KRTaker tenant portal, or reply to this email for the payment link. {{late_fee}}</div>
+    <div style="margin:0 0 16px"><a href="{{pay_url}}" style="display:inline-block;background:#2F80ED;color:#ffffff;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none">💳 Pay now — ৳{{amount}}</a></div>
+    <div style="background:#F6F9FE;border:1px solid #E4EAF3;border-radius:12px;padding:14px 18px;font-size:13px;color:#1A2433;margin-bottom:18px">Prefer bKash, Nagad or your KRTaker tenant portal? The button takes you straight to the secure checkout for invoice <b>{{invoice_id}}</b>. {{late_fee}}</div>
     <p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, your AI caretaker 🇧🇩</p>
   </div>
   <div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
@@ -3043,7 +3046,8 @@ HTML,
       <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">Amount</span><b>৳{{amount}}</b></div>
       <div style="display:flex;justify-content:space-between;padding:14px 18px;background:#F6F9FE;font-size:14px"><span style="color:#8A94A6;font-weight:600">Balance due</span><b style="color:{{due_color}};font-size:16px">৳{{due}}</b></div>
     </div>
-    <p style="margin:0 0 16px;color:#475467;font-size:13.5px;line-height:1.7">Pay via bKash, Nagad or SSLCommerz from your tenant portal. A printable copy is available inside your KRTaker dashboard — or ask us and we will email it.</p>
+    <p style="margin:0 0 16px;color:#475467;font-size:13.5px;line-height:1.7">Pay via bKash, Nagad or SSLCommerz — the button takes you straight to the secure checkout for invoice <b>{{invoice_id}}</b>. A printable copy is available inside your KRTaker dashboard.</p>
+    <div style="margin:0 0 16px"><a href="{{pay_url}}" style="display:inline-block;background:#2F80ED;color:#ffffff;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none">💳 Pay now — ৳{{due}}</a></div>
     <p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, your AI caretaker 🇧🇩</p>
   </div>
   <div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
@@ -11084,6 +11088,7 @@ case 'app-invoice-email': {
         'tenant_name' => $r['tname'], 'invoice_id' => $invId, 'month' => $r['m'],
         'property' => $r['pname'], 'unit' => $r['uname'], 'amount' => number_format((int)$r['net']),
         'due' => number_format(max(0, $due)), 'due_color' => $due > 0 ? '#B91C1C' : '#065F46',
+        'pay_url' => 'https://krtaker.com/dashboard-v2.html?inv=' . rawurlencode($invId) . '&pay=1',
     ]);
     $ok = send_mail($r['temail'], $subj, $html, null, true);
     audit($u['name'], 'Invoice emailed', 'invoices', $invId, $r['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
@@ -13184,10 +13189,10 @@ case 'app-premium-billing': {
                 $st = $pdo->prepare('SELECT name FROM properties WHERE id=?'); $st->execute([$s['prop']]);
                 $pn = $st->fetchColumn() ?: '';
                 list($subj, $html) = email_render('invoice', [
-                    'invoice' => $cid, 'tenant' => $nm, 'month' => $s['next_invoice'],
-                    'property' => $pn, 'gross' => number_format((int)$s['price']),
-                    'net' => number_format((int)$s['price']), 'due' => gmdate('d M Y', strtotime($s['next_invoice'] . '-01 +20 days')),
-                    'workspace_url' => 'https://krtaker.com/dashboard-v2.html',
+                    'tenant_name' => $nm, 'invoice_id' => $cid, 'month' => $s['next_invoice'],
+                    'property' => $pn, 'unit' => 'Workspace', 'amount' => number_format((int)$s['price']),
+                    'due' => number_format((int)$s['price']), 'due_color' => '#B91C1C',
+                    'pay_url' => 'https://krtaker.com/dashboard-v2.html',
                 ]);
                 send_mail($s['user_email'], $subj, $html, null);
             }
