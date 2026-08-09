@@ -9,6 +9,10 @@
 (function () {
   'use strict';
   var DIFFICULTY = 12; // leading zero bits
+  /* Time-trap anchor: captured at SCRIPT LOAD (= page load). The API rejects
+     submissions where (server_time - ft) < 2000ms — a human always takes longer
+     than 2s to fill a form; instant bot POSTs get rejected. */
+  var _FT = Date.now();
   function sha256Hex(str) {
     return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
       .then(function (buf) {
@@ -28,8 +32,8 @@
     return bits;
   }
   function prove() {
-    var ft = Date.now();
-    var win = Math.floor(ft / 1000 / 300); // 5-min window (matches API)
+    var now = Date.now();
+    var win = Math.floor(now / 1000 / 300); // 5-min window at SUBMIT time (API checks ±1)
     var chal = String(win);
     var nonce = 0;
     function tryNonce() {
