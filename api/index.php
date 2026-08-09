@@ -10217,6 +10217,57 @@ case 'app-deploy-status': {
     json_out(['ok' => true, 'file' => basename($f), 'size' => filesize($f), 'sha256' => hash_file('sha256', $f), 'php' => PHP_VERSION]);
 }
 
+/* Daily API performance digest (service-key gated, 2026-08-09):
+   slowest-10 endpoints (last 24h) + totals + error leaders, formatted as a
+   ready-to-send text block. Cron (no_agent) POSTs and delivers stdout. */
+case 'app-api-digest': {
+    if (!service_authed()) json_out(['ok' => false, 'error' => 'Service key required.'], 403);
+    $pdo = db();
+    $one = function ($sql) use ($pdo) { $st = $pdo->query($sql); $r = $st->fetch(PDO::FETCH_NUM); return $r ? $r[0] : null; };
+    $slow = $pdo->query("SELECT action, COUNT(*) n, ROUND(AVG(ms)) avg_ms, MAX(ms) max_ms,
+            SUM(CASE WHEN status>=400 THEN 1 ELSE 0 END) errs,
+            ROUND(100.0*SUM(CASE WHEN status>=400 THEN 1 ELSE 0 END)/COUNT(*),1) err_pct
+        FROM api_usage WHERE ts >= datetime('now','-24 hours')
+        GROUP BY action ORDER BY avg_ms DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+    $errs = $pdo->query("SELECT action, COUNT(*) n FROM api_usage
+        WHERE ts >= datetime('now','-24 hours') AND status>=400
+        GROUP BY action ORDER BY n DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+    $tot24 = (int)$one("SELECT COUNT(*) FROM api_usage WHERE ts >= datetime('now','-24 hours')");
+    $tot7d = (int)$one("SELECT COUNT(*) FROM api_usage WHERE ts >= datetime('now','-7 days')");
+    $err24 = (int)$one("SELECT COUNT(*) FROM api_usage WHERE ts >= datetime('now','-24 hours') AND status>=400");
+    $err7d = (int)$one("SELECT COUNT(*) FROM api_usage WHERE ts >= datetime('now','-7 days') AND status>=400");
+    $byAuth = $pdo->query("SELECT auth, COUNT(*) n FROM api_usage
+        WHERE ts >= datetime('now','-24 hours') GROUP BY auth ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $lines = [];
+    $lines[] = '📊 *KRTaker API digest — last 24h*';
+    $lines[] = sprintf('Requests: %s (7d: %s) · Errors: %s (%.1f%%)',
+        number_format($tot24), number_format($tot7d), number_format($err24), $tot24 ? 100.0 * $err24 / $tot24 : 0);
+    if ($byAuth) {
+        $a = [];
+        foreach ($byAuth as $x) $a[] = $x['auth'] . ' ' . number_format((int)$x['n']);
+        $lines[] = 'Auth: ' . implode(' · ', $a);
+    }
+    if ($slow) {
+        $lines[] = '';
+        $lines[] = '🐢 *Slowest endpoints (avg ms)*';
+        foreach ($slow as $i => $s) {
+            $lines[] = sprintf('%d. `%s` — %sms avg (max %sms) · %s req · %.1f%% err',
+                $i + 1, $s['action'], $s['avg_ms'], $s['max_ms'], number_format((int)$s['n']), (float)$s['err_pct']);
+        }
+    } else {
+        $lines[] = 'No API traffic in the last 24h.';
+    }
+    if ($errs) {
+        $lines[] = '';
+        $lines[] = '🚨 *Top error endpoints*';
+        foreach ($errs as $i => $s) {
+            $lines[] = sprintf('%d. `%s` — %s errors', $i + 1, $s['action'], number_format((int)$s['n']));
+        }
+    }
+    $text = implode("\n", $lines);
+    json_out(['ok' => true, 'text' => $text]);
+}
+
 case 'app-2fa-setup': {
     $u = require_user();
     if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
