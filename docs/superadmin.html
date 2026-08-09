@@ -351,6 +351,10 @@ td .c-name:hover{color:var(--primary)}
     <input id="authEmail" type="email" placeholder="kabir@krtaker.com" autocomplete="off">
     <label class="lb" for="authPass">Password</label>
     <input id="authPass" type="password" placeholder="••••••••">
+    <div id="auth2faWrap" style="display:none">
+      <label class="lb" for="auth2fa">Authenticator code</label>
+      <input id="auth2fa" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code">
+    </div>
     <div class="err" id="authErr"></div>
     <div style="margin-top:18px"><button class="btn-primary" id="authBtn" style="width:100%;justify-content:center" onclick="doLogin()">Log in</button></div>
   </div>
@@ -2483,7 +2487,7 @@ async function renderSecurity(){
   SEC.cfg=d.config||{};SEC.lockouts=d.lockouts||[];SEC.recent=d.recent||[];SEC.hits=d.rate_hits||[];
   securityPaint(d.gateway_24h||0);
 }
-function securityPaint(gw24){
+async function securityPaint(gw24){
   const mx=+SEC.cfg.sec_login_attempts||10, lm=+SEC.cfg.sec_lockout_minutes||15;
   const lockRows=SEC.lockouts.map((l,i)=>{
     const blk=+l.blocked===1;
@@ -2491,7 +2495,7 @@ function securityPaint(gw24){
   }).join('')||'<tr><td colspan="5" class="empty">No failed attempts in the lockout window — all clear.</td></tr>';
   const recentRows=SEC.recent.map(r=>`<tr><td style="white-space:nowrap">${esc(r.ts)}</td><td><span class="chip">${esc(r.kind||'')}</span></td><td>${esc(r.email||'—')}</td><td>${esc(r.ip||'—')}</td><td>${+r.ok?'<span style="color:#15803D">✓ ok</span>':'<span style="color:#B91C1C">✗ fail</span>'}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No attempts recorded yet.</td></tr>';
   const hitRows=SEC.hits.map(h=>`<tr><td style="white-space:nowrap">${esc(h.ts)}</td><td>${esc(h.action)}</td><td>${esc(h.method)}</td><td><span class="chip" style="background:#FDE8E8;color:#B91C1C">429</span></td><td>${esc(h.ms||'')}ms</td><td>${esc(h.ip_hash||'')}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No rate-limit hits yet.</td></tr>';
-  load('pageBody',pageBar()+
+  load('pageBody',pageBar()+await sec2faCard()+
     `<div class="cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px">
       <div class="card"><div class="card-label">Lockout policy</div><div class="card-val">${mx} fails / ${lm} min</div><div class="card-sub">Edit in App Settings → Security &amp; access</div></div>
       <div class="card"><div class="card-label">Locked emails/IPs</div><div class="card-val">${SEC.lockouts.filter(l=>+l.blocked===1).length}</div><div class="card-sub">of ${SEC.lockouts.length} groups with failures</div></div>
@@ -2521,6 +2525,58 @@ async function securityClearAll(){
   if(!confirm('Delete ALL recorded auth attempts (every lockout)?'))return;
   const d=await admin({action:'security-unlock',all:true});
   if(d.ok){toast(`Cleared ${d.cleared} attempt(s)`,'ok');securityRefresh();}else toast(d.error||'Failed','error');
+}
+/* ── SA1 v28: TOTP 2FA for the superadmin account ── */
+let SEC2FA={secret:'',uri:''};
+async function sec2faCard(){
+  let st;
+  try{st=await api('app-2fa-status');}catch(e){return ''}
+  const on=st.ok&&!!st.enabled;
+  if(!on){
+    return `<div class="panel" style="margin-bottom:16px;border:1px solid #E4EAF3">
+      <div class="panel-h"><span class="t"><span class="pi">🔐</span>Two-factor authentication<span class="badge" style="background:#F39C12;margin-left:10px">OFF</span></span>
+      <span class="c-sub" style="font-size:11px">Requires an authenticator app (Google Authenticator, Authy, 1Password…)</span></div>
+      <div class="panel-b"><button class="btn-primary" onclick="sec2faSetup()">🔐 Enable two-factor auth</button>
+      <span class="c-sub" style="margin-left:10px">Signing in will then need a 6-digit code from your authenticator app.</span></div></div>`;
+  }
+  return `<div class="panel" style="margin-bottom:16px;border:1px solid #D1FAE5">
+    <div class="panel-h"><span class="t"><span class="pi">🔐</span>Two-factor authentication<span class="badge" style="background:#27AE60;margin-left:10px">ON</span></span></div>
+    <div class="panel-b"><span class="c-sub">Your superadmin login requires a 6-digit authenticator code. Sessions last 12 hours.</span>
+    <div style="margin-top:10px"><button class="btn-outline" onclick="sec2faDisable()">Disable two-factor auth</button></div></div></div>`;
+}
+async function sec2faSetup(){
+  const d=await api('app-2fa-setup');
+  if(!d.ok){toast(d.error||'Setup failed','error');return}
+  SEC2FA.secret=d.secret;SEC2FA.uri=d.uri;
+  const qr=`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(d.uri)}`;
+  const html=`<div class="panel"><div class="panel-h"><span class="t"><span class="pi">📲</span>Scan or enter the secret</span></div>
+    <div class="panel-b" style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+      <div><img src="${qr}" width="180" height="180" alt="QR code" style="border-radius:8px;border:1px solid #E4EAF3"></div>
+      <div style="max-width:420px">
+        <div class="c-sub" style="margin-bottom:8px">1 · Open your authenticator app and scan the QR — or enter the secret manually:</div>
+        <code style="background:#0F172A;color:#E2E8F0;padding:6px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;word-break:break-all">${esc(d.secret)}</code>
+        <div class="c-sub" style="margin-bottom:8px">2 · Enter the 6-digit code the app shows to confirm:</div>
+        <input id="sec2faCode" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="padding:8px 10px;border:1px solid #CBD5E1;border-radius:8px;margin-bottom:8px">
+        <div><button class="btn-primary" onclick="sec2faEnable()">Confirm &amp; enable</button> <button class="btn-outline" onclick="securityRefresh()">Cancel</button></div>
+      </div>
+    </div></div>`;
+  load('pageBody',html);
+}
+async function sec2faEnable(){
+  const code=$('sec2faCode')?$('sec2faCode').value.trim():'';
+  if(!code){toast('Enter the 6-digit code from your authenticator app.','error');return}
+  const d=await api('app-2fa-enable',{code});
+  if(d.ok){toast('Two-factor auth enabled 🔐','ok');SEC2FA={secret:'',uri:''};securityRefresh();}
+  else toast(d.error||'Enable failed','error');
+}
+async function sec2faDisable(){
+  const code=prompt('Enter your current 6-digit authenticator code:');
+  if(!code)return;
+  const pass=prompt('Confirm with your account password:');
+  if(!pass)return;
+  const d=await api('app-2fa-disable',{code,password:pass});
+  if(d.ok){toast('Two-factor auth disabled','ok');securityRefresh();}
+  else toast(d.error||'Disable failed','error');
 }
 /* ── AI Caretaker console (v3.60) ── */
 let AI={};
@@ -3147,11 +3203,13 @@ async function renderAudit(){
 /* ── Auth ── */
 async function doLogin(){
   const email=$('authEmail').value.trim().toLowerCase(),pass=$('authPass').value;
+  const code=$('auth2fa')?$('auth2fa').value.trim():'';
   const err=$('authErr');err.classList.remove('show');
   if(!email||!pass){err.textContent='Enter email and password.';err.classList.add('show');return}
   const btn=$('authBtn');btn.disabled=true;btn.textContent='Signing in…';
   try{
-    const d=await api('app-login',{email,password:pass});
+    const payload={email,password:pass};if(code)payload['2fa_code']=code;
+    const d=await api('app-login',payload);
     if(d.ok&&d.token){
       if(d.user&&d.user.role!=='superadmin'){err.textContent='This account is not a Super Admin.';err.classList.add('show');btn.disabled=false;btn.textContent='Log in';return}
       TOKEN=d.token;try{localStorage.setItem('krtaker_admin_token',TOKEN)}catch(e){}
@@ -3162,6 +3220,11 @@ async function doLogin(){
       $('authScreen').style.display='none';$('app').style.display='flex';
       renderNav();renderTitle();render();toast('Signed in as '+d.user.name);
       applyAdminTheme();
+    }else if(d.need_2fa){
+      /* two-factor challenge: show code field, keep credentials, re-submit with code */
+      $('auth2faWrap').style.display='block';
+      $('auth2fa').focus();
+      err.textContent='Enter your authenticator code to finish signing in.';err.classList.add('show');
     }else{err.textContent=d.error||'Login failed.';err.classList.add('show')}
   }catch(e){err.textContent='Network error.';err.classList.add('show')}
   btn.disabled=false;btn.textContent='Log in';

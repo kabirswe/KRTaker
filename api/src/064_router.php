@@ -457,6 +457,19 @@ case 'app-login': {
         record_attempt($email, $ip, 'login', false);
         json_out(['ok' => false, 'error' => 'Invalid email or password.'], 401);
     }
+    /* SA1 v28: TOTP 2FA gate — superadmin staff only. First POST (no code) → need_2fa prompt;
+       second POST carries 2fa_code. Wrong code counts as a failed login attempt. */
+    if (($u['kind'] ?? '') === 'staff' && ($u['role'] ?? '') === 'superadmin'
+        && !empty($u['totp_enabled']) && !empty($u['totp_secret'])) {
+        $twofa = trim((string)($body['2fa_code'] ?? ''));
+        if ($twofa === '') {
+            json_out(['ok' => false, 'error' => 'Two-factor authentication required.', 'need_2fa' => true], 401);
+        }
+        if (!totp_verify($u['totp_secret'], $twofa)) {
+            record_attempt($email, $ip, 'login', false);
+            json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 401);
+        }
+    }
     record_attempt($email, $ip, 'login', true);
     $now = gmdate('Y-m-d H:i:s');
     if (!empty($u['team_member'])) {
@@ -466,7 +479,9 @@ case 'app-login': {
     } else {
         $pdo->prepare('UPDATE app_users SET last_login=? WHERE id=?')->execute([$now, $u['id']]);
     }
-    $tok = make_token(!empty($u['team_member']) ? $u['team_id'] : $u['id'], !empty($u['team_member']) ? 'team' : $u['kind']);
+    /* SA1 v28: superadmin sessions are short-lived (12h) — higher-trust surface, smaller blast radius */
+    $ttl = (($u['kind'] ?? '') === 'staff' && ($u['role'] ?? '') === 'superadmin') ? 43200 : TOKEN_TTL;
+    $tok = make_token(!empty($u['team_member']) ? $u['team_id'] : $u['id'], !empty($u['team_member']) ? 'team' : $u['kind'], '', $ttl);
     audit($u['name'], 'Login', 'auth', (string)($u['team_id'] ?? $u['id']));
     json_out(['ok' => true, 'token' => $tok, 'user' => user_payload($u)]);
 }
@@ -484,6 +499,52 @@ case 'app-logout': {
     if (preg_match('/Bearer\s+(\S+)/i', $auth, $m)) {
         db()->prepare('DELETE FROM app_tokens WHERE token=?')->execute([hash('sha256', $m[1])]);
     }
+    json_out(['ok' => true]);
+}
+
+case 'app-2fa-status': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    json_out(['ok' => true, 'enabled' => !empty($u['totp_enabled']) && !empty($u['totp_secret'])]);
+}
+
+case 'app-2fa-setup': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    if (!empty($u['totp_enabled']) && !empty($u['totp_secret'])) {
+        json_out(['ok' => false, 'error' => 'Two-factor auth is already enabled. Disable it first to rotate the secret.'], 400);
+    }
+    $secret = totp_secret_new();
+    db()->prepare('UPDATE app_users SET totp_secret=? WHERE id=?')->execute([$secret, $u['id']]);
+    audit($u['name'], '2FA setup started', 'auth', (string)$u['id']);
+    json_out(['ok' => true, 'secret' => $secret, 'uri' => totp_uri($u['email'], $secret)]);
+}
+
+case 'app-2fa-enable': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    $code = trim((string)($body['code'] ?? ''));
+    if ($code === '' || !totp_verify($u['totp_secret'], $code)) {
+        json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 400);
+    }
+    db()->prepare('UPDATE app_users SET totp_enabled=1 WHERE id=?')->execute([$u['id']]);
+    audit($u['name'], '2FA enabled', 'auth', (string)$u['id']);
+    json_out(['ok' => true]);
+}
+
+case 'app-2fa-disable': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    $code = trim((string)($body['code'] ?? ''));
+    $pass = (string)($body['password'] ?? '');
+    if ($code === '' || !totp_verify($u['totp_secret'], $code)) {
+        json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 400);
+    }
+    if ($pass === '' || !password_verify($pass, $u['password_hash'])) {
+        json_out(['ok' => false, 'error' => 'Password required to disable two-factor auth.'], 400);
+    }
+    db()->prepare('UPDATE app_users SET totp_enabled=0, totp_secret=\'\' WHERE id=?')->execute([$u['id']]);
+    audit($u['name'], '2FA disabled', 'auth', (string)$u['id']);
     json_out(['ok' => true]);
 }
 

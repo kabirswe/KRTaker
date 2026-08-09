@@ -132,10 +132,10 @@ function db() {
            busy_timeout → uncaught "database is locked" 500s (82 in 24h, mostly
            /api/app-admin + /api/listings + /api/building-public bursts).
            PRAGMA user_version now gates it: migrations run once, then skip.
-           ⚠ BUMP 20260808 to a higher number whenever adding new CREATE/ALTER
+           ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260808) {
+        if ($__sv < 20260809) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -160,6 +160,9 @@ function db() {
             password_hash TEXT NOT NULL, role TEXT NOT NULL, dept TEXT DEFAULT '',
             avatar TEXT DEFAULT '', is_staff INTEGER DEFAULT 1, active INTEGER DEFAULT 1,
             last_login TEXT)");
+        $au_cols = array_column($pdo->query('PRAGMA table_info(app_users)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('totp_secret', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN totp_secret TEXT DEFAULT ''");
+        if (!in_array('totp_enabled', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN totp_enabled INTEGER DEFAULT 0");
         $pdo->exec("CREATE TABLE IF NOT EXISTS app_tokens (
             token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT DEFAULT 'sub',
             created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)");
@@ -949,7 +952,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
-        try { $pdo->exec('PRAGMA user_version=20260808'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260809'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -1448,6 +1451,49 @@ function require_module($u, $mod) {
         $plan = plan_for_user($u);
         json_out(['ok' => false, 'error' => "Access denied — $mod not available for {$u['role']} on $plan."], 403);
     }
+}
+
+/* ═══ SA1 v28: TOTP two-factor auth (RFC 6238, pure PHP — no deps) ═══ */
+function totp_b32_decode($s) {
+    $s = strtoupper(preg_replace('/[^A-Z2-7]/', '', (string)$s));
+    $map = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $bits = '';
+    for ($i = 0, $n = strlen($s); $i < $n; $i++) $bits .= str_pad(decbin(strpos($map, $s[$i])), 5, '0', STR_PAD_LEFT);
+    $out = '';
+    for ($i = 0, $n = strlen($bits); $i + 8 <= $n; $i += 8) $out .= chr(bindec(substr($bits, $i, 8)));
+    return $out;
+}
+function totp_b32_encode($bin) {
+    $map = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $bits = '';
+    for ($i = 0, $n = strlen($bin); $i < $n; $i++) $bits .= str_pad(decbin(ord($bin[$i])), 8, '0', STR_PAD_LEFT);
+    $out = '';
+    for ($i = 0, $n = strlen($bits); $i + 5 <= $n; $i += 5) $out .= $map[bindec(substr($bits, $i, 5))];
+    return $out;
+}
+function totp_secret_new($bytes = 20) {
+    return totp_b32_encode(random_bytes($bytes));
+}
+function totp_code($secret, $t = null, $window = 0) {
+    if ($t === null) $t = time();
+    $counter = pack('N2', 0, (int)floor($t / 30) + $window);
+    $hash = hash_hmac('sha1', $counter, totp_b32_decode($secret), true);
+    $off = ord($hash[strlen($hash) - 1]) & 0x0F;
+    $bin = ((ord($hash[$off]) & 0x7F) << 24) | ((ord($hash[$off + 1]) & 0xFF) << 16) | ((ord($hash[$off + 2]) & 0xFF) << 8) | (ord($hash[$off + 3]) & 0xFF);
+    return str_pad((string)($bin % 1000000), 6, '0', STR_PAD_LEFT);
+}
+function totp_verify($secret, $code) {
+    $code = preg_replace('/\D/', '', (string)$code);
+    if (strlen($code) !== 6) return false;
+    for ($w = -1; $w <= 1; $w++) {
+        if (hash_equals(totp_code($secret, null, $w), $code)) return true;
+    }
+    return false;
+}
+function totp_uri($email, $secret) {
+    $iss = rawurlencode('KRTaker');
+    $acc = rawurlencode($email);
+    return "otpauth://totp/$iss:$acc?secret=$secret&issuer=$iss&period=30&digits=6";
 }
 
 function make_token($uid, $kind, $impersonator = '', $ttl = TOKEN_TTL) {
@@ -10111,6 +10157,19 @@ case 'app-login': {
         record_attempt($email, $ip, 'login', false);
         json_out(['ok' => false, 'error' => 'Invalid email or password.'], 401);
     }
+    /* SA1 v28: TOTP 2FA gate — superadmin staff only. First POST (no code) → need_2fa prompt;
+       second POST carries 2fa_code. Wrong code counts as a failed login attempt. */
+    if (($u['kind'] ?? '') === 'staff' && ($u['role'] ?? '') === 'superadmin'
+        && !empty($u['totp_enabled']) && !empty($u['totp_secret'])) {
+        $twofa = trim((string)($body['2fa_code'] ?? ''));
+        if ($twofa === '') {
+            json_out(['ok' => false, 'error' => 'Two-factor authentication required.', 'need_2fa' => true], 401);
+        }
+        if (!totp_verify($u['totp_secret'], $twofa)) {
+            record_attempt($email, $ip, 'login', false);
+            json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 401);
+        }
+    }
     record_attempt($email, $ip, 'login', true);
     $now = gmdate('Y-m-d H:i:s');
     if (!empty($u['team_member'])) {
@@ -10120,7 +10179,9 @@ case 'app-login': {
     } else {
         $pdo->prepare('UPDATE app_users SET last_login=? WHERE id=?')->execute([$now, $u['id']]);
     }
-    $tok = make_token(!empty($u['team_member']) ? $u['team_id'] : $u['id'], !empty($u['team_member']) ? 'team' : $u['kind']);
+    /* SA1 v28: superadmin sessions are short-lived (12h) — higher-trust surface, smaller blast radius */
+    $ttl = (($u['kind'] ?? '') === 'staff' && ($u['role'] ?? '') === 'superadmin') ? 43200 : TOKEN_TTL;
+    $tok = make_token(!empty($u['team_member']) ? $u['team_id'] : $u['id'], !empty($u['team_member']) ? 'team' : $u['kind'], '', $ttl);
     audit($u['name'], 'Login', 'auth', (string)($u['team_id'] ?? $u['id']));
     json_out(['ok' => true, 'token' => $tok, 'user' => user_payload($u)]);
 }
@@ -10138,6 +10199,52 @@ case 'app-logout': {
     if (preg_match('/Bearer\s+(\S+)/i', $auth, $m)) {
         db()->prepare('DELETE FROM app_tokens WHERE token=?')->execute([hash('sha256', $m[1])]);
     }
+    json_out(['ok' => true]);
+}
+
+case 'app-2fa-status': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    json_out(['ok' => true, 'enabled' => !empty($u['totp_enabled']) && !empty($u['totp_secret'])]);
+}
+
+case 'app-2fa-setup': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    if (!empty($u['totp_enabled']) && !empty($u['totp_secret'])) {
+        json_out(['ok' => false, 'error' => 'Two-factor auth is already enabled. Disable it first to rotate the secret.'], 400);
+    }
+    $secret = totp_secret_new();
+    db()->prepare('UPDATE app_users SET totp_secret=? WHERE id=?')->execute([$secret, $u['id']]);
+    audit($u['name'], '2FA setup started', 'auth', (string)$u['id']);
+    json_out(['ok' => true, 'secret' => $secret, 'uri' => totp_uri($u['email'], $secret)]);
+}
+
+case 'app-2fa-enable': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    $code = trim((string)($body['code'] ?? ''));
+    if ($code === '' || !totp_verify($u['totp_secret'], $code)) {
+        json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 400);
+    }
+    db()->prepare('UPDATE app_users SET totp_enabled=1 WHERE id=?')->execute([$u['id']]);
+    audit($u['name'], '2FA enabled', 'auth', (string)$u['id']);
+    json_out(['ok' => true]);
+}
+
+case 'app-2fa-disable': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    $code = trim((string)($body['code'] ?? ''));
+    $pass = (string)($body['password'] ?? '');
+    if ($code === '' || !totp_verify($u['totp_secret'], $code)) {
+        json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 400);
+    }
+    if ($pass === '' || !password_verify($pass, $u['password_hash'])) {
+        json_out(['ok' => false, 'error' => 'Password required to disable two-factor auth.'], 400);
+    }
+    db()->prepare('UPDATE app_users SET totp_enabled=0, totp_secret=\'\' WHERE id=?')->execute([$u['id']]);
+    audit($u['name'], '2FA disabled', 'auth', (string)$u['id']);
     json_out(['ok' => true]);
 }
 

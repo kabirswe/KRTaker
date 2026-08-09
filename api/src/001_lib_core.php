@@ -95,10 +95,10 @@ function db() {
            busy_timeout → uncaught "database is locked" 500s (82 in 24h, mostly
            /api/app-admin + /api/listings + /api/building-public bursts).
            PRAGMA user_version now gates it: migrations run once, then skip.
-           ⚠ BUMP 20260808 to a higher number whenever adding new CREATE/ALTER
+           ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260808) {
+        if ($__sv < 20260809) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -123,6 +123,9 @@ function db() {
             password_hash TEXT NOT NULL, role TEXT NOT NULL, dept TEXT DEFAULT '',
             avatar TEXT DEFAULT '', is_staff INTEGER DEFAULT 1, active INTEGER DEFAULT 1,
             last_login TEXT)");
+        $au_cols = array_column($pdo->query('PRAGMA table_info(app_users)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('totp_secret', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN totp_secret TEXT DEFAULT ''");
+        if (!in_array('totp_enabled', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN totp_enabled INTEGER DEFAULT 0");
         $pdo->exec("CREATE TABLE IF NOT EXISTS app_tokens (
             token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT DEFAULT 'sub',
             created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)");
@@ -912,7 +915,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
-        try { $pdo->exec('PRAGMA user_version=20260808'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260809'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
