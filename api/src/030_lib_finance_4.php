@@ -70,7 +70,7 @@ function reminder_send_one($pdo, $r, $cfg) {
         'amount' => number_format($r['due']), 'property' => $r['property'], 'unit' => $r['unit'],
         'tier' => $tier, 'days_overdue' => $r['days_overdue'], 'tier_note' => $tier_note, 'late_fee' => $cfg['late_fee'],
     ]);
-    $ok = send_mail($r['email'], $subj, $html);
+    $ok = send_mail($r['email'], $subj, $html, null, true);
     if ($ok) {
         $pdo->prepare("INSERT OR REPLACE INTO invoice_reminders (invoice_id, tier, sent_at, via) VALUES (?,?,datetime('now'),'email')")
             ->execute([$r['inv'], $tier]);

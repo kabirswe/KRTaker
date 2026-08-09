@@ -270,7 +270,7 @@ case 'verify-otp': {
     $st = $pdo->prepare('UPDATE subscribers SET status="active", otp_hash=NULL, verified_at=? WHERE id=?');
     $st->execute([$now, $row['id']]);
     list($wSubj, $wBody) = email_render('welcome', ['name' => $row['name'], 'trial_end' => $trial_end, 'workspace_url' => 'https://krtaker.com/dashboard-v2.html']);
-    if (mail_switch($pdo, 'welcome')) send_mail($email, $wSubj, $wBody);
+    if (mail_switch($pdo, 'welcome')) send_mail($email, $wSubj, $wBody, null, true);
     json_out(['ok' => true, 'trial_end' => $trial_end, 'trial_days' => $trial_days]);
 }
 
@@ -1264,7 +1264,7 @@ case 'app-invoice-email': {
         'property' => $r['pname'], 'unit' => $r['uname'], 'amount' => number_format((int)$r['net']),
         'due' => number_format(max(0, $due)), 'due_color' => $due > 0 ? '#B91C1C' : '#065F46',
     ]);
-    $ok = send_mail($r['temail'], $subj, $html);
+    $ok = send_mail($r['temail'], $subj, $html, null, true);
     audit($u['name'], 'Invoice emailed', 'invoices', $invId, $r['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
     json_out(['ok' => true, 'emailed' => $ok, 'to' => $r['temail'], 'subject' => $subj]);
 }
@@ -1514,7 +1514,7 @@ case 'app-collections-run': {
         }
         foreach ($byEmail as $to => $items) {
             if (!mail_switch($pdo, 'collections') || !notify_ok($pdo, $to, 'notify_collections') || !notify_ok($pdo, $to, 'email_digest')) { $suppressed++; continue; }   /* Phase 19+23: per-user opt-out (digest toggle too) + admin master switch */
-            $ok = send_mail($to, 'KRTaker — ' . count($items) . ' unpaid rent invoice(s)', collections_email_html($items));
+            $ok = send_mail($to, 'KRTaker — ' . count($items) . ' unpaid rent invoice(s)', collections_email_html($items), null, true);
             if ($ok) { $sent++; $mailed[] = $to; } else $failed++;
         }
         $pdo->prepare("INSERT OR REPLACE INTO platform_meta (k, v) VALUES ('last_collections_run', ?)")
@@ -2401,6 +2401,21 @@ case 'app-rent-due-push': {
         'last_run' => $st->fetchColumn() ?: '']);
 }
 
+/* ---------- Mail queue worker (2026-08-09) ---------- */
+/* Drains the mail_queue table. Service-key gated (cron caller); also allows
+   superadmin via the recon module for manual drains. Limit = rows per run. */
+case 'app-mail-worker': {
+    $svc = service_authed();
+    if (!$svc) { $u = require_user(); require_module($u, 'recon'); }
+    else { $u = ['name' => 'system', 'role' => 'service', 'email' => '']; }
+    $limit = max(1, min(200, (int)($body['limit'] ?? 50)));
+    $res = mail_queue_drain(db(), $limit);
+    if ($res['sent'] > 0 || $res['failed'] > 0)
+        audit($u['name'], 'Mail queue drain', 'mail', 'bulk',
+            'sent=' . $res['sent'] . ' failed=' . $res['failed'] . ' left=' . $res['left']);
+    json_out(array_merge(['ok' => true], $res));
+}
+
 /* ---------- Phase 16: lease renewal requests + utility meter readings ---------- */
 case 'app-renewal-list': {
     $u = require_user();
@@ -2495,7 +2510,7 @@ case 'app-renewal-decide': {
                     : 'The owner was not able to approve this renewal this time. Please reach out through the portal or WhatsApp to discuss options.',
             ]);
             if (mail_switch($pdo, 'renewal') && notify_ok($pdo, $tn['sub_email'], 'notify_renewal'))   /* Phase 19: per-user opt-out + admin master switch */
-                send_mail($tn['sub_email'], $subj, $html);
+                send_mail($tn['sub_email'], $subj, $html, null, true);
         }
     }
     audit($u['name'], 'Renewal ' . strtolower($status), 'leases', $id, $rr['lease']);
@@ -2548,7 +2563,7 @@ case 'app-renewal-offer': {
             $pname = (string)$st->fetchColumn();
             $st = $pdo->prepare('SELECT id FROM units WHERE id=?'); $st->execute([$l['u']]);
             send_mail($tn['sub_email'], '[KRTaker] New lease renewal offer for ' . $lease,
-                '<p>Hello ' . esc($tn['name']) . ',</p><p>' . esc($u['name']) . ' offered to renew your lease <b>' . esc($lease) . '</b> (' . esc($uname) . ', ' . esc($pname) . ') for <b>' . $months . ' months</b> at <b>৳' . number_format($newRent) . '/month</b>.</p><p>Accept or decline from your tenant portal.</p>');
+                '<p>Hello ' . esc($tn['name']) . ',</p><p>' . esc($u['name']) . ' offered to renew your lease <b>' . esc($lease) . '</b> (' . esc($uname) . ', ' . esc($pname) . ') for <b>' . $months . ' months</b> at <b>৳' . number_format($newRent) . '/month</b>.</p><p>Accept or decline from your tenant portal.</p>', null, true);
         }
     }
     audit($u['name'], 'Renewal offer created', 'leases', $id, $lease . ' +' . $months . 'mo ৳' . $newRent);
@@ -3706,7 +3721,7 @@ case 'app-compliance': {
             }
             $html = '<p>' . count($due) . ' compliance item(s) need attention:</p>'
                 . '<table style="border-collapse:collapse;width:100%"><thead><tr style="background:#F4F7FC"><th style="padding:8px 10px;font-size:12px;text-align:left">Item</th><th style="padding:8px 10px;font-size:12px;text-align:left">Expiry</th><th style="padding:8px 10px;font-size:12px;text-align:left">Status</th></tr></thead><tbody>' . $rowsHtml . '</tbody></table>';
-            $ok = send_mail($u['email'], '[KRTaker] ' . count($due) . ' compliance item(s) due', $html);
+            $ok = send_mail($u['email'], '[KRTaker] ' . count($due) . ' compliance item(s) due', $html, null, true);
             if ($ok) {
                 $sent = count($due);
                 $pdo->prepare("UPDATE compliance_items SET last_reminded=datetime('now') WHERE id IN (" . implode(',', array_fill(0, count($due), '?')) . ")")

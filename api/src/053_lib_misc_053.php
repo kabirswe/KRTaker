@@ -645,7 +645,7 @@ function renewal_apply($pdo, $rr) {
                 'new_end' => date('d M Y', strtotime($newEnd)), 'new_rent' => number_format($newRent),
                 'note' => 'Your lease has been renewed — thank you for being a valued tenant. The updated agreement is available from your tenant portal.',
             ]);
-            send_mail($tn['sub_email'], $subj, $html);
+            send_mail($tn['sub_email'], $subj, $html, null, true);
         }
     }
     return ['new_end' => $newEnd, 'new_rent' => $newRent];

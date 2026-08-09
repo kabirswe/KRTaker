@@ -89,7 +89,7 @@ function ai_execute_tool($u, $name, $args) {
                     'amount' => number_format((int)$row['rent']),
                     'property' => $loc['pname'] ?? 'your property', 'unit' => $loc['uname'] ?? '',
                 ]);
-                $ok = send_mail($to, $subj, $html);
+                $ok = send_mail($to, $subj, $html, null, true);
             }
             $w = wa_link($ten['phone'] ?? '', 'Dear ' . ($ten['name'] ?? 'Tenant') . ', invoice ' . $inv . ' (' . $row['m'] . ') for ৳' . number_format($row['rent']) . ' is due. Please pay from your KRTaker tenant portal. Thank you.');
             audit($u['name'], 'KR sent reminder', 'payments', $inv, $to . ' ' . ($ok ? 'sent' : 'failed'));
@@ -272,7 +272,7 @@ function ai_execute_tool($u, $name, $args) {
             if ($send) {
                 $byEmail = [];
                 foreach ($rows as $r) { $to = trim($r['email'] ?? ''); if (!$to) continue; $byEmail[$to][] = $r; }
-                foreach ($byEmail as $to => $items) if (send_mail($to, 'KRTaker — ' . count($items) . ' unpaid rent invoice(s)', collections_email_html($items))) $sent++;
+                foreach ($byEmail as $to => $items) if (send_mail($to, 'KRTaker — ' . count($items) . ' unpaid rent invoice(s)', collections_email_html($items), null, true)) $sent++;
                 $pdo->prepare("INSERT OR REPLACE INTO platform_meta (k, v) VALUES ('last_collections_run', ?)")
                     ->execute([gmdate('Y-m-d H:i:s') . ' sent=' . $sent . ' total=' . $total]);
                 audit($u['name'], 'KR collections run', 'payments', 'bulk', 'sent=' . $sent . ' total=' . $total);
