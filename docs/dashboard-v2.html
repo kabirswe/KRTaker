@@ -100,6 +100,21 @@ img{max-width:100%}
 .tb-user:hover{border-color:var(--primary)}
 .tb-user .u-name{font-size:12.5px;font-weight:700;line-height:1.15}
 .tb-user .u-role{font-size:10.5px;color:var(--text-mute)}
+/* ── tb-user dropdown (subordinate switch + profile settings) ── */
+.user-menu{position:fixed;z-index:300;min-width:252px;max-width:300px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.18);padding:8px;overflow:auto;max-height:calc(100vh - 90px)}
+[data-theme="dark"] .user-menu{background:#141c2c;border-color:#26324a}
+.um-head{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.um-name{font-size:13px;font-weight:800;line-height:1.2}
+.um-role{font-size:10.5px;color:var(--text-mute);text-transform:capitalize}
+.um-label{font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;padding:8px 10px 4px}
+.um-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:all .12s;border:1px solid transparent}
+.um-item:hover{background:var(--primary-light)}
+.um-item.active{background:var(--primary-light);border-color:var(--primary)}
+.um-ic{width:30px;height:30px;border-radius:8px;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.um-t{font-size:12.5px;font-weight:600;flex:1}
+.um-s{font-size:10.5px;color:var(--text-mute);line-height:1.3}
+.um-cur{color:var(--primary);font-weight:800}
+.um-div{height:1px;background:var(--border);margin:6px 4px}
 .menu-toggle{display:none;background:none;border:1px solid var(--border);border-radius:9px;width:38px;height:38px;font-size:16px;color:var(--text)}
 
 /* ── Page header ── */
@@ -711,7 +726,7 @@ tbody tr.kr-empty td{text-align:center;padding:26px;color:var(--text-mute);font-
           <button class="icon-btn" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
           <button class="icon-btn" onclick="openSettings()" id="settingsBtn" title="Settings">⚙️</button>
           <div class="tb-bell" onclick="toast('3 new notifications — 2 tickets escalated, 1 invoice overdue')">🔔<span class="dot"></span></div>
-          <div class="tb-user" onclick="openRoles()">
+          <div class="tb-user" id="tbUserChip" onclick="toggleUserMenu(event)">
             <div class="role-ava" id="tbAva" style="width:34px;height:34px;font-size:12px">–</div>
             <div>
               <div class="u-name" id="tbName">–</div>
@@ -800,7 +815,7 @@ tbody tr.kr-empty td{text-align:center;padding:26px;color:var(--text-mute);font-
 <!-- ═══ Role switcher ═══ -->
 <div class="overlay" id="roleOverlay" onclick="if(event.target===this)closeRoles()">
   <div class="modal">
-    <div class="modal-h"><span class="t">🔀 Switch role — preview any subscriber dashboard</span><button class="close" onclick="closeRoles()">✕</button></div>
+    <div class="modal-h"><span class="t">🔀 Switch to subordinate user</span><button class="close" onclick="closeRoles()">✕</button></div>
     <div class="role-grid" id="roleGrid"></div>
   </div>
 </div>
@@ -853,6 +868,14 @@ const ROLES = [
   {id:'accountant',name:'Accountant',ava:'SR',role:'Accountant',tag:'Finance',ico:'💰',desc:'Cash flow, TDS, invoices, aging',mods:['dashboard','invoices','receipts','payments','taxes','statements','remit','utilities','vendors','legal','nrb','concierge','health','ai','analytics','notices','documents','recon','templates']},
   {id:'hr',name:'HR & Admin',ava:'NJ',role:'HR & Admin',tag:'HR',ico:'👥',desc:'Staff, onboarding, org admin',mods:['dashboard','staffwatch','ai','notices','documents']}
 ];
+/* ── Role hierarchy: higher rank = more senior. Switching (tb-user) only exposes
+   roles strictly BELOW the signed-in user's rank (subordinates). ── */
+const ROLE_RANK = {superadmin:100, owner:90, manager:80, svc_mgr:60, legal:60, crm:60, accountant:60, hr:60, tenant:20, partner:20};
+function myRank(){ const r=(LIVE.user&&LIVE.user.role)||state.role; return ROLE_RANK[r]!==undefined?ROLE_RANK[r]:0; }
+function subordinateRoles(){
+  const rk=myRank();
+  return ROLES.filter(r=>ROLE_RANK[r.id]!==undefined && ROLE_RANK[r.id]<rk);
+}
 const GROUPS = [
   {id:'overview',label:'Overview',items:[['dashboard','📊','Overview'],['analytics','📈','Analytics'],['ai','🤖','AI Caretaker (KR)']]},
   {id:'portfolio',label:'Portfolio',items:[['properties','🏢','Properties'],['units','🚪','Units'],['tenants','👤','Tenants'],['leases','📄','Leases'],['renewals','🔄','Renewals'],['onboarding','📋','Onboarding'],['leads','📥','Leads'],['documents','📁','Documents'],['templates','🗂️','Templates']]},
@@ -1326,7 +1349,8 @@ function enhanceTables(){
 
 /* ═══ Role switcher ═══ */
 function openRoles(){
-  $('roleGrid').innerHTML=ROLES.map(r=>`<div class="role-opt ${r.id===state.role?'active':''}" onclick="setRole('${r.id}')"><div class="ro-ic">${r.ico}</div><div class="ro-t">${r.role}</div><div class="ro-d">${r.desc}</div></div>`).join('');
+  const subs=subordinateRoles();
+  $('roleGrid').innerHTML=(subs.length?subs:ROLES).map(r=>`<div class="role-opt ${r.id===state.role?'active':''}" onclick="setRole('${r.id}')"><div class="ro-ic">${r.ico}</div><div class="ro-t">${r.role}</div><div class="ro-d">${r.desc}</div></div>`).join('');
   $('roleOverlay').classList.add('open');
 }
 function closeRoles(){$('roleOverlay').classList.remove('open')}
@@ -1336,8 +1360,37 @@ function setRole(id){
   if (LIVE.db) DB = LIVE.db;
   toast('Switched to '+r.role);
   if(!can(state.view))state.view='dashboard';
-  closeRoles();renderNav();render();updateCrumb();
+  closeRoles();closeUserMenu();renderNav();render();updateCrumb();
 }
+
+/* ═══ tb-user dropdown: subordinate switch + profile settings ═══ */
+function toggleUserMenu(ev){
+  ev&&ev.stopPropagation();
+  const cur=$('userMenu');
+  if(cur){closeUserMenu();return}
+  const u=LIVE.user||{};
+  const subs=subordinateRoles();
+  const me=ROLES.find(r=>r.id===(u.role&&ROLES.some(x=>x.id===u.role)?u.role:state.role))||role();
+  const head=`<div class="um-head"><div class="role-ava" style="width:38px;height:38px;font-size:13px">${avatarMarkup(u,me.ava)}</div><div style="min-width:0"><div class="um-name">${esc(u.name||user().name)}</div><div class="um-role">${esc(t(me.role,me.role))}</div></div></div>`;
+  const switchBlock=subs.length?`<div class="um-label">🔀 ${t('Switch to subordinate user','অধস্তন ইউজারে সুইচ করুন')}</div>`+subs.map(r=>`<div class="um-item ${r.id===state.role?'active':''}" onclick="setRole('${r.id}')"><span class="um-ic">${r.ico}</span><span class="um-t">${esc(r.role)}</span>${r.id===state.role?'<span class="um-cur">✓</span>':''}</div>`).join(''):`<div class="um-label" style="color:var(--text-mute);text-transform:none;letter-spacing:0;font-weight:600">${t('No subordinate users','কোনো অধস্তন ইউজার নেই')}</div>`;
+  const menu=document.createElement('div');
+  menu.id='userMenu';
+  menu.className='user-menu';
+  menu.innerHTML=head+switchBlock+
+    `<div class="um-div"></div>
+     <div class="um-item" onclick="closeUserMenu();openSettings()"><span class="um-ic">⚙️</span><div style="min-width:0"><div class="um-t">${t('Profile & settings','প্রোফাইল ও সেটিংস')}</div><div class="um-s">${t('Profile, preferences, security, billing','প্রোফাইল, পছন্দ, নিরাপত্তা, বিলিং')}</div></div></div>
+     <div class="um-item" onclick="closeUserMenu();doLogout()"><span class="um-ic">⎋</span><div style="min-width:0"><div class="um-t">${t('Log out','লগ আউট')}</div></div></div>`;
+  document.body.appendChild(menu);
+  const chip=$('tbUserChip');
+  if(chip){
+    const r=chip.getBoundingClientRect();
+    menu.style.top=(r.bottom+8)+'px';
+    menu.style.right=(window.innerWidth-r.right)+'px';
+  }
+  setTimeout(()=>{document.addEventListener('click',closeUserMenuOuter)},10);
+}
+function closeUserMenu(){const m=$('userMenu');if(m)m.remove();document.removeEventListener('click',closeUserMenuOuter)}
+function closeUserMenuOuter(e){if(!e.target.closest('#userMenu')&&!e.target.closest('#tbUserChip'))closeUserMenu()}
 
 /* ═══ Theme / lang / misc ═══ */
 function toggleTheme(){state.theme=state.theme==='dark'?'light':'dark';applyTheme();applyDashLogos();toast(state.theme==='dark'?'Dark mode on':'Light mode on')}
