@@ -4941,6 +4941,7 @@ function ADMIN_SETTING_DEFAULTS() {
         'sec_password_min_len' => '6', 'sec_password_complex' => '0',
         'sec_login_attempts' => '10', 'sec_lockout_minutes' => '15', 'sec_session_ttl_days' => '7',
         'bot_guard' => '1', 'bot_pow_bits' => '12', 'turnstile_secret' => '',
+        'recaptcha_site_key' => '', 'recaptcha_secret' => '',
         // ── Email & notifications (master switches — per-user opt-outs still apply) ──
         'mail_from_name' => 'KRTaker', 'mail_from_email' => '',
         'mail_welcome' => '1', 'mail_rent_reminders' => '1', 'mail_collections' => '1',
@@ -9133,29 +9134,25 @@ function seed_app() {
         foreach ($meta as $m) $st->execute($m);
     }
 
-    /* staff app users */
+    /* staff app users — V3.88: real role-based users, NO demo accounts */
     $uc = (int)$pdo->query('SELECT COUNT(*) FROM app_users')->fetchColumn();
     if ($uc === 0) {
         $staff_users = [
-            ['Kabir (Platform)','kabir@krtaker.com','demo123','superadmin','Management','KB'],
-            ['Shakil Ahmed','shakil@krtaker.com','demo123','manager','Operations','SA'],
-            ['Arif Chowdhury','arif@krtaker.com','demo123','svc_mgr','Operations','AC'],
-            ['Barrister Naima','naima@krtaker.com','demo123','legal','Legal','BN'],
-            ['Mithila Rahman','mithila@krtaker.com','demo123','crm','Support','MR'],
-            ['Sohel Rana','sohel@krtaker.com','demo123','accountant','Finance','SR'],
-            ['Nusrat Jahan','nusrat@krtaker.com','demo123','hr','Admin','NJ'],
+            ['Platform Admin','kabir@krtaker.com','36VRzfNC3b43D6','superadmin','Management','KB'],
+            ['Rofiqul Islam','owner@krtaker.com','danhQn5oBNPC','owner','Property Owner','RI'],
+            ['Shakil Ahmed','manager@krtaker.com','tC8xOXd6SaBy','manager','Operations','SA'],
+            ['Nusrat Jahan','hr@krtaker.com','zXNu2cVpbpJF','hr','HR & Admin','NJ'],
+            ['Sohel Rana','accountant@krtaker.com','ZOobUZDVKIsT','accountant','Finance','SR'],
+            ['Mithila Rahman','crm@krtaker.com','RZAstOvnGA77','crm','CRM & Support','MR'],
+            ['Barrister Naima','legal@krtaker.com','62GS5u4zzSRY','legal','Legal Counsel','BN'],
+            ['Arif Chowdhury','svc_mgr@krtaker.com','UhxCUVvqSD91','svc_mgr','Service Manager','AC'],
+            ['Sultana Rahman','tenant@krtaker.com','yMgRyJ9emqXN','tenant','Tenant','SR'],
+            ['Rahim Steel Works','partner@krtaker.com','Bt9VPiUyOiBT','partner','Service Partner','RS'],
         ];
         $st = $pdo->prepare('INSERT INTO app_users (name, email, password_hash, role, dept, avatar) VALUES (?,?,?,?,?,?)');
         foreach ($staff_users as $s) $st->execute([$s[0], $s[1], password_hash($s[2], PASSWORD_DEFAULT), $s[3], $s[4], $s[5]]);
     }
-
-    /* demo subscribers (real customers with plans + passwords) */
-    $pdo->prepare("INSERT OR IGNORE INTO subscribers (name, org, email, phone, role, plan, status, trial_end, password_hash) VALUES (?,?,?,?,?,?,?,?,?)")
-        ->execute(['Rofiqul Islam','Green View Residency','owner@krtaker.com','01711-223344','owner','Enterprise','active',gmdate('d M Y', time() + TRIAL_DAYS * 86400), password_hash('demo123', PASSWORD_DEFAULT)]);
-    $pdo->prepare("INSERT OR IGNORE INTO subscribers (name, org, email, phone, role, plan, status, trial_end, password_hash) VALUES (?,?,?,?,?,?,?,?,?)")
-        ->execute(['Sultana Rahman','Dhanmondi Apartment','sultana@krtaker.com','01712-445566','tenant','Enterprise','active',gmdate('d M Y', time() + TRIAL_DAYS * 86400), password_hash('demo123', PASSWORD_DEFAULT)]);
-    $pdo->prepare("INSERT OR IGNORE INTO subscribers (name, org, email, phone, role, plan, status, trial_end, password_hash) VALUES (?,?,?,?,?,?,?,?,?)")
-        ->execute(['Rahim Steel Works','Rahim Steel Works','rahim@krtaker.com','01716-778899','partner','Enterprise','active',gmdate('d M Y', time() + TRIAL_DAYS * 86400), password_hash('demo123', PASSWORD_DEFAULT)]);
+    /* V3.88: no demo subscriber accounts (owner@/tenant@/partner@ are app_users now) */
 
     /* Phase 8–10: notice board, ticket threads, referral demo data (idempotent) */
     notice_seed();
@@ -9772,6 +9769,21 @@ function bot_guard_check($pdo, $body) {
         $r = json_decode((string)curl_exec($ch), true);
         curl_close($ch);
         if (empty($r['success'])) bot_guard_reject();
+    }
+    /* Google reCAPTCHA v3 (optional): only when a secret is configured.
+       Score >= 0.5 passes; lower = suspicious (headless/automation). */
+    $rs = trim((string)admin_cfg($pdo, 'recaptcha_secret', ''));
+    if ($rs !== '') {
+        $tok = (string)($body['g-recaptcha-response'] ?? '');
+        if ($tok === '' || !function_exists('curl_init')) bot_guard_reject();
+        $ch = curl_init('https://www.google.com/recaptcha/api/siteverify');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query(['secret' => $rs, 'response' => $tok, 'remoteip' => client_ip()]),
+        ]);
+        $r = json_decode((string)curl_exec($ch), true);
+        curl_close($ch);
+        if (empty($r['success']) || (float)($r['score'] ?? 0) < 0.5) bot_guard_reject();
     }
 }
 function bot_guard_reject() {
@@ -17701,6 +17713,8 @@ case 'app-theme': {
         'sa_footer' => $def['wl_sa_footer'], 'sa_footer_dark' => $def['wl_sa_footer_dark'],
         'favicon' => $def['wl_favicon'], 'theme' => $def['wl_theme'],
         'sizes' => $h, 'margin' => $ma, 'padding' => $pa, 'titles' => $tt,
+        /* V3.88: reCAPTCHA site key (public) — empty when not configured; secret stays server-side */
+        'recaptcha_site_key' => trim((string)admin_cfg($pdo, 'recaptcha_site_key', '')),
     ]]);
 }
 

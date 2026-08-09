@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const orig = btn.textContent;
       btn.disabled = true; btn.textContent = '…';
       try {
-        const bg = window.krBG ? await window.krBG.prove() : {};
+        const bg = window.krBG ? await window.krBG.attach('contact') : {};
         const res = await fetch('/api/contact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = nf.querySelector('button');
       btn.disabled = true;
       try {
-        const bg = window.krBG ? await window.krBG.prove() : {};
+        const bg = window.krBG ? await window.krBG.attach('newsletter') : {};
         const res = await fetch('/api/newsletter', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(Object.assign({ email: val }, bg))

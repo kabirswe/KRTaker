@@ -9,6 +9,7 @@ function ADMIN_SETTING_DEFAULTS() {
         'sec_password_min_len' => '6', 'sec_password_complex' => '0',
         'sec_login_attempts' => '10', 'sec_lockout_minutes' => '15', 'sec_session_ttl_days' => '7',
         'bot_guard' => '1', 'bot_pow_bits' => '12', 'turnstile_secret' => '',
+        'recaptcha_site_key' => '', 'recaptcha_secret' => '',
         // ── Email & notifications (master switches — per-user opt-outs still apply) ──
         'mail_from_name' => 'KRTaker', 'mail_from_email' => '',
         'mail_welcome' => '1', 'mail_rent_reminders' => '1', 'mail_collections' => '1',

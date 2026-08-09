@@ -1,5 +1,8 @@
-/* KRTaker bot guard (v3.87) — zero-dependency honeypot + time-trap + proof-of-work.
-   Exposes window.krBG.prove() → { hp:'', ft:<ms>, pow:<hex nonce> }.
+/* KRTaker bot guard (v3.88) — zero-dependency honeypot + time-trap + proof-of-work.
+   Exposes window.krBG:
+     prove()    → Promise<{hp:'', ft:<ms>, pow:<hex nonce>}>  (WebCrypto SHA-256)
+     recaptcha(action) → Promise<token|''>  Google reCAPTCHA v3 — '' when the
+                         site key is not configured (bot guard still active).
    Turnstile-ready: if a widget rendered [name="cf-turnstile-response"], its token
    is appended automatically. Must load BEFORE the form scripts that call krBG.
    Difficulty MUST match the API admin_cfg bot_pow_bits (default 12). */
@@ -45,5 +48,47 @@
     }
     return tryNonce();
   }
-  window.krBG = { prove: prove };
+
+  /* ── Google reCAPTCHA v3 (optional) ── */
+  var _siteKey;
+  function getSiteKey() {
+    if (_siteKey !== undefined) return Promise.resolve(_siteKey);
+    return fetch('/api/app-theme').then(function (r) { return r.json(); }).then(function (d) {
+      _siteKey = (d && d.theme && d.theme.recaptcha_site_key) || '';
+      return _siteKey;
+    }).catch(function () { _siteKey = ''; return ''; });
+  }
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      if (document.querySelector('script[src="' + src + '"]')) return res();
+      var s = document.createElement('script');
+      s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+  function recaptcha(action) {
+    return getSiteKey().then(function (key) {
+      if (!key) return ''; // not configured → skip (bot guard still active)
+      return loadScript('https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(key)).then(function () {
+        return new Promise(function (resolve) {
+          try {
+            window.grecaptcha.ready(function () {
+              window.grecaptcha.execute(key, { action: action || 'submit' })
+                .then(function (tok) { resolve(tok); })
+                .catch(function () { resolve(''); });
+            });
+          } catch (e) { resolve(''); }
+        });
+      }).catch(function () { return ''; });
+    });
+  }
+  /* attach(): run both layers and merge into the payload object */
+  function attach(action) {
+    return Promise.all([prove(), recaptcha(action)]).then(function (r) {
+      var fields = r[0];
+      if (r[1]) fields['g-recaptcha-response'] = r[1];
+      return fields;
+    });
+  }
+
+  window.krBG = { prove: prove, recaptcha: recaptcha, attach: attach };
 })();

@@ -2430,7 +2430,7 @@ const SET_GROUPS=[
   {ic:'📝',t:'Signups & trials',sub:'How new subscribers join the platform',f:[
     ['signups_open','Signups open','sel1'],['plat_auto_approve','Auto-approve new signups','sel1'],['trial_days','Trial days','num'],['default_plan','Default plan on signup','text']]},
   {ic:'🔐',t:'Security & access',sub:'Password policy, login lockout and bot protection (honeypot + proof-of-work)',f:[
-    ['sec_password_min_len','Minimum password length','num'],['sec_password_complex','Require letters + numbers','sel1'],['sec_login_attempts','Failed logins before lockout','num'],['sec_lockout_minutes','Lockout window (minutes)','num'],['sec_session_ttl_days','Session lifetime (days)','num'],['bot_guard','Bot protection (register/contact/newsletter/login)','sel1'],['bot_pow_bits','PoW difficulty (8–24, higher = slower for bots)','num'],['turnstile_secret','Cloudflare Turnstile secret (empty = off)','text']]},
+    ['sec_password_min_len','Minimum password length','num'],['sec_password_complex','Require letters + numbers','sel1'],['sec_login_attempts','Failed logins before lockout','num'],['sec_lockout_minutes','Lockout window (minutes)','num'],['sec_session_ttl_days','Session lifetime (days)','num'],['bot_guard','Bot protection (register/contact/newsletter/login)','sel1'],['bot_pow_bits','PoW difficulty (8–24, higher = slower for bots)','num'],['turnstile_secret','Cloudflare Turnstile secret (empty = off)','text'],['recaptcha_site_key','Google reCAPTCHA v3 site key (empty = off)','text'],['recaptcha_secret','Google reCAPTCHA v3 secret key (empty = off)','text']]},
   {ic:'✉️',t:'Email & notifications',sub:'Master switches — individual user opt-outs still apply on top',f:[
     ['mail_from_name','Sender display name','text'],['mail_welcome','Welcome emails','sel1'],['mail_rent_reminders','Rent reminders','sel1'],['mail_collections','Collections digest','sel1'],['mail_docs','Invoice & receipt emails','sel1'],['mail_renewal','Renewal emails','sel1'],['mail_digest','Digest emails','sel1']]},
   {ic:'🚀',t:'Platform & growth',sub:'AI defaults, referrals and feature toggles',f:[
@@ -3210,7 +3210,7 @@ async function doLogin(){
   if(!email||!pass){err.textContent='Enter email and password.';err.classList.add('show');return}
   const btn=$('authBtn');btn.disabled=true;btn.textContent='Signing in…';
   try{
-    const bg=window.krBG?await window.krBG.prove():{};
+    const bg=window.krBG?await window.krBG.attach('login'):{};
     const payload=Object.assign({email,password:pass},bg);if(code)payload['2fa_code']=code;
     const d=await api('app-login',payload);
     if(d.ok&&d.token){

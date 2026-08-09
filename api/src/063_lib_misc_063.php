@@ -485,29 +485,25 @@ function seed_app() {
         foreach ($meta as $m) $st->execute($m);
     }
 
-    /* staff app users */
+    /* staff app users — V3.88: real role-based users, NO demo accounts */
     $uc = (int)$pdo->query('SELECT COUNT(*) FROM app_users')->fetchColumn();
     if ($uc === 0) {
         $staff_users = [
-            ['Kabir (Platform)','kabir@krtaker.com','demo123','superadmin','Management','KB'],
-            ['Shakil Ahmed','shakil@krtaker.com','demo123','manager','Operations','SA'],
-            ['Arif Chowdhury','arif@krtaker.com','demo123','svc_mgr','Operations','AC'],
-            ['Barrister Naima','naima@krtaker.com','demo123','legal','Legal','BN'],
-            ['Mithila Rahman','mithila@krtaker.com','demo123','crm','Support','MR'],
-            ['Sohel Rana','sohel@krtaker.com','demo123','accountant','Finance','SR'],
-            ['Nusrat Jahan','nusrat@krtaker.com','demo123','hr','Admin','NJ'],
+            ['Platform Admin','kabir@krtaker.com','36VRzfNC3b43D6','superadmin','Management','KB'],
+            ['Rofiqul Islam','owner@krtaker.com','danhQn5oBNPC','owner','Property Owner','RI'],
+            ['Shakil Ahmed','manager@krtaker.com','tC8xOXd6SaBy','manager','Operations','SA'],
+            ['Nusrat Jahan','hr@krtaker.com','zXNu2cVpbpJF','hr','HR & Admin','NJ'],
+            ['Sohel Rana','accountant@krtaker.com','ZOobUZDVKIsT','accountant','Finance','SR'],
+            ['Mithila Rahman','crm@krtaker.com','RZAstOvnGA77','crm','CRM & Support','MR'],
+            ['Barrister Naima','legal@krtaker.com','62GS5u4zzSRY','legal','Legal Counsel','BN'],
+            ['Arif Chowdhury','svc_mgr@krtaker.com','UhxCUVvqSD91','svc_mgr','Service Manager','AC'],
+            ['Sultana Rahman','tenant@krtaker.com','yMgRyJ9emqXN','tenant','Tenant','SR'],
+            ['Rahim Steel Works','partner@krtaker.com','Bt9VPiUyOiBT','partner','Service Partner','RS'],
         ];
         $st = $pdo->prepare('INSERT INTO app_users (name, email, password_hash, role, dept, avatar) VALUES (?,?,?,?,?,?)');
         foreach ($staff_users as $s) $st->execute([$s[0], $s[1], password_hash($s[2], PASSWORD_DEFAULT), $s[3], $s[4], $s[5]]);
     }
-
-    /* demo subscribers (real customers with plans + passwords) */
-    $pdo->prepare("INSERT OR IGNORE INTO subscribers (name, org, email, phone, role, plan, status, trial_end, password_hash) VALUES (?,?,?,?,?,?,?,?,?)")
-        ->execute(['Rofiqul Islam','Green View Residency','owner@krtaker.com','01711-223344','owner','Enterprise','active',gmdate('d M Y', time() + TRIAL_DAYS * 86400), password_hash('demo123', PASSWORD_DEFAULT)]);
-    $pdo->prepare("INSERT OR IGNORE INTO subscribers (name, org, email, phone, role, plan, status, trial_end, password_hash) VALUES (?,?,?,?,?,?,?,?,?)")
-        ->execute(['Sultana Rahman','Dhanmondi Apartment','sultana@krtaker.com','01712-445566','tenant','Enterprise','active',gmdate('d M Y', time() + TRIAL_DAYS * 86400), password_hash('demo123', PASSWORD_DEFAULT)]);
-    $pdo->prepare("INSERT OR IGNORE INTO subscribers (name, org, email, phone, role, plan, status, trial_end, password_hash) VALUES (?,?,?,?,?,?,?,?,?)")
-        ->execute(['Rahim Steel Works','Rahim Steel Works','rahim@krtaker.com','01716-778899','partner','Enterprise','active',gmdate('d M Y', time() + TRIAL_DAYS * 86400), password_hash('demo123', PASSWORD_DEFAULT)]);
+    /* V3.88: no demo subscriber accounts (owner@/tenant@/partner@ are app_users now) */
 
     /* Phase 8–10: notice board, ticket threads, referral demo data (idempotent) */
     notice_seed();

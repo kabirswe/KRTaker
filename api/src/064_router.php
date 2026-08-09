@@ -68,6 +68,21 @@ function bot_guard_check($pdo, $body) {
         curl_close($ch);
         if (empty($r['success'])) bot_guard_reject();
     }
+    /* Google reCAPTCHA v3 (optional): only when a secret is configured.
+       Score >= 0.5 passes; lower = suspicious (headless/automation). */
+    $rs = trim((string)admin_cfg($pdo, 'recaptcha_secret', ''));
+    if ($rs !== '') {
+        $tok = (string)($body['g-recaptcha-response'] ?? '');
+        if ($tok === '' || !function_exists('curl_init')) bot_guard_reject();
+        $ch = curl_init('https://www.google.com/recaptcha/api/siteverify');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query(['secret' => $rs, 'response' => $tok, 'remoteip' => client_ip()]),
+        ]);
+        $r = json_decode((string)curl_exec($ch), true);
+        curl_close($ch);
+        if (empty($r['success']) || (float)($r['score'] ?? 0) < 0.5) bot_guard_reject();
+    }
 }
 function bot_guard_reject() {
     http_response_code(422);
@@ -7996,6 +8011,8 @@ case 'app-theme': {
         'sa_footer' => $def['wl_sa_footer'], 'sa_footer_dark' => $def['wl_sa_footer_dark'],
         'favicon' => $def['wl_favicon'], 'theme' => $def['wl_theme'],
         'sizes' => $h, 'margin' => $ma, 'padding' => $pa, 'titles' => $tt,
+        /* V3.88: reCAPTCHA site key (public) — empty when not configured; secret stays server-side */
+        'recaptcha_site_key' => trim((string)admin_cfg($pdo, 'recaptcha_site_key', '')),
     ]]);
 }
 

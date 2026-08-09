@@ -49,7 +49,7 @@
     const btn = $('regSubmit');
     btn.disabled = true; btn.textContent = d['reg.working'] || 'Please wait…';
     try {
-      const bg = window.krBG ? await window.krBG.prove() : {};
+      const bg = window.krBG ? await window.krBG.attach('register') : {};
       const body = Object.assign({ name, org: $('rOrg').value.trim(), email, phone: $('rPhone').value.trim(), role: state.role, pass }, bg);
       const ref = refCode || (function(){ try { return localStorage.getItem('krtaker_ref') || ''; } catch (x) { return ''; } })();
       if (ref) body.ref = ref;
@@ -114,7 +114,7 @@
 
   async function resendOtp() {
     try {
-      const bg = window.krBG ? await window.krBG.prove() : {};
+      const bg = window.krBG ? await window.krBG.attach('resend') : {};
       const res = await fetch(API + 'resend-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ email: state.email }, bg)) });
       const data = await res.json();
       if (data.ok) { startTimer(60); krToast(dict() ? dict()['reg.otpSent'] : 'Code sent ✓'); }

@@ -347,17 +347,11 @@ tr.focus{animation:focusFlash 2.4s ease}
 .auth-btn{width:100%;border:none;border-radius:11px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;background:var(--grad);color:#fff;box-shadow:0 8px 22px rgba(47,128,237,.30);cursor:pointer;transition:all .15s}
 .auth-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(47,128,237,.38)}
 .auth-btn:disabled{opacity:.7;cursor:wait;transform:none}
-.auth-demo{margin-top:14px;text-align:center}
-.auth-demo .or{font-size:11px;color:var(--text-mute);margin-bottom:9px}
-.auth-demo-btn{width:100%;border:1px solid var(--border);background:var(--card);color:var(--primary);border-radius:11px;padding:11px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s}
-.auth-demo-btn:hover{border-color:var(--primary);background:var(--primary-light)}
+.auth-creds{margin-top:14px;text-align:center;font-size:12px;color:var(--text-mute);line-height:1.7}
 .auth-creds{margin-top:16px;padding:11px 13px;background:var(--bg-alt);border:1px dashed var(--border);border-radius:11px;font-size:11px;color:var(--text-mute);line-height:1.75}
 .auth-creds b{color:var(--text-soft)}
 
-/* ── Phase 2: Demo preview banner ── */
-.demo-banner{display:none;position:fixed;top:64px;left:0;right:0;z-index:54;background:linear-gradient(135deg,#FEF6E7,#FDEBD0);border-bottom:1px solid #F0D9A8;color:#7A5A14;font-size:12px;font-weight:600;padding:8px 16px;text-align:center}
-[data-theme="dark"] .demo-banner{background:#2A2410;border-color:#4A3E14;color:#E8C46B}
-.demo-banner a{color:var(--primary);font-weight:700;cursor:pointer;text-decoration:underline}
+/* ── V3.88: demo preview banner removed — real accounts only ── */
 /* ── Phase 61: Impersonation banner ── */
 .imp-banner{display:none;position:fixed;top:64px;left:0;right:0;z-index:55;background:linear-gradient(135deg,#FDECEC,#FADBD8);border-bottom:1px solid #E6B0AA;color:#7B241C;font-size:12px;font-weight:600;padding:8px 16px;text-align:center}
 [data-theme="dark"] .imp-banner{background:#2C1613;border-color:#4A2A24;color:#F2C4BD}
@@ -624,7 +618,7 @@ tbody tr.kr-empty td{text-align:center;padding:26px;color:var(--text-mute);font-
   body *{visibility:hidden !important}
   .bp-flyer,.bp-flyer *{visibility:visible !important}
   .app,.sidebar,.topbar,.content,.app-footer,.drawer-overlay,.drawer,.drawer-h,.drawer-b,.drawer-f,
-  .sb-backdrop,.demo-banner,.imp-banner,.kr-widget,.auth-screen,.exit-modal,#krToast,.toast-wrap,
+  .sb-backdrop,.imp-banner,.kr-widget,.auth-screen,.exit-modal,#krToast,.toast-wrap,
   .cookie-bar,.chat-fab,.chat-box,.wa-fab,.btt-btn,#authScreen,#drawerOverlay,#drawer{display:none !important}
   .bp-flyer{display:flex !important;flex-direction:column;height:277mm;box-sizing:border-box;
     font-family:'Inter','Hind Siliguri',Arial,sans-serif;color:#111;
@@ -671,22 +665,13 @@ tbody tr.kr-empty td{text-align:center;padding:26px;color:var(--text-mute);font-
     <div class="auth-field"><label>Password</label><input type="password" id="authPass" placeholder="••••••••" autocomplete="current-password"></div>
     <div class="auth-field" id="auth2faWrap" style="display:none"><label>Authenticator code</label><input type="text" id="auth2fa" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code"></div>
     <button class="auth-btn" id="authBtn" onclick="doLogin()">Log in</button>
-    <div class="auth-demo">
-      <div class="or">— or —</div>
-      <button class="auth-demo-btn" onclick="enterDemo()">🎭 Continue in demo mode (sample data)</button>
-    </div>
     <div class="auth-creds">
-      <b>Demo accounts:</b><br>
-      🏠 owner@krtaker.com / demo123<br>
-      🔑 sultana@krtaker.com / demo123<br>
-      🏢 kabir@krtaker.com / demo123<br>
       New here? <a href="https://krtaker.com/register.html" style="color:var(--primary);font-weight:700">Create an account →</a>
     </div>
   </div>
 </div>
 
-<!-- ═══ Phase 2: Demo preview banner ═══ -->
-<div class="demo-banner" id="demoBanner">🎭 Demo preview — you're seeing sample data, not your workspace · <a onclick="backToLive()">Back to my workspace</a></div>
+<!-- ═══ V3.88: demo banner removed — real accounts only ═══ -->
 <div class="imp-banner" id="impBanner">🔀 You are viewing <b id="impAs"></b> — impersonated by <b id="impBy"></b><a onclick="exitImpersonation()">✕ Exit impersonation</a></div>
 
 <div class="app">
@@ -852,504 +837,9 @@ tbody tr.kr-empty td{text-align:center;padding:26px;color:var(--text-mute);font-
   });
 })();
 /* ════════════════════════════════════════════════════════════
-   KRTaker Dashboard V2 — demo data (mirrors V1 SEED)
-   ════════════════════════════════════════════════════════════ */
-const SEED = {
-  properties:[
-    {id:'P-001',name:'Green View Residency',type:'Flat',jur:'Dhaka North',holding:'12/5, Mirpur-10',sqft:18000,value:82000000,status:'Active',published:1},
-    {id:'P-002',name:'Banani Commercial Tower',type:'Commercial',jur:'Dhaka North',holding:'32/K, Banani C/A',sqft:45000,value:320000000,status:'Active',published:1},
-    {id:'P-003',name:'Gulshan Lakeside Plot',type:'Plot',jur:'Dhaka North',holding:'Plot 7, Block SE(D)',sqft:3600,value:150000000,status:'Active',published:1},
-    {id:'P-004',name:'Chattogram Industrial Shed',type:'Industrial',jur:'Chattogram',holding:'KEPZ Plot 18, Patenga',sqft:30000,value:175000000,status:'Active',published:0},
-    {id:'P-005',name:'Dhanmondi Apartment',type:'Flat',jur:'Dhaka South',holding:'Road 9/A, Dhanmondi',sqft:2450,value:18500000,status:'Active',published:1}
-  ],
-  units:[
-    {id:'U-001',p:'P-001',name:'Flat 3B',floor:'3rd',sqft:1450,status:'Leased',rent:25000},
-    {id:'U-002',p:'P-001',name:'Flat 4A',floor:'4th',sqft:1650,status:'Leased',rent:32000},
-    {id:'U-003',p:'P-001',name:'Flat 5C',floor:'5th',sqft:1200,status:'Vacant',rent:28000},
-    {id:'U-004',p:'P-002',name:'Floor 1 (Retail)',floor:'1st',sqft:6000,status:'Leased',rent:450000},
-    {id:'U-005',p:'P-002',name:'Floor 2 (Office)',floor:'2nd',sqft:5200,status:'Leased',rent:380000},
-    {id:'U-006',p:'P-002',name:'Floor 3 (Office)',floor:'3rd',sqft:5200,status:'Leased',rent:350000},
-    {id:'U-007',p:'P-003',name:'Plot 7 (SE(D))',floor:'—',sqft:3600,status:'Vacant',rent:35000},
-    {id:'U-008',p:'P-004',name:'Shed A',floor:'Ground',sqft:18000,status:'Leased',rent:210000},
-    {id:'U-009',p:'P-004',name:'Shed B',floor:'Ground',sqft:12000,status:'Maintenance',rent:180000},
-    {id:'U-010',p:'P-005',name:'Apartment 7B',floor:'7th',sqft:2450,status:'Leased',rent:40000}
-  ],
-  tenants:[
-    {id:'T-001',name:'Rafiqul Islam',phone:'01711-223344',nid:'1990123456789',nrb:false,kind:'Individual'},
-    {id:'T-002',name:'Sultana Rahman',phone:'01712-445566',nid:'1985112233445',nrb:false,kind:'Individual'},
-    {id:'T-003',name:'Orbit Textiles Ltd',phone:'01711-778899',nid:'BIN-004512367',nrb:false,kind:'Corporate'},
-    {id:'T-004',name:'Dr. Nadia Karim',phone:'01713-556677',nid:'1988889900112',nrb:true,kind:'Individual'},
-    {id:'T-005',name:'Bengal Agro Foods',phone:'01713-889900',nid:'BIN-006734512',nrb:false,kind:'Corporate'},
-    {id:'T-006',name:'Tanvir Hossain',phone:'01714-223344',nid:'1993223445566',nrb:false,kind:'Individual'},
-    {id:'T-007',name:'Maria Chowdhury (NRB)',phone:'+1 646-555-0182',nid:'1975123456780',nrb:true,kind:'Individual'},
-    {id:'T-008',name:'Ahmed & Sons Traders',phone:'01715-990011',nid:'BIN-009812345',nrb:false,kind:'Corporate'}
-  ],
-  leases:[
-    {id:'L-001',u:'U-001',t:'T-001',start:'2026-01-01',end:'2026-12-31',rent:25000,adv:25000,res:true,reg:null,status:'Active'},
-    {id:'L-002',u:'U-002',t:'T-004',start:'2025-11-01',end:'2027-10-31',rent:32000,adv:32000,res:true,reg:{office:'Sub-Registry Mirpur',deed:'DL-4521/2025'},status:'Active'},
-    {id:'L-003',u:'U-004',t:'T-003',start:'2025-06-01',end:'2027-05-31',rent:450000,adv:450000,res:false,reg:{office:'Sub-Registry Gulshan',deed:'DL-3877/2025'},status:'Active'},
-    {id:'L-004',u:'U-005',t:'T-005',start:'2026-03-01',end:'2027-02-28',rent:380000,adv:380000,res:false,reg:null,status:'Pending Registration'},
-    {id:'L-005',u:'U-006',t:'T-008',start:'2024-07-01',end:'2026-06-30',rent:350000,adv:700000,res:false,reg:{office:'Sub-Registry Gulshan',deed:'DL-2110/2024'},status:'Active'},
-    {id:'L-006',u:'U-008',t:'T-006',start:'2026-02-01',end:'2026-10-31',rent:210000,adv:210000,res:false,reg:null,status:'Active'},
-    {id:'L-007',u:'U-010',t:'T-002',start:'2026-01-15',end:'2026-12-14',rent:40000,adv:40000,res:true,reg:null,status:'Active'},
-    {id:'L-008',u:'U-002',t:'T-007',start:'2023-03-01',end:'2024-02-29',rent:28000,adv:56000,res:true,reg:{office:'Sub-Registry Dhanmondi',deed:'DL-1108/2023'},status:'Expired'},
-    {id:'L-009',u:'U-009',t:'T-005',start:'2025-09-01',end:'2026-08-31',rent:180000,adv:180000,res:false,reg:null,status:'Terminated'},
-    {id:'L-010',u:'U-001',t:'T-006',start:'2026-06-01',end:'2028-05-31',rent:28000,adv:56000,res:true,reg:null,status:'Pending Registration'}
-  ],
-  invoices:[
-    {id:'INV-2026-001',l:'L-001',m:'2026-06',gross:25000,tds:0,net:25000,status:'Paid'},
-    {id:'INV-2026-002',l:'L-002',m:'2026-06',gross:32000,tds:0,net:32000,status:'Paid'},
-    {id:'INV-2026-003',l:'L-003',m:'2026-06',gross:450000,tds:45000,net:405000,status:'Paid'},
-    {id:'INV-2026-004',l:'L-004',m:'2026-06',gross:380000,tds:38000,net:342000,status:'Unpaid'},
-    {id:'INV-2026-005',l:'L-005',m:'2026-06',gross:350000,tds:35000,net:315000,status:'Unpaid'},
-    {id:'INV-2026-006',l:'L-006',m:'2026-06',gross:210000,tds:0,net:210000,status:'Overdue'},
-    {id:'INV-2026-007',l:'L-007',m:'2026-06',gross:40000,tds:0,net:40000,status:'Paid'},
-    {id:'INV-2026-008',l:'L-004',m:'2026-07',gross:380000,tds:38000,net:342000,status:'Overdue'}
-  ],
-  receipts:[
-    {id:'RCP-0001',inv:'INV-2026-001',amount:25000,date:'2026-06-05',method:'bKash',sig:'SIG-9f3a21c8'},
-    {id:'RCP-0002',inv:'INV-2026-002',amount:32000,date:'2026-06-08',method:'Bank',sig:'SIG-4b71d90e'},
-    {id:'RCP-0003',inv:'INV-2026-003',amount:405000,date:'2026-06-10',method:'bKash',sig:'SIG-c2e58a77'},
-    {id:'RCP-0004',inv:'INV-2026-007',amount:40000,date:'2026-06-12',method:'Nagad',sig:'SIG-77d21f0a'}
-  ],
-  tickets:[
-    {id:'MT-001',u:'U-008',desc:'Roof structural crack over Shed A',reported:'2026-06-18',liab:'Landlord',status:'Open',con:'Rahim Steel Works',cost:0},
-    {id:'MT-002',u:'U-001',desc:'Kitchen sink leakage',reported:'2026-06-21',liab:'Tenant',status:'Open',con:'',cost:0},
-    {id:'MT-003',u:'U-010',desc:'Water pump failure (common line)',reported:'2026-06-24',liab:'Landlord',status:'In Progress',con:'Kazi Plumbing',cost:8500},
-    {id:'MT-004',u:'U-009',desc:'Flooring damage from tenant forklift',reported:'2026-06-27',liab:'Tenant',status:'Awaiting Payment',con:'Meghna Builders',cost:42000}
-  ],
-  maintenance_requests:[
-    {id:'MR-001',tenant:'T-006',unit:'U-008',prop:'P-004',category:'structural',priority:'high',title:'Roof structural crack over Shed A',desc:'Crack line widening after last storm; needs steel reinforcement assessment.',status:'Open',assigned_to:'',vendor:'Rahim Steel Works',cost_estimate:120000,actual_cost:0,charge_to:'owner',tenant_name:'Bengal Agro Foods',unit_name:'Shed A',property_name:'Chattogram Industrial Shed',ts:'2026-07-13 09:00:00'},
-    {id:'MR-002',tenant:'T-002',unit:'U-010',prop:'P-005',category:'plumbing',priority:'medium',title:'Kitchen sink leakage',desc:'Water seeping under sink cabinet; tap joint leaking.',status:'Assigned',assigned_to:'Arif Chowdhury',vendor:'Kazi Plumbing',cost_estimate:3500,actual_cost:0,charge_to:'tenant',tenant_name:'Sultana Rahman',unit_name:'Apartment 7B',property_name:'Dhanmondi Apartment',ts:'2026-07-29 09:00:00'},
-    {id:'MR-003',tenant:'T-001',unit:'U-001',prop:'P-001',category:'electrical',priority:'medium',title:'Hall socket sparking',desc:'Main hall wall socket sparks when used; suspect wiring.',status:'In Progress',assigned_to:'Arif Chowdhury',vendor:'',cost_estimate:8000,actual_cost:8500,charge_to:'owner',tenant_name:'Rafiqul Islam',unit_name:'Flat 3B',property_name:'Green View Residency',ts:'2026-07-27 09:00:00'},
-    {id:'MR-004',tenant:'T-005',unit:'U-005',prop:'P-002',category:'appliance',priority:'low',title:'AC cooling weak (Floor 2)',desc:'Split AC not cooling below 26°C; gas refill likely.',status:'Resolved',assigned_to:'',vendor:'ElectroCool BD',cost_estimate:4500,actual_cost:4500,charge_to:'tenant',tenant_name:'Orbit Textiles',unit_name:'Floor 2 (Office)',property_name:'Banani Commercial Tower',ts:'2026-07-31 09:00:00'},
-    {id:'MR-005',tenant:'T-003',unit:'U-004',prop:'P-002',category:'other',priority:'low',title:'Common lobby light flickering',desc:'Lobby tube lights flickering; replace ballast.',status:'Closed',assigned_to:'',vendor:'',cost_estimate:1500,actual_cost:1500,charge_to:'owner',tenant_name:'Agro Foods Ltd',unit_name:'Floor 1 (Retail)',property_name:'Banani Commercial Tower',ts:'2026-07-03 09:00:00'}
-  ],
-  leads:[
-    {id:'LD-001',name:'Tanvir Hossain',phone:'01712-998877',email:'tanvir.h@gmail.com',prop:'P-001',source:'listing',message:'Interested in Flat 3B (1450 sqft). When can I view?',status:'New',assigned_to:'',property_name:'Green View Residency'},
-    {id:'LD-002',name:'Farhana Yasmin',phone:'01811-223344',email:'farhana.y@outlook.com',prop:'P-005',source:'referral',message:'Referred by Sultana. Looking for 2-bed apartment under ৳45k.',status:'Contacted',assigned_to:'Mithila Rahman',property_name:'Dhanmondi Apartment'},
-    {id:'LD-003',name:'Nabil Ahmed',phone:'01922-334455',email:'nabil@bizmail.com',prop:'P-002',source:'listing',message:'Need 2 floors for office expansion, 5k sqft each.',status:'Viewing',assigned_to:'Shakil Islam',property_name:'Banani Commercial Tower'},
-    {id:'LD-004',name:'Rima Sultana',phone:'01611-556677',email:'rima.s@gmail.com',prop:'P-003',source:'other',message:'Plot inquiry — is it for lease or sale?',status:'Applied',assigned_to:'',property_name:'Gulshan Lakeside Plot'},
-    {id:'LD-005',name:'Kamal Uddin',phone:'01555-667788',email:'kamal.u@yahoo.com',prop:'P-001',source:'referral',message:'Referred by Dr. Nadia. Flat 4A availability?',status:'Lost',assigned_to:'',property_name:'Green View Residency'}
-  ],
-  payments:[
-    {id:'PAY-001',inv:'INV-2026-001',amount:25000,method:'bKash',ref:'BK-7f2a',date:'2026-06-05',status:'Success'},
-    {id:'PAY-002',inv:'INV-2026-003',amount:405000,method:'bKash',ref:'BK-91cd',date:'2026-06-10',status:'Success'},
-    {id:'PAY-003',inv:'INV-2026-007',amount:40000,method:'Nagad',ref:'NG-33ab',date:'2026-06-12',status:'Success'}
-  ],
-  partners:[
-    {id:'SP-01',name:'Rahim Steel Works',trade:'Structural & Steel',rating:4.8,jobs:24,status:'Active'},
-    {id:'SP-02',name:'Kazi Plumbing',trade:'Plumbing & Sanitary',rating:4.5,jobs:41,status:'Active'},
-    {id:'SP-03',name:'Meghna Builders',trade:'Interior & Renovation',rating:4.2,jobs:17,status:'Active'},
-    {id:'SP-04',name:'SecureLine Security',trade:'Security Services',rating:4.9,jobs:33,status:'Active'},
-    {id:'SP-05',name:'CleanPro BD',trade:'Cleaning & Facility',rating:4.0,jobs:52,status:'Onboarding'}
-  ],
-  support:[
-    {id:'SUP-001',from:'Rofiqul Islam (Owner)',subject:'Cannot upload registration deed for L-004',status:'Open',prio:'High',age:'2h'},
-    {id:'SUP-002',from:'Orbit Textiles (Tenant)',subject:'TDS certificate not received for June',status:'Open',prio:'Medium',age:'5h'},
-    {id:'SUP-003',from:'Sultana Rahman (Tenant)',subject:'How to submit repair invoice for deduction?',status:'In Progress',prio:'Low',age:'1d'},
-    {id:'SUP-004',from:'Rahim Steel Works (Partner)',subject:'QC feedback on MT-001 — photos uploaded',status:'In Progress',prio:'Medium',age:'1d'},
-    {id:'SUP-005',from:'Dr. Nadia Karim (Tenant)',subject:'Payment failed — bKash timeout',status:'Resolved',prio:'High',age:'2d'},
-    {id:'SUP-006',from:'Bengal Agro Foods (Tenant)',subject:'Need invoice re-issue with VAT',status:'Open',prio:'Medium',age:'3h'}
-  ],
-  staff:[
-    {id:'ST-01',name:'Arif Chowdhury',role:'Service Manager',dept:'Operations',status:'Active'},
-    {id:'ST-02',name:'Mithila Rahman',role:'CRM & Help Desk',dept:'Support',status:'Active'},
-    {id:'ST-03',name:'Sohel Rana',role:'Accountant',dept:'Finance',status:'Active'},
-    {id:'ST-04',name:'Nusrat Jahan',role:'HR & Admin',dept:'Admin',status:'Active'},
-    {id:'ST-05',name:'Barrister Naima Karim',role:'Legal Counsel',dept:'Legal',status:'Active'},
-    {id:'ST-06',name:'Tanvir Hasan',role:'Service Manager (Jr)',dept:'Operations',status:'Active'},
-    {id:'ST-07',name:'Farzana Akter',role:'CRM Executive',dept:'Support',status:'Probation'},
-    {id:'ST-08',name:'Mahmudul Islam',role:'Finance Officer',dept:'Finance',status:'Active'}
-  ],
-  platform:{subscribers:128,mrr:2480000,arr:29760000,partners:45,staff:8,csat:4.6,subsTrend:'+12 this month',
-    subscriptions:[
-      {id:'SUB-001',org:'Green View Residency',plan:'Business',seats:3,mrr:15000,status:'Active'},
-      {id:'SUB-002',org:'Banani Commercial Tower',plan:'Enterprise',seats:10,mrr:45000,status:'Active'},
-      {id:'SUB-003',org:'Chattogram Industrial Shed',plan:'Business',seats:2,mrr:15000,status:'Active'},
-      {id:'SUB-004',org:'Dhanmondi Apartment',plan:'Starter',seats:1,mrr:5000,status:'Active'},
-      {id:'SUB-005',org:'Gulshan Lakeside Plot',plan:'Starter',seats:1,mrr:5000,status:'Trial'}
-    ],
-    finance:[
-      {type:'Subscription revenue',amount:2480000,status:'Settled'},
-      {type:'Partner payout',amount:-420000,status:'Paid'},
-      {type:'Gateway fees (bKash/SSL)',amount:-96250,status:'Settled'},
-      {type:'TDS collected (platform)',amount:152000,status:'Payable'},
-      {type:'Legal add-on revenue',amount:180000,status:'Invoiced'},
-      {type:'Hosting & infra',amount:-78000,status:'Paid'}
-    ]},
-  ticket_thread:[
-    {id:1,ticket:'MT-001',author:'Rahim Steel Works',body:'Inspection done — crack is load-bearing; steel jacketing proposed. Cost estimate ৳1,85,000.',ts:'2026-06-19 10:12:00'},
-    {id:2,ticket:'MT-001',author:'Rofiqul Islam',body:'Approved. Start next week; coordinate with tenant for access.',ts:'2026-06-20 09:40:00'},
-    {id:3,ticket:'MT-003',author:'Kazi Plumbing',body:'Pump replaced; testing pressure now.',ts:'2026-06-25 16:05:00'},
-    {id:4,ticket:'MT-004',author:'Meghna Builders',body:'Quote sent: ৳42,000 incl. materials. Awaiting tenant confirmation.',ts:'2026-06-28 11:22:00'}
-  ],
-  notices:[
-    {id:'NTC-001',title:'Utility schedule for July',body:'Electricity & gas bills will be shared by the 10th of each month. Please check the Documents tab for your copies.',author:'Rofiqul Islam',ts:'2026-06-30 09:00:00',pinned:1},
-    {id:'NTC-002',title:'Annual fire-safety inspection',body:'Dhaka Fire Service inspection is scheduled for 18–20 July. Access to common areas required 9am–5pm.',author:'Arif Chowdhury',ts:'2026-07-01 11:30:00',pinned:1},
-    {id:'NTC-003',title:'Generator maintenance — 26 July',body:'Standby generator service from 10am–2pm on 26 July. Expect brief water-pump interruptions.',author:'Shakil Ahmed',ts:'2026-07-05 15:20:00',pinned:0}
-  ],
-  documents:[
-    {id:'DOC-DEMO1',kind:'lease',ref:'L-001',name:'lease-deed-green-view.pdf',size:284112,mime:'application/pdf',uploaded_by:'Rofiqul Islam',ts:'2026-06-28 10:00:00'},
-    {id:'DOC-DEMO2',kind:'lease',ref:'L-007',name:'tenancy-agreement-dhanmondi.pdf',size:198774,mime:'application/pdf',uploaded_by:'Sultana Rahman',ts:'2026-06-29 12:15:00'},
-    {id:'DOC-DEMO3',kind:'ticket',ref:'MT-001',name:'qc-photos-MT001.zip',size:8420336,mime:'application/zip',uploaded_by:'Rahim Steel Works',ts:'2026-06-30 17:40:00'}
-  ],
-  referrals:[
-    {id:'REF-A1B2C3',code:'KR-DEMO1',user_email:'owner@krtaker.com',role:'owner',referred_name:'Tanvir Hossain',referred_email:'tanvir.h@gmail.com',status:'Signed up',reward:5000,ts:'2026-06-15 10:00:00'},
-    {id:'REF-D4E5F6',code:'KR-DEMO2',user_email:'owner@krtaker.com',role:'owner',referred_name:'Orbit Textiles Ltd',referred_email:'accounts@orbittextiles.com',status:'Paid',reward:15000,ts:'2026-07-02 14:30:00'}
-  ],
-  property_rent:[
-    {prop:'P-001',service_charge_pct:5,utility_advance:25000,parking_fee:4000,escalation_pct:8,advance_months:3,due_day:5,late_fee_pct:2,rent_per_sqft:1500,notes:'Community generator + lift maintenance shared 5%'},
-    {prop:'P-002',service_charge_pct:8,utility_advance:50000,parking_fee:15000,escalation_pct:6,advance_months:3,due_day:3,late_fee_pct:2,rent_per_sqft:7200,notes:'Commercial service charge 8%; 2 covered car parks'},
-    {prop:'P-003',service_charge_pct:2,utility_advance:20000,parking_fee:0,escalation_pct:10,advance_months:0,due_day:10,late_fee_pct:1,rent_per_sqft:9000,notes:'Plot only — no building utilities'},
-    {prop:'P-004',service_charge_pct:6,utility_advance:80000,parking_fee:6000,escalation_pct:5,advance_months:2,due_day:3,late_fee_pct:2,rent_per_sqft:6500,notes:'Factory common area + security 6%'},
-    {prop:'P-005',service_charge_pct:4,utility_advance:15000,parking_fee:2500,escalation_pct:7,advance_months:3,due_day:5,late_fee_pct:2,rent_per_sqft:7000,notes:'Apartment: lift, generator, caretaker 4%'}
-  ],
-  amenities:[
-    {id:'AM-001',prop:'P-001',unit:'',name:'Lift',icon:'🛗',category:'Building',status:'Active'},
-    {id:'AM-002',prop:'P-001',unit:'',name:'Standby generator',icon:'⚡',category:'Building',status:'Active'},
-    {id:'AM-003',prop:'P-001',unit:'',name:'CCTV security',icon:'📹',category:'Building',status:'Active'},
-    {id:'AM-004',prop:'P-001',unit:'U-001',name:'1 car parking',icon:'🚗',category:'Unit',status:'Active'},
-    {id:'AM-005',prop:'P-001',unit:'',name:'Rooftop terrace',icon:'🌇',category:'Building',status:'Active'},
-    {id:'AM-006',prop:'P-002',unit:'',name:'Central AC',icon:'❄️',category:'Building',status:'Active'},
-    {id:'AM-007',prop:'P-002',unit:'',name:'Fire safety system',icon:'🧯',category:'Building',status:'Active'},
-    {id:'AM-008',prop:'P-002',unit:'U-004',name:'2 car parks (retail)',icon:'🚗',category:'Unit',status:'Active'},
-    {id:'AM-009',prop:'P-002',unit:'',name:'24/7 security',icon:'🛡️',category:'Building',status:'Active'},
-    {id:'AM-010',prop:'P-003',unit:'',name:'Lake view',icon:'🏞️',category:'Plot',status:'Active'},
-    {id:'AM-011',prop:'P-005',unit:'',name:'Lift',icon:'🛗',category:'Building',status:'Active'},
-    {id:'AM-012',prop:'P-005',unit:'U-010',name:'1 car parking',icon:'🚗',category:'Unit',status:'Active'},
-    {id:'AM-013',prop:'P-005',unit:'',name:'Caretaker',icon:'🧑‍🔧',category:'Building',status:'Active'},
-    {id:'AM-014',prop:'P-005',unit:'',name:'Generator backup',icon:'⚡',category:'Building',status:'Active'},
-    {id:'AM-015',prop:'P-004',unit:'',name:'Cargo ramp',icon:'🚚',category:'Building',status:'Active'},
-    {id:'AM-016',prop:'P-004',unit:'',name:'Loading bay',icon:'📦',category:'Building',status:'Active'}
-  ],
-  caretaker_invoices:[
-    {id:'CI-001',sub:'CS-DEMO1',user_email:'owner@krtaker.com',month:'2026-08',amount:4500,status:'Unpaid',property_name:'Green View Residency'},
-    {id:'CI-002',sub:'CS-DEMO1',user_email:'owner@krtaker.com',month:'2026-07',amount:4500,status:'Paid',ref:'BKASH-8F3A',property_name:'Green View Residency'}
-  ],
-  insurance_policies:[
-    {id:'POL-001',tenant:'T-002',plan:'IP-001',lease:'L-007',premium:449,coverage:120000,score:72,status:'active',start:'2026-07-15',end:'2027-07-15',claim:'',claim_amt:0,plan_name:'Rent Guarantee',tenant_name:'Sultana Rahman'}
-  ],
+/* V3.88: demo SEED removed — real workspace data only (loaded from API). */
+const SEED = {};
 
-  partner_invoices:[
-    {id:'PI-001',partner:'SP-01',job:'MR-001',amount:185000,desc:'Steel jacketing + reinforcement for roof crack — materials & labour',status:'Approved',submitted_by:'rahim@krtaker.com',decided_by:'Arif Chowdhury',decided_at:'2026-06-30 11:20:00',ts:'2026-06-28 14:05:00'},
-    {id:'PI-002',partner:'SP-02',job:'MR-002',amount:3500,desc:'Kitchen sink tap joint replacement + pipe sealant',status:'Submitted',submitted_by:'kazi.plumbing@gmail.com',decided_by:'',decided_at:'',ts:'2026-07-01 09:30:00'},
-    {id:'PI-003',partner:'SP-03',job:'MR-003',amount:8500,desc:'Rewiring hall socket + new MCB (hall socket sparking)',status:'Paid',submitted_by:'meghna.builders@gmail.com',decided_by:'Sohel Rana',decided_at:'2026-07-05 15:40:00',ts:'2026-07-03 12:00:00'},
-    {id:'PI-004',partner:'SP-02',job:'MR-004',amount:4500,desc:'AC gas refill + filter deep clean (Floor 2)',status:'Approved',submitted_by:'electro@krtaker.com',decided_by:'Arif Chowdhury',decided_at:'2026-07-31 14:00:00',ts:'2026-07-31 13:30:00'}
-  ],
-  vendor_payouts:[
-    {id:'VP-001',partner:'SP-01',month:'2026-06',amount:185000,status:'Paid',method:'Bank',ref:'NPSB-33001',partner_name:'Rahim Steel Works'},
-    {id:'VP-002',partner:'SP-02',month:'2026-06',amount:3500,status:'Scheduled',method:'',ref:'',partner_name:'Kazi Plumbing'},
-    {id:'VP-003',partner:'SP-03',month:'2026-05',amount:8500,status:'Paid',method:'bKash',ref:'BK-88231',partner_name:'Meghna Builders'}
-  ],
-  remittances:[
-    {id:'RM-001',owner_email:'owner@krtaker.com',owner_name:'Rofiqul Islam',prop:'P-001',property_name:'Green View Residency',month:'2026-06',amount:186400,rate:118.5,amount_fx:1573,currency:'USD',method:'SWIFT',ref:'SW-BD-88412',form_c:'FC-88412',status:'Confirmed',confirmed_at:'2026-07-03 09:15:00',ts:'2026-07-01 10:00:00'},
-    {id:'RM-002',owner_email:'owner@krtaker.com',owner_name:'Rofiqul Islam',prop:'P-002',property_name:'Banani Commercial Tower',month:'2026-06',amount:883000,rate:118.5,amount_fx:7451,currency:'USD',method:'SWIFT',ref:'SW-BD-88415',form_c:'FC-88415',status:'Sent',confirmed_at:'',ts:'2026-07-01 10:10:00'},
-    {id:'RM-003',owner_email:'owner@krtaker.com',owner_name:'Rofiqul Islam',prop:'P-001',property_name:'Green View Residency',month:'2026-05',amount:181200,rate:118.0,amount_fx:1536,currency:'USD',method:'SWIFT',ref:'SW-BD-87840',form_c:'FC-87840',status:'Confirmed',confirmed_at:'2026-06-02 10:05:00',ts:'2026-06-01 09:00:00'}
-  ],
-
-  onboarding_apps:[
-    {id:'OB-001',lead:'LD-002',name:'Farhana Yasmin',email:'farhana.y@outlook.com',phone:'01811-223344',nid:'198706224411',unit:'U-003',prop:'P-001',rent:28000,adv:56000,months:12,start:'2026-09-01',status:'Started',notes:'Referred by Sultana. Awaiting application docs.',lead_name:'Farhana Yasmin',ts:'2026-07-25 10:00:00'},
-    {id:'OB-002',lead:'LD-001',name:'Tanvir Hossain',email:'tanvir.h@gmail.com',phone:'01712-998877',nid:'199205144523',unit:'U-003',prop:'P-001',rent:28000,adv:56000,months:12,start:'2026-09-01',status:'Submitted',notes:'NID + bank statement uploaded — KYC review pending',lead_name:'Tanvir Hossain',ts:'2026-07-28 11:30:00'},
-    {id:'OB-003',lead:'LD-004',name:'Rima Sultana',email:'rima.s@gmail.com',phone:'01611-556677',nid:'199011305566',unit:'U-007',prop:'P-003',rent:35000,adv:70000,months:12,start:'2026-08-15',status:'Verified',notes:'KYC approved — ready to complete move-in',lead_name:'Rima Sultana',ts:'2026-07-30 14:00:00'}
-  ],
-  sla_config:[
-    {priority:'urgent',response_hours:4,resolve_hours:24,enabled:1},
-    {priority:'high',response_hours:24,resolve_hours:72,enabled:1},
-    {priority:'medium',response_hours:72,resolve_hours:168,enabled:1},
-    {priority:'low',response_hours:120,resolve_hours:240,enabled:1}
-  ],
-  vendor_ratings:[
-    {id:'VR-001',partner:'SP-01',job:'MR-001',rating:5,comment:'Fast response, quality steelwork.',rated_by:'Arif Chowdhury',ts:'2026-07-20 10:00:00'},
-    {id:'VR-002',partner:'SP-02',job:'MR-002',rating:4,comment:'Good work, slight delay on parts.',rated_by:'Shakil Ahmed',ts:'2026-07-22 10:00:00'}
-  ],
-  job_media:[
-    {id:'JM-DEMO1',job:'MR-004',kind:'before',name:'before-ac.jpg',size:81234,mime:'image/jpeg',uploaded_by:'ElectroCool BD',ts:'2026-07-31 09:30:00'},
-    {id:'JM-DEMO2',job:'MR-004',kind:'after',name:'after-ac.jpg',size:78451,mime:'image/jpeg',uploaded_by:'ElectroCool BD',ts:'2026-07-31 12:10:00'},
-    {id:'JM-DEMO3',job:'MR-004',kind:'memo',name:'memo-ac.pdf',size:45210,mime:'application/pdf',uploaded_by:'ElectroCool BD',ts:'2026-07-31 12:12:00'}
-  ],
-  statement_payouts:[
-    {prop:'P-001',month:'2026-06',amount:186400,status:'Paid',method:'Bank',ref:'NPSB-88412'},
-    {prop:'P-002',month:'2026-06',amount:883000,status:'Paid',method:'Bank',ref:'NPSB-88415'},
-    {prop:'P-005',month:'2026-06',amount:34500,status:'Scheduled',method:'',ref:''},
-    {prop:'P-001',month:'2026-05',amount:181200,status:'Paid',method:'Bank',ref:'NPSB-87840'},
-    {prop:'P-002',month:'2026-05',amount:876500,status:'Paid',method:'Bank',ref:'NPSB-87843'}
-  ],
-  compliance_items:[
-    {id:'CPL-001',entity_type:'property',entity_id:'P-001',item:'fire_safety',label:'Fire safety certificate — Green View Residency',ref_no:'BFSCD-2041',issue_date:'2025-08-01',expiry_date:'2026-07-15',status:'active',notes:'Annual inspection — certificate expired',entity_label:'Green View Residency'},
-    {id:'CPL-002',entity_type:'property',entity_id:'P-005',item:'trade_license',label:'Trade license — Dhanmondi Apartment',ref_no:'DNCC-TL-8821',issue_date:'2025-09-01',expiry_date:'2026-09-05',status:'active',notes:'Renew before expiry at DNCC',entity_label:'Dhanmondi Apartment'},
-    {id:'CPL-003',entity_type:'property',entity_id:'P-002',item:'fire_safety',label:'Fire safety certificate — Banani Commercial Tower',ref_no:'BFSCD-2042',issue_date:'2025-08-01',expiry_date:'2026-08-01',status:'active',notes:'Annual inspection due now',entity_label:'Banani Commercial Tower'},
-    {id:'CPL-004',entity_type:'tenant',entity_id:'T-002',item:'nid',label:'NID on file — Sultana Rahman',ref_no:'1992123456789',issue_date:'',expiry_date:'2036-12-31',status:'active',notes:'Identity document on file',entity_label:'Sultana Rahman'},
-    {id:'CPL-005',entity_type:'lease',entity_id:'L-007',item:'lease_expiry',label:'Lease expiry — Sultana Rahman · Apartment 7B',ref_no:'L-007',issue_date:'',expiry_date:'2026-12-14',status:'active',notes:'Renew or vacate before this date',entity_label:'Apartment 7B'}
-  ],
-  utility_tariffs:[
-    {type:'electric',rate:10,standing:0,unit_label:'kWh',enabled:1},
-    {type:'gas',rate:15,standing:0,unit_label:'m³',enabled:1},
-    {type:'water',rate:20,standing:0,unit_label:'m³',enabled:1}
-  ],
-  meter_readings:[
-    {id:'MR-100',unit:'U-001',tenant:'T-001',type:'electric',reading:4125,month:'2026-07',note:'',ts:'2026-07-28 09:00:00'},
-    {id:'MR-101',unit:'U-001',tenant:'T-001',type:'water',reading:185,month:'2026-07',note:'',ts:'2026-07-28 09:00:00'},
-    {id:'MR-102',unit:'U-001',tenant:'T-001',type:'electric',reading:3990,month:'2026-06',note:'',ts:'2026-06-27 09:00:00'},
-    {id:'MR-105',unit:'U-010',tenant:'T-002',type:'electric',reading:4125,month:'2026-07',note:'',ts:'2026-07-28 09:00:00'},
-    {id:'MR-106',unit:'U-010',tenant:'T-002',type:'water',reading:185,month:'2026-07',note:'',ts:'2026-07-28 09:00:00'},
-    {id:'MR-107',unit:'U-010',tenant:'T-002',type:'electric',reading:3990,month:'2026-06',note:'',ts:'2026-06-27 09:00:00'}
-  ],
-  utility_bills:[
-    {id:'UB-100',unit:'U-001',tenant:'T-001',type:'electric',month:'2026-07',prev_reading:3990,curr_reading:4125,usage:135,rate:10,standing:0,amount:1350,status:'Unpaid',paid_at:'',note:''},
-    {id:'UB-101',unit:'U-001',tenant:'T-001',type:'water',month:'2026-07',prev_reading:150,curr_reading:185,usage:35,rate:20,standing:0,amount:700,status:'Paid',paid_at:'2026-08-01 10:00:00',note:''},
-    {id:'UB-103',unit:'U-010',tenant:'T-002',type:'electric',month:'2026-07',prev_reading:3990,curr_reading:4125,usage:135,rate:10,standing:0,amount:1350,status:'Unpaid',paid_at:'',note:''},
-    {id:'UB-104',unit:'U-010',tenant:'T-002',type:'water',month:'2026-07',prev_reading:150,curr_reading:185,usage:35,rate:20,standing:0,amount:700,status:'Paid',paid_at:'2026-08-01 10:00:00',note:''}
-  ],
-  renewal_requests:[
-    {id:'RR-100',lease:'L-007',tenant:'T-002',months:12,new_rent:44000,note:'Please renew',status:'Pending',decided_by:'',decided_at:'',ts:'2026-08-02 09:00:00'},
-    {id:'RR-101',lease:'L-003',tenant:'T-003',months:24,new_rent:460000,note:'',status:'Approved',decided_by:'Shakil Ahmed',decided_at:'2026-07-28 11:00:00',ts:'2026-07-25 10:00:00'},
-    {id:'RR-102',lease:'L-007',tenant:'T-002',months:12,new_rent:42800,note:'7% escalation per Dhanmondi policy',status:'Offered',decided_by:'Rofiqul Islam',decided_at:'2026-08-01 09:00:00',ts:'2026-08-01 09:00:00'}
-  ],
-  kr_alerts:[
-    {id:'AL-100',user_key:'sub:1',type:'sla',severity:'warning',title:'SLA at risk',body:'MR-003 · Hall socket sparking · medium · elapsed 14h',ref:'MR-003',status:'open',voice_note:'',ts:'2026-08-02 08:00:00'},
-    {id:'AL-101',user_key:'sub:1',type:'compliance',severity:'critical',title:'Compliance expired',body:'Fire safety — Banani Commercial Tower · 2026-07-31',ref:'CPL-002',status:'open',voice_note:'',ts:'2026-08-02 08:00:00'},
-    {id:'AL-102',user_key:'sub:1',type:'arrears',severity:'critical',title:'Rent arrears',body:'INV-2026-005 · Bengal Agro Foods · 2026-06 · ৳350,000',ref:'INV-2026-005',status:'open',voice_note:'',ts:'2026-08-02 08:00:00'},
-    {id:'AL-103',user_key:'sub:1',type:'renewal',severity:'warning',title:'Lease renewal due',body:'L-001 · Rafiqul Islam · Flat 3B · ends 2026-12-31',ref:'L-001',status:'open',voice_note:'',ts:'2026-08-02 08:00:00'}
-  ],
-  wa_channels:[{id:'WA-demo',user_key:'sub:1',phone:'+8801712445566',provider:'whatsapp',status:'active',ts:'2026-08-01 10:00:00'}],
-  kr_wa_msgs:[
-    {id:1,user_key:'sub:1',direction:'out',body:'ভাড়ার রিমাইন্ডার — জুন ইনভয়েস জমা দিন 📱',voice_note:0,ts:'2026-08-02 09:00:00'},
-    {id:2,user_key:'sub:1',direction:'in',body:'আমার বিল কত?',voice_note:0,ts:'2026-08-02 09:05:00'}
-  ],
-  board_reports:[{id:'BR-DEMO',month:'2026-08',kind:'board',created_by:'Rofiqul Islam',ts:'2026-08-02 09:00:00'}],
-  nid_verifications:[
-    {id:'NV-001',tenant:'T-001',nid:'19900123456789012',dob:'1990-01-23',status:'verified',method:'checksum',checksum_ok:1,age_ok:1,notes:'Check digit valid.',verified_by:'Kabir Ahmed',verified_at:'2026-08-01 10:00:00',ts:'2026-08-01 10:00:00'},
-    {id:'NV-002',tenant:'T-002',nid:'19850112233445021',dob:'1985-11-22',status:'verified',method:'checksum',checksum_ok:1,age_ok:1,notes:'Check digit valid.',verified_by:'Kabir Ahmed',verified_at:'2026-08-01 10:05:00',ts:'2026-08-01 10:05:00'},
-    {id:'NV-003',tenant:'T-004',nid:'19880108990011031',dob:'1988-08-08',status:'unverified',method:'checksum',checksum_ok:0,age_ok:1,notes:'Check digit mismatch — verify manually.',verified_by:'',verified_at:'',ts:'2026-08-01 10:10:00'}
-  ],
-  thana_forms:[
-    {id:'TF-001',tenant:'T-001',unit:'U-001',prop:'P-001',thana:'Mirpur',district:'Dhaka',status:'Verified',payload:{unit:'U-001',prop:'P-001',name:'Rafiqul Islam',nid:'19900123456789012',dob:'1990-01-23',phone:'01711-223344',father:'Abdul Karim',mother:'Rahima Khatun',profession:'Business',employer:'Rafi Traders',present_flat:'Flat 3B, Green View Residency',present_road:'12/5, Mirpur-10',present_area:'Mirpur',permanent_address:'Village: Charpara, P.O. Sirajganj',spouse:'Nasima Begum',spouse_phone:'01711-334455',family_count:'4',ref1_name:'Md. Hanif',ref1_phone:'01811-112233',ref1_address:'Mirpur-12',ref2_name:'Shahidul Islam',ref2_phone:'01911-556677',ref2_address:'Pallabi',landlord_name:'Rofiqul Islam (Owner)',landlord_nid:'',landlord_phone:'01700-000000',move_in:'2026-01-01',lease_term:'12',vehicle:'None',remarks:'Corporate lease reference NA'},submitted_at:'2026-02-01 10:00:00',verified_by:'Kabir Ahmed',verified_at:'2026-02-02 12:00:00',created_by:'Kabir Ahmed',ts:'2026-02-01 10:00:00'},
-    {id:'TF-002',tenant:'T-002',unit:'U-010',prop:'P-001',thana:'Mirpur',district:'Dhaka',status:'Submitted',payload:{unit:'U-010',prop:'P-001',name:'Sultana Rahman',nid:'19850112233445021',dob:'1985-11-22',phone:'01712-445566',father:'Late A. Rahman',mother:'Jahanara Begum',profession:'Banker',employer:'Dutch-Bangla Bank',present_flat:'Flat 10A, Green View Residency',present_road:'12/5, Mirpur-10',present_area:'Mirpur',permanent_address:'House 22, Road 4, Dhanmondi',spouse:'Kamal Hossain',spouse_phone:'01712-778899',family_count:'3',ref1_name:'Rafiqul Islam',ref1_phone:'01711-223344',ref1_address:'Green View Residency',ref2_name:'Nusrat Jahan',ref2_phone:'01611-223344',ref2_address:'Mirpur DOHS',landlord_name:'Rofiqul Islam (Owner)',landlord_nid:'',landlord_phone:'01700-000000',move_in:'2026-01-15',lease_term:'11',vehicle:'Toyota Axio (Dhaka Metro-GHA-12-3456)',remarks:''},submitted_at:'2026-07-20 09:30:00',verified_by:'',verified_at:'',created_by:'Kabir Ahmed',ts:'2026-07-20 09:30:00'}
-  ],
-  legal_notices:[
-    {id:'LN-001',ntype:'eviction',lease:'L-004',tenant:'T-005',unit:'U-005',reason:'Recurring rent default — 2 months outstanding',body:'NOTICE TO QUIT / উচ্ছেদ নোটিশ\nTo: Bengal Agro Foods (L-004)\nPremises: Floor 1 (Retail) — Banani Commercial Tower (rent ৳3,80,000/month)\nYou are hereby given 90 days notice to vacate the premises.\nআপনাকে ৯০ দিনের নোটিশ দেওয়া হল।',notice_days:90,effective_date:'2026-10-30',served_on:'2026-07-01 10:00:00',served_by:'Kabir Ahmed',status:'Served',created_by:'Kabir Ahmed',ts:'2026-07-01 10:00:00'},
-    {id:'LN-002',ntype:'rent_hike',lease:'L-006',tenant:'T-006',unit:'U-008',reason:'Market adjustment — 10% proposed',body:'NOTICE OF RENT INCREASE / ভাড়া বৃদ্ধি নোটিশ\nTo: Tanvir Hossain (L-006)\nYour monthly rent will increase effective +60 days.\nআপনার মাসিক ভাড়া ৬০ দিন পর থেকে বৃদ্ধি পাবে।',notice_days:60,effective_date:'2026-10-02',served_on:'',served_by:'',status:'Draft',created_by:'Naima Rahman',ts:'2026-07-20 11:00:00'}
-  ],
-  cases:[
-    {id:'CASE-001',title:'Eviction proceedings — Bengal Agro Foods',ref_lease:'L-004',type:'eviction',status:'Open',opened:'2026-07-01',notes:'90-day notice served 01 Jul; tenant seeking time',stage:'Legal Notice',lawyer:'Barrister Naima',next_hearing:'2026-08-15',updated_at:'2026-07-15'},
-    {id:'CASE-002',title:'Rent arrears — Tanvir Hossain',ref_lease:'L-006',type:'arrears',status:'Open',opened:'2026-07-05',notes:'Two months arrears; payment plan proposed',stage:'Negotiation',lawyer:'',next_hearing:'2026-07-30',updated_at:'2026-07-05'}
-  ],
-  case_events:[
-    {id:'EV-001',case_id:'CASE-001',ev_type:'stage',body:'Case opened — stage: Legal Notice',actor:'Kabir Ahmed',ts:'2026-07-01 10:05:00'},
-    {id:'EV-002',case_id:'CASE-001',ev_type:'hearing',body:'Next hearing listed for 15 Aug at Dhaka Chief Metropolitan Magistrate Court',actor:'Barrister Naima',ts:'2026-07-12 14:00:00'},
-    {id:'EV-003',case_id:'CASE-002',ev_type:'stage',body:'Case opened — stage: Negotiation',actor:'Kabir Ahmed',ts:'2026-07-05 09:30:00'}
-  ],
-  land_parcels:[
-    {id:'LP-001',owner_email:'owner@krtaker.com',name:'Sirajganj Ancestral Land',district:'Sirajganj',upazila:'Ullapara',mouza:'Charpara',khatian:'KH-1482',dag:'DAG-110',area:'8.5 decimal',lat:'24.2837',lng:'89.5872',monitor:'quarterly',status:'Secure',risk:'low',notes:'Family khas land beside the Bongshi river — watch river erosion',created_by:'Kabir Ahmed',ts:'2026-03-10 09:00:00',updated_at:'2026-06-10 11:20:00'},
-    {id:'LP-002',owner_email:'owner@krtaker.com',name:'Savar Dhamrai Plot',district:'Dhaka',upazila:'Dhamrai',mouza:'Kushura',khatian:'KH-2105',dag:'DAG-47',area:'12 decimal',lat:'23.9050',lng:'90.1965',monitor:'quarterly',status:'Needs Review',risk:'medium',notes:'Boundary wall partially damaged — verify adjacent construction',created_by:'Kabir Ahmed',ts:'2026-04-02 10:00:00',updated_at:'2026-06-15 15:40:00'},
-    {id:'LP-003',owner_email:'owner@krtaker.com',name:'Rangpur Bagan Bari Land',district:'Rangpur',upazila:'Badarganj',mouza:'Baganbari',khatian:'KH-3310',dag:'DAG-22',area:'20 decimal',lat:'25.6807',lng:'89.0660',monitor:'semi_annual',status:'Encroached',risk:'high',notes:'Illegal tin-shed structure reported by field agent',created_by:'Kabir Ahmed',ts:'2026-02-20 09:00:00',updated_at:'2026-05-20 09:10:00'},
-    {id:'LP-004',owner_email:'',name:'Mymensingh Khas Plot',district:'Mymensingh',upazila:'Trishal',mouza:'Kanthal',khatian:'KH-0451',dag:'DAG-9',area:'5 decimal',lat:'24.6100',lng:'90.4050',monitor:'annual',status:'Secure',risk:'low',notes:'Org-held parcel — annual drone sweep',created_by:'Kabir Ahmed',ts:'2026-01-05 09:00:00',updated_at:'2026-01-05 09:00:00'}
-  ],
-  land_visits:[
-    {id:'LV-001',parcel:'LP-001',agent:'Drone — DJI Mavic 3E',visit_type:'drone',scheduled_for:'2026-06-10',completed_at:'2026-06-10 11:20:00',status:'Completed',outcome:'Secure',findings:'Parcel clear. No structure or encroachment. Riverbank stable.',checklist:['Aerial sweep','Boundary check','Encroachment scan'],created_by:'Kabir Ahmed',completed_by:'Rahim Steel Works (agent)',ts:'2026-06-10 11:20:00'},
-    {id:'LV-002',parcel:'LP-002',agent:'Karim Uddin (field agent)',visit_type:'field',scheduled_for:'2026-06-15',completed_at:'2026-06-15 15:40:00',status:'Completed',outcome:'Needs Review',findings:'Boundary wall damage on east side. Adjacent new construction starting.',checklist:['Perimeter walk','Boundary wall','Photos'],created_by:'Kabir Ahmed',completed_by:'Karim Uddin',ts:'2026-06-15 15:40:00'},
-    {id:'LV-003',parcel:'LP-003',agent:'Karim Uddin (field agent)',visit_type:'field',scheduled_for:'2026-05-20',completed_at:'2026-05-20 09:10:00',status:'Completed',outcome:'Encroached',findings:'Illegal tin-shed + fencing found on SW corner. Owner notified; legal action advised.',checklist:['Perimeter walk','Occupancy check','Video'],created_by:'Kabir Ahmed',completed_by:'Karim Uddin',ts:'2026-05-20 09:10:00'},
-    {id:'LV-004',parcel:'LP-001',agent:'Drone — DJI Mavic 3E',visit_type:'drone',scheduled_for:new Date(Date.now()+85*864e5).toISOString().slice(0,10),completed_at:'',status:'Scheduled',outcome:'',findings:'Quarterly aerial sweep',checklist:['Aerial sweep','Boundary check'],created_by:'Kabir Ahmed',completed_by:'',ts:'2026-08-01 09:00:00'},
-    {id:'LV-005',parcel:'LP-002',agent:'Karim Uddin (field agent)',visit_type:'field',scheduled_for:new Date(Date.now()-5*864e5).toISOString().slice(0,10),completed_at:'',status:'Scheduled',outcome:'',findings:'Follow-up on boundary wall — MISSED, must reschedule',checklist:['Boundary wall','Photos'],created_by:'Kabir Ahmed',completed_by:'',ts:'2026-07-29 09:00:00'}
-  ],
-  land_media:[
-    {id:'LM-001',visit:'LV-001',kind:'drone',name:'Aerial overview — LP-001',fname:'lp001_aerial_01.jpg',size:2840132,mime:'image/jpeg',geo:'24.2837,89.5872',captured_at:'2026-06-10 11:20:00',uploaded_by:'Rahim Steel Works (agent)',ts:'2026-06-10 11:20:00'},
-    {id:'LM-002',visit:'LV-002',kind:'photo',name:'Boundary wall damage east side',fname:'lp002_wall_01.jpg',size:1983321,mime:'image/jpeg',geo:'23.9050,90.1965',captured_at:'2026-06-15 15:40:00',uploaded_by:'Karim Uddin',ts:'2026-06-15 15:40:00'},
-    {id:'LM-003',visit:'LV-003',kind:'photo',name:'Illegal tin-shed SW corner',fname:'lp003_shed_01.jpg',size:2415580,mime:'image/jpeg',geo:'25.6807,89.0660',captured_at:'2026-05-20 09:10:00',uploaded_by:'Karim Uddin',ts:'2026-05-20 09:10:00'},
-    {id:'LM-004',visit:'LV-003',kind:'video',name:'360 walkthrough of encroachment',fname:'lp003_walk_01.mp4',size:15842912,mime:'video/mp4',geo:'25.6807,89.0660',captured_at:'2026-05-20 09:15:00',uploaded_by:'Karim Uddin',ts:'2026-05-20 09:15:00'}
-  ],
-  land_events:[
-    {id:'LE-001',parcel:'LP-001',ev_type:'created',body:'Parcel registered — quarterly monitoring plan',actor:'Kabir Ahmed',ts:'2026-03-10 09:00:00'},
-    {id:'LE-002',parcel:'LP-001',ev_type:'visit',body:'Visit LV-001 completed — Secure',actor:'Rahim Steel Works (agent)',ts:'2026-06-10 11:20:00'},
-    {id:'LE-003',parcel:'LP-002',ev_type:'created',body:'Parcel registered — quarterly monitoring plan',actor:'Kabir Ahmed',ts:'2026-04-02 10:00:00'},
-    {id:'LE-004',parcel:'LP-002',ev_type:'visit',body:'Visit LV-002 completed — Needs Review (boundary wall)',actor:'Karim Uddin',ts:'2026-06-15 15:40:00'},
-    {id:'LE-005',parcel:'LP-002',ev_type:'note',body:'Boundary wall repair estimate requested',actor:'Kabir Ahmed',ts:'2026-06-20 11:00:00'},
-    {id:'LE-006',parcel:'LP-003',ev_type:'created',body:'Parcel registered — semi-annual monitoring plan',actor:'Kabir Ahmed',ts:'2026-02-20 09:00:00'},
-    {id:'LE-007',parcel:'LP-003',ev_type:'encroachment',body:'Visit LV-003 found illegal tin-shed + fencing — status Encroached',actor:'Karim Uddin',ts:'2026-05-20 09:10:00'},
-    {id:'LE-008',parcel:'LP-004',ev_type:'created',body:'Parcel registered — annual drone sweep',actor:'Kabir Ahmed',ts:'2026-01-05 09:00:00'}
-  ],  nrb_tax_returns:[
-    {id:'TX-001',owner_email:'owner@krtaker.com',prop:'P-001',fy:'2025-26',rental_income:480000,tds_deducted:48000,tax_estimate:14400,status:'Filed',ca_firm:'Ahmed & Co. Chartered Accountants',ca_ref:'CA-8821',filing_date:'2026-05-30',paid_date:'',notes:'Filed via CA — TDS certificates attached',ts:'2026-05-30 10:00:00',updated_at:'2026-05-30 10:00:00'},
-    {id:'TX-002',owner_email:'owner@krtaker.com',prop:'P-002',fy:'2026-27',rental_income:360000,tds_deducted:36000,tax_estimate:10800,status:'Draft',ca_firm:'Ahmed & Co. Chartered Accountants',ca_ref:'',filing_date:'',paid_date:'',notes:'Estimate auto-computed at 13% less TDS',ts:'2026-08-01 09:00:00',updated_at:'2026-08-01 09:00:00'}
-  ],
-  nrb_repatriations:[
-    {id:'RP-001',owner_email:'owner@krtaker.com',amount_bdt:420000,amount_fx:3456.79,rate:121.5,currency:'USD',method:'SWIFT',bank_channel:'NRP_Account',documents:['BB form C','Tax clearance certificate'],status:'Submitted',ref:'BB/NRP/2026/1147',submitted_at:'2026-07-20',approved_at:'',completed_at:'',ts:'2026-07-20 10:00:00',updated_at:'2026-07-20 10:00:00'},
-    {id:'RP-002',owner_email:'owner@krtaker.com',amount_bdt:250000,amount_fx:2049.18,rate:122.0,currency:'USD',method:'bKash',bank_channel:'BB_Approval',documents:['Form C','Property ownership deed'],status:'Docs_Submitted',ref:'',submitted_at:'',approved_at:'',completed_at:'',ts:'2026-08-02 12:00:00',updated_at:'2026-08-02 12:00:00'}
-  ],
-  nrb_vacancies:[
-    {id:'VC-001',owner_email:'owner@krtaker.com',prop:'P-002',unit:'U-006',status:'Marketing',started_at:'2026-07-25',tenant_left:'T-003 (moved out)',target_rent:350000,channels:['Bikroy','PropertyBarta'],listing_url:'',candidate:{},vet_status:'none',approved_at:'',notes:'High-end commercial floor — premium NRB segment',ts:'2026-07-25 09:00:00',updated_at:'2026-07-25 09:00:00'},
-    {id:'VC-002',owner_email:'owner@krtaker.com',prop:'P-001',unit:'U-002',status:'Awaiting_Approval',started_at:'2026-07-10',tenant_left:'',target_rent:32000,channels:['Bikroy'],listing_url:'',candidate:{name:'Farhana Akter',phone:'+880****5678',email:'farhana@example.com',nid:'',rent:32000,start:'2026-09-01',months:12,advance:64000},vet_status:'passed',approved_at:'',notes:'NID check done via Trust Engine — candidate passed',ts:'2026-07-10 09:00:00',updated_at:'2026-08-02 09:00:00'},
-    {id:'VC-003',owner_email:'owner@krtaker.com',prop:'P-003',unit:'U-008',status:'Vetting',started_at:'2026-08-01',tenant_left:'',target_rent:210000,channels:['PropertyBarta'],listing_url:'',candidate:{name:'Minhaj Hossain',phone:'+880****2233',email:'',nid:'',rent:210000,start:'2026-10-01',months:24,advance:0},vet_status:'pending',approved_at:'',notes:'Background check in progress',ts:'2026-08-01 10:00:00',updated_at:'2026-08-01 10:00:00'}
-  ],
-  nrb_showings:[
-    {id:'SH-001',vacancy:'VC-002',prospect:'Farhana Akter',phone:'+880****5678',scheduled_at:'2026-08-05',status:'Done',feedback:'Liked the flat — ready to sign on 1 Sep',rating:5,ts:'2026-08-01 11:00:00'},
-    {id:'SH-002',vacancy:'VC-001',prospect:'Tanvir Ahmed',phone:'+880****3344',scheduled_at:'2026-08-03',status:'Done',feedback:'Wants dedicated parking space',rating:4,ts:'2026-08-01 12:00:00'},
-    {id:'SH-003',vacancy:'VC-003',prospect:'Minhaj Hossain',phone:'+880****2233',scheduled_at:'2026-08-08',status:'Scheduled',feedback:'',rating:0,ts:'2026-08-02 09:00:00'}
-  ],
-  nrb_disputes:[
-    {id:'DS-001',owner_email:'owner@krtaker.com',prop:'P-004',unit:'U-004',tenant:'T-004 (refusing to vacate)',dtype:'eviction',advocate:'Adv. Salma Khatun — Bar Council 4451',fee:50000,status:'Notice_Served',notice_ref:'LN-592',last_update:'Eviction notice served — 30-day period running',next_action:'File suit if tenant does not vacate by 2026-08-11',timeline:[{ts:'2026-07-01 10:00:00',action:'Dispute opened — tenant refusing to vacate after lease end',by:'Kabir Ahmed'},{ts:'2026-07-05 14:30:00',action:'Advocate assigned — Adv. Salma Khatun',by:'Kabir Ahmed'},{ts:'2026-07-12 09:00:00',action:'Eviction notice LN-592 served — 30-day notice period running',by:'Adv. Salma Khatun'}],ts:'2026-07-01 10:00:00',updated_at:'2026-07-12 09:00:00'},
-    {id:'DS-002',owner_email:'owner@krtaker.com',prop:'P-001',unit:'U-001',tenant:'T-001',dtype:'damages',advocate:'Adv. Rafiq Islam — Bar Council 2233',fee:15000,status:'Open',notice_ref:'',last_update:'Claim filed — photos collected',next_action:'Inspect unit and finalize claim amount',timeline:[{ts:'2026-08-02 11:00:00',action:'Dispute opened — wall damage claim ৳18,000',by:'Kabir Ahmed'}],ts:'2026-08-02 11:00:00',updated_at:'2026-08-02 11:00:00'}
-  ],
-  concierge_requests:[
-    {id:'CR-001',owner_email:'owner@krtaker.com',parcel:'LP-002',prop:'',service:'namjari',district:'Dhaka',upazila:'Dhamrai',mouza:'Kushura',khatian:'KH-2105',dag:'DAG-47',status:'In_Progress',assigned_to:'Mithila Rahman',est_days:45,fee:5000,fee_status:'paid',fee_paid_at:'2026-07-22 11:00:00',service_ref:'AC/NA/MUT/2026/881',notes:'Mutation application filed — awaiting AC Land approval',timeline:[{ts:'2026-07-18 10:00:00',action:'Request submitted — Namjari for LP-002',by:'Kabir Ahmed'},{ts:'2026-07-19 12:00:00',action:'Under review — documents collected',by:'Mithila Rahman'},{ts:'2026-07-25 15:30:00',action:'Filed at AC Land office — case no AC/NA/MUT/2026/881',by:'Mithila Rahman'}],ts:'2026-07-18 10:00:00',updated_at:'2026-07-25 15:30:00'},
-    {id:'CR-002',owner_email:'owner@krtaker.com',parcel:'LP-004',prop:'',service:'e_porcha',district:'Mymensingh',upazila:'Trishal',mouza:'Kanthal',khatian:'KH-0451',dag:'DAG-9',status:'Completed',assigned_to:'Mithila Rahman',est_days:15,fee:2500,fee_status:'paid',fee_paid_at:'2026-07-11 10:00:00',service_ref:'E-POR/2026/114',notes:'Verified e-Porcha delivered with CS digital seal',timeline:[{ts:'2026-07-05 09:00:00',action:'Request submitted — e-Porcha for LP-004',by:'Kabir Ahmed'},{ts:'2026-07-10 14:00:00',action:'e-Porcha extracted and verified — CS portal',by:'Mithila Rahman'},{ts:'2026-07-28 10:00:00',action:'Delivered to owner — CD-002 attached',by:'Mithila Rahman'}],ts:'2026-07-05 09:00:00',updated_at:'2026-07-28 10:00:00'},
-    {id:'CR-003',owner_email:'owner@krtaker.com',parcel:'',prop:'P-001',service:'holding_tax',district:'Dhaka',upazila:'',mouza:'',khatian:'',dag:'',status:'Awaiting_Fee',assigned_to:'Mithila Rahman',est_days:10,fee:1500,fee_status:'unpaid',fee_paid_at:'',service_ref:'',notes:'Holding tax payment ready — pay service fee ৳1,500 to complete',timeline:[{ts:'2026-08-01 09:30:00',action:'Request submitted — holding tax payment for P-001',by:'Kabir Ahmed'},{ts:'2026-08-02 11:00:00',action:'Bill collected — DSCC holding 1842, FY 2025-26',by:'Mithila Rahman'}],ts:'2026-08-01 09:30:00',updated_at:'2026-08-02 11:00:00'}
-  ],
-  concierge_docs:[
-    {id:'CD-001',request:'CR-001',kind:'application',name:'Namjari application form',fname:'cd_app_form.pdf',size:482103,mime:'application/pdf',uploaded_by:'Mithila Rahman',ts:'2026-07-19 12:00:00'},
-    {id:'CD-002',request:'CR-002',kind:'porcha',name:'Verified e-Porcha (CS seal)',fname:'cd_porcha_lp004.pdf',size:1204488,mime:'application/pdf',uploaded_by:'Mithila Rahman',ts:'2026-07-28 10:00:00'}
-  ],
-  holding_taxes:[
-    {id:'HT-001',owner_email:'owner@krtaker.com',parcel:'',prop:'P-001',city_corp:'DSCC',ward:'27',holding_no:'1842',fy:'2025-26',annual_value:480000,rate_pct:7,tax_amount:33600,paid_amount:0,status:'Due',due_date:'2026-08-31',paid_date:'',receipt_no:'',notes:'City corporation holding tax — FY 2025-26',ts:'2026-08-01 09:00:00',updated_at:'2026-08-01 09:00:00'},
-    {id:'HT-002',owner_email:'owner@krtaker.com',parcel:'',prop:'P-002',city_corp:'DNCC',ward:'12',holding_no:'558',fy:'2025-26',annual_value:360000,rate_pct:7,tax_amount:25200,paid_amount:25200,status:'Paid',due_date:'2026-07-31',paid_date:'2026-07-15',receipt_no:'DSCC-RCP-2026-7741',notes:'Paid via concierge — receipt attached',ts:'2026-07-10 09:00:00',updated_at:'2026-07-15 10:00:00'},
-    {id:'HT-003',owner_email:'owner@krtaker.com',parcel:'LP-003',prop:'',city_corp:'CCC',ward:'4',holding_no:'901',fy:'2026-27',annual_value:240000,rate_pct:7,tax_amount:16800,paid_amount:0,status:'Due',due_date:'2026-07-15',paid_date:'',receipt_no:'',notes:'Holding tax for LP-003 — overdue demo',ts:'2026-06-20 09:00:00',updated_at:'2026-06-20 09:00:00'}
-  ],
-  smart_locks:[
-    {id:'SL-001',owner_email:'owner@krtaker.com',prop:'P-001',unit:'U-002',lock_name:'Unit 2 — front door',model:'Yale YRD226',code:'483920',status:'active',purpose:'broker',grant_for:'Bikroy Broker',showing:'',valid_from:'2026-07-20 09:00:00',valid_until:'2026-08-04 20:00:00',used_count:0,notes:'Broker walkthrough code — expires 04 Aug',ts:'2026-07-20 09:00:00',updated_at:'2026-07-20 09:00:00'},
-    {id:'SL-002',owner_email:'owner@krtaker.com',prop:'P-001',unit:'U-002',lock_name:'Unit 2 — front door',model:'Yale YRD226',code:'118374',status:'revoked',purpose:'showing',grant_for:'Farhana Akter',showing:'SH-001',valid_from:'2026-08-05 08:00:00',valid_until:'2026-08-05 20:00:00',used_count:1,notes:'Showing code for SH-001 — used and revoked',ts:'2026-07-25 09:00:00',updated_at:'2026-08-01 10:00:00'}
-  ],
-  cctv_cameras:[
-    {id:'CV-001',owner_email:'owner@krtaker.com',prop:'P-001',name:'Lobby — main entrance',location:'Front lobby entrance',status:'online',feed_url:'https://stream.krtaker.com/cam/cv001',last_seen:'2026-08-03 13:00:00',notes:'24/7 recording — NVR on site',ts:'2026-06-01 09:00:00',updated_at:'2026-08-03 13:00:00'},
-    {id:'CV-002',owner_email:'owner@krtaker.com',prop:'P-002',name:'Roof terrace',location:'Banani tower roof — west side',status:'offline',feed_url:'https://stream.krtaker.com/cam/cv002',last_seen:'2026-08-01 09:00:00',notes:'Check NVR port 3 — no signal since 01 Aug',ts:'2026-06-01 09:00:00',updated_at:'2026-08-01 09:00:00'}
-  ],
-  health_plans:[
-    {id:'HP-001',owner_email:'owner@krtaker.com',prop:'P-001',unit:'',season:'pre_monsoon',service:'roof_waterproof',scheduled_for:'2026-08',status:'Scheduled',assigned_to:'EcoClean Services',cost:12000,paid:0,checklist:[{task:'Inspect roof membrane',done:0},{task:'Clear drainage outlets',done:0},{task:'Patch cracks',done:0},{task:'Water test',done:0}],findings:'',completed_at:'',notes:'Waterproofing before monsoon peak',ts:'2026-07-25 09:00:00',updated_at:'2026-07-25 09:00:00'},
-    {id:'HP-002',owner_email:'owner@krtaker.com',prop:'P-002',unit:'U-010',season:'pre_summer',service:'ac_service',scheduled_for:'2026-05',status:'Completed',assigned_to:'EcoClean Services',cost:4000,paid:4000,checklist:[{task:'Clean filters',done:1},{task:'Check gas pressure',done:1},{task:'Inspect outdoor unit',done:1},{task:'Test cooling',done:1}],findings:'All 3 units serviced — cooling OK',completed_at:'2026-05-20 16:00:00',notes:'Pre-summer AC servicing',ts:'2026-04-15 09:00:00',updated_at:'2026-05-20 16:00:00'},
-    {id:'HP-003',owner_email:'owner@krtaker.com',prop:'P-003',unit:'U-008',season:'quarterly',service:'deep_clean',scheduled_for:'2026-09',status:'Planned',assigned_to:'',cost:0,paid:0,checklist:[],findings:'',completed_at:'',notes:'Empty flat — deep clean before renting',ts:'2026-08-01 09:00:00',updated_at:'2026-08-01 09:00:00'}
-  ],
-  build_projects:[
-    {id:'BP-001',owner_email:'owner@krtaker.com',prop:'P-002',title:'Banani Duplex Renovation',kind:'renovation',status:'In_Progress',budget_total:2000000,start_date:'2026-04-01',target_end:'2026-09-30',contractor:'EcoBuild Engineering',architect:'Ar. Tanvir Islam',site_address:'House 12, Road 11, Banani, Dhaka',notes:'Full interior renovation — 2 floors, owner abroad',ts:'2026-03-20 09:00:00',updated_at:'2026-08-01 09:00:00'},
-    {id:'BP-002',owner_email:'owner@krtaker.com',prop:'P-003',title:'Gulshan Tower — 6th Floor Construction',kind:'construction',status:'In_Progress',budget_total:8000000,start_date:'2026-01-15',target_end:'2026-12-20',contractor:'EcoBuild Engineering',architect:'',site_address:'Gulshan Avenue, Dhaka',notes:'New floor slab + finishing for rental unit',ts:'2026-01-10 09:00:00',updated_at:'2026-08-01 09:00:00'},
-    {id:'BP-003',owner_email:'owner@krtaker.com',prop:'P-001',title:'Bashundhara Flat Repair',kind:'repair',status:'Completed',budget_total:150000,start_date:'2026-05-01',target_end:'2026-06-15',contractor:'QuickFix Interiors',architect:'',site_address:'Block C, Bashundhara R/A',notes:'Bathroom + kitchen repair after tenant move-out',ts:'2026-04-28 09:00:00',updated_at:'2026-06-15 09:00:00'}
-  ],
-  build_milestones:[
-    {id:'BM-001',project:'BP-001',title:'Structure & partition walls',phase:'structure',target_date:'2026-05-15',status:'Completed',cost:700000,paid:700000,notes:'Load-bearing walls + partition done'},
-    {id:'BM-002',project:'BP-001',title:'Electrical & plumbing rough-in',phase:'electrical',target_date:'2026-08-10',status:'In_Progress',cost:350000,paid:150000,notes:'Wiring 70% — awaiting inspection'},
-    {id:'BM-003',project:'BP-001',title:'Flooring & finishing works',phase:'finishing',target_date:'2026-07-20',status:'Pending',cost:500000,paid:0,notes:'Tile order placed — overdue'},
-    {id:'BM-004',project:'BP-002',title:'Foundation & column casting',phase:'foundation',target_date:'2026-03-30',status:'Completed',cost:2500000,paid:2500000,notes:'Columns 1-6 cast & cured'},
-    {id:'BM-005',project:'BP-002',title:'6th floor slab',phase:'structure',target_date:'2026-08-25',status:'In_Progress',cost:3000000,paid:1200000,notes:'Steel work in progress'},
-    {id:'BM-006',project:'BP-003',title:'Bathroom & kitchen repair',phase:'finishing',target_date:'2026-06-10',status:'Completed',cost:150000,paid:150000,notes:'Handed back clean'}
-  ],
-  build_expenses:[
-    {id:'BX-001',project:'BP-001',label:'Cement & brick',amount:800000,category:'material',spent_on:'2026-05-10',paid:1,notes:'Shah Cement — 400 bags'},
-    {id:'BX-002',project:'BP-001',label:'Mason & helper wages',amount:650000,category:'labour',spent_on:'2026-07-25',paid:1,notes:'4 crews × 12 weeks'},
-    {id:'BX-003',project:'BP-001',label:'Tiles & fittings',amount:400000,category:'material',spent_on:'2026-07-30',paid:0,notes:'Imported porcelain — partial payment'},
-    {id:'BX-004',project:'BP-002',label:'Steel & concrete',amount:5000000,category:'material',spent_on:'2026-04-20',paid:1,notes:'BSRM rod + ready-mix'},
-    {id:'BX-005',project:'BP-002',label:'Site labour',amount:4000000,category:'labour',spent_on:'2026-08-01',paid:0,notes:'Daily-wage site crew — over budget'},
-    {id:'BX-006',project:'BP-003',label:'Repair materials + labour',amount:148000,category:'material',spent_on:'2026-06-12',paid:1,notes:'Sanitary + fittings + 1 crew'}
-  ],
-  build_media:[
-    {id:'BD-001',project:'BP-001',kind:'photo',name:'Site photo — electrical rough-in',fname:'bmd_bp001_01.jpg',size:182345,mime:'image/jpeg',geo:'23.7925,90.4078',captured_at:'2026-07-22 10:15:00',uploaded_by:'Arif Chowdhury'},
-    {id:'BD-002',project:'BP-002',kind:'photo',name:'Slab casting day',fname:'bmd_bp002_01.jpg',size:241902,mime:'image/jpeg',geo:'23.8103,90.4125',captured_at:'2026-04-18 14:30:00',uploaded_by:'Arif Chowdhury'}
-  ],
-  gate_visits:[
-    {id:'GV-001',owner_email:'owner@krtaker.com',prop:'P-002',vtype:'visitor',name:'Mahmudul Karim',phone:'01712345678',vehicle_no:'',unit:'U-004',purpose:'Meeting with tenant',host_name:'Sultana Rahman',check_in:'2026-08-03 10:20:00',check_out:'',status:'Inside',flagged:0,notes:'Brother of tenant — long visit',photo:'',created_by:'Arif Chowdhury',ts:'2026-08-03 10:20:00'},
-    {id:'GV-002',owner_email:'owner@krtaker.com',prop:'P-002',vtype:'delivery',name:'Pathao Food',phone:'01711112222',vehicle_no:'DHAKA-LA-1234',unit:'',purpose:'Food delivery',host_name:'',check_in:'2026-08-03 14:20:00',check_out:'2026-08-03 14:50:00',status:'Out',flagged:0,notes:'',photo:'',created_by:'Arif Chowdhury',ts:'2026-08-03 14:20:00'},
-    {id:'GV-003',owner_email:'owner@krtaker.com',prop:'P-001',vtype:'worker',name:'Electrical repair crew',phone:'',vehicle_no:'DHAKA-METRO-7712',unit:'U-001',purpose:'MR-003 electrical fix',host_name:'Rahim Uddin',check_in:'2026-08-03 13:20:00',check_out:'2026-08-03 14:20:00',status:'Out',flagged:0,notes:'',photo:'',created_by:'Arif Chowdhury',ts:'2026-08-03 13:20:00'},
-    {id:'GV-004',owner_email:'owner@krtaker.com',prop:'P-003',vtype:'vehicle',name:'Unknown pickup',phone:'',vehicle_no:'DHAKA-METRO-9999',unit:'',purpose:'Suspicious vehicle — watchlist demo',host_name:'',check_in:'2026-08-03 15:50:00',check_out:'',status:'Inside',flagged:1,notes:'Auto-flagged by watchlist on check-in',photo:'',created_by:'Arif Chowdhury',ts:'2026-08-03 15:50:00'}
-  ],
-  resident_vehicles:[
-    {id:'RV-001',prop:'P-002',unit:'U-003',vehicle_no:'DHAKA-METRO-1122',vtype:'car',label:'Honda City',owner_name:'Sultana Rahman',sticker_no:'ST-101',status:'active',ts:'2026-07-01 09:00:00'},
-    {id:'RV-002',prop:'P-001',unit:'U-001',vehicle_no:'DHAKA-METRO-3344',vtype:'bike',label:'Yamaha FZS',owner_name:'Rahim Uddin',sticker_no:'ST-102',status:'active',ts:'2026-07-01 09:00:00'}
-  ],
-  gate_watchlist:[
-    {id:'GW-001',vehicle_no:'DHAKA-METRO-9999',name:'Unknown pickup',reason:'Suspicious activity — reported by neighbour, avoid entry',active:1,ts:'2026-07-28 09:00:00'}
-  ],
-  fire_assets:[
-    {id:'FA-001',owner_email:'owner@krtaker.com',prop:'P-001',asset_type:'extinguisher',location:'Lobby — ground floor',model:'ABC-4kg Dry Powder',serial_no:'SN-101',install_date:'2025-08-01',expiry_date:'2026-09-17',status:'active',last_inspected:'2026-07-19',next_inspection:'2026-08-18',notes:'Expiring soon — recharge after expiry',ts:'2026-07-01 09:00:00'},
-    {id:'FA-002',owner_email:'owner@krtaker.com',prop:'P-002',asset_type:'extinguisher',location:'Kitchen — 3rd floor',model:'CO2-5kg',serial_no:'SN-102',install_date:'2024-06-10',expiry_date:'2026-07-14',status:'active',last_inspected:'2026-05-15',next_inspection:'2026-06-14',notes:'EXPIRED — replace immediately',ts:'2026-07-01 09:00:00'},
-    {id:'FA-003',owner_email:'owner@krtaker.com',prop:'P-001',asset_type:'detector',location:'Hallway — 2nd floor',model:'SD-2000',serial_no:'SN-103',install_date:'2026-01-15',expiry_date:'2027-04-30',status:'active',last_inspected:'2026-07-04',next_inspection:'2026-09-02',notes:'Smoke detector — annual battery check',ts:'2026-07-01 09:00:00'},
-    {id:'FA-004',owner_email:'owner@krtaker.com',prop:'P-003',asset_type:'alarm',location:'Fire alarm panel — lobby',model:'FP-9000',serial_no:'SN-104',install_date:'2025-03-01',expiry_date:'2027-02-19',status:'faulty',last_inspected:'2026-07-24',next_inspection:'2026-08-23',notes:'Zone 2 sensor fault — technician needed',ts:'2026-07-01 09:00:00'}
-  ],
-  fire_incidents:[
-    {id:'FI-001',owner_email:'owner@krtaker.com',prop:'P-002',incident_type:'fire',severity:'high',status:'Responding',reported_by:'Arif Chowdhury',occurred_at:'2026-08-03 14:20:00',location:'Kitchen — 3rd floor flat U-004',description:'Smoke reported from kitchen; gas stove left on',timeline:[{t:'2026-08-03 14:20:00',by:'Arif Chowdhury',note:'Incident reported — kitchen smoke from 3rd floor'},{t:'2026-08-03 14:40:00',by:'Fire Service',note:'Responding — crew dispatched'}],resolved_at:'',ts:'2026-08-03 14:20:00'},
-    {id:'FI-002',owner_email:'owner@krtaker.com',prop:'P-001',incident_type:'electrical',severity:'low',status:'Resolved',reported_by:'Rahim Uddin',occurred_at:'2026-07-14 14:30:00',location:'Parking — basement',description:'Circuit breaker tripped, no fire',timeline:[],resolved_at:'2026-07-14 15:00:00',ts:'2026-07-14 14:30:00'}
-  ],
-  evacuation_plans:[
-    {id:'EP-001',owner_email:'owner@krtaker.com',prop:'P-001',name:'Tower A Evacuation Plan',assembly_point:'South gate car park',route:'Stairwell A → Ground → South gate car park',last_drill:'2026-01-25',next_drill:'2026-07-24',status:'active',ts:'2026-06-01 09:00:00'},
-    {id:'EP-002',owner_email:'owner@krtaker.com',prop:'P-002',name:'Banani Tower Evacuation Plan',assembly_point:'Road 11 corner',route:'Stairwell B → Lobby → Road 11 corner',last_drill:'',next_drill:'',status:'draft',ts:'2026-06-01 09:00:00'}
-  ],
-  sys_assets:[
-    {id:'SA-001',owner_email:'owner@krtaker.com',prop:'P-002',asset_type:'generator',location:'Basement — generator room',model:'Perkins 100kVA',serial_no:'SN-G1',install_date:'2024-02-10',next_service:'2026-07-29',service_interval_days:90,cert_expiry:'2026-09-17',cert_ref:'RAJUK-LC-2026',status:'operational',fuel_capacity:500,fuel_level:110,fuel_burn_rate:6,notes:'Low fuel — refill before next load shed',ts:'2026-06-01 09:00:00'},
-    {id:'SA-002',owner_email:'owner@krtaker.com',prop:'P-001',asset_type:'lift',location:'Lift shaft — Tower A',model:'Otis Gen2',serial_no:'SN-L1',install_date:'2023-06-01',next_service:'2026-08-13',service_interval_days:90,cert_expiry:'2026-07-19',cert_ref:'RAJUK-LIFT-2026',status:'operational',fuel_capacity:0,fuel_level:0,fuel_burn_rate:0,notes:'RAJUK annual certificate EXPIRED',ts:'2026-06-01 09:00:00'},
-    {id:'SA-003',owner_email:'owner@krtaker.com',prop:'P-001',asset_type:'water_pump',location:'Sump — basement',model:'Kirloskar 5HP',serial_no:'SN-W1',install_date:'2025-01-20',next_service:'2026-08-23',service_interval_days:60,cert_expiry:'',cert_ref:'',status:'operational',fuel_capacity:0,fuel_level:0,fuel_burn_rate:0,notes:'',ts:'2026-06-01 09:00:00'},
-    {id:'SA-004',owner_email:'owner@krtaker.com',prop:'P-003',asset_type:'transformer',location:'Substation — ground floor',model:'ABB 500kVA',serial_no:'SN-T1',install_date:'2022-11-05',next_service:'2026-08-11',service_interval_days:180,cert_expiry:'2026-11-01',cert_ref:'DESCO-TR-2026',status:'faulty',fuel_capacity:0,fuel_level:0,fuel_burn_rate:0,notes:'Oil leak — technician scheduled',ts:'2026-06-01 09:00:00'}
-  ],
-  sys_services:[
-    {id:'SS-001',owner_email:'owner@krtaker.com',asset:'SA-001',service_date:'2026-04-30',service_type:'major',technician:'Mehedi Hasan',vendor:'PowerGen Services',cost:8500,hours_run:1750,notes:'Full overhaul + filter change',ts:'2026-04-30 10:00:00'},
-    {id:'SS-002',owner_email:'owner@krtaker.com',asset:'SA-002',service_date:'2026-05-15',service_type:'amc',technician:'Rafiq Ahmed',vendor:'LiftCare BD',cost:12000,hours_run:0,notes:'Monthly AMC visit',ts:'2026-05-15 11:00:00'},
-    {id:'SS-003',owner_email:'owner@krtaker.com',asset:'SA-004',service_date:'2026-07-04',service_type:'routine',technician:'Jahidul Islam',vendor:'DESCO Sub',cost:3000,hours_run:0,notes:'Oil top-up — leak reported',ts:'2026-07-04 09:30:00'}
-  ],
-  sys_fuel:[
-    {id:'SF-001',owner_email:'owner@krtaker.com',asset:'SA-001',refill_date:'2026-07-09',liters:180,rate_per_litre:112,amount:20160,vendor:'Meghna Petroleum',hours_run:1800,notes:'',ts:'2026-07-09 14:00:00'},
-    {id:'SF-002',owner_email:'owner@krtaker.com',asset:'SA-001',refill_date:'2026-07-31',liters:210,rate_per_litre:114,amount:23940,vendor:'Padma Oil',hours_run:1840,notes:'',ts:'2026-07-31 16:00:00'}
-  ]
-,
-
-  building_staff:[
-    {id:'BS-001',owner_email:'owner@krtaker.com',name:'Abdul Karim',role:'guard',phone:'01711000001',join_date:'2025-06-29',monthly_salary:12000,shift:'day',prop:'P-001',status:'active',notes:'Main gate — day shift',ts:'2026-06-01 09:00:00'},
-    {id:'BS-002',owner_email:'owner@krtaker.com',name:'Rashida Begum',role:'cleaner',phone:'01711000002',join_date:'2025-10-08',monthly_salary:8000,shift:'day',prop:'P-002',status:'active',notes:'Common areas + stairwells',ts:'2026-06-01 09:00:00'},
-    {id:'BS-003',owner_email:'owner@krtaker.com',name:'Mizanur Rahman',role:'caretaker',phone:'01711000003',join_date:'2024-05-26',monthly_salary:18000,shift:'rotating',prop:'P-002',status:'active',notes:'Building caretaker — all floors',ts:'2026-06-01 09:00:00'},
-    {id:'BS-004',owner_email:'owner@krtaker.com',name:'Shafiqul Islam',role:'driver',phone:'01711000004',join_date:'2026-01-15',monthly_salary:15000,shift:'night',prop:'P-003',status:'on_leave',notes:'Owner car — night duty',ts:'2026-06-01 09:00:00'}
-  ],
-  staff_attendance:[
-    {id:'AT-001',owner_email:'owner@krtaker.com',staff:'BS-001',work_date:'2026-07-29',check_in:'07:55',check_out:'20:05',status:'present',notes:'',ts:'2026-07-29 07:55:00'},
-    {id:'AT-002',owner_email:'owner@krtaker.com',staff:'BS-001',work_date:'2026-07-30',check_in:'07:58',check_out:'20:02',status:'present',notes:'',ts:'2026-07-30 07:58:00'},
-    {id:'AT-003',owner_email:'owner@krtaker.com',staff:'BS-001',work_date:'2026-07-31',check_in:'',check_out:'',status:'absent',notes:'No show — no notice',ts:'2026-07-31 08:30:00'},
-    {id:'AT-004',owner_email:'owner@krtaker.com',staff:'BS-001',work_date:'2026-08-01',check_in:'',check_out:'',status:'absent',notes:'No show',ts:'2026-08-01 08:30:00'},
-    {id:'AT-005',owner_email:'owner@krtaker.com',staff:'BS-001',work_date:'2026-08-02',check_in:'',check_out:'',status:'absent',notes:'No show',ts:'2026-08-02 08:30:00'},
-    {id:'AT-006',owner_email:'owner@krtaker.com',staff:'BS-002',work_date:'2026-08-03',check_in:'08:10',check_out:'',status:'present',notes:'On duty',ts:'2026-08-03 08:10:00'},
-    {id:'AT-007',owner_email:'owner@krtaker.com',staff:'BS-003',work_date:'2026-08-03',check_in:'09:40',check_out:'',status:'late',notes:'Came 40 min late',ts:'2026-08-03 09:40:00'},
-    {id:'AT-008',owner_email:'owner@krtaker.com',staff:'BS-004',work_date:'2026-08-02',check_in:'',check_out:'',status:'leave',notes:'Approved leave',ts:'2026-08-02 09:00:00'}
-  ],
-  staff_payroll:[
-    {id:'PY-001',owner_email:'owner@krtaker.com',staff:'BS-001',month:'2026-07',salary:12000,overtime:0,bonus:0,advance_deduction:0,absent_days:0,daily_rate:400,net:12000,status:'Draft',paid_at:'',ts:'2026-07-25 10:00:00'},
-    {id:'PY-002',owner_email:'owner@krtaker.com',staff:'BS-002',month:'2026-07',salary:8000,overtime:0,bonus:500,advance_deduction:0,absent_days:0,daily_rate:267,net:8500,status:'Paid',paid_at:'2026-07-28',ts:'2026-07-25 10:00:00'},
-    {id:'PY-003',owner_email:'owner@krtaker.com',staff:'BS-003',month:'2026-07',salary:18000,overtime:0,bonus:0,advance_deduction:2000,absent_days:0,daily_rate:600,net:16000,status:'Draft',paid_at:'',ts:'2026-07-25 10:00:00'}
-  ]
-,
-
-  emergency_contacts:[
-    {id:'EC-001',owner_email:'owner@krtaker.com',prop:'',contact_type:'fire',name:'Fire Service & Civil Defence',phone:'999',notes:'National fire emergency',ts:'2026-06-01 09:00:00'},
-    {id:'EC-002',owner_email:'owner@krtaker.com',prop:'',contact_type:'police',name:'Police Emergency',phone:'999',notes:'National police emergency',ts:'2026-06-01 09:00:00'},
-    {id:'EC-003',owner_email:'owner@krtaker.com',prop:'',contact_type:'ambulance',name:'Ambulance — National Helpline',phone:'199',notes:'National ambulance service',ts:'2026-06-01 09:00:00'},
-    {id:'EC-004',owner_email:'owner@krtaker.com',prop:'P-001',contact_type:'building_manager',name:'Arif Chowdhury',phone:'01712345678',notes:'Building manager — on site 8am-8pm',ts:'2026-06-01 09:00:00'},
-    {id:'EC-005',owner_email:'owner@krtaker.com',prop:'P-001',contact_type:'electric',name:'DESCO Emergency',phone:'16106',notes:'Electricity — line fault',ts:'2026-06-01 09:00:00'}
-  ]
-};
-
-/* ═══ Roles & modules ═══ */
-const ALL = ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','utilities','maintenance','vendors','onboarding','leads','compliance','legal','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','samity','ai','analytics','notices','documents','referrals','recon','templates'];
-const ROLES = [
-  {id:'owner',name:'Rofiqul Islam',ava:'RI',role:'Property Owner',tag:'My Portfolio',ico:'🏠',desc:'Portfolio-wide view across every building',mods:[...ALL,'subscriptions','caretaker']},
-  {id:'manager',name:'Shakil Ahmed',ava:'SA',role:'Property Manager',tag:'Assigned',ico:'🗝️',desc:'Day-to-day ops on assigned properties',mods:[...ALL,'caretaker']},
-  {id:'tenant',name:'Sultana Rahman',ava:'SR',role:'Tenant',tag:'Tenant Portal',ico:'🔑',desc:'Invoices, receipts, repairs — your side',mods:['dashboard','invoices','receipts','payments','utilities','maintenance','legal','trust','ai','notices','documents','analytics']},
-  {id:'partner',name:'Rahim Steel Works',ava:'RS',role:'Service Partner',tag:'Partner Works',ico:'🛠️',desc:'Jobs, QC feedback, payouts',mods:['dashboard','maintenance','vendors','invoices','payments','ai','notices','documents','referrals']},
-  {id:'svc_mgr',name:'Arif Chowdhury',ava:'AC',role:'Service Manager',tag:'QC',ico:'✅',desc:'Quality control & SLA across partners',mods:['dashboard','maintenance','vendors','compliance','legal','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','samity','ai','analytics','notices','documents']},
-  {id:'legal',name:'Barrister Naima',ava:'BN',role:'Legal Counsel',tag:'Legal',ico:'⚖️',desc:'Registrations, PRCA cases, compliance docket',mods:['dashboard','compliance','leases','legal','trust','nrb','concierge','ai','notices','documents','templates']},
-  {id:'crm',name:'Mithila Rahman',ava:'MR',role:'CRM & Help Desk',tag:'Support',ico:'🎧',desc:'Tickets, CSAT, tenant onboarding, leads',mods:['dashboard','maintenance','leads','onboarding','concierge','smarthome','health','ai','notices','documents','referrals']},
-  {id:'accountant',name:'Sohel Rana',ava:'SR',role:'Accountant',tag:'Finance',ico:'💰',desc:'Cash flow, TDS, invoices, aging',mods:['dashboard','invoices','receipts','payments','taxes','statements','remit','utilities','vendors','legal','nrb','concierge','health','ai','analytics','notices','documents','recon','templates']},
-  {id:'hr',name:'Nusrat Jahan',ava:'NJ',role:'HR & Admin',tag:'HR',ico:'👥',desc:'Staff, onboarding, org admin',mods:['dashboard','staffwatch','ai','notices','documents']}
-];
-const GROUPS = [
-  {id:'overview',label:'Overview',items:[['dashboard','📊','Overview'],['analytics','📈','Analytics'],['ai','🤖','AI Caretaker (KR)']]},
-  {id:'portfolio',label:'Portfolio',items:[['properties','🏢','Properties'],['units','🚪','Units'],['tenants','👤','Tenants'],['leases','📄','Leases'],['renewals','🔄','Renewals'],['onboarding','📋','Onboarding'],['leads','📥','Leads'],['documents','📁','Documents'],['templates','🗂️','Templates']]},
-  {id:'finance',label:'Finance',items:[['invoices','🧾','Invoices'],['receipts','📎','Receipts'],['payments','💳','Payments'],['taxes','🏛️','Taxes'],['statements','💰','Statements'],['remit','🌍','Remittances'],['nrb','🌐','NRB Hub'],['recon','🔄','Reconciliation'],['subscriptions','💠','Subscriptions']]},
-  {id:'community',label:'Community',items:[['samity','🏘️','Kalyan Samity'],['notices','📢','Notice Board'],['referrals','🤝','Referrals'],['trust','🪪','Trust Engine']]},
-  {id:'ops',label:'Operations',items:[['maintenance','🔧','Maintenance'],['vendors','🧰','Vendors'],['utilities','🔌','Utilities'],['compliance','⚖️','Compliance'],['legal','📜','Legal Engine'],['concierge','🗂️','Legal Concierge']]},
-  {id:'secure',label:'Safety & Security',items:[['smarthome','🔐','Smart Home'],['land','🛰️','Land Guard'],['build','🏗️','Build Watch'],['gate','🚪','Gate Watch'],['firesafety','🧯','Fire Safety'],['systems','⚙️','Systems Watch'],['staffwatch','👷','Staff Watch'],['health','🌦️','Health Check']]},
-  {id:'admin',label:'Admin',items:[['caretaker','👑','Caretaker']]}
-];
-const MOD_ICON = {'dashboard':'📊','properties':'🏢','units':'🚪','tenants':'👤','leases':'📄','renewals':'🔄','invoices':'🧾','receipts':'📎','payments':'💳','taxes':'🏛️','statements':'💰','remit':'🌍','utilities':'🔌','maintenance':'🔧','vendors':'🧰','onboarding':'📋','leads':'📥','compliance':'⚖️','legal':'📜','trust':'🪪','land':'🛰️','nrb':'🌐','concierge':'🗂️','smarthome':'🔐','health':'🌦️','build':'🏗️','gate':'🚪','firesafety':'🧯','systems':'⚙️','staffwatch':'👷','samity':'🏘️','subscriptions':'💠','ai':'🤖','analytics':'📈','notices':'📢','documents':'📁','templates':'🗂️','referrals':'🤝','recon':'🔄','caretaker':'👑','packages':'📦','parking':'🅿️','bookings':'📅','voting':'🗳️','forums':'💬','events':'🎉','insurance':'🛡️'};
-const MOD_TITLE = {'dashboard':'Overview','properties':'Properties','units':'Units','tenants':'Tenants','leases':'Leases','renewals':'Renewals','invoices':'Invoices','receipts':'Receipts','payments':'Payments','taxes':'Taxes','statements':'Statements','remit':'Remittances','utilities':'Utilities','maintenance':'Maintenance','vendors':'Vendors','onboarding':'Onboarding','leads':'Leads','compliance':'Compliance','legal':'Legal Engine','trust':'Trust Engine','land':'Land Guard','nrb':'NRB Hub','concierge':'Legal Concierge','smarthome':'Smart Home','health':'Health Check','build':'Build Watch','gate':'Gate Watch','firesafety':'Fire Safety','systems':'Systems Watch','staffwatch':'Staff Watch','samity':'Kalyan Samity','subscriptions':'Subscriptions','ai':'AI Caretaker','analytics':'Analytics','notices':'Notice Board','documents':'Documents','templates':'Templates','referrals':'Referrals','recon':'Reconciliation','caretaker':'Caretaker','packages':'Packages','parking':'Parking','bookings':'Bookings','voting':'Voting','forums':'Forums','events':'Events','insurance':'Insurance'};
-const BN = {
-  'Overview':'ওভারভিউ','Properties':'সম্পত্তি','Units':'ইউনিট','Tenants':'ভাড়াটিয়া','Leases':'লিজ','Renewals':'রিনিউয়াল','Invoices':'ইনভয়েস','Receipts':'রসিদ','Payments':'পেমেন্ট','Taxes':'কর','Statements':'স্টেটমেন্ট','Remittances':'রেমিট্যান্স','Utilities':'ইউটিলিটি','Maintenance':'রক্ষণাবেক্ষণ','Vendors':'ভেন্ডর','Onboarding':'অনবোর্ডিং','Leads':'লিড','Compliance':'কমপ্লায়েন্স','Legal Engine':'লিগ্যাল ইঞ্জিন','Trust Engine':'ট্রাস্ট ইঞ্জিন','Land Guard':'ভূমি গার্ড','NRB Hub':'এনআরবি হাব','Legal Concierge':'লিগ্যাল কনসিয়ার্জ','Smart Home':'স্মার্ট হোম','Health Check':'হেলথ চেক','Build Watch':'নির্মাণ মনিটরিং','Gate Watch':'গেট ওয়াচ','Fire Safety':'ফায়ার সেফটি','Subscriptions':'সাবস্ক্রিপশন','AI Caretaker':'এআই কেয়ারটেকার','Analytics':'অ্যানালিটিক্স','Notice Board':'নোটিশ বোর্ড','Documents':'ডকুমেন্ট','Templates':'টেমপ্লেট','Referrals':'রেফারেল','Reconciliation':'রিকনসিলিয়েশন','Caretaker':'কেয়ারটেকার',
-  'Dashboard':'ড্যাশবোর্ড','Switch role':'রোল পরিবর্তন','Overview':'ওভারভিউ','Portfolio':'পোর্টফোলিও','Finance':'ফাইন্যান্স','Community':'কমিউনিটি','Operations':'অপারেশনস','Safety & Security':'নিরাপত্তা','Admin':'অ্যাডমিন','Packages':'প্যাকেজ','Workspace':'ওয়ার্কস্পেস','Assist':'সহায়তা','Premium':'প্রিমিয়াম',
-  'Add property':'সম্পত্তি যোগ করুন','Generate invoice':'ইনভয়েস তৈরি করুন','Pay rent':'ভাড়া পরিশোধ করুন','New ticket':'নতুন টিকিট','View all':'সব দেখুন','Search':'অনুসন্ধান'
-};
-
-/* ═══ State ═══ */
-let state = {role:'owner', view:'dashboard', gateTab:'live', firesafetyTab:'assets', theme:localStorage.getItem('krtaker_dash_theme')||'light', lang:localStorage.getItem('krtaker_dash_lang')||'en'};
 let DB = JSON.parse(JSON.stringify(SEED));
 
 /* ═══ Phase 2: API layer (backend + RBAC + subscriptions) ═══ */
@@ -1506,14 +996,13 @@ async function initApp() {
       <div class="c-sub" style="margin-bottom:22px">${esc(err)} — ${t('tap Retry and we’ll try again.','রিট্রাই চাপুন, আবার চেষ্টা করব।')}</div>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button class="btn-primary" onclick="location.reload()">🔄 ${t('Retry','রিট্রাই')}</button>
-        <button class="btn-outline" onclick="enterDemo()">${t('Continue in demo','ডেমোতে চালিয়ে যান')}</button>
       </div>
     </div>`;
 }
 function applyLive(d, silent) {
   LIVE.user = d.user; LIVE.catalog = d.catalog || []; LIVE.subscription = d.subscription || null;
   const collections = d.collections || {};
-  LIVE.db = JSON.parse(JSON.stringify(SEED));
+  LIVE.db = {};
   Object.keys(collections).forEach(k => {
     if (k === '_platform') return;
     if (Array.isArray(collections[k])) LIVE.db[k] = collections[k];
@@ -1522,9 +1011,8 @@ function applyLive(d, silent) {
   DB = LIVE.db;
   state.role = (LIVE.user.role && ROLES.some(r => r.id === LIVE.user.role)) ? LIVE.user.role : 'owner';
   if (!can(state.view)) state.view = 'dashboard';
-  DEMO_MODE = false;
   $('logoutBtn').style.display = 'block';
-  hideAuth(); showDemoBanner(false);
+  hideAuth();
   showImpBanner();
   renderNav(); render(); updateCrumb();
   if (!silent) toast('Signed in as ' + LIVE.user.name + ' — ' + LIVE.user.role);
@@ -1540,7 +1028,7 @@ async function doLogin() {
   if (!email || !pass) { err.textContent = 'Enter your email and password.'; err.classList.add('show'); return; }
   const btn = $('authBtn'); btn.disabled = true; btn.textContent = 'Signing in…';
   try {
-    const bg = window.krBG ? await window.krBG.prove() : {};
+    const bg = window.krBG ? await window.krBG.attach('login') : {};
     const payload = Object.assign({ email, password: pass }, bg); if (code) payload['2fa_code'] = code;
     const d = await apiCall('app-login', payload);
     if (d.ok && d.token) {
@@ -1549,7 +1037,7 @@ async function doLogin() {
       try { localStorage.setItem('krtaker_dash_token', TOKEN); } catch (x) {}
       const b = await apiCall('app-bootstrap');
       if (b.ok) applyLive(b);
-      else { LIVE.user = d.user; enterDemo(); }
+      else { err.textContent = (b && b.error) ? b.error : 'Could not load workspace — please try again.'; err.classList.add('show'); }
     } else if (d.need_2fa) {
       const wrap = $('auth2faWrap'); if (wrap) wrap.style.display = 'block';
       const f = $('auth2fa'); if (f) f.focus();
@@ -1563,20 +1051,8 @@ async function doLogin() {
   btn.disabled = false; btn.textContent = 'Log in';
 }
 function enterDemo() {
-  DEMO_MODE = true;
-  DB = JSON.parse(JSON.stringify(SEED));
-  state.role = 'owner';
-  state.view = 'dashboard';
-  $('logoutBtn').style.display = LIVE.user ? 'block' : 'none';
-  hideAuth(); showDemoBanner(false);
-  renderNav(); render(); updateCrumb();
-  toast('Demo mode — sample data');
-}
-function backToLive() {
-  if (LIVE.db) { DB = LIVE.db; state.role = LIVE.user.role; }
-  showDemoBanner(false);
-  renderNav(); render(); updateCrumb();
-  toast('Back to your workspace');
+  /* V3.88: demo mode removed — real accounts only. Keep as a no-op for safety. */
+  toast('Demo mode has been removed — sign in with your account.');
 }
 async function doLogout() {
   try { await apiCall('app-logout', {}); } catch (e) {}
@@ -1827,10 +1303,8 @@ function closeRoles(){$('roleOverlay').classList.remove('open')}
 function setRole(id){
   state.role=id;
   const r=ROLES.find(x=>x.id===id);
-  if (LIVE.user && id !== LIVE.user.role) { DB = JSON.parse(JSON.stringify(SEED)); DEMO_MODE = true; }
-  else if (LIVE.db) { DB = LIVE.db; DEMO_MODE = false; }
-  showDemoBanner(DEMO_MODE && LIVE.user);
-  toast('Switched to '+r.role + (DEMO_MODE && LIVE.user ? ' (demo preview)' : ''));
+  if (LIVE.db) DB = LIVE.db;
+  toast('Switched to '+r.role);
   if(!can(state.view))state.view='dashboard';
   closeRoles();renderNav();render();updateCrumb();
 }
