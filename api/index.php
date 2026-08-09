@@ -1767,11 +1767,21 @@ function gateway_verify($code, $gw_ref) {
     /* Returns true when the gateway confirms the payment succeeded. */
     $g = GATEWAYS()[$code];
     if ($code === 'sslcommerz') {
-        $r = gw_http_post('https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php', [
+        /* Live validator when gw_config flips sandbox=false; sandbox otherwise. */
+        $val = !empty($g['sandbox'])
+            ? 'https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php'
+            : 'https://validator.sslcommerz.com/validationserverAPI.php';
+        $r = gw_http_post($val, [
             'val_id' => $gw_ref, 'store_id' => $g['store_id'], 'store_passwd' => $g['store_pass'], 'format' => 'json',
         ]);
         $j = json_decode($r['body'] ?? '', true);
-        return ($j['status'] ?? '') === 'VALID' && ($j['currency'] ?? '') === 'BDT';
+        /* v4 IPN hardening: status VALID + currency BDT + amount > 0. The exact
+           amount-vs-session check happens in gateway_confirm_session where the
+           expected amount is known (the validator echoes amount — the handler
+           compares it to the local session's amount). */
+        return ($j['status'] ?? '') === 'VALID'
+            && ($j['currency'] ?? '') === 'BDT'
+            && (int)($j['amount'] ?? 0) > 0;
     }
     if ($code === 'bkash') {
         $r = gw_http_post($g['checkout'] . '/execute', ['paymentID' => $gw_ref]);
@@ -1784,6 +1794,67 @@ function gateway_verify($code, $gw_ref) {
         return ($j['status'] ?? '') === 'Success';
     }
     return false;
+}
+
+/* ── Gateway session confirmation (idempotent, IPN + redirect share this) ──
+   Atomic status flip: only a tx in pending/redirecting may become 'paid'. If the
+   flip affects 0 rows the session was already confirmed → no double payment. */
+function gateway_confirm_session($pdo, $sid, $gref, $actor) {
+    $st = $pdo->prepare('SELECT * FROM gateway_tx WHERE id=?'); $st->execute([$sid]);
+    $tx = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$tx) return ['ok' => false, 'error' => 'Checkout session not found.', 'code' => 404];
+    if ($tx['status'] === 'paid') {
+        /* idempotent replay: return the already-recorded payment info */
+        $pay = $pdo->prepare("SELECT * FROM payments WHERE inv=? AND ref=? ORDER BY id DESC LIMIT 1");
+        $pay->execute([$tx['invoice_id'], $tx['ref']]);
+        $p = $pay->fetch(PDO::FETCH_ASSOC);
+        return ['ok' => true, 'idempotent' => true, 'payment' => $p['id'] ?? '', 'receipt' => ''];
+    }
+    if ($tx['status'] !== 'pending' && $tx['status'] !== 'redirecting') {
+        return ['ok' => false, 'error' => 'Session already ' . $tx['status'] . '.', 'code' => 400];
+    }
+    /* verify with the gateway BEFORE recording (only when a real ref exists) */
+    if (!empty($tx['gw_ref'])) {
+        $code = strtolower(array_search($tx['method'], array_map(fn($g) => $g['name'], GATEWAYS()), true) ?: '');
+        $ok = false;
+        if ($gref) $ok = gateway_verify($code, $gref);
+        if (!$ok) {
+            audit($actor, 'Gateway verification failed', 'payments', $sid, $code . ' ' . $gref);
+            return ['ok' => false, 'error' => 'Gateway could not verify this payment (' . $code . '). If you paid, contact support with session ' . $sid . '.', 'code' => 402];
+        }
+        /* amount check: validator echoes the gateway-recorded amount — it must
+           match our session amount (prevents underpayment/overpayment replay) */
+        $g = GATEWAYS()[$code];
+        if ($code === 'sslcommerz') {
+            $val = !empty($g['sandbox'])
+                ? 'https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php'
+                : 'https://validator.sslcommerz.com/validationserverAPI.php';
+            $vr = gw_http_post($val, ['val_id' => $gref, 'store_id' => $g['store_id'], 'store_passwd' => $g['store_pass'], 'format' => 'json']);
+            $vj = json_decode($vr['body'] ?? '', true);
+            $gwAmt = (int)($vj['amount'] ?? 0);
+            if ($gwAmt > 0 && $gwAmt !== (int)$tx['amount']) {
+                audit($actor, 'Gateway amount mismatch', 'payments', $sid, 'session=' . $tx['amount'] . ' gw=' . $gwAmt);
+                return ['ok' => false, 'error' => 'Amount mismatch with gateway. Contact support with session ' . $sid . '.', 'code' => 402];
+            }
+        }
+    }
+    /* atomic flip — the idempotency barrier */
+    $up = $pdo->prepare("UPDATE gateway_tx SET status='paid', updated_at=datetime('now'), gw_ref=COALESCE(NULLIF(?,''),gw_ref) WHERE id=? AND status IN ('pending','redirecting')");
+    $up->execute([$gref, $sid]);
+    if ($up->rowCount() === 0) {
+        /* lost the race → already paid by a concurrent request */
+        $pay = $pdo->prepare("SELECT * FROM payments WHERE inv=? AND ref=? ORDER BY id DESC LIMIT 1");
+        $pay->execute([$tx['invoice_id'], $tx['ref']]);
+        $p = $pay->fetch(PDO::FETCH_ASSOC);
+        return ['ok' => true, 'idempotent' => true, 'payment' => $p['id'] ?? '', 'receipt' => ''];
+    }
+    try {
+        list($pid, $rid) = record_payment($pdo, $tx['invoice_id'], (int)$tx['amount'], $tx['method'], $tx['ref'], gmdate('Y-m-d'));
+    } catch (Exception $e) {
+        return ['ok' => false, 'error' => 'Payment failed: ' . $e->getMessage(), 'code' => 500];
+    }
+    audit($actor, 'Gateway payment confirmed', 'payments', $pid, $tx['invoice_id'] . ' ' . $tx['amount'] . ' via ' . $tx['method']);
+    return ['ok' => true, 'payment' => $pid, 'receipt' => $rid, 'gateway' => $tx['method']];
 }
 function invoice_owner_check($u, $inv) {
     /* tenant may only pay invoices on their own leases; staff may pay any */
@@ -11266,38 +11337,24 @@ case 'app-payment-confirm': {
     $st = $pdo->prepare('SELECT * FROM gateway_tx WHERE id=?'); $st->execute([$sid]);
     $tx = $st->fetch(PDO::FETCH_ASSOC);
     if (!$tx) json_out(['ok' => false, 'error' => 'Checkout session not found.'], 404);
-    if ($tx['status'] !== 'pending' && $tx['status'] !== 'redirecting') json_out(['ok' => false, 'error' => 'Session already ' . $tx['status'] . '.'], 400);
     if (!invoice_owner_check($u, $tx['invoice_id'])) json_out(['ok' => false, 'error' => 'Not your invoice.'], 403);
-    /* real gateway session → verify with the gateway before recording */
-    if (!empty($tx['gw_ref'])) {
-        $code = strtolower(array_search($tx['method'], array_map(fn($g) => $g['name'], GATEWAYS()), true) ?: '');
-        $gref = trim($body['gateway_ref'] ?? '');
-        $ok = false;
-        if ($gref) $ok = gateway_verify($code, $gref);
-        if (!$ok) {
-            audit($u['name'], 'Gateway verification failed', 'payments', $sid, $code . ' ' . $gref);
-            json_out(['ok' => false, 'error' => 'Gateway could not verify this payment (' . $code . '). If you paid, contact support with session ' . $sid . '.'], 402);
-        }
-    }
-    $pdo->prepare("UPDATE gateway_tx SET status='paid', updated_at=datetime('now') WHERE id=?")->execute([$sid]);
-    try {
-        list($pid, $rid) = record_payment($pdo, $tx['invoice_id'], (int)$tx['amount'], $tx['method'], $tx['ref'], gmdate('Y-m-d'));
-    } catch (Exception $e) {
-        json_out(['ok' => false, 'error' => 'Payment failed: ' . $e->getMessage()], 500);
-    }
-    audit($u['name'], 'Gateway payment confirmed', 'payments', $pid, $tx['invoice_id'] . ' ' . $tx['amount'] . ' via ' . $tx['method']);
+    $gref = trim($body['gateway_ref'] ?? '');
+    $res = gateway_confirm_session($pdo, $sid, $gref, $u['name']);
+    if (empty($res['ok'])) json_out(['ok' => false, 'error' => $res['error'] ?? 'Failed.'], $res['code'] ?? 400);
     /* SA1 v19: push the property owner that rent was received (payer is the tenant) */
-    try {
-        $st = $pdo->prepare('SELECT COALESCE(u.sub_email, p.sub_email, \'\') FROM invoices i
-            LEFT JOIN leases l ON l.id=i.l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p
-            WHERE i.id=?');
-        $st->execute([$tx['invoice_id']]); $own = (string)$st->fetchColumn();
-        if ($own !== '' && strcasecmp($own, $u['email']) !== 0)
-            push_to_user($pdo, $own, '💰 Payment received — ৳' . number_format((int)$tx['amount']),
-                $u['name'] . ' paid ৳' . number_format((int)$tx['amount']) . ' for ' . $tx['invoice_id'] . ' via ' . $tx['method'],
-                '/dashboard-v2.html#invoices');
-    } catch (Exception $e) {}
-    json_out(['ok' => true, 'payment' => $pid, 'receipt' => $rid, 'gateway' => $tx['method']]);
+    if (empty($res['idempotent'])) {
+        try {
+            $st = $pdo->prepare('SELECT COALESCE(u.sub_email, p.sub_email, \'\') FROM invoices i
+                LEFT JOIN leases l ON l.id=i.l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p
+                WHERE i.id=?');
+            $st->execute([$tx['invoice_id']]); $own = (string)$st->fetchColumn();
+            if ($own !== '' && strcasecmp($own, $u['email']) !== 0)
+                push_to_user($pdo, $own, '💰 Payment received — ৳' . number_format((int)$tx['amount']),
+                    $u['name'] . ' paid ৳' . number_format((int)$tx['amount']) . ' for ' . $tx['invoice_id'] . ' via ' . $tx['method'],
+                    '/dashboard-v2.html#invoices');
+        } catch (Exception $e) {}
+    }
+    json_out($res);
 }
 
 case 'app-payment-cancel': {
@@ -11309,6 +11366,86 @@ case 'app-payment-cancel': {
     $pdo->prepare("UPDATE gateway_tx SET status='failed', updated_at=datetime('now') WHERE id=? AND status='pending'")->execute([$sid]);
     audit($u['name'], 'Gateway checkout cancelled', 'payments', $sid);
     json_out(['ok' => true]);
+}
+
+/* ── Gateway IPN (server-to-server callback, 2026-08-09) ──
+   SSLCommerz/bKash/Nagad POST here (no session auth — the gateway is the caller).
+   Security: we NEVER trust the IPN payload alone; we look up the local session by
+   tran_id and re-verify with the gateway (gateway_verify) + amount match, then
+   confirm idempotently. Respond quickly: gateways time out and retry. */
+case 'app-payment-ipn': {
+    $pdo = db();
+    /* IPN payloads arrive as form-encoded (SSLCommerz) — accept both */
+    $raw = file_get_contents('php://input');
+    $ipn = [];
+    parse_str($raw, $ipn);
+    $tran_id = trim($ipn['tran_id'] ?? ($body['tran_id'] ?? ''));
+    $val_id  = trim($ipn['val_id'] ?? ($body['val_id'] ?? ''));
+    $status  = strtoupper(trim($ipn['status'] ?? ($body['status'] ?? '')));
+    if (!$tran_id) { http_response_code(400); echo json_encode(['ok' => false, 'error' => 'tran_id required.']); exit; }
+    $st = $pdo->prepare('SELECT * FROM gateway_tx WHERE id=?'); $st->execute([$tran_id]);
+    $tx = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$tx) { http_response_code(404); echo json_encode(['ok' => false, 'error' => 'Session not found.']); exit; }
+    if (in_array($tx['status'], ['paid', 'failed'], true)) {
+        /* already handled — idempotent ack (gateways retry on non-2xx) */
+        echo json_encode(['ok' => true, 'idempotent' => true, 'status' => $tx['status']]); exit;
+    }
+    /* FAILED/CANCELLED — only mark failed, don't record */
+    if ($status === 'FAILED' || $status === 'CANCELLED') {
+        $pdo->prepare("UPDATE gateway_tx SET status='failed', updated_at=datetime('now') WHERE id=? AND status NOT IN ('paid','failed')")->execute([$tran_id]);
+        audit('gateway', 'IPN failed/cancelled', 'payments', $tran_id, $status);
+        echo json_encode(['ok' => true, 'status' => 'failed']); exit;
+    }
+    /* SUCCESS/other — verify with the gateway (never trust the callback alone) */
+    $code = strtolower(array_search($tx['method'], array_map(fn($g) => $g['name'], GATEWAYS()), true) ?: '');
+    $gref = $val_id ?: $tx['gw_ref'];
+    $res = gateway_confirm_session($pdo, $tran_id, $gref, 'gateway-ipn');
+    if (!empty($res['ok']) && empty($res['idempotent'])) {
+        audit('gateway', 'IPN confirmed', 'payments', $tran_id, $res['payment'] . ' ' . $tx['amount'] . ' via ' . $tx['method']);
+    }
+    echo json_encode($res); exit;
+}
+
+/* ── Gateway reconciliation (service-key gated, daily cron) ──
+   Finds sessions stuck in pending/redirecting and checks the gateway's truth.
+   Catches: user paid but browser closed (no redirect → no confirm), or gateway
+   failed but we never heard back. dry_run=1 lists; send=1 auto-confirms VALID. */
+case 'app-payment-reconcile': {
+    $svc = service_authed();
+    if (!$svc) { $u = require_user(); require_module($u, 'recon'); }
+    else { $u = ['name' => 'system', 'role' => 'service', 'email' => '']; }
+    $pdo = db();
+    $dry = empty($body['send']);
+    $maxAgeH = max(1, min(72, (int)($body['max_age_hours'] ?? 24)));
+    $rows = $pdo->query("SELECT * FROM gateway_tx WHERE status IN ('pending','redirecting')
+        AND updated_at < datetime('now','-" . $maxAgeH . " hours') ORDER BY updated_at")->fetchAll(PDO::FETCH_ASSOC);
+    $stuck = count($rows);
+    $verified = 0; $confirmed = 0; $stillPending = 0; $errored = 0;
+    $detail = [];
+    foreach ($rows as $tx) {
+        $code = strtolower(array_search($tx['method'], array_map(fn($g) => $g['name'], GATEWAYS()), true) ?: '');
+        $gref = $tx['gw_ref'];
+        if (!$gref || !$code) { $stillPending++; $detail[] = ['sid' => $tx['id'], 'state' => 'no_ref']; continue; }
+        $ok = gateway_verify($code, $gref);
+        if ($ok) {
+            $verified++;
+            if (!$dry) {
+                $res = gateway_confirm_session($pdo, $tx['id'], $gref, 'reconcile');
+                if (!empty($res['ok'])) { $confirmed++; $detail[] = ['sid' => $tx['id'], 'state' => 'confirmed']; }
+                else { $errored++; $detail[] = ['sid' => $tx['id'], 'state' => 'confirm_failed', 'err' => $res['error'] ?? '']; }
+            } else {
+                $detail[] = ['sid' => $tx['id'], 'state' => 'would_confirm'];
+            }
+        } else {
+            $stillPending++;
+            $detail[] = ['sid' => $tx['id'], 'state' => 'gateway_not_valid'];
+        }
+    }
+    if ($confirmed > 0 || $verified > 0)
+        audit($u['name'], 'Gateway reconciliation', 'payments', 'bulk',
+            'stuck=' . $stuck . ' verified=' . $verified . ' confirmed=' . $confirmed . ' pending=' . $stillPending);
+    json_out(['ok' => true, 'dry_run' => $dry, 'stuck' => $stuck, 'verified' => $verified,
+        'confirmed' => $confirmed, 'still_pending' => $stillPending, 'errored' => $errored, 'detail' => $detail]);
 }
 
 /* ── Phase 12: document + email templates ── */
