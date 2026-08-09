@@ -10208,6 +10208,15 @@ case 'app-2fa-status': {
     json_out(['ok' => true, 'enabled' => !empty($u['totp_enabled']) && !empty($u['totp_secret'])]);
 }
 
+/* Git-triggered deploy verification (service-key gated, 2026-08-09):
+   CI builds api/index.php from src/, then POSTs here and compares sha256 —
+   closes the loop on "deployed file == built file". Also used by local deploys. */
+case 'app-deploy-status': {
+    if (!service_authed()) json_out(['ok' => false, 'error' => 'Service key required.'], 403);
+    $f = __FILE__;
+    json_out(['ok' => true, 'file' => basename($f), 'size' => filesize($f), 'sha256' => hash_file('sha256', $f), 'php' => PHP_VERSION]);
+}
+
 case 'app-2fa-setup': {
     $u = require_user();
     if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
