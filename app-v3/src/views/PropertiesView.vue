@@ -282,7 +282,7 @@ async function toggleFeatured(p) {
     <div v-if="filtered.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
       <div v-for="p in filtered" :key="p.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(p)">
         <!-- cover -->
-        <div class="p-cover" style="height:110px;position:relative;background:var(--grad)">
+        <div style="height:110px;position:relative;background:var(--grad)">
           <img v-if="photoUrl(p)" :src="photoUrl(p)" alt="" loading="lazy"
                style="width:100%;height:100%;object-fit:cover" @error="$event.target.style.display='none'">
           <div v-if="!photoUrl(p)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:40px">{{ TYPE_EMOJI[p.type] || '🏢' }}</div>
@@ -338,7 +338,7 @@ async function toggleFeatured(p) {
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:60" @click="closeDetail"></div>
       <div style="position:fixed;top:0;right:0;bottom:0;width:min(640px,94vw);background:var(--card);z-index:61;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
         <!-- header -->
-        <div style="height:130px;background:var(--grad);position:relative;flex-shrink:0">
+        <div class="d-cover" style="height:130px;background:var(--grad);position:relative;flex-shrink:0">
           <img v-if="photoUrl(sel)" :src="photoUrl(sel)" alt="" style="width:100%;height:100%;object-fit:cover" @error="$event.target.style.display='none'">
           <div v-if="!photoUrl(sel)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px">{{ TYPE_EMOJI[sel.type] || '🏢' }}</div>
           <button @click="closeDetail" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
@@ -523,9 +523,10 @@ async function toggleFeatured(p) {
 </template>
 
 <style scoped>
-/* Property card COVER badges: white background (keep colored text from .b-* classes).
-   Bottom-row badges (leases/tenants/open/collected) keep their translucent colors. */
-.panel.chip .p-cover .badge {
+/* Property DETAILS view header badges (status / featured / published):
+   white background only — card badges and table badges keep their
+   translucent .b-* colors. */
+.d-cover .badge {
   background: #ffffff;
 }
 </style>
