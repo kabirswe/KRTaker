@@ -1,8 +1,15 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
+import { badge, useViewMode } from '../lib/ui'
+
+const router = useRouter()
+const route = useRoute()
+const viewMode = useViewMode('invoices')
+const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -25,10 +32,6 @@ const tenantOf = (inv) => { const l = leaseOf(inv); return l ? tenantName(l.t) :
 const unitOf = (inv) => { const l = leaseOf(inv); return l ? unitName(l.u) : '—' }
 const propOf = (inv) => { const l = leaseOf(inv); if (!l) return ''; return unitsAll.value.find(u => u.id === l.u)?.p || '' }
 
-function badge(st) {
-  const map = { Paid: 'b-green', Partial: 'b-blue', Unpaid: 'b-orange', Overdue: 'b-red', Success: 'b-green', Active: 'b-green', Cancelled: 'b-gray', Refunded: 'b-gray' }
-  return map[st] || 'b-gray'
-}
 function invPaid(inv) { return paymentsAll.value.filter(p => p.inv === inv.id && String(p.status).toLowerCase() === 'success').reduce((s, p) => s + (p.amount || 0), 0) }
 function invDue(inv) { return Math.max(0, (inv.net || 0) - invPaid(inv)) }
 function invStatusRow(inv) { return invDue(inv) <= 0 ? 'Paid' : (invPaid(inv) > 0 ? 'Partial' : 'Unpaid') }
@@ -88,6 +91,10 @@ function exportCsv() {
 const sel = ref(null)
 function openDetail(i) { sel.value = i }
 function closeDetail() { sel.value = null }
+// deep link: /invoices?open=INV-001
+watch(() => route.query.open, (id) => {
+  if (id) { const i = invoicesAll.value.find(x => x.id === id); if (i) openDetail(i) }
+}, { immediate: true })
 const selPays = computed(() => sel.value ? paysOfInv(sel.value) : [])
 const selRcps = computed(() => sel.value ? rcpOfInv(sel.value) : [])
 const selTenantObj = computed(() => { const l = sel.value ? leaseOf(sel.value) : null; return l ? tenantsAll.value.find(t => t.id === l.t) : null })
@@ -160,6 +167,10 @@ async function printInv(i) {
           <option value="net">Sort: Net</option>
           <option value="due">Sort: Due</option>
         </select>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </div>
     </div>
@@ -172,7 +183,7 @@ async function printInv(i) {
       </div>
     </div>
 
-    <div v-if="filtered.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
+    <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
       <div v-for="i in filtered" :key="i.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(i)">
         <div style="height:84px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">🧾</div>
@@ -201,7 +212,31 @@ async function printInv(i) {
         </div>
       </div>
     </div>
-    <div v-else class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No invoices found{{ query ? ' for “' + query + '”' : '' }}.</div>
+    <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="kr" style="width:100%">
+          <thead><tr><th>Invoice</th><th>Month</th><th>Tenant</th><th>Lease / Unit</th><th>Gross</th><th>TDS</th><th>Net</th><th>Paid</th><th>Due</th><th>Status</th><th v-if="canManage && filtered.some(i => invDue(i) > 0)">Action</th></tr></thead>
+          <tbody>
+            <tr v-for="i in filtered" :key="i.id" style="cursor:pointer" @click="openDetail(i)">
+              <td style="white-space:nowrap"><b>{{ i.id }}</b></td>
+              <td style="white-space:nowrap">{{ monthLabel(i.m) }}</td>
+              <td style="white-space:nowrap"><a @click.stop="go('/tenants', { open: leaseOf(i)?.t })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ tenantOf(i) }}</a></td>
+              <td style="white-space:nowrap" class="c-sub"><a @click.stop="go('/leases', { open: i.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ i.l }}</a> · {{ unitOf(i) }}</td>
+              <td style="white-space:nowrap">{{ money(i.gross) }}</td>
+              <td style="white-space:nowrap">{{ money(i.tds) }}</td>
+              <td style="font-weight:700;white-space:nowrap">{{ money(i.net) }}</td>
+              <td style="white-space:nowrap;color:var(--ok)">{{ money(invPaid(i)) }}</td>
+              <td :style="invDue(i) > 0 ? 'color:var(--danger);font-weight:800;white-space:nowrap' : 'white-space:nowrap'">{{ money(invDue(i)) }}</td>
+              <td style="white-space:nowrap"><span class="badge" :class="badge(invStatusRow(i))">{{ invStatusRow(i) }}</span></td>
+              <td v-if="canManage && filtered.some(i => invDue(i) > 0)" style="white-space:nowrap">
+                <button v-if="invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openPay(i)">💳 Pay</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No invoices found{{ query ? ' for “' + query + '”' : '' }}.</div>
 
     <!-- drawer -->
     <template v-if="sel">
@@ -217,7 +252,7 @@ async function printInv(i) {
         </div>
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
           <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ sel.id }} · {{ monthLabel(sel.m) }}</h2>
-          <div class="c-sub" style="margin-top:3px">👤 {{ tenantOf(sel) }} · 🚪 {{ unitOf(sel) }} · 🏢 {{ propName(propOf(sel)) }}</div>
+          <div class="c-sub" style="margin-top:3px">👤 <a @click.stop="go('/tenants', { open: leaseOf(sel)?.t })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ tenantOf(sel) }}</a> · 🚪 <a @click.stop="go('/units', { open: leaseOf(sel)?.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitOf(sel) }}</a> · 🏢 {{ propName(propOf(sel)) }}</div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
@@ -250,9 +285,9 @@ async function printInv(i) {
 
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">👤 Tenant</div>
-            <div style="font-weight:800;font-size:14px">{{ tenantOf(sel) }}</div>
+            <div style="font-weight:800;font-size:14px;cursor:pointer" @click="go('/tenants', { open: leaseOf(sel)?.t })">{{ tenantOf(sel) }} ↗</div>
             <div class="c-sub" style="font-size:11.5px;margin-top:3px">{{ selTenantObj?.phone || '—' }} · {{ selTenantObj?.kind || '—' }}<template v-if="selTenantObj?.nrb"> · NRB</template></div>
-            <div class="c-sub" style="font-size:11.5px;margin-top:2px">Lease {{ sel.l }} · 🚪 {{ unitOf(sel) }} · 🏢 {{ propName(propOf(sel)) }}</div>
+            <div class="c-sub" style="font-size:11.5px;margin-top:2px">Lease <a @click.stop="go('/leases', { open: sel.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ sel.l }}</a> · 🚪 <a @click.stop="go('/units', { open: leaseOf(sel)?.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitOf(sel) }}</a> · 🏢 {{ propName(propOf(sel)) }}</div>
           </div>
 
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">

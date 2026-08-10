@@ -1,8 +1,15 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
+import { badge, useViewMode } from '../lib/ui'
+
+const router = useRouter()
+const route = useRoute()
+const viewMode = useViewMode('properties')
+const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -37,10 +44,6 @@ function mapLink(p) {
   if (p.lat && p.lng) return `https://www.google.com/maps?q=${p.lat},${p.lng}`
   if (p.address) return `https://www.google.com/maps?q=${encodeURIComponent(p.address)}`
   return ''
-}
-function badge(st) {
-  const map = { Active: 'b-green', Leased: 'b-green', Paid: 'b-green', Success: 'b-green', Verified: 'b-green', Completed: 'b-green', Approved: 'b-green', Open: 'b-red', Unpaid: 'b-orange', Overdue: 'b-red', Vacant: 'b-gray', Expired: 'b-gray', Terminated: 'b-red', 'In Progress': 'b-blue', Pending: 'b-orange', 'Awaiting Payment': 'b-orange', Rejected: 'b-red' }
-  return map[st] || 'b-gray'
 }
 const TYPE_EMOJI = { Flat: '🏢', Commercial: '🏬', Plot: '🗺️', Industrial: '🏭', Warehouse: '📦', Residential: '🏠' }
 
@@ -128,6 +131,10 @@ const sel = ref(null)
 const tab = ref('units')
 function openDetail(p) { sel.value = p; tab.value = 'units' }
 function closeDetail() { sel.value = null }
+// deep link: /properties?open=P-001
+watch(() => route.query.open, (id) => {
+  if (id) { const p = propsAll.value.find(x => x.id === id); if (p) openDetail(p) }
+}, { immediate: true })
 const detailTabs = [
   { id: 'units', label: 'Units', ico: '🚪' },
   { id: 'leases', label: 'Leases', ico: '📄' },
@@ -264,6 +271,10 @@ async function toggleFeatured(p) {
           <option value="rentRoll">Sort: Rent roll</option>
           <option value="units">Sort: Units</option>
         </select>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New property</button>
       </div>
@@ -279,7 +290,7 @@ async function toggleFeatured(p) {
     </div>
 
     <!-- property cards -->
-    <div v-if="filtered.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
+    <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
       <div v-for="p in filtered" :key="p.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(p)">
         <!-- cover -->
         <div class="p-cover" style="height:110px;position:relative;background:var(--grad)">
@@ -329,7 +340,36 @@ async function toggleFeatured(p) {
         </div>
       </div>
     </div>
-    <div v-else class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
+    <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="kr" style="width:100%">
+          <thead><tr><th>Property</th><th>Type / Jur</th><th>Status</th><th>Units</th><th>Occupancy</th><th>Rent roll / mo</th><th>Collection</th><th>Open tickets</th><th v-if="canManage">Actions</th></tr></thead>
+          <tbody>
+            <tr v-for="p in filtered" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
+              <td style="white-space:nowrap"><b>{{ p.name }}</b> <span class="c-sub">{{ p.id }}</span></td>
+              <td style="white-space:nowrap" class="c-sub">{{ TYPE_EMOJI[p.type] || '' }} {{ p.type }} · {{ p.jur }}<template v-if="p.holding"> · {{ p.holding }}</template></td>
+              <td style="white-space:nowrap">
+                <span class="badge" :class="badge(p.status)">{{ p.status }}</span>
+                <span v-if="String(p.featured) === '1'" class="badge b-purple">⭐</span>
+                <span v-if="String(p.published) === '0'" class="badge b-gray">🙈</span>
+              </td>
+              <td style="white-space:nowrap">{{ leasedCount(p) }} / {{ unitsOf(p).length }}</td>
+              <td style="white-space:nowrap" :style="occupancyPct(p) >= 70 ? 'color:var(--ok);font-weight:800' : occupancyPct(p) >= 40 ? 'color:var(--warn);font-weight:800' : 'color:var(--danger);font-weight:800'">{{ occupancyPct(p) }}%</td>
+              <td style="font-weight:700;white-space:nowrap">{{ money(rentRoll(p)) }}</td>
+              <td style="white-space:nowrap">{{ collectionRate(p) !== null ? collectionRate(p) + '%' : '—' }}</td>
+              <td style="white-space:nowrap">{{ openTickets(p) ? '🔧 ' + openTickets(p) : '—' }}</td>
+              <td v-if="canManage" style="white-space:nowrap">
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="togglePublish(p)" :title="String(p.published) === '1' ? 'Unpublish' : 'Publish'">{{ String(p.published) === '1' ? '🙈' : '👁' }}</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="toggleFeatured(p)" :title="String(p.featured) === '1' ? 'Unfeature' : 'Feature'">{{ String(p.featured) === '1' ? '☆' : '⭐' }}</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openEdit(p)">✏️</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px;color:var(--danger)" @click.stop="delProperty(p)">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
       No properties found{{ query ? ' for “' + query + '”' : '' }}.
     </div>
 
@@ -378,7 +418,7 @@ async function toggleFeatured(p) {
             <thead><tr><th>Unit</th><th>Floor</th><th>sqft</th><th>Rent</th><th>Status</th><th>Tenant</th><th>Lease ends</th></tr></thead>
             <tbody>
               <tr v-for="u in selUnits" :key="u.id">
-                <td style="font-weight:700">{{ u.name }}</td>
+                <td style="font-weight:700"><a @click.stop="go('/units', { open: u.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ u.name }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
                 <td>{{ u.floor || '—' }}</td>
                 <td>{{ (u.sqft || 0).toLocaleString('en-IN') }}</td>
                 <td style="font-weight:700">{{ money(u.rent) }}</td>
@@ -395,9 +435,9 @@ async function toggleFeatured(p) {
             <thead><tr><th>Lease</th><th>Unit</th><th>Tenant</th><th>Rent</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="l in selLeases" :key="l.id">
-                <td style="font-weight:700">{{ l.id }}</td>
-                <td>{{ unitName(l.u) }}</td>
-                <td>{{ tenantName(l.t) }}</td>
+                <td style="font-weight:700"><a @click.stop="go('/leases', { open: l.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ l.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
+                <td><a @click.stop="go('/units', { open: l.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitName(l.u) }}</a></td>
+                <td><a @click.stop="go('/tenants', { open: l.t })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ tenantName(l.t) }}</a></td>
                 <td style="font-weight:700">{{ money(l.rent) }}/mo</td>
                 <td>{{ l.start || '—' }}</td>
                 <td>{{ l.end || '—' }} <span v-if="leaseDaysLeft(l) !== null && l.status === 'Active'" class="c-sub">({{ leaseDaysLeft(l) }}d)</span></td>
@@ -412,9 +452,9 @@ async function toggleFeatured(p) {
             <thead><tr><th>Invoice</th><th>Month</th><th>Lease</th><th>Gross</th><th>TDS</th><th>Net</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="i in selInvoices" :key="i.id">
-                <td style="font-weight:700">{{ i.id }}</td>
+                <td style="font-weight:700"><a @click.stop="go('/invoices', { open: i.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ i.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
                 <td>{{ i.m || '—' }}</td>
-                <td>{{ i.l }}</td>
+                <td><a @click.stop="go('/leases', { open: i.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ i.l }}</a></td>
                 <td>{{ money(i.gross) }}</td>
                 <td>{{ money(i.tds) }}</td>
                 <td style="font-weight:700">{{ money(i.net) }}</td>
@@ -429,8 +469,8 @@ async function toggleFeatured(p) {
             <thead><tr><th>Ticket</th><th>Unit</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Cost</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="t in selTickets" :key="t.id">
-                <td style="font-weight:700">{{ t.id }}</td>
-                <td>{{ unitName(t.u) }}</td>
+                <td style="font-weight:700"><a @click.stop="go('/maintenance', { open: t.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ t.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
+                <td><a @click.stop="go('/units', { open: t.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitName(t.u) }}</a></td>
                 <td>{{ t.desc }}</td>
                 <td>{{ t.reported || '—' }}</td>
                 <td>{{ t.liab || '—' }}</td>

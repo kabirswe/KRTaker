@@ -1,8 +1,15 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
+import { badge, useViewMode } from '../lib/ui'
+
+const router = useRouter()
+const route = useRoute()
+const viewMode = useViewMode('leases')
+const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -27,10 +34,6 @@ const unitProp = (uid) => unitsAll.value.find(u => u.id === uid)?.p || ''
 const tenantPhone = (tid) => tenantsAll.value.find(t => t.id === tid)?.phone || '—'
 const tenantKind = (tid) => tenantsAll.value.find(t => t.id === tid)?.kind || '—'
 
-function badge(st) {
-  const map = { Active: 'b-green', Leased: 'b-green', Paid: 'b-green', Success: 'b-green', Completed: 'b-green', Approved: 'b-green', Open: 'b-red', Unpaid: 'b-orange', Overdue: 'b-red', Vacant: 'b-gray', 'Pending Registration': 'b-orange', Pending: 'b-orange', Offered: 'b-blue', Rejected: 'b-red', Ended: 'b-gray', Expired: 'b-gray', Terminated: 'b-red', 'In Progress': 'b-blue' }
-  return map[st] || 'b-gray'
-}
 function daysLeft(l) { if (!l?.end) return null; return Math.round((new Date(l.end) - Date.now()) / 86400000) }
 function invPaid(inv) { return paymentsAll.value.filter(p => p.inv === inv.id && String(p.status).toLowerCase() === 'success').reduce((s, p) => s + (p.amount || 0), 0) }
 function invDue(inv) { return Math.max(0, (inv.net || 0) - invPaid(inv)) }
@@ -87,6 +90,10 @@ const sel = ref(null)
 const tab = ref('overview')
 function openDetail(l) { sel.value = l; tab.value = 'overview'; loadHovo(); loadStmt() }
 function closeDetail() { sel.value = null }
+// deep link: /leases?open=L-001
+watch(() => route.query.open, (id) => {
+  if (id) { const l = leasesAll.value.find(x => x.id === id); if (l) openDetail(l) }
+}, { immediate: true })
 const selInvoices = computed(() => sel.value ? invoicesAll.value.filter(i => i.l === sel.value.id).sort((a, b) => String(b.m).localeCompare(String(a.m))) : [])
 const selPaidTotal = computed(() => selInvoices.value.reduce((s, i) => s + invPaid(i), 0))
 const selNetTotal = computed(() => selInvoices.value.reduce((s, i) => s + (i.net || 0), 0))
@@ -253,6 +260,10 @@ async function delDoc(d) {
           <option value="end">Sort: End date</option>
           <option value="rent">Sort: Rent</option>
         </select>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New lease</button>
       </div>
@@ -266,7 +277,7 @@ async function delDoc(d) {
       </div>
     </div>
 
-    <div v-if="filtered.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
+    <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
       <div v-for="l in filtered" :key="l.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(l)">
         <div style="height:84px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">📄</div>
@@ -299,7 +310,32 @@ async function delDoc(d) {
         </div>
       </div>
     </div>
-    <div v-else class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No leases found{{ query ? ' for “' + query + '”' : '' }}.</div>
+    <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="kr" style="width:100%">
+          <thead><tr><th>Lease</th><th>Tenant</th><th>Unit / Property</th><th>Rent / mo</th><th>Term</th><th>Days left</th><th>Registration</th><th>Invoices</th><th>Status</th><th v-if="canManage">Actions</th></tr></thead>
+          <tbody>
+            <tr v-for="l in filtered" :key="l.id" style="cursor:pointer" @click="openDetail(l)">
+              <td style="white-space:nowrap"><b>{{ l.id }}</b></td>
+              <td style="white-space:nowrap"><a @click.stop="go('/tenants', { open: l.t })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ tenantName(l.t) }}</a></td>
+              <td style="white-space:nowrap" class="c-sub">{{ unitName(l.u) }} · {{ propName(unitProp(l.u)) }}</td>
+              <td style="font-weight:700;white-space:nowrap">{{ money(l.rent) }}</td>
+              <td style="white-space:nowrap">{{ l.start }} → {{ l.end }}</td>
+              <td style="white-space:nowrap">{{ String(l.status).toLowerCase() === 'active' && daysLeft(l) !== null ? daysLeft(l) + 'd' : '—' }}</td>
+              <td style="white-space:nowrap"><span class="badge" :class="l.res == 1 ? 'b-green' : 'b-orange'">{{ l.res == 1 ? '🪪 Reg' : '📋 Unreg' }}</span></td>
+              <td style="white-space:nowrap">{{ invoicesAll.filter(i => i.l === l.id).length }}</td>
+              <td style="white-space:nowrap"><span class="badge" :class="badge(l.status)">{{ l.status }}</span></td>
+              <td v-if="canManage" style="white-space:nowrap">
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openEdit(l)">✏️</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openOffer">🔄</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px;color:var(--danger)" @click.stop="delLease(l)">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No leases found{{ query ? ' for “' + query + '”' : '' }}.</div>
 
     <!-- drawer -->
     <template v-if="sel">
@@ -347,15 +383,15 @@ async function delDoc(d) {
           <!-- OVERVIEW -->
           <div v-if="tab === 'overview'" style="display:flex;flex-direction:column;gap:12px">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
-                <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px">👤 Tenant</div>
-                <div style="font-weight:800;font-size:14px">{{ selTenant?.name || tenantName(sel.t) }}</div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer" @click="go('/tenants', { open: sel.t })">
+                <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px">👤 Tenant ↗</div>
+                <div style="font-weight:800;font-size:14px;color:var(--primary)">{{ selTenant?.name || tenantName(sel.t) }}</div>
                 <div class="c-sub" style="font-size:11.5px;margin-top:3px">{{ selTenant?.phone || tenantPhone(sel.t) }} · {{ selTenant?.kind || tenantKind(sel.t) }}<template v-if="selTenant?.nrb"> · NRB</template></div>
                 <div class="c-sub" style="font-size:11.5px;margin-top:2px">🪪 {{ selTenant?.nid || '—' }}</div>
               </div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
-                <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px">🚪 Unit</div>
-                <div style="font-weight:800;font-size:14px">{{ selUnit?.name || unitName(sel.u) }}</div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer" @click="go('/units', { open: sel.u })">
+                <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px">🚪 Unit ↗</div>
+                <div style="font-weight:800;font-size:14px;color:var(--primary)">{{ selUnit?.name || unitName(sel.u) }}</div>
                 <div class="c-sub" style="font-size:11.5px;margin-top:3px">🏢 {{ propName(unitProp(sel.u)) }}<template v-if="selUnit?.floor"> · {{ selUnit.floor }} floor</template></div>
                 <div class="c-sub" style="font-size:11.5px;margin-top:2px">📐 {{ (selUnit?.sqft || 0).toLocaleString('en-IN') }} sqft · {{ selUnit?.status || '—' }}</div>
               </div>
@@ -409,14 +445,14 @@ async function delDoc(d) {
               <thead><tr><th>Invoice</th><th>Month</th><th>Net</th><th>Paid</th><th>Due</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="i in selInvoices" :key="i.id">
-                  <td style="font-weight:700">{{ i.id }}</td>
+                  <td style="font-weight:700"><a @click.stop="go('/invoices', { open: i.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ i.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
                   <td>{{ i.m }}</td>
                   <td>{{ money(i.net) }}</td>
                   <td style="color:var(--ok)">{{ money(invPaid(i)) }}</td>
                   <td :style="invDue(i) > 0 ? 'color:var(--danger);font-weight:800' : ''">{{ money(invDue(i)) }}</td>
                   <td><span class="badge" :class="badge(invStatusRow(i))">{{ invStatusRow(i) }}</span></td>
                   <td>
-                    <button v-if="canManage && invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="openPay(i)">💳 Pay</button>
+                    <button v-if="canManage && invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click.stop="openPay(i)">💳 Pay</button>
                   </td>
                 </tr>
                 <tr v-if="!selInvoices.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:20px">No invoices for this lease yet.</td></tr>

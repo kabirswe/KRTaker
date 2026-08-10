@@ -1,8 +1,15 @@
 <script setup>
 import { computed, ref, watch, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
+import { badge, useViewMode } from '../lib/ui'
+
+const router = useRouter()
+const route = useRoute()
+const viewMode = useViewMode('tenants')
+const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -29,11 +36,6 @@ const metersAll = computed(() => data.list('meter_readings'))
 const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
 const propName = (pid) => propsAll.value.find(p => p.id === pid)?.name || pid || '—'
 const unitName = (uid) => unitsAll.value.find(u => u.id === uid)?.name || uid || '—'
-
-function badge(st) {
-  const map = { Active: 'b-green', Leased: 'b-green', Paid: 'b-green', Success: 'b-green', Verified: 'b-green', Approved: 'b-green', Completed: 'b-green', Resolved: 'b-green', Closed: 'b-gray', Open: 'b-red', Unpaid: 'b-orange', Partial: 'b-orange', Overdue: 'b-red', Vacant: 'b-gray', 'Maintenance': 'b-orange', Expired: 'b-gray', Terminated: 'b-red', 'In Progress': 'b-blue', Assigned: 'b-blue', Offered: 'b-blue', 'Pending Registration': 'b-orange', Pending: 'b-orange', Rejected: 'b-red' }
-  return map[st] || 'b-gray'
-}
 // deterministic avatar color from id
 const AV_COLORS = ['#2F80ED', '#27AE60', '#E67E22', '#9B59B6', '#E74C3C', '#16A085', '#8E44AD', '#2980B9']
 function avatarColor(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return AV_COLORS[h % AV_COLORS.length] }
@@ -140,6 +142,11 @@ const tabCount = (id) => id === 'profile' ? '·' : id === 'leases' ? selLeases.v
 function openDetail(t) { sel.value = t; tab.value = 'profile' }
 function closeDetail() { sel.value = null }
 function reResolveSel() { if (sel.value) sel.value = tenantsAll.value.find(t => t.id === sel.value.id) || sel.value }
+// deep link: /tenants?open=T-001 opens that tenant's drawer
+watch(() => route.query.open, (id) => {
+  if (id) { const t = tenantsAll.value.find(x => x.id === id); if (t) openDetail(t) }
+}, { immediate: true })
+watch(tenantsAll, reResolveSel, { deep: true })
 
 const selLeases = computed(() => sel.value ? leasesOfTenant(sel.value) : [])
 const selUnits = computed(() => sel.value ? unitsOfTenant(sel.value) : [])
@@ -742,6 +749,10 @@ async function delTenant(t) {
         <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt)">
           <input type="checkbox" v-model="nrbOnly" style="accent-color:var(--primary)"> 🌍 NRB only
         </label>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New tenant</button>
       </div>
@@ -755,7 +766,7 @@ async function delTenant(t) {
       </div>
     </div>
 
-    <div v-if="filtered.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
+    <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
       <div v-for="t in filtered" :key="t.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(t)">
         <div class="t-cover" :style="`height:82px;position:relative;background:linear-gradient(135deg,${avatarColor(t.id)},#1E5EB8)`">
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
@@ -793,7 +804,42 @@ async function delTenant(t) {
         </div>
       </div>
     </div>
-    <div v-else class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No tenants found{{ query ? ' for “' + query + '”' : '' }}.</div>
+    <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="kr" style="width:100%">
+          <thead><tr><th>Tenant</th><th>Kind</th><th>Unit / Property</th><th>Rent / mo</th><th>Lease end</th><th>Outstanding</th><th>Collection</th><th>Tickets</th><th v-if="canManage">Actions</th></tr></thead>
+          <tbody>
+            <tr v-for="t in filtered" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
+              <td style="white-space:nowrap">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <div :style="`width:30px;height:30px;border-radius:50%;background:${avatarColor(t.id)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0`">{{ initials(t.name) }}</div>
+                  <div style="min-width:0">
+                    <div style="font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px">{{ t.name }}</div>
+                    <div class="c-sub" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px">{{ t.email || t.phone || '—' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td style="white-space:nowrap">
+                <span class="badge">{{ t.kind }}</span>
+                <span v-if="String(t.nrb) === '1'" class="badge b-blue">🌍 NRB</span>
+              </td>
+              <td style="white-space:nowrap" class="c-sub">{{ unitsOfTenant(t).map(u => unitName(u.id)).join(', ') || '—' }}<template v-if="unitsOfTenant(t).length"> · {{ propName(unitsOfTenant(t)[0].p) }}</template></td>
+              <td style="font-weight:700;white-space:nowrap">{{ money(monthlyRent(t)) }}</td>
+              <td style="white-space:nowrap">{{ activeLeaseOf(t)?.end || '—' }}<template v-if="activeLeaseOf(t)?.status === 'Active' && activeLeaseOf(t)?.end"> ({{ leaseDaysLeft(activeLeaseOf(t)) }}d)</template></td>
+              <td :style="outstanding(t) > 0 ? 'color:var(--danger);font-weight:800;white-space:nowrap' : 'color:var(--ok);font-weight:800;white-space:nowrap'">{{ outstanding(t) > 0 ? money(outstanding(t)) : '✅ Paid' }}</td>
+              <td style="white-space:nowrap">{{ collectionRateT(t) !== null ? collectionRateT(t) + '%' : '—' }}</td>
+              <td style="white-space:nowrap">{{ ticketsOfTenant(t).length ? '🔧 ' + ticketsOfTenant(t).length : '—' }}</td>
+              <td v-if="canManage" style="white-space:nowrap">
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openEdit(t)">✏️</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px;color:var(--danger)" @click.stop="delTenant(t)">🗑️</button>
+              </td>
+            </tr>
+            <tr v-if="!filtered.length"><td :colspan="canManage ? 9 : 8" style="text-align:center;color:var(--text-mute);padding:30px">No tenants found{{ query ? ' for “' + query + '”' : '' }}.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No tenants found{{ query ? ' for “' + query + '”' : '' }}.</div>
 
     <!-- drawer -->
     <template v-if="sel">
@@ -960,8 +1006,8 @@ async function delTenant(t) {
               <thead><tr><th>Lease</th><th>Unit</th><th>Property</th><th>Floor</th><th>sqft</th><th>Rent</th><th>Start</th><th>End</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="l in selLeases" :key="l.id">
-                  <td style="font-weight:700">{{ l.id }}</td>
-                  <td>{{ unitName(l.u) }}</td>
+                  <td style="font-weight:700"><a @click.stop="go('/leases', { open: l.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ l.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
+                  <td><a @click.stop="go('/units', { open: l.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitName(l.u) }}</a></td>
                   <td>{{ propName(unitsAll.find(u => u.id === l.u)?.p) }}</td>
                   <td>{{ unitsAll.find(u => u.id === l.u)?.floor || '—' }}</td>
                   <td>{{ ((unitsAll.find(u => u.id === l.u)?.sqft) || 0).toLocaleString('en-IN') }}</td>
@@ -969,7 +1015,7 @@ async function delTenant(t) {
                   <td>{{ l.start || '—' }}</td>
                   <td>{{ l.end || '—' }} <span v-if="leaseDaysLeft(l) !== null && l.status === 'Active'" class="c-sub">({{ leaseDaysLeft(l) }}d)</span></td>
                   <td><span class="badge" :class="badge(l.status)">{{ l.status }}</span></td>
-                  <td><button class="btn-ghost" style="padding:5px 9px;font-size:11.5px" @click="openAgree(l)" title="Lease paper / agreement">📄</button></td>
+                  <td><button class="btn-ghost" style="padding:5px 9px;font-size:11.5px" @click.stop="openAgree(l)" title="Lease paper / agreement">📄</button></td>
                 </tr>
                 <tr v-if="!selLeases.length"><td colspan="10" style="text-align:center;color:var(--text-mute);padding:22px">No leases / units.</td></tr>
               </tbody>
@@ -1005,14 +1051,14 @@ async function delTenant(t) {
               <thead><tr><th>Invoice</th><th>Month</th><th>Lease</th><th>Net</th><th>Paid</th><th>Remaining</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="i in selInvoices" :key="i.id">
-                  <td style="font-weight:700">{{ i.id }}</td>
+                  <td style="font-weight:700"><a @click.stop="go('/invoices', { open: i.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ i.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
                   <td>{{ i.m || '—' }}</td>
-                  <td>{{ i.l }}</td>
+                  <td><a @click.stop="go('/leases', { open: i.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ i.l }}</a></td>
                   <td style="font-weight:700">{{ money(i.net) }}</td>
                   <td>{{ paidOfInvoice(i) > 0 ? money(paidOfInvoice(i)) : '—' }}</td>
                   <td :style="invRemaining(i) > 0 ? 'color:var(--danger);font-weight:800' : ''">{{ invRemaining(i) > 0 ? money(invRemaining(i)) : '—' }}</td>
                   <td><span class="badge" :class="badge(invStatus(i))">{{ invStatus(i) }}</span></td>
-                  <td><button v-if="canPay && invRemaining(i) > 0" @click="openPay(i)" class="btn-primary" style="padding:5px 11px;font-size:11.5px">💳 Pay</button></td>
+                  <td><button v-if="canPay && invRemaining(i) > 0" @click.stop="openPay(i)" class="btn-primary" style="padding:5px 11px;font-size:11.5px">💳 Pay</button></td>
                 </tr>
                 <tr v-if="!selInvoices.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:22px">No invoices.</td></tr>
               </tbody>
@@ -1058,7 +1104,7 @@ async function delTenant(t) {
               <thead><tr><th>Ticket</th><th>Unit</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="x in selTickets" :key="x.id">
-                  <td style="font-weight:700">{{ x.id }}</td><td>{{ unitName(x.u) }}</td><td>{{ x.desc }}</td><td>{{ x.reported || '—' }}</td><td>{{ x.liab || '—' }}</td>
+                  <td style="font-weight:700"><a @click.stop="go('/maintenance', { open: x.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ x.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td><td><a @click.stop="go('/units', { open: x.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitName(x.u) }}</a></td><td>{{ x.desc }}</td><td>{{ x.reported || '—' }}</td><td>{{ x.liab || '—' }}</td>
                   <td><span class="badge" :class="badge(x.status)">{{ x.status }}</span></td>
                 </tr>
                 <tr v-if="!selTickets.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:18px">No maintenance tickets.</td></tr>

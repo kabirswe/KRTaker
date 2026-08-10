@@ -1,8 +1,15 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
+import { badge, useViewMode } from '../lib/ui'
+
+const router = useRouter()
+const route = useRoute()
+const viewMode = useViewMode('units')
+const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -20,11 +27,6 @@ const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
 const propName = (pid) => propsAll.value.find(p => p.id === pid)?.name || pid || '—'
 const tenantName = (tid) => tenantsAll.value.find(t => t.id === tid)?.name || tid || '—'
 const propType = (pid) => propsAll.value.find(p => p.id === pid)?.type || ''
-
-function badge(st) {
-  const map = { Active: 'b-green', Leased: 'b-green', Paid: 'b-green', Success: 'b-green', Verified: 'b-green', Completed: 'b-green', Approved: 'b-green', Open: 'b-red', Unpaid: 'b-orange', Overdue: 'b-red', Vacant: 'b-gray', 'Maintenance': 'b-orange', Expired: 'b-gray', Terminated: 'b-red', 'In Progress': 'b-blue', 'Pending Registration': 'b-orange', Pending: 'b-orange', Rejected: 'b-red' }
-  return map[st] || 'b-gray'
-}
 const UNIT_EMOJI = { Flat: '🏢', Commercial: '🏬', Plot: '🗺️', Industrial: '🏭', Warehouse: '📦', Residential: '🏠' }
 
 // ── joins ──
@@ -95,6 +97,10 @@ const sel = ref(null)
 const tab = ref('lease')
 function openDetail(u) { sel.value = u; tab.value = 'lease' }
 function closeDetail() { sel.value = null }
+// deep link: /units?open=U-001
+watch(() => route.query.open, (id) => {
+  if (id) { const u = unitsAll.value.find(x => x.id === id); if (u) openDetail(u) }
+}, { immediate: true })
 const selLease = computed(() => sel.value ? activeLease(sel.value) : null)
 const selInvoices = computed(() => sel.value ? invoicesOfUnit(sel.value) : [])
 const selTickets = computed(() => sel.value ? ticketsOfUnit(sel.value) : [])
@@ -187,6 +193,10 @@ async function setStatus(u, st) {
           <option value="rent">Sort: Rent</option>
           <option value="sqft">Sort: Area</option>
         </select>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New unit</button>
       </div>
@@ -200,7 +210,7 @@ async function setStatus(u, st) {
       </div>
     </div>
 
-    <div v-if="filtered.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
+    <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
       <div v-for="u in filtered" :key="u.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(u)">
         <div class="u-cover" style="height:88px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px">{{ UNIT_EMOJI[propType(u.p)] || '🚪' }}</div>
@@ -237,7 +247,31 @@ async function setStatus(u, st) {
         </div>
       </div>
     </div>
-    <div v-else class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No units found{{ query ? ' for “' + query + '”' : '' }}.</div>
+    <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="kr" style="width:100%">
+          <thead><tr><th>Unit</th><th>Property</th><th>Status</th><th>Rent / mo</th><th>Tenant</th><th>Lease end</th><th>Collection</th><th>Tickets</th><th v-if="canManage">Actions</th></tr></thead>
+          <tbody>
+            <tr v-for="u in filtered" :key="u.id" style="cursor:pointer" @click="openDetail(u)">
+              <td style="white-space:nowrap"><b>{{ u.name }}</b> <span class="c-sub">{{ u.id }}</span><template v-if="u.floor && u.floor !== '—'"> · {{ u.floor }} floor</template></td>
+              <td style="white-space:nowrap" class="c-sub">🏢 {{ propName(u.p) }}</td>
+              <td style="white-space:nowrap"><span class="badge" :class="badge(u.status)">{{ u.status }}</span></td>
+              <td style="font-weight:700;white-space:nowrap">{{ money(u.rent) }}</td>
+              <td style="white-space:nowrap">{{ selLeaseFor(u) ? tenantName(selLeaseFor(u).t) : '—' }}</td>
+              <td style="white-space:nowrap">{{ selLeaseFor(u)?.end || '—' }}<template v-if="selLeaseFor(u)?.end && selLeaseFor(u).status === 'Active'"> ({{ leaseDaysLeft(selLeaseFor(u)) }}d)</template></td>
+              <td style="white-space:nowrap">{{ collectionRateUnit(u) !== null ? collectionRateUnit(u) + '%' : '—' }}</td>
+              <td style="white-space:nowrap">{{ ticketsOfUnit(u).length ? '🔧 ' + ticketsOfUnit(u).length : '—' }}</td>
+              <td v-if="canManage" style="white-space:nowrap">
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="setStatus(u, String(u.status).toLowerCase() === 'leased' ? 'Vacant' : 'Leased')">{{ String(u.status).toLowerCase() === 'leased' ? '🈳' : '📌' }}</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openEdit(u)">✏️</button>
+                <button class="btn-ghost" style="padding:4px 9px;font-size:11px;color:var(--danger)" @click.stop="delUnit(u)">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No units found{{ query ? ' for “' + query + '”' : '' }}.</div>
 
     <!-- drawer -->
     <template v-if="sel">
@@ -290,7 +324,7 @@ async function setStatus(u, st) {
             <thead><tr><th>Invoice</th><th>Month</th><th>Gross</th><th>TDS</th><th>Net</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="i in selInvoices" :key="i.id">
-                <td style="font-weight:700">{{ i.id }}</td><td>{{ i.m || '—' }}</td><td>{{ money(i.gross) }}</td><td>{{ money(i.tds) }}</td><td style="font-weight:700">{{ money(i.net) }}</td>
+                <td style="font-weight:700"><a @click.stop="go('/invoices', { open: i.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ i.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td><td>{{ i.m || '—' }}</td><td>{{ money(i.gross) }}</td><td>{{ money(i.tds) }}</td><td style="font-weight:700">{{ money(i.net) }}</td>
                 <td><span class="badge" :class="badge(i.status)">{{ i.status }}</span></td>
               </tr>
               <tr v-if="!selInvoices.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No invoices.</td></tr>
@@ -301,7 +335,7 @@ async function setStatus(u, st) {
             <thead><tr><th>Ticket</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Cost</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="t in selTickets" :key="t.id">
-                <td style="font-weight:700">{{ t.id }}</td><td>{{ t.desc }}</td><td>{{ t.reported || '—' }}</td><td>{{ t.liab || '—' }}</td><td>{{ money(t.cost) }}</td>
+                <td style="font-weight:700"><a @click.stop="go('/maintenance', { open: t.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ t.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td><td>{{ t.desc }}</td><td>{{ t.reported || '—' }}</td><td>{{ t.liab || '—' }}</td><td>{{ money(t.cost) }}</td>
                 <td><span class="badge" :class="badge(t.status)">{{ t.status }}</span></td>
               </tr>
               <tr v-if="!selTickets.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No maintenance tickets.</td></tr>
