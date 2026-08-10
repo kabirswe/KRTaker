@@ -10,8 +10,8 @@ const routes = [
   { path: '/dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
   // ── Core CRUD collections ──
   { path: '/properties', name: 'properties', component: () => import('../views/PropertiesView.vue') },
-  { path: '/units', name: 'units', component: () => import('../views/CollectionView.vue'), props: { collection: 'units' } },
-  { path: '/tenants', name: 'tenants', component: () => import('../views/CollectionView.vue'), props: { collection: 'tenants' } },
+  { path: '/units', name: 'units', component: () => import('../views/UnitsView.vue') },
+  { path: '/tenants', name: 'tenants', component: () => import('../views/TenantsView.vue') },
   { path: '/leases', name: 'leases', component: () => import('../views/CollectionView.vue'), props: { collection: 'leases' } },
   { path: '/invoices', name: 'invoices', component: () => import('../views/CollectionView.vue'), props: { collection: 'invoices' } },
   { path: '/receipts', name: 'receipts', component: () => import('../views/CollectionView.vue'), props: { collection: 'receipts' } },
