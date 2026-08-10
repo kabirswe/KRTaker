@@ -156,6 +156,21 @@ const selStats = computed(() => {
     { label: 'Kind', v: sel.value.kind + (String(sel.value.nrb) === '1' ? ' · NRB' : '') },
   ]
 })
+// subtitle line under the header — active lease/unit info (more useful than id · masked NID · portal)
+const selSubtitle = computed(() => {
+  if (!sel.value) return ''
+  const al = activeLeaseOf(sel.value)
+  if (al) {
+    const u = unitsAll.value.find(x => x.id === al.u)
+    const d = leaseDaysLeft(al)
+    const days = d === null ? '' : d < 0 ? ` · expired ${-d}d ago` : ` · ${d}d left`
+    return `📄 ${al.id} · 🚪 ${u ? u.name : al.u} · 🏢 ${propName(u?.p)} · until ${al.end || '—'}${days}`
+  }
+  return `No active lease · ${sel.value.sub_email ? 'portal: ' + sel.value.sub_email : 'no portal account'}`
+})
+// ── single-line scrollable tabs ──
+const tabScroll = ref(null)
+function scrollTabs(dir) { if (tabScroll.value) tabScroll.value.scrollBy({ left: dir * 150, behavior: 'smooth' }) }
 
 // ── photo ──
 const photoUrls = new Map()
@@ -468,7 +483,7 @@ async function delTenant(t) {
           <button @click="closeDetail" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
         </div>
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
-          <div class="c-sub" style="margin-top:2px">{{ sel.id }} · NID {{ maskNid(sel.nid) }} · {{ sel.sub_email || 'no portal account' }}</div>
+          <div class="c-sub" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ selSubtitle }}</div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div v-for="s in selStats" :key="s.label" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
@@ -477,12 +492,16 @@ async function delTenant(t) {
             </div>
           </div>
 
-          <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
-            <button v-for="t in TABS" :key="t.id" @click="tab = t.id"
-              style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)"
-              :style="tab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">
-              {{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ tabCount(t.id) }})</span>
-            </button>
+          <div style="display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px">
+            <button class="tab-arrow" @click="scrollTabs(-1)" title="Scroll tabs">◀</button>
+            <div ref="tabScroll" class="tab-scroll" style="display:flex;gap:6px;overflow-x:auto;flex:1">
+              <button v-for="t in TABS" :key="t.id" @click="tab = t.id"
+                style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute);white-space:nowrap;flex-shrink:0"
+                :style="tab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">
+                {{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ tabCount(t.id) }})</span>
+              </button>
+            </div>
+            <button class="tab-arrow" @click="scrollTabs(1)" title="Scroll tabs">▶</button>
           </div>
 
           <!-- PROFILE -->
@@ -779,5 +798,34 @@ async function delTenant(t) {
 .t-cover .badge,
 .d-cover .badge {
   background: #ffffff;
+}
+/* Single-line scrollable tab bar */
+.tab-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+.tab-arrow {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text-mute);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .15s, color .15s;
+}
+.tab-arrow:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
 }
 </style>
