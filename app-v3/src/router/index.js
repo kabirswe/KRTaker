@@ -9,7 +9,7 @@ const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
   // ── Core CRUD collections ──
-  { path: '/properties', name: 'properties', component: () => import('../views/CollectionView.vue'), props: { collection: 'properties' } },
+  { path: '/properties', name: 'properties', component: () => import('../views/PropertiesView.vue') },
   { path: '/units', name: 'units', component: () => import('../views/CollectionView.vue'), props: { collection: 'units' } },
   { path: '/tenants', name: 'tenants', component: () => import('../views/CollectionView.vue'), props: { collection: 'tenants' } },
   { path: '/leases', name: 'leases', component: () => import('../views/CollectionView.vue'), props: { collection: 'leases' } },
