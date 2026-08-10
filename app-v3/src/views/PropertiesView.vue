@@ -282,7 +282,7 @@ async function toggleFeatured(p) {
     <div v-if="filtered.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
       <div v-for="p in filtered" :key="p.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(p)">
         <!-- cover -->
-        <div style="height:110px;position:relative;background:var(--grad)">
+        <div class="p-cover" style="height:110px;position:relative;background:var(--grad)">
           <img v-if="photoUrl(p)" :src="photoUrl(p)" alt="" loading="lazy"
                style="width:100%;height:100%;object-fit:cover" @error="$event.target.style.display='none'">
           <div v-if="!photoUrl(p)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:40px">{{ TYPE_EMOJI[p.type] || '🏢' }}</div>
@@ -523,9 +523,10 @@ async function toggleFeatured(p) {
 </template>
 
 <style scoped>
-/* Property DETAILS view header badges (status / featured / published):
-   white background only — card badges and table badges keep their
-   translucent .b-* colors. */
+/* White badges ONLY on top/cover areas: property card cover (.p-cover)
+   and property details view header (.d-cover). Bottom-row card badges and
+   table badges keep their translucent .b-* colors. */
+.panel.chip .p-cover .badge,
 .d-cover .badge {
   background: #ffffff;
 }
