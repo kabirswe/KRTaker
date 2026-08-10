@@ -1,7 +1,7 @@
 /* KRTaker app-v3 — design tokens ported from dashboard-v2.html */
 :root{
   --primary:#2F80ED; --primary-dark:#1E5EB8; --primary-light:#E8F1FD;
-  --accent:#27AE60; --warn:#E67E22; --danger:#E74C3C;
+  --accent:#27AE60; --ok:#27AE60; --warn:#E67E22; --danger:#E74C3C;
   --bg:#FFFFFF; --bg-alt:#F6F9FE; --bg-dark:#0F1B2D;
   --text:#1A2433; --text-soft:#5B6B83; --text-mute:#8A97AB;
   --border:#E4EAF3; --card:#FFFFFF;
@@ -126,6 +126,10 @@ table.kr tr:hover td{background:var(--bg-alt)}
 .kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border);font-size:13px}
 .kv .k{color:var(--text-mute)}
 .kv .v{font-weight:700}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card);font-size:12.5px;font-weight:600;color:var(--text);transition:border-color .15s ease,background .15s ease}
+.btn-ghost:hover{border-color:var(--primary);background:var(--primary-light)}
+.chip{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+.chip:hover{transform:translateY(-2px);border-color:var(--primary);box-shadow:0 8px 20px rgba(47,128,237,.12)}
 
 /* ── Auth ── */
 .auth-screen{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px}
