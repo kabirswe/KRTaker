@@ -390,7 +390,7 @@ td .c-name:hover{color:var(--primary)}
           </div>
           <button class="icon-btn side-toggle" id="sideToggle" onclick="toggleSideMini()" data-tip="Collapse sidebar" data-tip-pos="bottom">⫷</button>
           <button class="icon-btn" onclick="toggleTheme()" data-tip="Toggle theme" data-tip-pos="bottom">🌙</button>
-          <a class="icon-btn" href="dashboard-v2.html" target="_blank" data-tip="Open subscriber dashboard" data-tip-pos="bottom">↗<span class="lbl"> Dashboard</span></a>
+          <a class="icon-btn" href="app-v3/" target="_blank" data-tip="Open subscriber dashboard" data-tip-pos="bottom">↗<span class="lbl"> Dashboard</span></a>
         </div>
       </div>
     </header>
@@ -890,7 +890,7 @@ async function impersonateUser(email,name){
   if(!d.ok)return toast(d.error||'Failed','error');
   try{localStorage.setItem('krtaker_dash_token',d.token);}catch(e){}
   toast('Impersonating '+name+' — redirecting to their workspace…','ok');
-  setTimeout(()=>{location.href='/dashboard-v2.html';},450);
+  setTimeout(()=>{location.href='/app-v3/';},450);
 }
 /* ── Detail drawers (👁 View): formatted read-only view of any row ── */
 function detVal(v, k, o){
@@ -3033,7 +3033,7 @@ async function renderWhitelabel(){
   <div class="panel"><div class="panel-h"><span class="t"><span class="pi">🖼️</span>Logo manager<span class="c-sub" style="font-size:11px;margin-left:8px">all three surfaces — website, dashboard & super admin panel · header & footer · light & dark · print</span></span></div><div class="panel-b">
     ${brSurface('🖨️','Print documents','invoices · receipts · leases · demand notices · Thana forms · to-let QR flyers',[['print','Print logo (documents & flyers)','/assets/img/krtaker-logo.png']])}
     ${brSurface('🌐','Website','public site, blog & landing pages',BR_SITE)}
-    ${brSurface('📊','Dashboard','tenant / owner portal (dashboard-v2.html)',BR_DASH)}
+    ${brSurface('📊','Dashboard','tenant / owner portal (app-v3/)',BR_DASH)}
     ${brSurface('🛠️','Super Admin Panel','superadmin.html control center',BR_SA)}
     <div class="c-sub" style="margin-top:16px;font-size:11.5px;color:var(--text-mute)">Drag & drop a PNG (transparent background recommended) or SVG onto any preview box — or click it to pick a file. Changes apply live, no redeploy needed. Per logo you can set: <b>height</b> (px), <b>↔ margin</b> (space around, px), <b>⬜ padding</b> (inner space, px) and tick <b>Title</b> to show the site name next to the logo (untick = logo only). A <b>dark</b> logo is used when the visitor has dark mode on; leave it empty to reuse the light one.</div>
   </div></div>

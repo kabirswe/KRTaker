@@ -69,7 +69,7 @@ self.addEventListener('fetch', (e) => {
 
 /* ── Push notifications (SA1 v19) ── */
 self.addEventListener('push', (e) => {
-  let data = { title: 'KRTaker', body: '', url: '/dashboard-v2.html' };
+  let data = { title: 'KRTaker', body: '', url: '/app-v3/' };
   try {
     if (e.data) {
       const parsed = e.data.json();
@@ -83,14 +83,14 @@ self.addEventListener('push', (e) => {
     vibrate: [120, 60, 120],
     tag: data.tag || 'kr-notify',
     renotify: true,
-    data: { url: data.url || '/dashboard-v2.html', ts: Date.now() }
+    data: { url: data.url || '/app-v3/', ts: Date.now() }
   };
   e.waitUntil(self.registration.showNotification(data.title || 'KRTaker', opts));
 });
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || '/dashboard-v2.html';
+  const url = (e.notification.data && e.notification.data.url) || '/app-v3/';
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {

@@ -1,8 +1,8 @@
 {
-  "name": "KRTaker — Property Manager",
+  "name": "KRTaker \u2014 Property Manager",
   "short_name": "KRTaker",
-  "description": "KRTaker dashboard — manage properties, tenants, invoices, maintenance and payments from your phone.",
-  "start_url": "dashboard-v2.html",
+  "description": "KRTaker dashboard \u2014 manage properties, tenants, invoices, maintenance and payments from your phone.",
+  "start_url": "app-v3/",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
@@ -10,13 +10,55 @@
   "theme_color": "#2F80ED",
   "lang": "en",
   "icons": [
-    { "src": "pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
-    { "src": "pwa/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    {
+      "src": "pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "pwa/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
   ],
   "shortcuts": [
-    { "name": "Properties", "url": "dashboard-v2.html#properties", "icons": [{ "src": "pwa/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Invoices", "url": "dashboard-v2.html#invoices", "icons": [{ "src": "pwa/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Maintenance", "url": "dashboard-v2.html#maintenance", "icons": [{ "src": "pwa/icon-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Properties",
+      "url": "app-v3/#properties",
+      "icons": [
+        {
+          "src": "pwa/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Invoices",
+      "url": "app-v3/#invoices",
+      "icons": [
+        {
+          "src": "pwa/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Maintenance",
+      "url": "app-v3/#maintenance",
+      "icons": [
+        {
+          "src": "pwa/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

@@ -296,7 +296,7 @@ gtag('config', 'G-C68G5Q03ZT');
       if (data.ok && data.token) {
         try { if (window.gtag) gtag('event', 'login', { method: 'email' }); } catch (e) {}
         try { localStorage.setItem('krtaker_dash_token', data.token); } catch (x) {}
-        window.location.href = 'dashboard-v2.html';
+        window.location.href = 'app-v3/';
       } else {
         errEl.textContent = data.error || 'Login failed — try again.';
         errEl.style.display = 'block';
