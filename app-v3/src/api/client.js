@@ -1,8 +1,9 @@
 // KRTaker API client — mirrors dashboard-v2.html apiCall() semantics.
 // Base: relative '../api/' (same as v2) → works in dev (proxy) and prod (cPanel).
+// Override at build time: VITE_API_BASE=https://krtaker.com/api (e.g. staging cross-origin).
 import { useAuthStore } from '../stores/auth'
 
-const API_BASE = '../api/'
+const API_BASE = (import.meta.env.VITE_API_BASE || '../api/').replace(/\/?$/, '/')
 
 export async function apiCall(path, data = null) {
   const opts = { method: data ? 'POST' : 'GET', headers: {} }
