@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
-import { badge, useViewMode } from '../lib/ui'
+import { badge, useViewMode, usePager } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -76,6 +77,7 @@ const filtered = computed(() => {
   const get = (l) => sortBy.value === 'rent' ? (l.rent || 0) : sortBy.value === 'end' ? (l.end || '') : l.id
   return [...out].sort((a, b) => typeof get(a) === 'string' ? String(get(a)).localeCompare(String(get(b))) : get(a) - get(b))
 })
+const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 10)
 function exportCsv() {
   const rows = filtered.value; if (!rows.length) return
   const cols = ['id', 't', 'u', 'start', 'end', 'rent', 'adv', 'res', 'status']
@@ -278,7 +280,7 @@ async function delDoc(d) {
     </div>
 
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
-      <div v-for="l in filtered" :key="l.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(l)">
+      <div v-for="l in paged" :key="l.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(l)">
         <div style="height:84px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">📄</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
@@ -315,7 +317,7 @@ async function delDoc(d) {
         <table class="kr" style="width:100%">
           <thead><tr><th>Lease</th><th>Tenant</th><th>Unit / Property</th><th>Rent / mo</th><th>Term</th><th>Days left</th><th>Registration</th><th>Invoices</th><th>Status</th><th v-if="canManage">Actions</th></tr></thead>
           <tbody>
-            <tr v-for="l in filtered" :key="l.id" style="cursor:pointer" @click="openDetail(l)">
+            <tr v-for="l in paged" :key="l.id" style="cursor:pointer" @click="openDetail(l)">
               <td style="white-space:nowrap"><b>{{ l.id }}</b></td>
               <td style="white-space:nowrap"><a @click.stop="go('/tenants', { open: l.t })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ tenantName(l.t) }}</a></td>
               <td style="white-space:nowrap" class="c-sub">{{ unitName(l.u) }} · {{ propName(unitProp(l.u)) }}</td>
@@ -336,6 +338,8 @@ async function delDoc(d) {
       </div>
     </div>
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No leases found{{ query ? ' for “' + query + '”' : '' }}.</div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
     <!-- drawer -->
     <template v-if="sel">
@@ -441,7 +445,8 @@ async function delDoc(d) {
 
           <!-- PAYMENTS -->
           <div v-if="tab === 'payments'">
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>Invoice</th><th>Month</th><th>Net</th><th>Paid</th><th>Due</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="i in selInvoices" :key="i.id">
@@ -458,6 +463,7 @@ async function delDoc(d) {
                 <tr v-if="!selInvoices.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:20px">No invoices for this lease yet.</td></tr>
               </tbody>
             </table>
+            </div>
             <div class="c-sub" style="font-size:11.5px;margin-top:9px">Collected {{ money(selPaidTotal) }} of {{ money(selNetTotal) }} invoiced across {{ selInvoices.length }} invoice(s).</div>
           </div>
 

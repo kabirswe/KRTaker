@@ -1,5 +1,5 @@
 // Shared UI helpers for app-v3 views (unified badge colors, view-mode toggle).
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 // ── badge colors (single source of truth — tenants-page convention) ──
 const BADGE_MAP = {
@@ -42,6 +42,27 @@ export function useViewMode(key) {
   const mode = ref(localStorage.getItem('kr_vm_' + key) || 'grid')
   watch(mode, v => localStorage.setItem('kr_vm_' + key, v))
   return mode
+}
+
+// ── pagination for a computed source (filtered list) ──
+// Returns top-level refs/computeds so templates auto-unwrap:
+//   const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
+export function usePager(source, perPage = 12) {
+  const page = ref(1)
+  const pageSize = ref(perPage)
+  const pageCount = computed(() => Math.max(1, Math.ceil(source.value.length / pageSize.value)))
+  const paged = computed(() => source.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
+  const rangeLabel = computed(() => {
+    if (!source.value.length) return '0 records'
+    const from = (page.value - 1) * pageSize.value + 1
+    const to = Math.min(page.value * pageSize.value, source.value.length)
+    return `${from}–${to} of ${source.value.length}`
+  })
+  function setPage(p) { page.value = Math.min(Math.max(1, p), pageCount.value) }
+  function setPageSize(n) { pageSize.value = n; page.value = 1 }
+  // Keep page in range when the data shrinks (filters / refresh).
+  watch(pageCount, (c) => { if (page.value > c) page.value = c })
+  return { paged, page, pageSize, pageCount, rangeLabel, setPage, setPageSize }
 }
 
 // ── view-toggle buttons (grid / list) — drop into any page toolbar ──

@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
-import { badge, useViewMode } from '../lib/ui'
+import { badge, useViewMode, usePager } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -114,6 +115,7 @@ const filtered = computed(() => {
   const get = (t) => sortBy.value === 'rent' ? monthlyRent(t) : sortBy.value === 'outstanding' ? outstanding(t) : (t.name || '')
   return [...out].sort((a, b) => typeof get(a) === 'string' ? String(get(a)).localeCompare(String(get(b))) : get(b) - get(a))
 })
+const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
 
 function exportCsv() {
   const rows = filtered.value
@@ -767,7 +769,7 @@ async function delTenant(t) {
     </div>
 
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
-      <div v-for="t in filtered" :key="t.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(t)">
+      <div v-for="t in paged" :key="t.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(t)">
         <div class="t-cover" :style="`height:82px;position:relative;background:linear-gradient(135deg,${avatarColor(t.id)},#1E5EB8)`">
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
             <span class="badge">{{ t.kind }}</span>
@@ -809,7 +811,7 @@ async function delTenant(t) {
         <table class="kr" style="width:100%">
           <thead><tr><th>Tenant</th><th>Kind</th><th>Unit / Property</th><th>Rent / mo</th><th>Lease end</th><th>Outstanding</th><th>Collection</th><th>Tickets</th><th v-if="canManage">Actions</th></tr></thead>
           <tbody>
-            <tr v-for="t in filtered" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
+            <tr v-for="t in paged" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
               <td style="white-space:nowrap">
                 <div style="display:flex;align-items:center;gap:9px">
                   <div :style="`width:30px;height:30px;border-radius:50%;background:${avatarColor(t.id)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0`">{{ initials(t.name) }}</div>
@@ -840,6 +842,8 @@ async function delTenant(t) {
       </div>
     </div>
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No tenants found{{ query ? ' for “' + query + '”' : '' }}.</div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
     <!-- drawer -->
     <template v-if="sel">
@@ -1002,7 +1006,8 @@ async function delTenant(t) {
 
           <!-- LEASE & UNIT (merged) -->
           <div v-else-if="tab === 'leases'">
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>Lease</th><th>Unit</th><th>Property</th><th>Floor</th><th>sqft</th><th>Rent</th><th>Start</th><th>End</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="l in selLeases" :key="l.id">
@@ -1020,6 +1025,7 @@ async function delTenant(t) {
                 <tr v-if="!selLeases.length"><td colspan="10" style="text-align:center;color:var(--text-mute);padding:22px">No leases / units.</td></tr>
               </tbody>
             </table>
+            </div>
 
             <!-- lease extension -->
             <div v-if="canManage" style="margin-top:22px">
@@ -1047,7 +1053,8 @@ async function delTenant(t) {
               <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🧾 Invoices</div>
               <div class="c-sub" style="font-size:11.5px">{{ selInvoices.length }} · outstanding {{ money(selInvoices.filter(i => invStatus(i) !== 'Paid').reduce((s, i) => s + invRemaining(i), 0)) }}</div>
             </div>
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>Invoice</th><th>Month</th><th>Lease</th><th>Net</th><th>Paid</th><th>Remaining</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="i in selInvoices" :key="i.id">
@@ -1063,9 +1070,11 @@ async function delTenant(t) {
                 <tr v-if="!selInvoices.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:22px">No invoices.</td></tr>
               </tbody>
             </table>
+            </div>
 
             <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin:20px 0 8px">🔌 Utility bills</div>
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>Bill</th><th>Unit</th><th>Type</th><th>Month</th><th>Usage</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="b in selUtils" :key="b.id">
@@ -1075,6 +1084,7 @@ async function delTenant(t) {
                 <tr v-if="!selUtils.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:18px">No utility bills.</td></tr>
               </tbody>
             </table>
+            </div>
 
             <!-- postpaid meter billing -->
             <div v-if="canManage" style="margin-top:20px">
@@ -1085,7 +1095,8 @@ async function delTenant(t) {
                   <button class="btn-primary" style="padding:6px 12px;font-size:12px" @click="openBill">🧾 Generate bill</button>
                 </div>
               </div>
-              <table class="kr" style="width:100%">
+              <div class="drawer-tbl-wrap">
+                <table class="kr" style="width:100%">
                 <thead><tr><th>Reading</th><th>Unit</th><th>Type</th><th>Month</th><th>Reading</th><th>Note</th></tr></thead>
                 <tbody>
                   <tr v-for="m in selMeters" :key="m.id">
@@ -1094,13 +1105,15 @@ async function delTenant(t) {
                   <tr v-if="!selMeters.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:18px">No meter readings yet — submit readings, then generate postpaid bills.</td></tr>
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 
           <!-- TICKETS & MAINTENANCE (merged) -->
           <div v-else-if="tab === 'tickets'">
             <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin:4px 0 8px">🔧 Maintenance tickets</div>
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>Ticket</th><th>Unit</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="x in selTickets" :key="x.id">
@@ -1110,9 +1123,11 @@ async function delTenant(t) {
                 <tr v-if="!selTickets.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:18px">No maintenance tickets.</td></tr>
               </tbody>
             </table>
+            </div>
 
             <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin:20px 0 8px">🛠 Maintenance requests</div>
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>Req</th><th>Unit</th><th>Title</th><th>Category</th><th>Priority</th><th>Est. cost</th><th>Status</th><th v-if="canManage">Actions</th></tr></thead>
               <tbody>
                 <tr v-for="m in selMaint" :key="m.id">
@@ -1131,6 +1146,7 @@ async function delTenant(t) {
                 <tr v-if="!selMaint.length"><td :colspan="canManage ? 8 : 7" style="text-align:center;color:var(--text-mute);padding:18px">No maintenance requests.</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <!-- HANDOVER -->
@@ -1222,7 +1238,8 @@ async function delTenant(t) {
               <button class="btn-ghost" :style="docFilter === 'all' ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" style="padding:5px 11px;font-size:11.5px;border-radius:999px" @click="docFilter = 'all'">All ({{ selDocs.length }})</button>
               <button v-for="t in DOC_TYPES" :key="t.id" class="btn-ghost" :style="docFilter === t.id ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" style="padding:5px 11px;font-size:11.5px;border-radius:999px" @click="docFilter = t.id">{{ t.label.replace(/^[^ ]+ /, '') }} ({{ selDocs.filter(d => d.cat === t.id).length }})</button>
             </div>
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>Doc</th><th>Name</th><th>Type</th><th>Size</th><th>Uploaded</th><th>By</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="d in filteredDocs" :key="d.id">
@@ -1246,6 +1263,7 @@ async function delTenant(t) {
                 <tr v-if="!filteredDocs.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ docFilter === 'all' ? 'No documents yet — upload NID copy, agreement, references…' : 'No documents in this category yet.' }}</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
           <div style="height:24px"></div>
         </div>

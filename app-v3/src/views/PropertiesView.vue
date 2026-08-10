@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
-import { badge, useViewMode } from '../lib/ui'
+import { badge, useViewMode, usePager } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -112,6 +113,7 @@ const filtered = computed(() => {
   const get = (p) => key === 'rentRoll' ? rentRoll(p) : key === 'units' ? unitsOf(p).length : p[key] || 0
   return [...out].sort((a, b) => (typeof get(a) === 'string' ? String(get(a)).localeCompare(String(get(b))) : get(a) - get(b)))
 })
+const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 9)
 
 function exportCsv() {
   const rows = filtered.value
@@ -291,7 +293,7 @@ async function toggleFeatured(p) {
 
     <!-- property cards -->
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
-      <div v-for="p in filtered" :key="p.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(p)">
+      <div v-for="p in paged" :key="p.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(p)">
         <!-- cover -->
         <div class="p-cover" style="height:110px;position:relative;background:var(--grad)">
           <img v-if="photoUrl(p)" :src="photoUrl(p)" alt="" loading="lazy"
@@ -345,7 +347,7 @@ async function toggleFeatured(p) {
         <table class="kr" style="width:100%">
           <thead><tr><th>Property</th><th>Type / Jur</th><th>Status</th><th>Units</th><th>Occupancy</th><th>Rent roll / mo</th><th>Collection</th><th>Open tickets</th><th v-if="canManage">Actions</th></tr></thead>
           <tbody>
-            <tr v-for="p in filtered" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
+            <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="white-space:nowrap"><b>{{ p.name }}</b> <span class="c-sub">{{ p.id }}</span></td>
               <td style="white-space:nowrap" class="c-sub">{{ TYPE_EMOJI[p.type] || '' }} {{ p.type }} · {{ p.jur }}<template v-if="p.holding"> · {{ p.holding }}</template></td>
               <td style="white-space:nowrap">
@@ -372,6 +374,8 @@ async function toggleFeatured(p) {
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
       No properties found{{ query ? ' for “' + query + '”' : '' }}.
     </div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
     <!-- detail drawer -->
     <template v-if="sel">
@@ -414,7 +418,8 @@ async function toggleFeatured(p) {
           </div>
 
           <!-- units tab -->
-          <table v-if="tab === 'units'" class="kr" style="width:100%">
+          <div v-if="tab === 'units'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Unit</th><th>Floor</th><th>sqft</th><th>Rent</th><th>Status</th><th>Tenant</th><th>Lease ends</th></tr></thead>
             <tbody>
               <tr v-for="u in selUnits" :key="u.id">
@@ -429,9 +434,11 @@ async function toggleFeatured(p) {
               <tr v-if="!selUnits.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No units for this property.</td></tr>
             </tbody>
           </table>
+          </div>
 
           <!-- leases tab -->
-          <table v-else-if="tab === 'leases'" class="kr" style="width:100%">
+          <div v-else-if="tab === 'leases'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Lease</th><th>Unit</th><th>Tenant</th><th>Rent</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="l in selLeases" :key="l.id">
@@ -446,9 +453,11 @@ async function toggleFeatured(p) {
               <tr v-if="!selLeases.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No leases for this property.</td></tr>
             </tbody>
           </table>
+          </div>
 
           <!-- invoices tab -->
-          <table v-else-if="tab === 'invoices'" class="kr" style="width:100%">
+          <div v-else-if="tab === 'invoices'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Invoice</th><th>Month</th><th>Lease</th><th>Gross</th><th>TDS</th><th>Net</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="i in selInvoices" :key="i.id">
@@ -463,9 +472,11 @@ async function toggleFeatured(p) {
               <tr v-if="!selInvoices.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No invoices for this property.</td></tr>
             </tbody>
           </table>
+          </div>
 
           <!-- tickets tab -->
-          <table v-else-if="tab === 'tickets'" class="kr" style="width:100%">
+          <div v-else-if="tab === 'tickets'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Ticket</th><th>Unit</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Cost</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="t in selTickets" :key="t.id">
@@ -480,9 +491,11 @@ async function toggleFeatured(p) {
               <tr v-if="!selTickets.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No maintenance tickets.</td></tr>
             </tbody>
           </table>
+          </div>
 
           <!-- utilities tab -->
-          <table v-else class="kr" style="width:100%">
+          <div v-else class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Bill</th><th>Unit</th><th>Type</th><th>Month</th><th>Usage</th><th>Amount</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="b in selUtils" :key="b.id">
@@ -497,6 +510,7 @@ async function toggleFeatured(p) {
               <tr v-if="!selUtils.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No utility bills.</td></tr>
             </tbody>
           </table>
+          </div>
           <div style="height:24px"></div>
         </div>
       </div>

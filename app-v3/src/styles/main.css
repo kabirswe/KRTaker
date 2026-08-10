@@ -111,11 +111,19 @@ img{max-width:100%}
 .c-sub{font-size:12px;color:var(--text-mute)}
 
 /* ── Table ── */
-.tbl-wrap{overflow-x:auto}
-table.kr{width:100%;border-collapse:collapse;font-size:13px}
+.tbl-wrap{overflow:auto;max-height:calc(100vh - 300px);min-height:0;border-radius:0 0 var(--radius) var(--radius)}
+/* fixed-height scrolling table with sticky header (list views + drawers) */
+.tbl-wrap table.kr thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -1px 0 var(--border)}
+table.kr{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 table.kr th{text-align:left;padding:11px 13px;background:var(--bg-alt);color:var(--text-mute);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);white-space:nowrap}
 table.kr td{padding:11px 13px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap}
 table.kr tr:hover td{background:var(--bg-alt)}
+/* compact table variant for dense list views / drawers */
+table.kr.compact th{padding:8px 10px;font-size:10.5px}
+table.kr.compact td{padding:8px 10px;font-size:12.5px}
+/* drawer inner tables scroll within the drawer, not the page */
+.drawer-tbl-wrap{overflow:auto;max-height:52vh}
+.drawer-tbl-wrap table.kr thead th{position:sticky;top:0;z-index:2}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
 .b-green{background:rgba(39,174,96,.12);color:#1e8e4d}
 .b-red{background:rgba(231,76,60,.12);color:#c0392b}
@@ -193,4 +201,31 @@ table.kr tr:hover td{background:var(--bg-alt)}
   .grid-2{grid-template-columns:1fr}
   .sb-backdrop{position:fixed;inset:0;background:rgba(10,18,34,.5);z-index:55;display:none}
   .sb-backdrop.show{display:block}
+  .tbl-wrap{max-height:calc(100vh - 260px)}
+  .page-head h1{font-size:20px}
+  .head-actions input,.head-actions select{max-width:100%}
+}
+@media (max-width:600px){
+  .content{padding:14px 12px 90px}
+  .page-head{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:16px}
+  .head-actions{width:100%}
+  .head-actions input,.head-actions select{width:100%;flex:1 1 100%}
+  .head-actions .btn-primary,.head-actions .btn-ghost{flex:1 1 auto;justify-content:center}
+  .stats{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+  .stat{padding:13px 14px}
+  .stat .s-value{font-size:18px}
+  .stat .s-trend{font-size:10px}
+  .tbl-wrap{max-height:calc(100vh - 240px)}
+  table.kr{font-size:12px}
+  table.kr th,table.kr td{padding:9px 10px}
+  .drawer-tbl-wrap{max-height:46vh}
+  .pager{padding:10px 12px}
+  .pager-btn{padding:5px 9px;font-size:11px}
+  /* card grids collapse to single column on phones */
+  [style*="grid-template-columns:repeat(auto-fill,minmax(310px,1fr))"]{grid-template-columns:1fr !important}
+  [style*="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"]{grid-template-columns:1fr !important}
+  [style*="grid-template-columns:repeat(auto-fill,minmax(330px,1fr))"]{grid-template-columns:1fr !important}
+  .auth-card{padding:26px 20px}
+  .toast-wrap{width:92vw}
+  .toast{font-size:12.5px}
 }

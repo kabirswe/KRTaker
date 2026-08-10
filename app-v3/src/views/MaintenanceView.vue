@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
-import { badge, useViewMode } from '../lib/ui'
+import { badge, useViewMode, usePager } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -45,6 +46,7 @@ const filtered = computed(() => {
   if (statusFilter.value) out = out.filter(t => t.status === statusFilter.value)
   return [...out].sort((a, b) => String(b.reported || '').localeCompare(String(a.reported || '')))
 })
+const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
 
 // ── drawer ──
 const sel = ref(null)
@@ -102,7 +104,7 @@ async function setCost(t) {
 
     <!-- GRID -->
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
-      <div v-for="t in filtered" :key="t.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(t)">
+      <div v-for="t in paged" :key="t.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(t)">
         <div style="height:76px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px">🔧</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
@@ -141,7 +143,7 @@ async function setCost(t) {
         <table class="kr" style="width:100%">
           <thead><tr><th>ID</th><th>Unit</th><th>Property</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Contractor</th><th>Cost</th><th>Status</th><th v-if="canManage">Action</th></tr></thead>
           <tbody>
-            <tr v-for="t in filtered" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
+            <tr v-for="t in paged" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
               <td style="font-weight:700;white-space:nowrap">{{ t.id }}</td>
               <td style="white-space:nowrap"><a @click.stop="go('/units', { open: t.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitName(t.u) }}</a></td>
               <td style="white-space:nowrap" class="c-sub">{{ propName(unitProp(t.u)) }}</td>
@@ -167,6 +169,8 @@ async function setCost(t) {
       </div>
     </div>
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No tickets found{{ query ? ' for “' + query + '”' : '' }}.</div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
     <!-- drawer -->
     <template v-if="sel">

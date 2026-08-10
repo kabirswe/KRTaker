@@ -30,6 +30,22 @@ function closeSidebarOnOutside(e) {
   if (!e.target.closest('.sidebar') && !e.target.closest('.menu-toggle')) closeSidebar()
 }
 
+// Splash safety net: if a persisted token is still unvalidated after 6s, give up
+// on it and show the login form — a hung /app-me must never trap the user on a
+// spinner (or worse, the old empty-shell bug where the form never appeared).
+let splashTimer = null
+onMounted(() => {
+  if (auth.isAuthed && !auth.validated) {
+    splashTimer = setTimeout(() => {
+      if (auth.isAuthed && !auth.validated) {
+        auth.clear()
+        if (location.hash && location.hash !== '#/login') location.hash = '#/login'
+      }
+    }, 6000)
+  }
+})
+onBeforeUnmount(() => { if (splashTimer) clearTimeout(splashTimer) })
+
 // Theme bootstrap
 const savedTheme = (() => { try { return localStorage.getItem('krtaker_dash_theme') } catch (e) { return '' } })() || 'light'
 document.documentElement.setAttribute('data-theme', savedTheme)
@@ -37,9 +53,20 @@ document.documentElement.setAttribute('data-theme', savedTheme)
 
 <template>
   <div>
-    <!-- Auth gate -->
+    <!-- Auth gate: show login UNLESS a token exists AND has been validated.
+         A stale/expired token must never render the shell — that left users
+         staring at an empty sidebar with no login form (fixed: validated flag). -->
     <div v-if="!auth.isAuthed" class="auth-screen">
       <router-view />
+    </div>
+
+    <!-- Token exists but not yet validated against /app-me → brief splash
+         (normally sub-second; only visible when the API is slow or the token dies) -->
+    <div v-else-if="!auth.validated" class="auth-screen">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--text-mute)">
+        <div class="spinner" style="width:34px;height:34px;border-width:4px"></div>
+        <div style="font-size:13.5px;font-weight:600">Checking session…</div>
+      </div>
     </div>
 
     <!-- App shell -->

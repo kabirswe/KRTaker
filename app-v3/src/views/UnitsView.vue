@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
-import { badge, useViewMode } from '../lib/ui'
+import { badge, useViewMode, usePager } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -80,6 +81,7 @@ const filtered = computed(() => {
   const get = (u) => sortBy.value === 'rent' ? (u.rent || 0) : sortBy.value === 'sqft' ? (u.sqft || 0) : sortBy.value === 'property' ? propName(u.p) : (u.name || '')
   return [...out].sort((a, b) => typeof get(a) === 'string' ? String(get(a)).localeCompare(String(get(b))) : get(a) - get(b))
 })
+const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
 
 function exportCsv() {
   const rows = filtered.value
@@ -211,7 +213,7 @@ async function setStatus(u, st) {
     </div>
 
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
-      <div v-for="u in filtered" :key="u.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(u)">
+      <div v-for="u in paged" :key="u.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(u)">
         <div class="u-cover" style="height:88px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px">{{ UNIT_EMOJI[propType(u.p)] || '🚪' }}</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
@@ -252,7 +254,7 @@ async function setStatus(u, st) {
         <table class="kr" style="width:100%">
           <thead><tr><th>Unit</th><th>Property</th><th>Status</th><th>Rent / mo</th><th>Tenant</th><th>Lease end</th><th>Collection</th><th>Tickets</th><th v-if="canManage">Actions</th></tr></thead>
           <tbody>
-            <tr v-for="u in filtered" :key="u.id" style="cursor:pointer" @click="openDetail(u)">
+            <tr v-for="u in paged" :key="u.id" style="cursor:pointer" @click="openDetail(u)">
               <td style="white-space:nowrap"><b>{{ u.name }}</b> <span class="c-sub">{{ u.id }}</span><template v-if="u.floor && u.floor !== '—'"> · {{ u.floor }} floor</template></td>
               <td style="white-space:nowrap" class="c-sub">🏢 {{ propName(u.p) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="badge(u.status)">{{ u.status }}</span></td>
@@ -272,6 +274,8 @@ async function setStatus(u, st) {
       </div>
     </div>
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No units found{{ query ? ' for “' + query + '”' : '' }}.</div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
     <!-- drawer -->
     <template v-if="sel">
@@ -304,7 +308,8 @@ async function setStatus(u, st) {
             </button>
           </div>
 
-          <table v-if="tab === 'lease'" class="kr" style="width:100%">
+          <div v-if="tab === 'lease'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Lease</th><th>Tenant</th><th>Start</th><th>End</th><th>Advance</th><th>Registered</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-if="selLease">
@@ -319,8 +324,10 @@ async function setStatus(u, st) {
               <tr v-else><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No lease for this unit.</td></tr>
             </tbody>
           </table>
+          </div>
 
-          <table v-else-if="tab === 'invoices'" class="kr" style="width:100%">
+          <div v-else-if="tab === 'invoices'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Invoice</th><th>Month</th><th>Gross</th><th>TDS</th><th>Net</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="i in selInvoices" :key="i.id">
@@ -330,8 +337,10 @@ async function setStatus(u, st) {
               <tr v-if="!selInvoices.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No invoices.</td></tr>
             </tbody>
           </table>
+          </div>
 
-          <table v-else-if="tab === 'tickets'" class="kr" style="width:100%">
+          <div v-else-if="tab === 'tickets'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Ticket</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Cost</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="t in selTickets" :key="t.id">
@@ -341,8 +350,10 @@ async function setStatus(u, st) {
               <tr v-if="!selTickets.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No maintenance tickets.</td></tr>
             </tbody>
           </table>
+          </div>
 
-          <table v-else class="kr" style="width:100%">
+          <div v-else class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
             <thead><tr><th>Bill</th><th>Type</th><th>Month</th><th>Usage</th><th>Amount</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="b in selUtils" :key="b.id">
@@ -352,6 +363,7 @@ async function setStatus(u, st) {
               <tr v-if="!selUtils.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No utility bills.</td></tr>
             </tbody>
           </table>
+          </div>
           <div style="height:24px"></div>
         </div>
       </div>

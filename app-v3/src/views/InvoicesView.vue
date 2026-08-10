@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
-import { badge, useViewMode } from '../lib/ui'
+import { badge, useViewMode, usePager } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -79,6 +80,7 @@ const filtered = computed(() => {
   const get = (i) => sortBy.value === 'net' ? (i.net || 0) : sortBy.value === 'due' ? invDue(i) : (i.m || '')
   return [...out].sort((a, b) => typeof get(a) === 'string' ? String(get(b)).localeCompare(String(get(a))) : get(b) - get(a))
 })
+const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
 function exportCsv() {
   const rows = filtered.value; if (!rows.length) return
   const esc = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
@@ -184,7 +186,7 @@ async function printInv(i) {
     </div>
 
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
-      <div v-for="i in filtered" :key="i.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(i)">
+      <div v-for="i in paged" :key="i.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(i)">
         <div style="height:84px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">🧾</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
@@ -217,7 +219,7 @@ async function printInv(i) {
         <table class="kr" style="width:100%">
           <thead><tr><th>Invoice</th><th>Month</th><th>Tenant</th><th>Lease / Unit</th><th>Gross</th><th>TDS</th><th>Net</th><th>Paid</th><th>Due</th><th>Status</th><th v-if="canManage && filtered.some(i => invDue(i) > 0)">Action</th></tr></thead>
           <tbody>
-            <tr v-for="i in filtered" :key="i.id" style="cursor:pointer" @click="openDetail(i)">
+            <tr v-for="i in paged" :key="i.id" style="cursor:pointer" @click="openDetail(i)">
               <td style="white-space:nowrap"><b>{{ i.id }}</b></td>
               <td style="white-space:nowrap">{{ monthLabel(i.m) }}</td>
               <td style="white-space:nowrap"><a @click.stop="go('/tenants', { open: leaseOf(i)?.t })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ tenantOf(i) }}</a></td>
@@ -237,6 +239,8 @@ async function printInv(i) {
       </div>
     </div>
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No invoices found{{ query ? ' for “' + query + '”' : '' }}.</div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
     <!-- drawer -->
     <template v-if="sel">
@@ -292,7 +296,8 @@ async function printInv(i) {
 
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">💳 Payments</div>
-            <table class="kr" style="width:100%">
+            <div class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%">
               <thead><tr><th>ID</th><th>Date</th><th>Method</th><th>Ref</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="p in selPays" :key="p.id">
@@ -306,6 +311,7 @@ async function printInv(i) {
                 <tr v-if="!selPays.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:16px">No payments recorded for this invoice.</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <div v-if="selRcps.length" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">

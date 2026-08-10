@@ -1,10 +1,13 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useDataStore } from '../stores/data'
+import { badge, useViewMode } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
 
 const props = defineProps({ collection: { type: String, default: '' } })
 const data = useDataStore()
 
+const viewMode = useViewMode('col_' + (props.collection || 'x'))
 const rows = computed(() => data.list(props.collection))
 const query = ref('')
 const statusFilter = ref('')
@@ -192,12 +195,14 @@ const statusKey = computed(() => {
   return STATUS_KEY.find(k => r[k] !== undefined) || 'status'
 })
 
-function badge(st) {
-  const map = { Paid: 'b-green', Active: 'b-green', Success: 'b-green', Leased: 'b-green', Open: 'b-red', Unpaid: 'b-orange', Overdue: 'b-red', 'In Progress': 'b-blue', 'Awaiting Payment': 'b-orange', 'Pending Registration': 'b-orange', Vacant: 'b-gray', Expired: 'b-gray', Terminated: 'b-red', Approved: 'b-green', Verified: 'b-green', Completed: 'b-green', Pending: 'b-orange', Rejected: 'b-red' }
-  return map[st] || 'b-gray'
-}
-
 const val = (r, k) => r[k] === undefined || r[k] === null || r[k] === '' ? '—' : String(r[k])
+
+// ── per-collection icon for grid cards ──
+const ico = (r) => {
+  const m = meta.value
+  if (m.ico) return m.ico
+  return '📋'
+}
 </script>
 
 <template>
@@ -213,11 +218,39 @@ const val = (r, k) => r[k] === undefined || r[k] === null || r[k] === '' ? '—'
           <option value="">All statuses</option>
           <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
         </select>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </div>
     </div>
 
-    <div class="panel">
+    <!-- GRID -->
+    <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+      <div v-for="r in paged" :key="r.id || val(r, nameKey)" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="expand(r.id || val(r, nameKey))">
+        <div style="height:74px;position:relative;background:var(--grad)">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px">{{ ico(r) }}</div>
+          <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
+            <span v-if="val(r, statusKey) !== '—'" class="badge" :class="badge(val(r, statusKey))">{{ val(r, statusKey) }}</span>
+          </div>
+          <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ r.id || '—' }}</div>
+        </div>
+        <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:8px">
+          <div style="font-weight:800;font-size:14.5px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ val(r, nameKey) }}</div>
+          <div class="c-sub" style="font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ sub(r) }}</div>
+          <div v-if="expanded[r.id || val(r, nameKey)]" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 14px;margin-top:4px">
+            <div v-for="[k, v] in detailFields(r)" :key="k" style="font-size:12px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+              <div style="font-weight:600;word-break:break-word">{{ fmtVal(k, v) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIST -->
+    <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr">
           <thead>
@@ -255,16 +288,9 @@ const val = (r, k) => r[k] === undefined || r[k] === null || r[k] === '' ? '—'
           </tbody>
         </table>
       </div>
-
-      <div v-if="filtered.length > PAGE_SIZE" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border);font-size:12.5px">
-        <span class="c-sub">{{ rangeLabel }}</span>
-        <div style="display:flex;gap:6px">
-          <button class="btn-ghost" :disabled="page <= 1" @click="setPage(page - 1)">← Prev</button>
-          <span style="display:inline-flex;align-items:center;padding:0 10px;font-weight:700">{{ page }} / {{ pageCount }}</span>
-          <button class="btn-ghost" :disabled="page >= pageCount" @click="setPage(page + 1)">Next →</button>
-        </div>
-      </div>
-      <div v-else-if="filtered.length" style="padding:10px 16px;border-top:1px solid var(--border);font-size:12px" class="c-sub">{{ rangeLabel }}</div>
     </div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No records found{{ query ? ' for “' + query + '”' : '' }}.</div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
   </div>
 </template>

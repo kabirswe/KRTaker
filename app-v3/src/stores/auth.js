@@ -12,6 +12,10 @@ export const useAuthStore = defineStore('auth', {
     need2fa: false,
     loading: false,
     error: '',
+    // True once the persisted token has been validated against /app-me (or cleared).
+    // App.vue shows the login screen until this is set — a stale token must never
+    // render the app shell (empty sidebar, no login form).
+    validated: false,
     // View-as (subordinate impersonation) state
     impersonator: '',
     impExpires: '',
@@ -37,12 +41,14 @@ export const useAuthStore = defineStore('auth', {
           this.user = r.user
           this.impersonator = ''
           this.impExpires = ''
+          this.validated = true
           try { localStorage.setItem(TOKEN_KEY, r.token) } catch (e) {}
           try { localStorage.removeItem(ORIG_KEY) } catch (e) {}
           return { ok: true }
         }
         if (r.need_2fa) { this.need2fa = true; return { ok: false, need2fa: true } }
         this.error = r.error || 'Invalid email or password.'
+        this.validated = true
         return { ok: false, error: this.error }
       } finally { this.loading = false }
     },
@@ -76,7 +82,13 @@ export const useAuthStore = defineStore('auth', {
     },
     async fetchMe() {
       const r = await apiCall('app-me')
-      if (r.ok) { this.user = r.user; return true }
+      if (r.ok) { this.user = r.user; this.validated = true; return true }
+      // Invalid/expired token: drop it so App.vue falls back to the login screen
+      // instead of rendering an empty shell (the "login form not showing" bug).
+      this.user = null
+      this.validated = true
+      this.token = ''
+      try { localStorage.removeItem(TOKEN_KEY) } catch (e) {}
       return false
     },
     async logout() {
@@ -86,6 +98,7 @@ export const useAuthStore = defineStore('auth', {
     clear() {
       this.token = ''; this.user = null; this.need2fa = false
       this.impersonator = ''; this.impExpires = ''
+      this.validated = true
       try { localStorage.removeItem(TOKEN_KEY) } catch (e) {}
       try { localStorage.removeItem(ORIG_KEY) } catch (e) {}
     },

@@ -25,10 +25,15 @@ export async function apiCall(path, data = null) {
   if (data) opts.body = JSON.stringify(data)
 
   // Transient failures (SQLite lock, LiteSpeed 503, empty body) → retry with backoff.
+  // Each attempt has a hard timeout so a stalled connection can never hang the
+  // UI (e.g. the login splash while validating a persisted token).
   let last = null
   for (let i = 0; i < 3; i++) {
     try {
-      const res = await fetch(API_BASE + path, opts)
+      const ctl = new AbortController()
+      const timer = setTimeout(() => ctl.abort(), 12000)
+      const res = await fetch(API_BASE + path, { ...opts, signal: ctl.signal })
+      clearTimeout(timer)
       const text = await res.text()
       let j = null
       try { j = JSON.parse(text) } catch (e) { j = null }
