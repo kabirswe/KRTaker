@@ -287,17 +287,19 @@ const NOTICE_PRESETS = [
   { id: 'due', label: '💰 Payment due', title: 'Rent payment due', body: 'Kindly clear your outstanding rent at the earliest. Late payment charges may apply as per the agreement.' },
   { id: 'general', label: '📋 General notice', title: 'Notice to tenants', body: '' },
 ]
-function openNotice() { noticeModal.value = { preset: 'general', title: 'Notice to tenants', body: '' } }
+function openNotice() { noticeModal.value = { preset: 'general', title: 'Notice to tenants', body: '', vacateBy: '' } }
 function applyPreset() {
   const p = NOTICE_PRESETS.find(x => x.id === noticeModal.value.preset)
-  if (p) { noticeModal.value.title = p.title; noticeModal.value.body = p.body }
+  if (p) { noticeModal.value.title = p.title; noticeModal.value.body = p.body; if (p.id !== 'eviction') noticeModal.value.vacateBy = '' }
 }
 async function sendNotice() {
   const m = noticeModal.value
   if (!m.title.trim()) { window.__krToast?.('Notice title required', 'error'); return }
   noticeSaving.value = true
   try {
-    const r = await apiCall('app-notice-create', { title: m.title.trim(), body: m.body.trim() })
+    let body = m.body.trim()
+    if (m.preset === 'eviction' && m.vacateBy) body += `\n\n🚪 Vacate by: ${m.vacateBy} (soft deadline — settle dues and complete handover before this date).`
+    const r = await apiCall('app-notice-create', { title: m.title.trim(), body })
     if (r.ok) { window.__krToast?.(`📢 ${r.id} posted`, 'ok'); noticeModal.value = null; await data.bootstrap() }
     else window.__krToast?.(r.error || 'Failed to post notice', 'error')
   } finally { noticeSaving.value = false }
@@ -497,15 +499,50 @@ const scoreModal = ref(false)   // key-indicator drill-down modal
 // ── settlement (move-out statement) ──
 const settleModal = ref(null)
 const settleLoading = ref(false)
+const settleDeducts = ref([])          // editable damage deductions [{label, amount}]
+const settleApplyDeposit = ref(true)
+const settleDate = ref(new Date().toISOString().slice(0, 10))
+const settleRecomputing = ref(false)
+const settleFinalizing = ref(false)
 async function openSettle() {
   if (!sel.value || !selLeases.value.length) { window.__krToast?.('No lease for this tenant.', 'error'); return }
   const lease = selLeases.value.find(l => ['Active', 'Pending Registration'].includes(String(l.status).toLowerCase())) || selLeases.value[0]
   settleLoading.value = true
   try {
     const r = await apiCall('app-moveout', { lease: lease.id, action: 'prepare' })
-    if (r.ok) settleModal.value = r
-    else window.__krToast?.(r.error || 'Failed to load settlement', 'error')
+    if (r.ok) {
+      settleModal.value = r
+      settleDeducts.value = (r.settlement?.sections?.damages || []).map(d => ({ label: d.label, amount: d.amount }))
+      settleApplyDeposit.value = true
+      settleDate.value = new Date().toISOString().slice(0, 10)
+    } else window.__krToast?.(r.error || 'Failed to load settlement', 'error')
   } finally { settleLoading.value = false }
+}
+function addDeduct() { settleDeducts.value.push({ label: '', amount: 0 }) }
+function rmDeduct(i) { settleDeducts.value.splice(i, 1) }
+async function recomputeSettle() {
+  if (!settleModal.value) return
+  settleRecomputing.value = true
+  try {
+    const r = await apiCall('app-moveout', { lease: settleModal.value.lease?.id, action: 'prepare', deductions: settleDeducts.value.filter(d => d.label && d.amount > 0), apply_deposit: settleApplyDeposit.value })
+    if (r.ok) settleModal.value = r
+    else window.__krToast?.(r.error || 'Recompute failed', 'error')
+  } finally { settleRecomputing.value = false }
+}
+async function finalizeSettle() {
+  if (!settleModal.value) return
+  const s = settleModal.value.settlement
+  const bal = s?.status === 'DUE' ? s?.totals?.balance : 0
+  if (!confirm(`Finalize move-out for ${settleModal.value.tenant?.name} (${settleModal.value.lease?.id}) on ${settleDate.value}?\n\nBalance payable: ৳${(bal || 0).toLocaleString('en-IN')}\n\nThe lease will be closed, the settlement report recorded, and the move-out handover marked complete. This cannot be undone.`)) return
+  settleFinalizing.value = true
+  try {
+    const r = await apiCall('app-moveout', { lease: settleModal.value.lease?.id, action: 'close', move_out_date: settleDate.value, deductions: settleDeducts.value.filter(d => d.label && d.amount > 0), apply_deposit: settleApplyDeposit.value })
+    if (r.ok) {
+      window.__krToast?.(`🚪 Move-out finalized — ${r.settlement?.id || 'SET-??'} (${r.settlement?.status || ''})`, 'ok')
+      settleModal.value = null
+      await data.bootstrap(); reResolveSel()
+    } else window.__krToast?.(r.error || 'Move-out failed', 'error')
+  } finally { settleFinalizing.value = false }
 }
 
 // ── chat ──
@@ -585,6 +622,19 @@ async function delDoc(d) {
   const r = await apiCall('app-doc-delete', { id: d.id })
   if (r.ok) { window.__krToast?.('🗑️ Document deleted', 'ok'); await data.bootstrap(); reResolveSel() }
   else window.__krToast?.(r.error || 'Delete failed', 'error')
+}
+// ── document type filter + re-categorize ──
+const docFilter = ref('all')
+const filteredDocs = computed(() => docFilter.value === 'all' ? selDocs.value : selDocs.value.filter(d => d.cat === docFilter.value))
+const docCatBusy = ref('')
+async function setDocCat(d, cat) {
+  if (!d || d.cat === cat) return
+  docCatBusy.value = d.id
+  try {
+    const r = await apiCall('app-doc-cat', { id: d.id, cat })
+    if (r.ok) { window.__krToast?.('🏷️ ' + d.id + ' → ' + docTypeLabel(cat), 'ok'); await data.bootstrap(); reResolveSel() }
+    else window.__krToast?.(r.error || 'Could not re-categorize', 'error')
+  } finally { docCatBusy.value = '' }
 }
 
 // ── partial payment modal ──
@@ -1122,13 +1172,22 @@ async function delTenant(t) {
                 </label>
               </div>
             </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+              <button class="btn-ghost" :style="docFilter === 'all' ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" style="padding:5px 11px;font-size:11.5px;border-radius:999px" @click="docFilter = 'all'">All ({{ selDocs.length }})</button>
+              <button v-for="t in DOC_TYPES" :key="t.id" class="btn-ghost" :style="docFilter === t.id ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" style="padding:5px 11px;font-size:11.5px;border-radius:999px" @click="docFilter = t.id">{{ t.label.replace(/^[^ ]+ /, '') }} ({{ selDocs.filter(d => d.cat === t.id).length }})</button>
+            </div>
             <table class="kr" style="width:100%">
               <thead><tr><th>Doc</th><th>Name</th><th>Type</th><th>Size</th><th>Uploaded</th><th>By</th><th></th></tr></thead>
               <tbody>
-                <tr v-for="d in selDocs" :key="d.id">
+                <tr v-for="d in filteredDocs" :key="d.id">
                   <td style="font-weight:700">{{ d.id }}</td>
                   <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</td>
-                  <td><span class="badge b-gray" style="font-size:10px">{{ docTypeLabel(d.cat) }}</span></td>
+                  <td>
+                    <select v-if="canManage" :value="d.cat" :disabled="docCatBusy === d.id" title="Change type" style="padding:3px 5px;border:1px solid var(--border);border-radius:7px;background:var(--bg-alt);font-family:inherit;font-size:10.5px;color:var(--text);outline:none;max-width:150px" @change="setDocCat(d, $event.target.value)">
+                      <option v-for="t in DOC_TYPES" :key="t.id" :value="t.id">{{ t.label }}</option>
+                    </select>
+                    <span v-else class="badge b-gray" style="font-size:10px">{{ docTypeLabel(d.cat) }}</span>
+                  </td>
                   <td>{{ fmtSize(d.size) }}</td>
                   <td>{{ fmtTs(d.ts) }}</td>
                   <td>{{ d.uploaded_by || '—' }}</td>
@@ -1138,7 +1197,7 @@ async function delTenant(t) {
                     <button v-if="canManage" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" @click="delDoc(d)" title="Delete">🗑️</button>
                   </td>
                 </tr>
-                <tr v-if="!selDocs.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No documents yet — upload NID copy, agreement, references…</td></tr>
+                <tr v-if="!filteredDocs.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ docFilter === 'all' ? 'No documents yet — upload NID copy, agreement, references…' : 'No documents in this category yet.' }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -1208,6 +1267,11 @@ async function delTenant(t) {
           <div>
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Body</label>
             <textarea v-model="noticeModal.body" rows="4" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
+          </div>
+          <div v-if="noticeModal.preset === 'eviction'">
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🚪 Vacate by (date)</label>
+            <input v-model="noticeModal.vacateBy" type="date" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <div class="c-sub" style="font-size:11px;margin-top:4px">Appended to the notice body as the vacating deadline.</div>
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
@@ -1587,6 +1651,19 @@ async function delTenant(t) {
             <span class="c-sub" style="font-size:12px">{{ settleModal.lease?.id }} · {{ settleModal.unit?.name }} · {{ settleModal.unit?.property }} · rent ৳{{ (settleModal.lease?.rent || 0).toLocaleString('en-IN') }}/mo</span>
           </div>
 
+          <div style="display:flex;gap:10px;flex-wrap:wrap;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 15px;align-items:center">
+            <div>
+              <label style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Move-out date</label>
+              <input v-model="settleDate" type="date" style="display:block;margin-top:4px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;padding-top:14px">
+              <input v-model="settleApplyDeposit" type="checkbox" style="width:15px;height:15px;accent-color:var(--primary)">
+              <b>Apply advance / security deposit</b> <span class="c-sub" style="font-size:11px">(৳{{ ((settleModal.settlement?.deposit) || 0).toLocaleString('en-IN') }} available)</span>
+            </label>
+            <div style="flex:1"></div>
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12px" :disabled="settleRecomputing" @click="recomputeSettle">{{ settleRecomputing ? 'Recomputing…' : '⟳ Recompute' }}</button>
+          </div>
+
           <div v-if="settleModal.settlement?.sections?.rent_arrears?.length" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">💰 Rent arrears</div>
             <div v-for="a in settleModal.settlement.sections.rent_arrears" :key="a.invoice" style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
@@ -1611,6 +1688,20 @@ async function delTenant(t) {
           <div v-if="!settleModal.settlement?.sections?.rent_arrears?.length && !settleModal.settlement?.sections?.utility_dues?.length && !settleModal.settlement?.sections?.damages?.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No outstanding dues — all settled.</div>
 
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🔧 Damage deductions (editable)</div>
+              <button class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="addDeduct">＋ Add</button>
+            </div>
+            <div v-if="!settleDeducts.length" class="c-sub" style="font-size:12px;padding:2px 0 4px">No deductions — add e.g. broken window, repainting, missing keys…</div>
+            <div v-for="(dd, di) in settleDeducts" :key="di" style="display:flex;gap:8px;align-items:center;margin-bottom:7px">
+              <input v-model="dd.label" placeholder="Reason (e.g. repainting, damaged AC…)" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+              <input v-model.number="dd.amount" type="number" min="0" placeholder="৳ amount" style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+              <button class="btn-ghost" style="padding:5px 9px;font-size:11.5px;color:var(--danger)" @click="rmDeduct(di)">✕</button>
+            </div>
+            <div class="c-sub" style="font-size:11px">Click <b>⟳ Recompute</b> above to refresh the statement with these deductions.</div>
+          </div>
+
+          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Summary</div>
             <div v-for="(row, rk) in [['Rent arrears', 'rent'], ['Utility dues', 'utility'], ['Damage deductions', 'damages']]" :key="rk" style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
               <span>{{ row[0] }}</span><b>৳{{ ((settleModal.settlement?.totals?.[row[1]]) || 0).toLocaleString('en-IN') }}</b>
@@ -1629,7 +1720,16 @@ async function delTenant(t) {
               <span :style="`color:${settleModal.settlement?.status === 'DUE' ? 'var(--danger)' : 'var(--ok)'}`">৳{{ ((settleModal.settlement?.status === 'DUE' ? settleModal.settlement?.totals?.balance : settleModal.settlement?.totals?.refund) || 0).toLocaleString('en-IN') }}</span>
             </div>
           </div>
-          <div class="c-sub" style="font-size:11px">Statement #{{ settleModal.settlement?.id }} · {{ settleModal.settlement?.generated_at }} · move-out handover: {{ settleModal.handover?.id || '—' }} ({{ settleModal.handover?.status || '—' }})</div>
+          <div class="c-sub" style="font-size:11px">Statement #{{ settleModal.settlement?.id }} · {{ settleModal.settlement?.generated_at }} · move-out handover: {{ settleModal.handover?.id || '—' }} ({{ settleModal.handover?.status || '—' }}) · open tickets: {{ settleModal.open_tickets?.length || 0 }}</div>
+        </div>
+        <div style="padding:15px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="btn-ghost" @click="settleModal = null">Close</button>
+          <div style="display:flex;gap:10px">
+            <button class="btn-ghost" style="padding:9px 16px;font-size:12.5px" :disabled="settleRecomputing" @click="recomputeSettle">{{ settleRecomputing ? 'Recomputing…' : '⟳ Recompute' }}</button>
+            <button style="padding:9px 18px;font-size:12.5px;font-weight:800;border:none;border-radius:10px;background:var(--danger);color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px" :disabled="settleFinalizing || settleModal.lease?.status === 'Ended'" @click="finalizeSettle">
+              {{ settleFinalizing ? 'Finalizing…' : (settleModal.lease?.status === 'Ended' ? '✓ Already ended' : '🚪 Finalize move-out') }}
+            </button>
+          </div>
         </div>
       </div>
     </template>

@@ -11184,6 +11184,24 @@ case 'app-doc-delete': {
     audit($u['name'], 'Document deleted', 'documents', $id, $d['name']);
     json_out(['ok' => true]);
 }
+case 'app-doc-cat': {
+    /* Phase 22: re-categorize a document (owner / manager / superadmin) */
+    $u = require_user();
+    require_module($u, 'documents');
+    if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true))
+        json_out(['ok' => false, 'error' => 'Your role cannot re-categorize documents.'], 403);
+    $id = trim($body['id'] ?? '');
+    $cat = trim($body['cat'] ?? '');
+    if (!$id || !$cat) json_out(['ok' => false, 'error' => 'id and cat required.'], 400);
+    if (!array_key_exists($cat, DOC_CATS())) json_out(['ok' => false, 'error' => 'Unknown document category.'], 400);
+    $pdo = db();
+    $st = $pdo->prepare('SELECT * FROM documents WHERE id=?'); $st->execute([$id]);
+    $d = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$d) json_out(['ok' => false, 'error' => 'Document not found.'], 404);
+    $pdo->prepare('UPDATE documents SET cat=? WHERE id=?')->execute([$cat, $id]);
+    audit($u['name'], 'Document recategorized', 'documents', $id, ($d['cat'] ?? 'other') . ' → ' . $cat);
+    json_out(['ok' => true, 'cat' => $cat]);
+}
 case 'app-notice-list': {
     $u = require_user();
     require_module($u, 'notices');
