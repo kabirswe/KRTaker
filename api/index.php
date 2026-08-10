@@ -12842,7 +12842,11 @@ case 'app-score-detail': {
     }
     $sc = tenant_scorecard($pdo, $tid);
     if (!$sc) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
-    json_out(['ok' => true] + $sc);
+    /* key-indicator drill-down: factor weights + raw stats from the scorecard */
+    json_out(['ok' => true] + $sc + ['detail' => [
+        'weights' => ['payment' => 40, 'stability' => 20, 'care' => 20, 'compliance' => 20],
+        'stats' => $sc['stats'] ?? [],
+    ]]);
 }
 case 'app-vetting-report': {
     $u = require_user();

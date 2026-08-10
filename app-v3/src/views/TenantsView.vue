@@ -228,8 +228,25 @@ const FAM_FIELDS = [
   { k: 'phone', label: 'Phone', ph: '01xxx', w: '1fr' },
   { k: 'occupation', label: 'Occupation', ph: 'Optional', w: '1fr' },
 ]
-function addFamilyRow() { family.value.push({ name: '', relation: '', nid: '', dob: '', phone: '', occupation: '' }) }
-function removeFamilyRow(i) { family.value.splice(i, 1) }
+/* redesigned entry: modal form per member (add / edit) */
+const famModal = ref(null)   // { index: null|i, m: {...} }
+function emptyFamMember() { return { name: '', relation: '', nid: '', dob: '', phone: '', occupation: '' } }
+function openFamAdd() { famModal.value = { index: null, m: emptyFamMember() } }
+function openFamEdit(i) { famModal.value = { index: i, m: { ...family.value[i] } } }
+function saveFamMember() {
+  const fm = famModal.value
+  if (!fm) return
+  if (!fm.m.name.trim()) { window.__krToast?.('Member name is required', 'error'); return }
+  if (fm.index === null) family.value.push({ ...fm.m })
+  else family.value[fm.index] = { ...fm.m }
+  famModal.value = null
+  saveFamily()
+}
+function removeFamilyRow(i) {
+  if (!confirm(`Remove ${family.value[i]?.name || 'this member'} from family?`)) return
+  family.value.splice(i, 1)
+  saveFamily()
+}
 async function saveFamily() {
   if (!sel.value) return
   famSaving.value = true
@@ -265,7 +282,7 @@ async function saveCompany() {
 const noticeModal = ref(null)
 const noticeSaving = ref(false)
 const NOTICE_PRESETS = [
-  { id: 'vacancy', label: '🏠 Vacancy notice', title: 'Unit available for rent', body: 'This unit will be available for rent from the next month. Interested parties may contact the management office.' },
+  { id: 'eviction', label: '🚫 Eviction notice', title: 'Eviction notice', body: 'This is a formal notice that you are required to vacate the premises by the end of the notice period, in accordance with the tenancy agreement and applicable law. Please settle all outstanding dues and complete the move-out handover checklist before the vacating date.' },
   { id: 'warning', label: '⚠️ Warning', title: 'Formal warning', body: 'Please be advised to comply with the terms of the tenancy agreement. Repeated non-compliance may lead to further action.' },
   { id: 'due', label: '💰 Payment due', title: 'Rent payment due', body: 'Kindly clear your outstanding rent at the earliest. Late payment charges may apply as per the agreement.' },
   { id: 'general', label: '📋 General notice', title: 'Notice to tenants', body: '' },
@@ -475,6 +492,21 @@ async function loadScore() {
   } finally { scoreLoading.value = false }
 }
 const scorePct = computed(() => (scoreData.value?.score ?? 0) + '%')
+const scoreModal = ref(false)   // key-indicator drill-down modal
+
+// ── settlement (move-out statement) ──
+const settleModal = ref(null)
+const settleLoading = ref(false)
+async function openSettle() {
+  if (!sel.value || !selLeases.value.length) { window.__krToast?.('No lease for this tenant.', 'error'); return }
+  const lease = selLeases.value.find(l => ['Active', 'Pending Registration'].includes(String(l.status).toLowerCase())) || selLeases.value[0]
+  settleLoading.value = true
+  try {
+    const r = await apiCall('app-moveout', { lease: lease.id, action: 'prepare' })
+    if (r.ok) settleModal.value = r
+    else window.__krToast?.(r.error || 'Failed to load settlement', 'error')
+  } finally { settleLoading.value = false }
+}
 
 // ── chat ──
 const chatMsgs = ref([])
@@ -504,6 +536,16 @@ function scrollChat() { requestAnimationFrame(() => { if (chatBox.value) chatBox
 
 // ── documents ──
 const docUploading = ref(false)
+const docCat = ref('other')                       // selected document type for uploads
+const DOC_TYPES = [
+  { id: 'other', label: '📁 Other' },
+  { id: 'agreement', label: '📄 Agreement & lease papers' },
+  { id: 'utility', label: '⚡ Utility papers & bills' },
+  { id: 'legal', label: '⚖️ Legal documents' },
+  { id: 'tax', label: '🧾 Tax & khajna' },
+  { id: 'community', label: '🏘 Community / society' },
+]
+const docTypeLabel = (id) => (DOC_TYPES.find(t => t.id === id) || {}).label || id || '—'
 async function onDocPick(e) {
   const f = e.target.files && e.target.files[0]
   e.target.value = ''
@@ -512,11 +554,11 @@ async function onDocPick(e) {
   fd.append('file', f)
   fd.append('kind', 'tenant')
   fd.append('ref', sel.value.id)
-  fd.append('cat', 'other')
+  fd.append('cat', docCat.value || 'other')
   docUploading.value = true
   try {
     const r = await apiUpload('app-doc-upload', fd)
-    if (r.ok) { window.__krToast?.('📎 Document uploaded', 'ok'); await data.bootstrap(); reResolveSel() }
+    if (r.ok) { window.__krToast?.('📎 Document uploaded (' + docTypeLabel(docCat.value) + ')', 'ok'); await data.bootstrap(); reResolveSel() }
     else window.__krToast?.(r.error || 'Upload failed', 'error')
   } finally { docUploading.value = false }
 }
@@ -760,7 +802,9 @@ async function delTenant(t) {
           <template v-if="tab === 'profile'">
             <!-- owner actions -->
             <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+              <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" @click="openEdit(sel)">✏️ Edit profile</button>
               <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" @click="openNotice">📢 Send notice</button>
+              <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" :disabled="settleLoading" @click="openSettle">{{ settleLoading ? 'Loading…' : '🧾 Settlement' }}</button>
               <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" :disabled="remindSending" @click="sendReminder">{{ remindSending ? 'Sending…' : '🔔 Payment reminder' }}</button>
             </div>
 
@@ -773,8 +817,11 @@ async function delTenant(t) {
                     <div style="font-size:8.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.4px">score</div>
                   </div>
                 </div>
-                <div style="min-width:0">
-                  <div style="font-weight:800;font-size:15px">Tenant score — <span :style="`color:${scoreData?.band_color || 'var(--text)'}`">{{ scoreData?.band || '…' }}</span></div>
+                <div style="min-width:0;flex:1">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                    <div style="font-weight:800;font-size:15px">Tenant score — <span :style="`color:${scoreData?.band_color || 'var(--text)'}`">{{ scoreData?.band || '…' }}</span></div>
+                    <button v-if="scoreData && !scoreLoading" class="btn-ghost" style="padding:6px 12px;font-size:11.5px" @click="scoreModal = true">📊 Key indicators</button>
+                  </div>
                   <div v-if="scoreLoading" class="c-sub" style="margin-top:4px">Calculating…</div>
                   <template v-else-if="scoreData">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-top:8px">
@@ -812,15 +859,23 @@ async function delTenant(t) {
             <div v-if="String(sel.kind).toLowerCase() === 'individual'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:12px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
                 <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">👨‍👩‍👧 Family information</div>
-                <div style="display:flex;gap:8px">
-                  <button v-if="canManage" class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="addFamilyRow">＋ Member</button>
-                  <button v-if="canManage" class="btn-primary" style="padding:6px 14px;font-size:12px" :disabled="famSaving" @click="saveFamily">{{ famSaving ? 'Saving…' : 'Save' }}</button>
-                </div>
+                <button v-if="canManage" class="btn-primary" style="padding:6px 14px;font-size:12px" @click="openFamAdd">＋ Add member</button>
               </div>
               <div v-if="!family.length" class="c-sub" style="font-size:12px;padding:6px 0 10px">No family members recorded yet.</div>
-              <div v-for="(m, i) in family" :key="i" style="display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
-                <input v-for="f in FAM_FIELDS" :key="f.k" v-model="m[f.k]" :placeholder="f.ph" style="min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:12px;color:var(--text);outline:none">
-                <button v-if="canManage" class="btn-ghost" style="padding:6px 9px;font-size:11px;color:var(--danger)" @click="removeFamilyRow(i)">✕</button>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div v-for="(m, i) in family" :key="i" style="display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:10px 13px">
+                  <div style="width:38px;height:38px;border-radius:50%;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0">{{ (m.name || '?').trim()[0]?.toUpperCase() || '?' }}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:800;font-size:13px">{{ m.name }} <span class="c-sub" style="font-weight:500">· {{ m.relation || '—' }}</span></div>
+                    <div class="c-sub" style="font-size:11px;margin-top:2px">
+                      {{ [m.phone ? '📞 ' + m.phone : '', m.dob ? '🎂 ' + m.dob : '', m.nid ? '🪪 ' + m.nid : '', m.occupation || ''].filter(Boolean).join(' · ') || 'No details' }}
+                    </div>
+                  </div>
+                  <div v-if="canManage" style="display:flex;gap:6px">
+                    <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="openFamEdit(i)">✏️</button>
+                    <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px;color:var(--danger)" @click="removeFamilyRow(i)">🗑️</button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1057,17 +1112,23 @@ async function delTenant(t) {
           <div v-else-if="tab === 'docs'">
             <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;flex-wrap:wrap;gap:8px">
               <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">📎 Tenant documents</div>
-              <label v-if="canManage" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800">
-                {{ docUploading ? 'Uploading…' : '⬆ Upload document' }}
-                <input type="file" style="display:none" @change="onDocPick">
-              </label>
+              <div v-if="canManage" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select v-model="docCat" title="Document type" style="padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:12px;color:var(--text);outline:none;max-width:210px">
+                  <option v-for="t in DOC_TYPES" :key="t.id" :value="t.id">{{ t.label }}</option>
+                </select>
+                <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800">
+                  {{ docUploading ? 'Uploading…' : '⬆ Upload document' }}
+                  <input type="file" style="display:none" @change="onDocPick">
+                </label>
+              </div>
             </div>
             <table class="kr" style="width:100%">
-              <thead><tr><th>Doc</th><th>Name</th><th>Size</th><th>Uploaded</th><th>By</th><th></th></tr></thead>
+              <thead><tr><th>Doc</th><th>Name</th><th>Type</th><th>Size</th><th>Uploaded</th><th>By</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="d in selDocs" :key="d.id">
                   <td style="font-weight:700">{{ d.id }}</td>
-                  <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</td>
+                  <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</td>
+                  <td><span class="badge b-gray" style="font-size:10px">{{ docTypeLabel(d.cat) }}</span></td>
                   <td>{{ fmtSize(d.size) }}</td>
                   <td>{{ fmtTs(d.ts) }}</td>
                   <td>{{ d.uploaded_by || '—' }}</td>
@@ -1077,7 +1138,7 @@ async function delTenant(t) {
                     <button v-if="canManage" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" @click="delDoc(d)" title="Delete">🗑️</button>
                   </td>
                 </tr>
-                <tr v-if="!selDocs.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No documents yet — upload NID copy, agreement, references…</td></tr>
+                <tr v-if="!selDocs.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No documents yet — upload NID copy, agreement, references…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1410,6 +1471,165 @@ async function delTenant(t) {
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
           <button class="btn-ghost" @click="closeModal">Cancel</button>
           <button class="btn-primary" :disabled="saving" @click="submitForm" style="padding:9px 18px">{{ saving ? 'Saving…' : modal.mode === 'edit' ? 'Save changes' : 'Create tenant' }}</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- family member entry modal -->
+    <template v-if="famModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="famModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(520px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">{{ famModal.index === null ? '👤 Add family member' : '✏️ Edit family member' }}</h3>
+          <button @click="famModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:grid;grid-template-columns:1fr 1fr;gap:13px">
+          <div style="grid-column:1/-1">
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Full name *</label>
+            <input v-model="famModal.m.name" placeholder="e.g. Nazma Begum" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Relation</label>
+            <select v-model="famModal.m.relation" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+              <option value="" disabled>Select relation</option>
+              <option v-for="r in ['Spouse','Son','Daughter','Father','Mother','Brother','Sister','Other']" :key="r" :value="r">{{ r }}</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Date of birth</label>
+            <input v-model="famModal.m.dob" type="date" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Phone</label>
+            <input v-model="famModal.m.phone" placeholder="01711-223344" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">NID</label>
+            <input v-model="famModal.m.nid" placeholder="Optional" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Occupation</label>
+            <input v-model="famModal.m.occupation" placeholder="Optional" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+        </div>
+        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn-ghost" @click="famModal = null">Cancel</button>
+          <button class="btn-primary" :disabled="famSaving" @click="saveFamMember" style="padding:9px 18px">{{ famSaving ? 'Saving…' : '💾 Save member' }}</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- key indicators (score detail) modal -->
+    <template v-if="scoreModal && scoreData">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="scoreModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">📊 Key indicators — {{ scoreData.tenant?.name || sel.name }}</h3>
+          <button @click="scoreModal = false" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;gap:14px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div :style="`width:58px;height:58px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:conic-gradient(${scoreData.band_color} ${scorePct}, rgba(127,146,178,.15) 0)`">
+              <div style="width:44px;height:44px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900">{{ scoreData.score }}</div>
+            </div>
+            <div>
+              <div style="font-weight:800;font-size:15px">{{ scoreData.band }}</div>
+              <div class="c-sub" style="font-size:11.5px">Weighted: 40% payment · 20% stability · 20% care · 20% compliance</div>
+            </div>
+          </div>
+          <div v-for="(fkey, fi) in ['payment','stability','care','compliance']" :key="fkey" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div style="font-weight:800;font-size:13px;text-transform:capitalize">{{ fkey }} <span class="c-sub" style="font-weight:500">· {{ scoreData.detail?.weights?.[fkey] || 20 }}% weight</span></div>
+              <b :style="`color:${scoreData.band_color}`">{{ scoreData.factors[fkey] }}</b>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11.5px">
+              <template v-if="fkey === 'payment'">
+                <div>Invoices: <b>{{ scoreData.detail?.stats?.unpaid !== undefined ? (scoreData.detail.stats.unpaid + ' unpaid') : '—' }}</b></div>
+                <div>On-time rate: <b>{{ scoreData.detail?.stats?.on_time_rate ?? '—' }}%</b></div>
+                <div>Overdue: <b>{{ scoreData.detail?.stats?.overdue ?? '—' }}</b></div>
+                <div>Avg days late: <b>{{ scoreData.detail?.stats?.avg_days_late ?? '—' }}</b></div>
+              </template>
+              <template v-else-if="fkey === 'stability'">
+                <div>Tenure: <b>{{ scoreData.detail?.stats?.tenure_months ?? '—' }} mo</b></div>
+                <div>Approved renewals: <b>{{ scoreData.detail?.stats?.renewals ?? '—' }}</b></div>
+              </template>
+              <template v-else-if="fkey === 'care'">
+                <div>Tickets: <b>{{ scoreData.detail?.stats?.tickets_total ?? '—' }}</b></div>
+                <div>Resolved: <b>{{ scoreData.detail?.stats?.tickets_open !== undefined ? ((scoreData.detail.stats.tickets_total || 0) - scoreData.detail.stats.tickets_open) : '—' }}</b></div>
+                <div>Meter months: <b>{{ scoreData.detail?.stats?.meter_months ?? '—' }}</b></div>
+              </template>
+              <template v-else>
+                <div>Handover: <b>{{ scoreData.detail?.stats?.handover_done ? '✓ Completed' : '—' }}</b></div>
+                <div>Registration: <b>{{ scoreData.detail?.stats?.reg_ok ? '✓ Ok' : 'Pending' }}</b></div>
+                <div>Documents: <b>{{ scoreData.detail?.stats?.docs ?? '—' }}</b></div>
+              </template>
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-mute);background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div style="font-weight:800;color:var(--text);text-transform:uppercase;font-size:10.5px;letter-spacing:.3px;margin-bottom:6px">💡 Suggestions</div>
+            <div v-for="tip in scoreData.tips" :key="tip" style="margin-top:3px">{{ tip }}</div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- settlement statement modal (move-out) -->
+    <template v-if="settleModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="settleModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(620px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">🧾 Settlement statement — {{ settleModal.tenant?.name }}</h3>
+          <button @click="settleModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <span class="badge" :class="settleModal.settlement?.status === 'NO_DUES' ? 'b-green' : settleModal.settlement?.status === 'SETTLED' ? 'b-blue' : 'b-orange'" style="font-size:11.5px">{{ settleModal.settlement?.status || '—' }}</span>
+            <span class="c-sub" style="font-size:12px">{{ settleModal.lease?.id }} · {{ settleModal.unit?.name }} · {{ settleModal.unit?.property }} · rent ৳{{ (settleModal.lease?.rent || 0).toLocaleString('en-IN') }}/mo</span>
+          </div>
+
+          <div v-if="settleModal.settlement?.sections?.rent_arrears?.length" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">💰 Rent arrears</div>
+            <div v-for="a in settleModal.settlement.sections.rent_arrears" :key="a.invoice" style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span>{{ a.invoice }} · {{ a.month }} <span class="c-sub">(net ৳{{ (a.net || 0).toLocaleString('en-IN') }}, paid ৳{{ (a.paid || 0).toLocaleString('en-IN') }})</span></span>
+              <b style="color:var(--danger)">৳{{ (a.due || 0).toLocaleString('en-IN') }}</b>
+            </div>
+          </div>
+          <div v-if="settleModal.settlement?.sections?.utility_dues?.length" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">⚡ Utility dues</div>
+            <div v-for="u in settleModal.settlement.sections.utility_dues" :key="u.id" style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span>{{ u.id }} · {{ u.type }} · {{ u.month }} <span class="c-sub">({{ u.usage }} units)</span></span>
+              <b style="color:var(--danger)">৳{{ (u.amount || 0).toLocaleString('en-IN') }}</b>
+            </div>
+          </div>
+          <div v-if="settleModal.settlement?.sections?.damages?.length" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🔧 Damage deductions</div>
+            <div v-for="d in settleModal.settlement.sections.damages" :key="d.label" style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span>{{ d.label }}</span>
+              <b style="color:var(--danger)">৳{{ (d.amount || 0).toLocaleString('en-IN') }}</b>
+            </div>
+          </div>
+          <div v-if="!settleModal.settlement?.sections?.rent_arrears?.length && !settleModal.settlement?.sections?.utility_dues?.length && !settleModal.settlement?.sections?.damages?.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No outstanding dues — all settled.</div>
+
+          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Summary</div>
+            <div v-for="(row, rk) in [['Rent arrears', 'rent'], ['Utility dues', 'utility'], ['Damage deductions', 'damages']]" :key="rk" style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span>{{ row[0] }}</span><b>৳{{ ((settleModal.settlement?.totals?.[row[1]]) || 0).toLocaleString('en-IN') }}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-top:1px solid var(--border);margin-top:4px;padding-top:7px">
+              <span>Total due</span><b style="color:var(--danger)">৳{{ ((settleModal.settlement?.totals?.total_due) || 0).toLocaleString('en-IN') }}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span>Advance / security deposit</span><b>৳{{ ((settleModal.settlement?.deposit) || 0).toLocaleString('en-IN') }}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span>Deposit applied</span><b>− ৳{{ ((settleModal.settlement?.deposit_applied) || 0).toLocaleString('en-IN') }}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:900;padding:6px 0 0;border-top:1px solid var(--border);margin-top:5px">
+              <span>{{ settleModal.settlement?.status === 'DUE' ? 'Balance payable by tenant' : 'Refundable to tenant' }}</span>
+              <span :style="`color:${settleModal.settlement?.status === 'DUE' ? 'var(--danger)' : 'var(--ok)'}`">৳{{ ((settleModal.settlement?.status === 'DUE' ? settleModal.settlement?.totals?.balance : settleModal.settlement?.totals?.refund) || 0).toLocaleString('en-IN') }}</span>
+            </div>
+          </div>
+          <div class="c-sub" style="font-size:11px">Statement #{{ settleModal.settlement?.id }} · {{ settleModal.settlement?.generated_at }} · move-out handover: {{ settleModal.handover?.id || '—' }} ({{ settleModal.handover?.status || '—' }})</div>
         </div>
       </div>
     </template>
