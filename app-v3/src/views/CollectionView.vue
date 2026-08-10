@@ -7,6 +7,10 @@ const data = useDataStore()
 
 const rows = computed(() => data.list(props.collection))
 const query = ref('')
+const statusFilter = ref('')
+const page = ref(1)
+const PAGE_SIZE = 15
+const expanded = ref({})
 
 // Friendly title + icon per collection (covers all bootstrap collections)
 const META = {
@@ -72,6 +76,7 @@ const STATUS_KEY = ['status', 'state', 'liab', 'result', 'decision']
 function unitName(pid) { return data.list('units').find(u => u.id === pid)?.name || pid || '' }
 function propName(pid) { return data.list('properties').find(p => p.id === pid)?.name || pid || '' }
 function tenantName(tid) { return data.list('tenants').find(t => t.id === tid)?.name || tid || '' }
+function partnerName(pid) { return data.list('partners').find(p => p.id === pid)?.name || pid || '' }
 function money(n) { return '৳' + Math.round(n || 0).toLocaleString('en-IN') }
 
 // Human-friendly detail line per collection
@@ -84,7 +89,7 @@ function sub(row) {
     case 'invoices': return `${row.m || ''} · ${money(row.net)} · lease ${row.l || ''}`
     case 'receipts': return `${row.method || ''} · ${row.date || ''} · inv ${row.inv || ''}`
     case 'payments': return `${row.method || ''} · ${row.ref || ''} · ${row.date || ''}`
-    case 'tickets': return `${unitName(row.u)} · ${row.liab || ''} liability · con: ${row.con || '—'}`
+    case 'tickets': return `${unitName(row.u)} · ${row.liab || ''} liability · con: ${partnerName(row.con) || '—'}`
     case 'partners': return `${row.trade || ''} · ★${row.rating || 0} · ${row.jobs || 0} jobs`
     case 'staff': return `${row.role || ''} · ${row.dept || ''}`
     case 'support': return `${row.from_t || ''} · ${row.prio || ''}`
@@ -94,14 +99,14 @@ function sub(row) {
     case 'compliance_items': return `${row.module || ''} · expires ${row.expiry_date || '—'}`
     case 'utility_bills': return `${unitName(row.unit)} · ${row.month || ''} · ${money(row.amount)}`
     case 'meter_readings': return `${unitName(row.unit)} · ${row.month || ''} · ${row.reading != null ? row.reading + ' ' + (row.unit_type || '') : ''}`
-    case 'partner_invoices': return `${money(row.amount)} · ${row.partner || ''}`
+    case 'partner_invoices': return `${money(row.amount)} · ${partnerName(row.partner) || ''}`
     case 'vendor_payouts': return `${row.month || ''} · ${money(row.amount)}`
     case 'remittances': return `${row.month || ''} · ${money(row.amount)}`
     case 'onboarding_apps': return `${row.app_type || ''} · ${row.stage || row.status || ''}`
-    case 'concierge_requests': return `${row.tenant || ''} · ${row.service || ''}`
+    case 'concierge_requests': return `${tenantName(row.tenant) || ''} · ${row.service || ''}`
     case 'documents': return `${row.ref || ''} · ${row.ts || ''}`
     case 'referrals': return `${row.user_email || ''} · ${row.ts || ''}`
-    case 'nid_verifications': return `${row.tenant || ''} · ${row.result || row.status || ''}`
+    case 'nid_verifications': return `${tenantName(row.tenant) || ''} · ${row.result || row.status || ''}`
     case 'insurance_policies': return `${row.type || ''} · ${row.tenant ? tenantName(row.tenant) : ''}`
     case 'holding_taxes': return `${row.prop ? propName(row.prop) : ''} · ${row.due || ''}`
     case 'gate_visits': return `${row.visitor || ''} · ${row.date || ''}`
@@ -115,16 +120,69 @@ function sub(row) {
     case 'renewal_requests': return `${row.lease || ''} · ${row.decision || row.status || ''}`
     case 'statement_payouts': return `${row.month || ''} · ${money(row.amount)}`
     case 'settlement_reports': return `${row.month || ''} · ${row.status || ''}`
-    case 'vendor_ratings': return `${row.partner || ''} · ★${row.rating || 0}`
+    case 'vendor_ratings': return `${partnerName(row.partner) || ''} · ★${row.rating || 0}`
     default: return Object.values(row).slice(1, 3).map(String).join(' · ')
   }
 }
 
-const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q) return rows.value
-  return rows.value.filter(r => JSON.stringify(r).toLowerCase().includes(q))
+// ── Search + status filter ──
+const statuses = computed(() => {
+  const s = new Set()
+  const k = statusKey.value
+  rows.value.forEach(r => { const v = r[k]; if (v !== undefined && v !== null && v !== '') s.add(String(v)) })
+  return [...s].sort()
 })
+
+const filtered = computed(() => {
+  let out = rows.value
+  const q = query.value.trim().toLowerCase()
+  if (q) out = out.filter(r => JSON.stringify(r).toLowerCase().includes(q))
+  if (statusFilter.value) out = out.filter(r => String(r[statusKey.value] || '') === statusFilter.value)
+  return out
+})
+
+// ── Pagination ──
+const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)))
+const paged = computed(() => {
+  const start = (page.value - 1) * PAGE_SIZE
+  return filtered.value.slice(start, start + PAGE_SIZE)
+})
+const rangeLabel = computed(() => {
+  if (!filtered.value.length) return '0 records'
+  const from = (page.value - 1) * PAGE_SIZE + 1
+  const to = Math.min(page.value * PAGE_SIZE, filtered.value.length)
+  return `${from}–${to} of ${filtered.value.length}`
+})
+function setPage(p) { page.value = Math.min(Math.max(1, p), pageCount.value) }
+
+// ── Row expand → show every field ──
+const MONEY_KEYS = ['rent', 'net', 'amount', 'paid', 'due', 'advance', 'deposit', 'salary', 'bonus', 'fine', 'price', 'value', 'balance', 'total']
+function expand(rowId) { expanded.value[rowId] = !expanded.value[rowId] }
+function detailFields(row) {
+  const skip = new Set(['id', statusKey.value])
+  return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '' && typeof v !== 'object')
+}
+function fmtVal(k, v) {
+  const s = String(v)
+  if (MONEY_KEYS.includes(k) && !isNaN(parseFloat(s))) return money(parseFloat(s))
+  return s.length > 80 ? s.slice(0, 80) + '…' : s
+}
+
+// ── CSV export ──
+function exportCsv() {
+  const data2 = filtered.value
+  if (!data2.length) return
+  const cols = [...new Set(data2.flatMap(r => Object.keys(r)))]
+  const esc = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+  const lines = [cols.map(esc).join(',')]
+  data2.forEach(r => lines.push(cols.map(c => esc(r[c])).join(',')))
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `${props.collection}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
 
 const meta = computed(() => META[props.collection] || { title: props.collection, ico: '📋' })
 const nameKey = computed(() => NAME_KEY[props.collection] || 'id')
@@ -149,8 +207,13 @@ const val = (r, k) => r[k] === undefined || r[k] === null || r[k] === '' ? '—'
         <h1>{{ meta.ico }} {{ meta.title }}</h1>
         <div class="sub">{{ rows.length }} records · live from API</div>
       </div>
-      <div class="head-actions">
-        <input v-model="query" placeholder="Search…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+      <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <input v-model="query" placeholder="Search…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
+        <select v-if="statuses.length > 1" v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          <option value="">All statuses</option>
+          <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </div>
     </div>
 
@@ -159,6 +222,7 @@ const val = (r, k) => r[k] === undefined || r[k] === null || r[k] === '' ? '—'
         <table class="kr">
           <thead>
             <tr>
+              <th style="width:28px"></th>
               <th>ID</th>
               <th>Name / Title</th>
               <th>Details</th>
@@ -166,18 +230,41 @@ const val = (r, k) => r[k] === undefined || r[k] === null || r[k] === '' ? '—'
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in filtered" :key="r.id || val(r, nameKey)">
-              <td style="font-weight:700">{{ r.id || '—' }}</td>
-              <td>{{ val(r, nameKey) }}</td>
-              <td class="c-sub">{{ sub(r) }}</td>
-              <td><span class="badge" :class="badge(val(r, statusKey))">{{ val(r, statusKey) }}</span></td>
-            </tr>
+            <template v-for="r in paged" :key="r.id || val(r, nameKey)">
+              <tr style="cursor:pointer" @click="expand(r.id || val(r, nameKey))">
+                <td style="text-align:center">{{ expanded[r.id || val(r, nameKey)] ? '▾' : '▸' }}</td>
+                <td style="font-weight:700">{{ r.id || '—' }}</td>
+                <td>{{ val(r, nameKey) }}</td>
+                <td class="c-sub">{{ sub(r) }}</td>
+                <td><span class="badge" :class="badge(val(r, statusKey))">{{ val(r, statusKey) }}</span></td>
+              </tr>
+              <tr v-if="expanded[r.id || val(r, nameKey)]">
+                <td colspan="5" style="background:var(--bg-alt);padding:14px 18px">
+                  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 20px">
+                    <div v-for="[k, v] in detailFields(r)" :key="k" style="font-size:12.5px">
+                      <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+                      <div style="font-weight:600;word-break:break-word">{{ fmtVal(k, v) }}</div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
             <tr v-if="!filtered.length">
-              <td :colspan="4" style="text-align:center;color:var(--text-mute);padding:30px">No records found{{ query ? ' for “' + query + '”' : '' }}.</td>
+              <td :colspan="5" style="text-align:center;color:var(--text-mute);padding:30px">No records found{{ query ? ' for “' + query + '”' : '' }}.</td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <div v-if="filtered.length > PAGE_SIZE" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border);font-size:12.5px">
+        <span class="c-sub">{{ rangeLabel }}</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" :disabled="page <= 1" @click="setPage(page - 1)">← Prev</button>
+          <span style="display:inline-flex;align-items:center;padding:0 10px;font-weight:700">{{ page }} / {{ pageCount }}</span>
+          <button class="btn-ghost" :disabled="page >= pageCount" @click="setPage(page + 1)">Next →</button>
+        </div>
+      </div>
+      <div v-else-if="filtered.length" style="padding:10px 16px;border-top:1px solid var(--border);font-size:12px" class="c-sub">{{ rangeLabel }}</div>
     </div>
   </div>
 </template>
