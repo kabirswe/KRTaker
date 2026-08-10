@@ -25,9 +25,17 @@ const GROUPS = [
 
 // Ported views get real routes; not-yet-ported modules show the stub banner.
 const VIEW_ROUTES = {
-  dashboard: '/dashboard', properties: '/properties', units: '/units', tenants: '/tenants',
-  leases: '/leases', invoices: '/invoices', receipts: '/receipts', payments: '/payments',
-  maintenance: '/maintenance', vendors: '/vendors', notices: '/notices',
+  dashboard: '/dashboard', analytics: '/analytics', ai: '/ai',
+  properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases',
+  onboarding: '/onboarding', leads: '/leads', documents: '/documents',
+  invoices: '/invoices', receipts: '/receipts', payments: '/payments',
+  remit: '/remittances', nrb: '/nid', subscriptions: '/vendors',
+  notices: '/notices', referrals: '/referrals', trust: '/nid',
+  maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
+  compliance: '/compliance', legal: '/legal', concierge: '/concierge',
+  smarthome: '/units', land: '/land', build: '/build', gate: '/gate-visits',
+  firesafety: '/compliance', systems: '/units', staffwatch: '/staff-attendance',
+  health: '/meter-readings', samity: '/samity', caretaker: '/dashboard',
 }
 
 const ROLES = [
