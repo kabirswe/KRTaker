@@ -476,14 +476,30 @@ case 'app-setup': {
 }
 
 case 'app-view-as': {
-    /* Rank-based subordinate view (v3.89): a staff user may temporarily view-as
-       any user strictly BELOW their ROLE_RANK (owner→manager/staff/tenant/partner,
-       manager→staff/tenant/partner, staff→tenant/partner, tenant/partner→none).
-       Issues a 30-min temp token carrying the impersonator identity; bootstrap then
-       scopes data to the subordinate — real data, not a cosmetic label. */
+    /* Three-group access model (v3.90):
+       Admin      (super_admin > admin)                    → may view-as ANY user (except self and admin-group superiors/peers)
+       Subscriber (property_owner > property_manager > tenant > building_staff)
+                                                           → same group, strictly below
+       Backoffice (hr_admin = legal_counsel = accountant > crm_helpdesk = service_manager
+                   > service_partner > service_staff)      → same group, strictly below
+       Both legacy (DB) role ids and new taxonomy ids are accepted in $H. */
     $u = require_user();
     $pdo = db();
-    $RANK = ['superadmin'=>100, 'owner'=>90, 'manager'=>80, 'svc_mgr'=>60, 'legal'=>60, 'crm'=>60, 'accountant'=>60, 'hr'=>60, 'tenant'=>20, 'partner'=>20];
+    $H = [
+        'superadmin' => ['g' => 'admin', 'r' => 2], 'super_admin' => ['g' => 'admin', 'r' => 2],
+        'admin' => ['g' => 'admin', 'r' => 1],
+        'owner' => ['g' => 'sub', 'r' => 4], 'property_owner' => ['g' => 'sub', 'r' => 4],
+        'manager' => ['g' => 'sub', 'r' => 3], 'property_manager' => ['g' => 'sub', 'r' => 3],
+        'tenant' => ['g' => 'sub', 'r' => 2],
+        'building_staff' => ['g' => 'sub', 'r' => 1],
+        'hr' => ['g' => 'bo', 'r' => 4], 'hr_admin' => ['g' => 'bo', 'r' => 4],
+        'legal' => ['g' => 'bo', 'r' => 4], 'legal_counsel' => ['g' => 'bo', 'r' => 4],
+        'accountant' => ['g' => 'bo', 'r' => 4],
+        'crm' => ['g' => 'bo', 'r' => 3], 'crm_helpdesk' => ['g' => 'bo', 'r' => 3],
+        'svc_mgr' => ['g' => 'bo', 'r' => 3], 'service_manager' => ['g' => 'bo', 'r' => 3],
+        'partner' => ['g' => 'bo', 'r' => 2], 'service_partner' => ['g' => 'bo', 'r' => 2],
+        'service_staff' => ['g' => 'bo', 'r' => 1],
+    ];
     $target = strtolower(trim($body['email'] ?? ''));
     if ($target === '') json_out(['ok' => false, 'error' => 'email required.'], 400);
     if ($target === strtolower($u['email'])) json_out(['ok' => false, 'error' => 'Cannot view as yourself.'], 400);
@@ -498,15 +514,24 @@ case 'app-view-as': {
         $kind = 'staff';
     }
     if (!$t) json_out(['ok' => false, 'error' => 'No active user with that email.'], 404);
-    $me = $RANK[$u['role']] ?? 0;
-    $them = $RANK[$t['role']] ?? 0;
-    if ($them <= 0 || $them >= $me) {
-        audit($u['name'], 'View-as denied', 'system', $t['email'], "rank {$me} -> {$them}");
-        json_out(['ok' => false, 'error' => 'Not allowed — that user is not a subordinate.'], 403);
+    $me = $H[$u['role']] ?? null;
+    $them = $H[$t['role']] ?? null;
+    $deny = false; $reason = '';
+    if (!$me || !$them) { $deny = true; $reason = 'Unknown role.'; }
+    elseif ($me['g'] === 'admin') {
+        /* Admin group: any user, except admin-group superiors/peers (self already blocked) */
+        if ($them['g'] === 'admin' && $them['r'] >= $me['r']) { $deny = true; $reason = 'Not allowed — admin-group superior or peer.'; }
+    } else {
+        if ($me['g'] !== $them['g']) { $deny = true; $reason = 'Not allowed — different user group.'; }
+        elseif ($them['r'] >= $me['r']) { $deny = true; $reason = 'Not allowed — not a subordinate.'; }
+    }
+    if ($deny) {
+        audit($u['name'], 'View-as denied', 'system', $t['email'], $reason);
+        json_out(['ok' => false, 'error' => $reason], 403);
     }
     $ttl = 30 * 60;
     $tok = make_token($t['id'], $kind, $u['name'], $ttl);
-    audit($u['name'], 'View-as started', 'system', $t['email'], '30-minute token (rank-based)');
+    audit($u['name'], 'View-as started', 'system', $t['email'], '30-minute token (three-group model)');
     json_out(['ok' => true, 'token' => $tok, 'expires_at' => gmdate('Y-m-d H:i:s', time() + $ttl), 'impersonator' => $u['name'],
               'user' => ['name' => $t['name'], 'email' => $t['email'], 'role' => $t['role'] ?? '', 'kind' => $kind]]);
 }

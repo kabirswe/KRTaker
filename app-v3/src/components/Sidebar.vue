@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
-import { ROLES, roleLabel } from '../lib/roles'
+import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
 
 const router = useRouter()
 const route = useRoute()
@@ -52,6 +52,11 @@ const groups = computed(() =>
 
 // Subordinate-only roles (strictly below the signed-in user's rank)
 const roles = computed(() => ROLES.filter(r => auth.canSwitchTo(r.id)))
+const roleGroups = computed(() => {
+  const map = {}
+  roles.value.forEach(r => { (map[r.group] = map[r.group] || []).push(r) })
+  return Object.entries(map)
+})
 
 const initials = computed(() => {
   const n = (data.user || auth.user)?.name || ''
@@ -133,11 +138,14 @@ async function backToMe() {
         <div class="modal-h"><span class="t">🔀 Switch to subordinate user</span><button class="close" @click="openRoles = false">✕</button></div>
         <div v-if="switching" style="padding:20px;text-align:center;color:var(--text-mute)">Switching…</div>
         <div v-else class="role-grid">
-          <div v-for="r in roles" :key="r.id" class="role-opt" :class="{ active: r.id === (data.user || auth.user)?.role }" @click="pick(r)">
-            <div class="ro-ic">{{ r.ico }}</div>
-            <div class="ro-t">{{ r.role }}</div>
-            <div class="ro-d">{{ r.desc }}</div>
-          </div>
+          <template v-for="([g, items]) in roleGroups" :key="g">
+            <div v-if="roleGroups.length > 1" style="grid-column:1/-1;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute);margin-top:4px">{{ GROUP_LABEL[g] || g }}</div>
+            <div v-for="r in items" :key="r.id" class="role-opt" :class="{ active: r.id === (data.user || auth.user)?.role }" @click="pick(r)">
+              <div class="ro-ic">{{ r.ico }}</div>
+              <div class="ro-t">{{ r.role }}</div>
+              <div class="ro-d">{{ r.desc }}</div>
+            </div>
+          </template>
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
-import { ROLES, roleLabel } from '../lib/roles'
+import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -77,6 +77,12 @@ async function backToMe() {
 
 // Subordinates strictly below the CURRENT effective rank (updates after a switch)
 const subs = computed(() => ROLES.filter(r => auth.canSwitchTo(r.id)))
+// Group the subordinate list (admin sees multiple groups; others see one)
+const subGroups = computed(() => {
+  const map = {}
+  subs.value.forEach(r => { (map[r.group] = map[r.group] || []).push(r) })
+  return Object.entries(map)
+})
 const currentRole = computed(() => {
   const u = data.user || auth.user || {}
   const roleId = u.role
@@ -135,11 +141,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             </template>
             <template v-if="subs.length">
               <div class="um-label">🔀 Switch to subordinate user</div>
-              <div v-for="r in subs" :key="r.id" class="um-item" :class="{ active: r.id === currentRole }" @click="setRole(r)">
-                <span class="um-ic">{{ r.ico }}</span>
-                <span class="um-t">{{ r.role }}</span>
-                <span v-if="r.id === currentRole" class="um-cur">✓</span>
-              </div>
+              <template v-for="([g, items], gi) in subGroups" :key="g">
+                <div v-if="subGroups.length > 1" class="um-label" style="text-transform:uppercase;font-size:10px;letter-spacing:.6px;color:var(--text-mute);padding-top:2px">{{ GROUP_LABEL[g] || g }}</div>
+                <div v-for="r in items" :key="r.id" class="um-item" :class="{ active: r.id === currentRole }" @click="setRole(r)">
+                  <span class="um-ic">{{ r.ico }}</span>
+                  <span class="um-t">{{ r.role }}</span>
+                  <span v-if="r.id === currentRole" class="um-cur">✓</span>
+                </div>
+              </template>
             </template>
             <div v-else class="um-label" style="color:var(--text-mute);text-transform:none;letter-spacing:0;font-weight:600">No subordinate users</div>
             <div class="um-div"></div>

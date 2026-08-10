@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { apiCall, botFields } from '../api/client'
-import { ROLE_RANK } from '../lib/roles'
+import { HIERARCHY, canViewAs } from '../lib/roles'
 
 const TOKEN_KEY = 'krtaker' + '_dash_' + 'token'  // same key as dashboard-v2
 const ORIG_KEY = 'krtaker_orig_token'  // real token while viewing-as a subordinate
@@ -21,12 +21,9 @@ export const useAuthStore = defineStore('auth', {
     role: (s) => s.user?.role || 'owner',
     isStaff: (s) => !!s.user?.is_staff,
     isImpersonating: (s) => !!s.impersonator,
-    // Role hierarchy for subordinate switching (matches dashboard-v2 ROLE_RANK)
-    rank: (s) => ROLE_RANK[s.user?.role || 'owner'] ?? 0,
-    canSwitchTo: (s) => (roleId) => {
-      const them = ROLE_RANK[roleId]
-      return them !== undefined && them > 0 && them < s.rank
-    },
+    // Three-group hierarchy for subordinate switching (matches server app-view-as)
+    rank: (s) => HIERARCHY[s.user?.role || 'owner']?.r ?? 0,
+    canSwitchTo: (s) => (roleId) => canViewAs(s.user?.role || 'owner', roleId),
   },
   actions: {
     async login(email, password, twofaCode = '') {

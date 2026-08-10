@@ -1,25 +1,48 @@
-// Shared role catalog + rank hierarchy for subordinate switching.
-// Mirrors dashboard-v2 ROLE_RANK: superadmin > owner > manager > staff peers > tenant = partner.
+// KRTaker three-group access model.
+//   Admin      (super_admin > admin)                    → can view-as ANY user (except admin-group superior/peer)
+//   Subscriber (property_owner > property_manager > tenant > building_staff)   → same group, strictly below
+//   Backoffice (hr_admin = legal = accountant > crm = service_manager > service_partner > service_staff) → same group, strictly below
+// Keys are the DB role ids (legacy + new taxonomy aliases map to the same entry).
+
+export const GROUP_LABEL = { admin: 'Admin', sub: 'Subscriber', bo: 'Backoffice' }
+
+export const HIERARCHY = {
+  superadmin: { g: 'admin', r: 2 }, super_admin: { g: 'admin', r: 2 },
+  admin: { g: 'admin', r: 1 },
+  owner: { g: 'sub', r: 4 }, property_owner: { g: 'sub', r: 4 },
+  manager: { g: 'sub', r: 3 }, property_manager: { g: 'sub', r: 3 },
+  tenant: { g: 'sub', r: 2 },
+  building_staff: { g: 'sub', r: 1 },
+  hr: { g: 'bo', r: 4 }, hr_admin: { g: 'bo', r: 4 },
+  legal: { g: 'bo', r: 4 }, legal_counsel: { g: 'bo', r: 4 },
+  accountant: { g: 'bo', r: 4 },
+  crm: { g: 'bo', r: 3 }, crm_helpdesk: { g: 'bo', r: 3 },
+  svc_mgr: { g: 'bo', r: 3 }, service_manager: { g: 'bo', r: 3 },
+  partner: { g: 'bo', r: 2 }, service_partner: { g: 'bo', r: 2 },
+  service_staff: { g: 'bo', r: 1 },
+}
+
+// Switchable accounts (existing logins). Keep in display order.
 export const ROLES = [
-  { id: 'superadmin', role: 'Super Admin', ico: '👑', email: 'belal000bd@gmail.com', desc: 'Full platform access' },
-  { id: 'owner', role: 'Property Owner', ico: '🏠', email: 'owner@krtaker.com', desc: 'Portfolio-wide view across every building' },
-  { id: 'manager', role: 'Property Manager', ico: '🗝️', email: 'manager@krtaker.com', desc: 'Day-to-day ops on assigned properties' },
-  { id: 'svc_mgr', role: 'Service Manager', ico: '✅', email: 'svc_mgr@krtaker.com', desc: 'Quality control & SLA across partners' },
-  { id: 'legal', role: 'Legal Counsel', ico: '⚖️', email: 'legal@krtaker.com', desc: 'Registrations, PRCA cases, compliance docket' },
-  { id: 'crm', role: 'CRM & Help Desk', ico: '🎧', email: 'crm@krtaker.com', desc: 'Tickets, CSAT, tenant onboarding, leads' },
-  { id: 'accountant', role: 'Accountant', ico: '💰', email: 'accountant@krtaker.com', desc: 'Cash flow, TDS, invoices, aging' },
-  { id: 'hr', role: 'HR & Admin', ico: '👥', email: 'hr@krtaker.com', desc: 'Staff, onboarding, org admin' },
-  { id: 'tenant', role: 'Tenant', ico: '🔑', email: 'tenant@krtaker.com', desc: 'Invoices, receipts, repairs — your side' },
-  { id: 'partner', role: 'Service Partner', ico: '🛠️', email: 'partner@krtaker.com', desc: 'Jobs, QC feedback, payouts' },
+  { id: 'owner', role: 'Property Owner', ico: '🏠', email: 'owner@krtaker.com', group: 'sub', desc: 'Portfolio-wide view across every building' },
+  { id: 'manager', role: 'Property Manager', ico: '🗝️', email: 'manager@krtaker.com', group: 'sub', desc: 'Day-to-day ops on assigned properties' },
+  { id: 'tenant', role: 'Tenant', ico: '🔑', email: 'tenant@krtaker.com', group: 'sub', desc: 'Invoices, receipts, repairs — your side' },
+  { id: 'hr', role: 'HR & Admin', ico: '👥', email: 'hr@krtaker.com', group: 'bo', desc: 'Staff, onboarding, org admin' },
+  { id: 'legal', role: 'Legal Counsel', ico: '⚖️', email: 'legal@krtaker.com', group: 'bo', desc: 'Registrations, PRCA cases, compliance docket' },
+  { id: 'accountant', role: 'Accountant', ico: '💰', email: 'accountant@krtaker.com', group: 'bo', desc: 'Cash flow, TDS, invoices, aging' },
+  { id: 'crm', role: 'CRM & Help Desk', ico: '🎧', email: 'crm@krtaker.com', group: 'bo', desc: 'Tickets, CSAT, tenant onboarding, leads' },
+  { id: 'svc_mgr', role: 'Service Manager', ico: '✅', email: 'svc_mgr@krtaker.com', group: 'bo', desc: 'Quality control & SLA across partners' },
+  { id: 'partner', role: 'Service Partner', ico: '🛠️', email: 'partner@krtaker.com', group: 'bo', desc: 'Jobs, QC feedback, payouts' },
 ]
 
-export const ROLE_RANK = { superadmin: 100, owner: 90, manager: 80, svc_mgr: 60, legal: 60, crm: 60, accountant: 60, hr: 60, tenant: 20, partner: 20 }
-
 export const roleLabel = (id) => ROLES.find(r => r.id === id)?.role || id || '—'
+export const roleGroup = (id) => HIERARCHY[id]?.g || ''
 
-// Can `myRole` view-as `targetId`? Strictly lower rank, and target must exist.
+// May `myRole` view-as `targetId`? Three-group rules (mirrors server app-view-as).
 export const canViewAs = (myRole, targetId) => {
-  const me = ROLE_RANK[myRole] ?? 0
-  const them = ROLE_RANK[targetId]
-  return them !== undefined && them > 0 && them < me
+  const me = HIERARCHY[myRole]
+  const them = HIERARCHY[targetId]
+  if (!me || !them) return false
+  if (me.g === 'admin') return !(them.g === 'admin' && them.r >= me.r)
+  return me.g === them.g && them.r < me.r
 }
