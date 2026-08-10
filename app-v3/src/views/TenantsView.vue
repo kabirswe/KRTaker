@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, onUnmounted, nextTick } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
@@ -23,13 +23,15 @@ const maintAll = computed(() => data.list('maintenance_requests'))
 const docsAll = computed(() => data.list('documents'))
 const nidVerifs = computed(() => data.list('nid_verifications'))
 const thanaForms = computed(() => data.list('thana_forms'))
+const renewalsAll = computed(() => data.list('renewal_requests'))
+const metersAll = computed(() => data.list('meter_readings'))
 
 const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
 const propName = (pid) => propsAll.value.find(p => p.id === pid)?.name || pid || '—'
 const unitName = (uid) => unitsAll.value.find(u => u.id === uid)?.name || uid || '—'
 
 function badge(st) {
-  const map = { Active: 'b-green', Leased: 'b-green', Paid: 'b-green', Success: 'b-green', Verified: 'b-green', Approved: 'b-green', Completed: 'b-green', Open: 'b-red', Unpaid: 'b-orange', Partial: 'b-orange', Overdue: 'b-red', Vacant: 'b-gray', 'Maintenance': 'b-orange', Expired: 'b-gray', Terminated: 'b-red', 'In Progress': 'b-blue', 'Pending Registration': 'b-orange', Pending: 'b-orange', Rejected: 'b-red' }
+  const map = { Active: 'b-green', Leased: 'b-green', Paid: 'b-green', Success: 'b-green', Verified: 'b-green', Approved: 'b-green', Completed: 'b-green', Resolved: 'b-green', Closed: 'b-gray', Open: 'b-red', Unpaid: 'b-orange', Partial: 'b-orange', Overdue: 'b-red', Vacant: 'b-gray', 'Maintenance': 'b-orange', Expired: 'b-gray', Terminated: 'b-red', 'In Progress': 'b-blue', Assigned: 'b-blue', Offered: 'b-blue', 'Pending Registration': 'b-orange', Pending: 'b-orange', Rejected: 'b-red' }
   return map[st] || 'b-gray'
 }
 // deterministic avatar color from id
@@ -39,6 +41,8 @@ function initials(name) { return String(name || '?').split(/\s+/).filter(Boolean
 function maskNid(nid) { return nid ? String(nid).replace(/^(.{4}).*(.{4})$/, '$1••••$2') : '—' }
 function leaseDaysLeft(l) { if (!l?.end) return null; return Math.round((new Date(l.end) - Date.now()) / 86400000) }
 const today = () => new Date().toISOString().slice(0, 10)
+const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b > 1024 ? Math.round(b / 1024) + ' KB' : (b || 0) + ' B'
+const fmtTs = (ts) => ts ? String(ts).replace('T', ' ').slice(0, 16) : '—'
 
 // ── joins ──
 const leasesOfTenant = (t) => leasesAll.value.filter(l => l.t === t.id)
@@ -48,6 +52,9 @@ const invoicesOfTenant = (t) => { const ls = new Set(leasesOfTenant(t).map(l => 
 const ticketsOfTenant = (t) => { const us = new Set(unitsOfTenant(t).map(u => u.id)); return ticketsAll.value.filter(x => us.has(x.u)) }
 const utilsOfTenant = (t) => { const us = new Set(unitsOfTenant(t).map(u => u.id)); return utilsAll.value.filter(b => us.has(b.unit)) }
 const maintOfTenant = (t) => { const us = new Set(unitsOfTenant(t).map(u => u.id)); return maintAll.value.filter(m => us.has(m.unit) || m.tenant === t.id) }
+const renewalsOfTenant = (t) => { const ls = new Set(leasesOfTenant(t).map(l => l.id)); return renewalsAll.value.filter(r => ls.has(r.lease)) }
+const metersOfTenant = (t) => { const us = new Set(unitsOfTenant(t).map(u => u.id)); return metersAll.value.filter(m => us.has(m.unit)) }
+const leaseDocsOf = (leaseId) => docsAll.value.filter(d => d.kind === 'lease' && d.ref === leaseId)
 function monthlyRent(t) { return leasesOfTenant(t).filter(l => String(l.status).toLowerCase() === 'active').reduce((s, l) => s + (l.rent || 0), 0) }
 function outstanding(t) { return invoicesOfTenant(t).filter(i => String(i.status).toLowerCase() !== 'paid').reduce((s, i) => s + (i.net || 0), 0) }
 function collectionRateT(t) {
@@ -125,10 +132,11 @@ const TABS = [
   { id: 'leases', label: 'Lease & Unit', ico: '📄' },
   { id: 'billing', label: 'Billing', ico: '💳' },
   { id: 'tickets', label: 'Tickets & Maint.', ico: '🔧' },
+  { id: 'hando', label: 'Handover', ico: '📦' },
   { id: 'chat', label: 'Chat', ico: '💬' },
   { id: 'docs', label: 'Documents', ico: '📎' },
 ]
-const tabCount = (id) => id === 'profile' ? '·' : id === 'leases' ? selLeases.value.length : id === 'billing' ? selInvoices.value.length + selUtils.value.length : id === 'tickets' ? selTickets.value.length + selMaint.value.length : id === 'chat' ? chatMsgs.value.length : selDocs.value.length
+const tabCount = (id) => id === 'profile' ? '·' : id === 'leases' ? selLeases.value.length : id === 'billing' ? selInvoices.value.length + selUtils.value.length : id === 'tickets' ? selTickets.value.length + selMaint.value.length : id === 'hando' ? hovoList.value.length : id === 'chat' ? chatMsgs.value.length : selDocs.value.length
 function openDetail(t) { sel.value = t; tab.value = 'profile' }
 function closeDetail() { sel.value = null }
 function reResolveSel() { if (sel.value) sel.value = tenantsAll.value.find(t => t.id === sel.value.id) || sel.value }
@@ -139,6 +147,8 @@ const selInvoices = computed(() => sel.value ? invoicesOfTenant(sel.value) : [])
 const selTickets = computed(() => sel.value ? ticketsOfTenant(sel.value) : [])
 const selUtils = computed(() => sel.value ? utilsOfTenant(sel.value) : [])
 const selMaint = computed(() => sel.value ? maintOfTenant(sel.value) : [])
+const selRenewals = computed(() => sel.value ? renewalsOfTenant(sel.value) : [])
+const selMeters = computed(() => sel.value ? metersOfTenant(sel.value) : [])
 const selDocs = computed(() => sel.value ? docsAll.value.filter(d => d.kind === 'tenant' && d.ref === sel.value.id) : [])
 const selStats = computed(() => {
   if (!sel.value) return []
@@ -196,6 +206,234 @@ async function onPhotoPick(e) {
     if (r.ok) { window.__krToast?.('📸 Photo updated', 'ok'); photoUrls.delete(sel.value.id); await data.bootstrap(); reResolveSel(); loadPhoto() }
     else window.__krToast?.(r.error || 'Photo upload failed', 'error')
   } finally { uploadingPhoto.value = false }
+}
+
+// ── family info (individual) / company profile (corporate) ──
+const family = ref([])
+const company = ref({})
+const famSaving = ref(false)
+const coSaving = ref(false)
+function parseJson(s, fb) { try { const v = JSON.parse(s); return Array.isArray(v) ? v : fb } catch (e) { return fb } }
+function loadFamilyCompany() {
+  if (!sel.value) { family.value = []; company.value = {}; return }
+  family.value = parseJson(sel.value.family, [])
+  const c = parseJson(sel.value.company, {})
+  company.value = c && typeof c === 'object' && !Array.isArray(c) ? c : {}
+}
+const FAM_FIELDS = [
+  { k: 'name', label: 'Name', ph: 'Spouse / child name', w: '2fr' },
+  { k: 'relation', label: 'Relation', ph: 'Spouse / Son / Daughter…', w: '1fr' },
+  { k: 'nid', label: 'NID', ph: 'Optional', w: '1.4fr' },
+  { k: 'dob', label: 'DOB', ph: 'YYYY-MM-DD', w: '1fr' },
+  { k: 'phone', label: 'Phone', ph: '01xxx', w: '1fr' },
+  { k: 'occupation', label: 'Occupation', ph: 'Optional', w: '1fr' },
+]
+function addFamilyRow() { family.value.push({ name: '', relation: '', nid: '', dob: '', phone: '', occupation: '' }) }
+function removeFamilyRow(i) { family.value.splice(i, 1) }
+async function saveFamily() {
+  if (!sel.value) return
+  famSaving.value = true
+  try {
+    const clean = family.value.filter(m => m.name || m.relation || m.phone)
+    const r = await apiCall('app-crud', { action: 'update', collection: 'tenants', id: sel.value.id, data: { family: JSON.stringify(clean) } })
+    if (r.ok) { window.__krToast?.('👨‍👩‍👧 Family info saved', 'ok'); await data.bootstrap(); reResolveSel() }
+    else window.__krToast?.(r.error || 'Save failed', 'error')
+  } finally { famSaving.value = false }
+}
+const CO_FIELDS = [
+  { k: 'trade', label: 'Trade / Business type', ph: 'e.g. Garments, Trading, NGO…', w: '1fr' },
+  { k: 'bin', label: 'BIN / TIN / Reg. no', ph: 'e.g. BIN 001234567-0101', w: '1fr' },
+  { k: 'address', label: 'Registered address', ph: 'Company address', w: 'full' },
+  { k: 'city', label: 'City', ph: 'Dhaka', w: '0.6fr' },
+  { k: 'contact_person', label: 'Contact person', ph: 'Authorized person name', w: '1fr' },
+  { k: 'phone', label: 'Phone', ph: '01xxx', w: '0.8fr' },
+  { k: 'email', label: 'Email', ph: 'office@company.com', w: '1fr' },
+  { k: 'industry', label: 'Industry', ph: 'e.g. Textile', w: '0.8fr' },
+  { k: 'website', label: 'Website', ph: 'https://…', w: '1fr' },
+]
+async function saveCompany() {
+  if (!sel.value) return
+  coSaving.value = true
+  try {
+    const r = await apiCall('app-crud', { action: 'update', collection: 'tenants', id: sel.value.id, data: { company: JSON.stringify(company.value) } })
+    if (r.ok) { window.__krToast?.('🏢 Company profile saved', 'ok'); await data.bootstrap(); reResolveSel() }
+    else window.__krToast?.(r.error || 'Save failed', 'error')
+  } finally { coSaving.value = false }
+}
+
+// ── notices (vacant / warning / general / due) ──
+const noticeModal = ref(null)
+const noticeSaving = ref(false)
+const NOTICE_PRESETS = [
+  { id: 'vacancy', label: '🏠 Vacancy notice', title: 'Unit available for rent', body: 'This unit will be available for rent from the next month. Interested parties may contact the management office.' },
+  { id: 'warning', label: '⚠️ Warning', title: 'Formal warning', body: 'Please be advised to comply with the terms of the tenancy agreement. Repeated non-compliance may lead to further action.' },
+  { id: 'due', label: '💰 Payment due', title: 'Rent payment due', body: 'Kindly clear your outstanding rent at the earliest. Late payment charges may apply as per the agreement.' },
+  { id: 'general', label: '📋 General notice', title: 'Notice to tenants', body: '' },
+]
+function openNotice() { noticeModal.value = { preset: 'general', title: 'Notice to tenants', body: '' } }
+function applyPreset() {
+  const p = NOTICE_PRESETS.find(x => x.id === noticeModal.value.preset)
+  if (p) { noticeModal.value.title = p.title; noticeModal.value.body = p.body }
+}
+async function sendNotice() {
+  const m = noticeModal.value
+  if (!m.title.trim()) { window.__krToast?.('Notice title required', 'error'); return }
+  noticeSaving.value = true
+  try {
+    const r = await apiCall('app-notice-create', { title: m.title.trim(), body: m.body.trim() })
+    if (r.ok) { window.__krToast?.(`📢 ${r.id} posted`, 'ok'); noticeModal.value = null; await data.bootstrap() }
+    else window.__krToast?.(r.error || 'Failed to post notice', 'error')
+  } finally { noticeSaving.value = false }
+}
+
+// ── payment reminder ──
+const remindSending = ref(false)
+async function sendReminder() {
+  if (!sel.value) return
+  if (!confirm(`Send a payment reminder to ${sel.value.name} (email + board notice)?`)) return
+  remindSending.value = true
+  try {
+    const r = await apiCall('app-tenant-remind', { tenant_id: sel.value.id })
+    if (r.ok) window.__krToast?.(`🔔 Reminder sent — ${r.invoices} invoice(s), ৳${(r.total_due || 0).toLocaleString('en-IN')}${r.emailed ? ' + email' : ''}`, 'ok')
+    else window.__krToast?.(r.error || 'Reminder failed', 'error')
+  } finally { remindSending.value = false }
+}
+
+// ── lease extension (renewal) ──
+const offerModal = ref(null)
+const offerSaving = ref(false)
+function openOffer() {
+  const active = selLeases.value.filter(l => !['Expired', 'Terminated'].includes(l.status))
+  const l = active[0] || selLeases.value[0]
+  if (!l) { window.__krToast?.('No lease to extend', 'error'); return }
+  offerModal.value = { lease: l.id, months: 12, escalation: '', new_rent: '', note: '' }
+}
+async function submitOffer() {
+  const m = offerModal.value
+  if (!m.lease || !m.months) { window.__krToast?.('Lease and months required', 'error'); return }
+  offerSaving.value = true
+  try {
+    const payload = { lease: m.lease, months: parseInt(m.months), note: m.note || '' }
+    if (m.new_rent) payload.new_rent = parseInt(m.new_rent)
+    else if (m.escalation !== '' && m.escalation !== null) payload.escalation = parseFloat(m.escalation)
+    const r = await apiCall('app-renewal-offer', payload)
+    if (r.ok) { window.__krToast?.(`📄 ${r.id} offered — ৳${(r.new_rent || 0).toLocaleString('en-IN')}/mo`, 'ok'); offerModal.value = null; await data.bootstrap() }
+    else window.__krToast?.(r.error || 'Offer failed', 'error')
+  } finally { offerSaving.value = false }
+}
+async function decideRenewal(r, action) {
+  if (action === 'reject' && !confirm(`Reject renewal ${r.id}?`)) return
+  const res = await apiCall('app-renewal-decide', { id: r.id, action })
+  if (res.ok) { window.__krToast?.(`📄 ${r.id} → ${res.status}`, 'ok'); await data.bootstrap() }
+  else window.__krToast?.(res.error || 'Failed', 'error')
+}
+
+// ── maintenance approve / status / cost ──
+async function setMaintStatus(m, status) {
+  const r = await apiCall('app-maintenance', { action: 'status', id: m.id, status })
+  if (r.ok) { window.__krToast?.(`🔧 ${m.id} → ${status}`, 'ok'); await data.bootstrap() }
+  else window.__krToast?.(r.error || 'Failed', 'error')
+}
+const costModal = ref(null)
+const costSaving = ref(false)
+function openCost(m) { costModal.value = { id: m.id, cost_estimate: m.cost_estimate || 0, actual_cost: m.actual_cost || 0, charge_to: m.charge_to || 'owner' } }
+async function submitCost() {
+  const m = costModal.value
+  costSaving.value = true
+  try {
+    const r = await apiCall('app-maintenance', { action: 'cost', id: m.id, cost_estimate: parseInt(m.cost_estimate) || 0, actual_cost: parseInt(m.actual_cost) || 0, charge_to: m.charge_to })
+    if (r.ok) { window.__krToast?.('💰 Cost updated', 'ok'); costModal.value = null; await data.bootstrap() }
+    else window.__krToast?.(r.error || 'Failed', 'error')
+  } finally { costSaving.value = false }
+}
+
+// ── utility billing (postpaid meter) ──
+const meterModal = ref(null)
+const meterSaving = ref(false)
+const billModal = ref(null)
+const billSaving = ref(false)
+const UTIL_TYPES = ['electric', 'gas', 'water']
+const unitOptions = computed(() => selUnits.value.map(u => ({ id: u.id, name: unitName(u.id) })))
+function openMeter() {
+  const u = unitOptions.value[0]
+  meterModal.value = { unit: u ? u.id : '', type: 'electric', month: new Date().toISOString().slice(0, 7), reading: '', note: '' }
+}
+async function submitMeter() {
+  const m = meterModal.value
+  if (!m.unit || !m.reading) { window.__krToast?.('Unit and reading required', 'error'); return }
+  meterSaving.value = true
+  try {
+    const r = await apiCall('app-meter-submit', { unit: m.unit, type: m.type, month: m.month, reading: parseInt(m.reading), note: m.note || '' })
+    if (r.ok) { window.__krToast?.(`⚡ ${r.id} recorded`, 'ok'); meterModal.value = null; await data.bootstrap() }
+    else window.__krToast?.(r.error || 'Failed', 'error')
+  } finally { meterSaving.value = false }
+}
+function openBill() {
+  const u = unitOptions.value[0]
+  billModal.value = { unit: u ? u.id : '', type: 'electric', month: new Date().toISOString().slice(0, 7), curr_reading: '' }
+}
+async function generateBill() {
+  const m = billModal.value
+  if (!m.unit || !m.month) { window.__krToast?.('Unit and month required', 'error'); return }
+  billSaving.value = true
+  try {
+    const payload = { unit: m.unit, type: m.type, month: m.month }
+    if (m.curr_reading) payload.curr_reading = parseInt(m.curr_reading)
+    const r = await apiCall('app-utility-bill-generate', payload)
+    if (r.ok) { window.__krToast?.(`🧾 ${r.bill.id} generated — ৳${(r.bill.amount || 0).toLocaleString('en-IN')}`, 'ok'); billModal.value = null; await data.bootstrap() }
+    else window.__krToast?.(r.error || 'Failed', 'error')
+  } finally { billSaving.value = false }
+}
+
+// ── handover checklist ──
+const hovoList = ref([])
+const hovoSel = ref(null)
+const hovoLoading = ref(false)
+const hovoSaving = ref(false)
+async function loadHovo() {
+  if (!sel.value) return
+  hovoLoading.value = true
+  try {
+    const ls = new Set(leasesOfTenant(sel.value).map(l => l.id))
+    const r = await apiCall('app-hando-list', {})
+    if (r.ok) hovoList.value = (r.checklists || []).filter(c => ls.has(c.lease))
+  } finally { hovoLoading.value = false }
+}
+async function createHovo(lease, kind) {
+  const r = await apiCall('app-hando-create', { lease, kind })
+  if (r.ok) { window.__krToast?.(`📦 ${r.id} created`, 'ok'); await loadHovo(); openHovo(r.id) }
+  else window.__krToast?.(r.error || 'Failed', 'error')
+}
+async function openHovo(id) {
+  const r = await apiCall('app-hando-get', { id })
+  if (r.ok) { hovoSel.value = r.checklist; hovoSel.value.items = r.checklist.items || [] }
+  else window.__krToast?.(r.error || 'Failed to load checklist', 'error')
+}
+function addHovoItem() { if (hovoSel.value) hovoSel.value.items.push({ id: 'x' + Date.now(), label: '', checked: 0, note: '' }) }
+function removeHovoItem(i) { if (hovoSel.value) hovoSel.value.items.splice(i, 1) }
+async function saveHovo() {
+  if (!hovoSel.value) return
+  hovoSaving.value = true
+  try {
+    const r = await apiCall('app-hando-save', { id: hovoSel.value.id, items: hovoSel.value.items })
+    if (r.ok) { window.__krToast?.(`📦 ${hovoSel.value.id} saved — ${r.done}/${r.total} → ${r.status}`, 'ok'); await loadHovo() }
+    else window.__krToast?.(r.error || 'Save failed', 'error')
+  } finally { hovoSaving.value = false }
+}
+const hovoForLease = (leaseId) => hovoList.value.filter(c => c.lease === leaseId)
+
+// ── agreement / lease paper viewer ──
+const agreeModal = ref(null)
+function openAgree(l) { agreeModal.value = l }
+async function viewDoc(d) {
+  const url = await apiBlob('app-doc-view?id=' + encodeURIComponent(d.id))
+  if (url) window.open(url, '_blank')
+  else window.__krToast?.('Could not load document', 'error')
+}
+async function downloadDoc(d) {
+  const url = await apiBlob('app-doc-download?id=' + encodeURIComponent(d.id))
+  if (url) { const a = document.createElement('a'); a.href = url; a.download = d.name || d.id; a.click() }
+  else window.__krToast?.('Could not download document', 'error')
 }
 
 // ── private note (owner only) ──
@@ -277,24 +515,12 @@ async function onDocPick(e) {
     else window.__krToast?.(r.error || 'Upload failed', 'error')
   } finally { docUploading.value = false }
 }
-async function viewDoc(d) {
-  const url = await apiBlob('app-doc-view?id=' + encodeURIComponent(d.id))
-  if (url) window.open(url, '_blank')
-  else window.__krToast?.('Could not load document', 'error')
-}
-async function downloadDoc(d) {
-  const url = await apiBlob('app-doc-download?id=' + encodeURIComponent(d.id))
-  if (url) { const a = document.createElement('a'); a.href = url; a.download = d.name || d.id; a.click() }
-  else window.__krToast?.('Could not download document', 'error')
-}
 async function delDoc(d) {
   if (!confirm(`Delete document "${d.name}"?`)) return
   const r = await apiCall('app-doc-delete', { id: d.id })
   if (r.ok) { window.__krToast?.('🗑️ Document deleted', 'ok'); await data.bootstrap(); reResolveSel() }
   else window.__krToast?.(r.error || 'Delete failed', 'error')
 }
-const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b > 1024 ? Math.round(b / 1024) + ' KB' : (b || 0) + ' B'
-const fmtTs = (ts) => ts ? String(ts).replace('T', ' ').slice(0, 16) : '—'
 
 // ── partial payment modal ──
 const payModal = ref(null)
@@ -323,11 +549,14 @@ watch(sel, () => {
   selPhoto.value = ''; noteText.value = ''; noteLoaded.value = false
   scoreData.value = null; scoreLoaded.value = false
   chatMsgs.value = []; chatText.value = ''
-  if (sel.value) { loadPhoto(); loadNote(); loadScore(); loadChat() }
+  hovoSel.value = null; hovoList.value = []
+  family.value = []; company.value = {}
+  if (sel.value) { loadPhoto(); loadNote(); loadScore(); loadChat(); loadHovo(); loadFamilyCompany() }
 })
 watch(tab, (t) => {
   if (t === 'profile' && sel.value) { if (!noteLoaded.value) loadNote(); if (!scoreLoaded.value) loadScore() }
   if (t === 'chat' && sel.value) loadChat()
+  if (t === 'hando' && sel.value) loadHovo()
 })
 let chatTimer = null
 watch(tab, (t) => {
@@ -454,7 +683,7 @@ async function delTenant(t) {
     <!-- drawer -->
     <template v-if="sel">
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:60" @click="closeDetail"></div>
-      <div style="position:fixed;top:0;right:0;bottom:0;width:min(680px,96vw);background:var(--card);z-index:61;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
+      <div style="position:fixed;top:0;right:0;bottom:0;width:min(720px,96vw);background:var(--card);z-index:61;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
         <div class="d-cover" :style="`height:118px;position:relative;flex-shrink:0;background:linear-gradient(135deg,${avatarColor(sel.id)},#1E5EB8)`">
           <div style="position:absolute;left:20px;bottom:16px;display:flex;align-items:center;gap:14px">
             <div style="position:relative">
@@ -506,6 +735,12 @@ async function delTenant(t) {
 
           <!-- PROFILE -->
           <template v-if="tab === 'profile'">
+            <!-- owner actions -->
+            <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+              <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" @click="openNotice">📢 Send notice</button>
+              <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" :disabled="remindSending" @click="sendReminder">{{ remindSending ? 'Sending…' : '🔔 Payment reminder' }}</button>
+            </div>
+
             <!-- Tenant score -->
             <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
               <div style="display:flex;align-items:center;gap:14px;background:var(--bg-alt);border:1px solid var(--border);border-radius:14px;padding:16px 18px;flex:1;min-width:250px">
@@ -550,6 +785,36 @@ async function delTenant(t) {
               </div>
             </div>
 
+            <!-- Family info (individual) -->
+            <div v-if="String(sel.kind).toLowerCase() === 'individual'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">👨‍👩‍👧 Family information</div>
+                <div style="display:flex;gap:8px">
+                  <button v-if="canManage" class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="addFamilyRow">＋ Member</button>
+                  <button v-if="canManage" class="btn-primary" style="padding:6px 14px;font-size:12px" :disabled="famSaving" @click="saveFamily">{{ famSaving ? 'Saving…' : 'Save' }}</button>
+                </div>
+              </div>
+              <div v-if="!family.length" class="c-sub" style="font-size:12px;padding:6px 0 10px">No family members recorded yet.</div>
+              <div v-for="(m, i) in family" :key="i" style="display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+                <input v-for="f in FAM_FIELDS" :key="f.k" v-model="m[f.k]" :placeholder="f.ph" style="min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:12px;color:var(--text);outline:none">
+                <button v-if="canManage" class="btn-ghost" style="padding:6px 9px;font-size:11px;color:var(--danger)" @click="removeFamilyRow(i)">✕</button>
+              </div>
+            </div>
+
+            <!-- Company profile (corporate) -->
+            <div v-else-if="String(sel.kind).toLowerCase() === 'corporate'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🏢 Company profile</div>
+                <button v-if="canManage" class="btn-primary" style="padding:6px 14px;font-size:12px" :disabled="coSaving" @click="saveCompany">{{ coSaving ? 'Saving…' : 'Save' }}</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+                <div v-for="f in CO_FIELDS" :key="f.k" :style="f.w === 'full' ? 'grid-column:1/-1' : ''">
+                  <label style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ f.label }}</label>
+                  <input v-model="company[f.k]" :placeholder="f.ph" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                </div>
+              </div>
+            </div>
+
             <!-- Private note (owner only) -->
             <div v-if="canNote" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:6px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -562,23 +827,45 @@ async function delTenant(t) {
           </template>
 
           <!-- LEASE & UNIT (merged) -->
-          <table v-else-if="tab === 'leases'" class="kr" style="width:100%">
-            <thead><tr><th>Lease</th><th>Unit</th><th>Property</th><th>Floor</th><th>sqft</th><th>Rent</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr v-for="l in selLeases" :key="l.id">
-                <td style="font-weight:700">{{ l.id }}</td>
-                <td>{{ unitName(l.u) }}</td>
-                <td>{{ propName(unitsAll.find(u => u.id === l.u)?.p) }}</td>
-                <td>{{ unitsAll.find(u => u.id === l.u)?.floor || '—' }}</td>
-                <td>{{ ((unitsAll.find(u => u.id === l.u)?.sqft) || 0).toLocaleString('en-IN') }}</td>
-                <td style="font-weight:700">{{ money(l.rent) }}/mo</td>
-                <td>{{ l.start || '—' }}</td>
-                <td>{{ l.end || '—' }} <span v-if="leaseDaysLeft(l) !== null && l.status === 'Active'" class="c-sub">({{ leaseDaysLeft(l) }}d)</span></td>
-                <td><span class="badge" :class="badge(l.status)">{{ l.status }}</span></td>
-              </tr>
-              <tr v-if="!selLeases.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:22px">No leases / units.</td></tr>
-            </tbody>
-          </table>
+          <div v-else-if="tab === 'leases'">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>Lease</th><th>Unit</th><th>Property</th><th>Floor</th><th>sqft</th><th>Rent</th><th>Start</th><th>End</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="l in selLeases" :key="l.id">
+                  <td style="font-weight:700">{{ l.id }}</td>
+                  <td>{{ unitName(l.u) }}</td>
+                  <td>{{ propName(unitsAll.find(u => u.id === l.u)?.p) }}</td>
+                  <td>{{ unitsAll.find(u => u.id === l.u)?.floor || '—' }}</td>
+                  <td>{{ ((unitsAll.find(u => u.id === l.u)?.sqft) || 0).toLocaleString('en-IN') }}</td>
+                  <td style="font-weight:700">{{ money(l.rent) }}/mo</td>
+                  <td>{{ l.start || '—' }}</td>
+                  <td>{{ l.end || '—' }} <span v-if="leaseDaysLeft(l) !== null && l.status === 'Active'" class="c-sub">({{ leaseDaysLeft(l) }}d)</span></td>
+                  <td><span class="badge" :class="badge(l.status)">{{ l.status }}</span></td>
+                  <td><button class="btn-ghost" style="padding:5px 9px;font-size:11.5px" @click="openAgree(l)" title="Lease paper / agreement">📄</button></td>
+                </tr>
+                <tr v-if="!selLeases.length"><td colspan="10" style="text-align:center;color:var(--text-mute);padding:22px">No leases / units.</td></tr>
+              </tbody>
+            </table>
+
+            <!-- lease extension -->
+            <div v-if="canManage" style="margin-top:22px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+                <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">📄 Lease extension / renewal</div>
+                <button class="btn-primary" style="padding:6px 12px;font-size:12px" @click="openOffer">＋ Extension offer</button>
+              </div>
+              <div v-if="!selRenewals.length" class="c-sub" style="font-size:12px;padding:4px 0 8px">No renewal requests. Tenants can request extension from their portal, or you can send an offer above.</div>
+              <div v-for="r in selRenewals" :key="r.id" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-bottom:8px;flex-wrap:wrap">
+                <div style="font-weight:800;font-size:13px">{{ r.id }}</div>
+                <div class="c-sub" style="font-size:12px">lease {{ r.lease }} · +{{ r.months }} mo · ৳{{ (r.new_rent || 0).toLocaleString('en-IN') }}/mo</div>
+                <span class="badge" :class="badge(r.status)">{{ r.status }}</span>
+                <div v-if="r.note" class="c-sub" style="font-size:11.5px;flex-basis:100%">💬 {{ r.note }}</div>
+                <div v-if="['Pending', 'Offered'].includes(r.status)" style="margin-left:auto;display:flex;gap:6px">
+                  <button class="btn-primary" style="padding:5px 12px;font-size:11.5px" @click="decideRenewal(r, 'approve')">✅ Approve</button>
+                  <button class="btn-ghost" style="padding:5px 12px;font-size:11.5px;color:var(--danger)" @click="decideRenewal(r, 'reject')">❌ Reject</button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- BILLING (invoices + utilities merged) -->
           <div v-else-if="tab === 'billing'">
@@ -611,9 +898,29 @@ async function delTenant(t) {
                   <td style="font-weight:700">{{ b.id }}</td><td>{{ unitName(b.unit) }}</td><td>{{ b.type }}</td><td>{{ b.month || '—' }}</td><td>{{ b.usage ?? '—' }}</td><td style="font-weight:700">{{ money(b.amount) }}</td>
                   <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
                 </tr>
-                <tr v-if="!selUtils.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No utility bills.</td></tr>
+                <tr v-if="!selUtils.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:18px">No utility bills.</td></tr>
               </tbody>
             </table>
+
+            <!-- postpaid meter billing -->
+            <div v-if="canManage" style="margin-top:20px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+                <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">⚡ Postpaid meter billing</div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="openMeter">＋ Meter reading</button>
+                  <button class="btn-primary" style="padding:6px 12px;font-size:12px" @click="openBill">🧾 Generate bill</button>
+                </div>
+              </div>
+              <table class="kr" style="width:100%">
+                <thead><tr><th>Reading</th><th>Unit</th><th>Type</th><th>Month</th><th>Reading</th><th>Note</th></tr></thead>
+                <tbody>
+                  <tr v-for="m in selMeters" :key="m.id">
+                    <td style="font-weight:700">{{ m.id }}</td><td>{{ unitName(m.unit) }}</td><td>{{ m.type }}</td><td>{{ m.month }}</td><td style="font-weight:700">{{ m.reading }}</td><td class="c-sub">{{ m.note || '—' }}</td>
+                  </tr>
+                  <tr v-if="!selMeters.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:18px">No meter readings yet — submit readings, then generate postpaid bills.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <!-- TICKETS & MAINTENANCE (merged) -->
@@ -632,17 +939,77 @@ async function delTenant(t) {
 
             <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin:20px 0 8px">🛠 Maintenance requests</div>
             <table class="kr" style="width:100%">
-              <thead><tr><th>Req</th><th>Unit</th><th>Title</th><th>Category</th><th>Priority</th><th>Est. cost</th><th>Status</th></tr></thead>
+              <thead><tr><th>Req</th><th>Unit</th><th>Title</th><th>Category</th><th>Priority</th><th>Est. cost</th><th>Status</th><th v-if="canManage">Actions</th></tr></thead>
               <tbody>
                 <tr v-for="m in selMaint" :key="m.id">
                   <td style="font-weight:700">{{ m.id }}</td><td>{{ unitName(m.unit) }}</td><td>{{ m.title }}</td><td>{{ m.category || '—' }}</td>
                   <td><span class="badge" :class="m.priority === 'high' ? 'b-red' : m.priority === 'medium' ? 'b-orange' : 'b-gray'">{{ m.priority || '—' }}</span></td>
                   <td>{{ money(m.cost_estimate) }}</td>
                   <td><span class="badge" :class="badge(m.status)">{{ m.status }}</span></td>
+                  <td v-if="canManage" style="white-space:nowrap">
+                    <button v-if="m.status === 'Open'" class="btn-primary" style="padding:4px 10px;font-size:11px" @click="setMaintStatus(m, 'In Progress')">✅ Approve</button>
+                    <button class="btn-ghost" style="padding:4px 9px;font-size:11px" @click="openCost(m)" title="Set cost">💰</button>
+                    <select :value="m.status" @change="setMaintStatus(m, $event.target.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:7px;background:var(--bg-alt);font-size:11px;color:var(--text);outline:none">
+                      <option v-for="s in ['Open', 'Assigned', 'In Progress', 'Resolved', 'Closed']" :key="s" :value="s">{{ s }}</option>
+                    </select>
+                  </td>
                 </tr>
-                <tr v-if="!selMaint.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:18px">No maintenance requests.</td></tr>
+                <tr v-if="!selMaint.length"><td :colspan="canManage ? 8 : 7" style="text-align:center;color:var(--text-mute);padding:18px">No maintenance requests.</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- HANDOVER -->
+          <div v-else-if="tab === 'hando'">
+            <div v-if="hovoLoading" class="c-sub" style="font-size:12px;text-align:center;padding:20px">Loading checklists…</div>
+            <template v-else>
+              <div v-for="l in selLeases" :key="l.id" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                  <div style="font-weight:800;font-size:13px">📦 {{ l.id }} — {{ unitName(l.u) }} <span class="c-sub" style="font-weight:500">({{ l.status }})</span></div>
+                  <div v-if="canManage" style="display:flex;gap:6px">
+                    <button v-if="!hovoForLease(l.id).some(c => c.kind === 'move_in')" class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="createHovo(l.id, 'move_in')">＋ Move-in checklist</button>
+                    <button v-if="!hovoForLease(l.id).some(c => c.kind === 'move_out')" class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="createHovo(l.id, 'move_out')">＋ Move-out checklist</button>
+                  </div>
+                </div>
+                <div v-if="!hovoForLease(l.id).length" class="c-sub" style="font-size:12px;margin-top:8px">No handover checklist yet — create one to track keys, deposits, utility cards, furnishings…</div>
+                <div v-for="c in hovoForLease(l.id)" :key="c.id" style="display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap">
+                  <span class="badge" :class="c.kind === 'move_in' ? 'b-green' : 'b-orange'">{{ c.kind === 'move_in' ? '🚪 Move-in' : '🏁 Move-out' }}</span>
+                  <span class="badge" :class="badge(c.status)">{{ c.status }}</span>
+                  <div style="flex:1;min-width:120px;height:6px;border-radius:3px;background:rgba(127,146,178,.18);overflow:hidden">
+                    <div :style="`width:${c.items?.length ? Math.round(c.items.filter(x => x.checked).length / c.items.length * 100) : 0}%;height:100%;background:var(--primary)`"></div>
+                  </div>
+                  <span class="c-sub" style="font-size:11.5px">{{ c.items?.filter(x => x.checked).length || 0 }}/{{ c.items?.length || 0 }}</span>
+                  <button class="btn-primary" style="padding:5px 12px;font-size:11.5px" @click="openHovo(c.id)">✏️ Edit</button>
+                </div>
+              </div>
+            </template>
+
+            <!-- checklist editor -->
+            <template v-if="hovoSel">
+              <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:64" @click="hovoSel = null"></div>
+              <div style="position:fixed;top:0;right:0;bottom:0;width:min(480px,94vw);background:var(--card);z-index:65;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
+                <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                  <h3 style="font-size:14.5px;font-weight:800">📦 {{ hovoSel.id }} <span class="badge" :class="hovoSel.kind === 'move_in' ? 'b-green' : 'b-orange'">{{ hovoSel.kind === 'move_in' ? 'Move-in' : 'Move-out' }}</span> <span class="c-sub" style="font-weight:500">{{ unitName(selLeases.find(l => l.id === hovoSel.lease)?.u) }}</span></h3>
+                  <button @click="hovoSel = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+                </div>
+                <div style="padding:14px 18px;overflow-y:auto;flex:1">
+                  <div class="c-sub" style="font-size:11.5px;margin-bottom:10px">Items received from / handed over to the tenant (keys, utility cards, advance/security money, furnishings…). Tick what is done, add notes, and add custom items as needed.</div>
+                  <div v-for="(it, i) in hovoSel.items" :key="it.id" style="display:flex;gap:8px;align-items:center;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:8px">
+                    <input type="checkbox" v-model="it.checked" :true-value="1" :false-value="0" style="accent-color:var(--primary);flex-shrink:0">
+                    <div style="flex:1;min-width:0">
+                      <input v-model="it.label" placeholder="Item (e.g. AC unit, keys ×3, utility cards…)" style="width:100%;padding:6px 8px;border:1px solid transparent;border-radius:7px;background:transparent;font-family:inherit;font-size:12.5px;color:var(--text);outline:none" :class="it.checked ? 'done-item' : ''">
+                      <input v-model="it.note" placeholder="Note (condition, count, amount…)" style="width:100%;margin-top:3px;padding:5px 8px;border:1px solid transparent;border-radius:7px;background:rgba(127,146,178,.08);font-family:inherit;font-size:11px;color:var(--text-mute);outline:none">
+                    </div>
+                    <button class="btn-ghost" style="padding:5px 8px;font-size:11px;color:var(--danger);flex-shrink:0" @click="removeHovoItem(i)">✕</button>
+                  </div>
+                  <button v-if="canManage" class="btn-ghost" style="width:100%;justify-content:center;padding:9px;font-size:12px;margin-top:4px" @click="addHovoItem">＋ Add item</button>
+                </div>
+                <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+                  <button class="btn-ghost" @click="hovoSel = null">Close</button>
+                  <button class="btn-primary" :disabled="hovoSaving" @click="saveHovo" style="padding:9px 18px">{{ hovoSaving ? 'Saving…' : '💾 Save checklist' }}</button>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- CHAT -->
@@ -692,6 +1059,228 @@ async function delTenant(t) {
             </table>
           </div>
           <div style="height:24px"></div>
+        </div>
+      </div>
+    </template>
+
+    <!-- lease agreement viewer modal -->
+    <template v-if="agreeModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="agreeModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">📄 Lease paper — {{ agreeModal.id }}</h3>
+          <button @click="agreeModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:16px 22px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px">
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:9px 11px">
+              <div style="font-size:10px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Registration office</div>
+              <div style="font-size:12.5px;font-weight:700;margin-top:2px">{{ agreeModal.reg_office || '—' }}</div>
+            </div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:9px 11px">
+              <div style="font-size:10px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Registration deed</div>
+              <div style="font-size:12.5px;font-weight:700;margin-top:2px">{{ agreeModal.reg_deed || '—' }}</div>
+            </div>
+          </div>
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📎 Agreement documents</div>
+          <div v-if="!leaseDocsOf(agreeModal.id).length" class="c-sub" style="font-size:12px;padding:8px 0">No scanned agreement attached to this lease yet. Upload it from the Documents tab of the tenant or the Leases page.</div>
+          <div v-for="d in leaseDocsOf(agreeModal.id)" :key="d.id" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:8px">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</div>
+              <div class="c-sub" style="font-size:11px">{{ d.id }} · {{ fmtSize(d.size) }} · {{ fmtTs(d.ts) }}</div>
+            </div>
+            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="viewDoc(d)">👁 View</button>
+            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="downloadDoc(d)">⬇</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- notice modal -->
+    <template v-if="noticeModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="noticeModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">📢 Send notice</h3>
+          <button @click="noticeModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Template</label>
+            <select v-model="noticeModal.preset" @change="applyPreset" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+              <option v-for="p in NOTICE_PRESETS" :key="p.id" :value="p.id">{{ p.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Title *</label>
+            <input v-model="noticeModal.title" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Body</label>
+            <textarea v-model="noticeModal.body" rows="4" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
+          </div>
+        </div>
+        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn-ghost" @click="noticeModal = null">Cancel</button>
+          <button class="btn-primary" :disabled="noticeSaving" @click="sendNotice" style="padding:9px 18px">{{ noticeSaving ? 'Posting…' : '📢 Post notice' }}</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- renewal offer modal -->
+    <template v-if="offerModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="offerModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">📄 Lease extension offer</h3>
+          <button @click="offerModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Lease</label>
+            <select v-model="offerModal.lease" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+              <option v-for="l in selLeases" :key="l.id" :value="l.id">{{ l.id }} — {{ unitName(l.u) }} (৳{{ (l.rent || 0).toLocaleString('en-IN') }}/mo)</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Months *</label>
+              <input v-model.number="offerModal.months" type="number" min="1" max="36" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+            <div>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rent escalation %</label>
+              <input v-model.number="offerModal.escalation" type="number" min="0" max="100" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">OR new rent (৳/mo, optional)</label>
+            <input v-model.number="offerModal.new_rent" type="number" min="0" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <div class="c-sub" style="font-size:11px;margin-top:4px">Conditions: enter escalation % or a fixed new rent — the tenant sees the offer in their portal and accepts/declines.</div>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Conditions / note</label>
+            <textarea v-model="offerModal.note" rows="2" placeholder="e.g. new parking rate applies, service charge 5%…" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
+          </div>
+        </div>
+        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn-ghost" @click="offerModal = null">Cancel</button>
+          <button class="btn-primary" :disabled="offerSaving" @click="submitOffer" style="padding:9px 18px">{{ offerSaving ? 'Sending…' : '📤 Send offer' }}</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- meter reading modal -->
+    <template v-if="meterModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="meterModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(430px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">⚡ Enter meter reading</h3>
+          <button @click="meterModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Unit</label>
+              <select v-model="meterModal.unit" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <option v-for="u in unitOptions" :key="u.id" :value="u.id">{{ u.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Type</label>
+              <select v-model="meterModal.type" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <option v-for="t in UTIL_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Month</label>
+              <input v-model="meterModal.month" type="month" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Reading *</label>
+            <input v-model.number="meterModal.reading" type="number" min="0" placeholder="e.g. 1250" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;font-weight:800;color:var(--text);outline:none">
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Note (optional)</label>
+            <input v-model="meterModal.note" placeholder="e.g. self-reading by tenant" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+        </div>
+        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn-ghost" @click="meterModal = null">Cancel</button>
+          <button class="btn-primary" :disabled="meterSaving" @click="submitMeter" style="padding:9px 18px">{{ meterSaving ? 'Saving…' : '💾 Save reading' }}</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- utility bill generate modal -->
+    <template v-if="billModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="billModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(430px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">🧾 Generate utility bill</h3>
+          <button @click="billModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Unit</label>
+              <select v-model="billModal.unit" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <option v-for="u in unitOptions" :key="u.id" :value="u.id">{{ u.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Type</label>
+              <select v-model="billModal.type" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <option v-for="t in UTIL_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Month</label>
+              <input v-model="billModal.month" type="month" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Current reading (optional override)</label>
+            <input v-model.number="billModal.curr_reading" type="number" min="0" placeholder="Leave empty to use the saved meter reading" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <div class="c-sub" style="font-size:11px;margin-top:4px">Usage = current − previous reading × tariff rate + standing charge (postpaid meter).</div>
+          </div>
+        </div>
+        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn-ghost" @click="billModal = null">Cancel</button>
+          <button class="btn-primary" :disabled="billSaving" @click="generateBill" style="padding:9px 18px">{{ billSaving ? 'Generating…' : '🧾 Generate' }}</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- maintenance cost modal -->
+    <template v-if="costModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="costModal = null"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">💰 Maintenance cost — {{ costModal.id }}</h3>
+          <button @click="costModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Estimate (৳)</label>
+              <input v-model.number="costModal.cost_estimate" type="number" min="0" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+            <div>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Actual (৳)</label>
+              <input v-model.number="costModal.actual_cost" type="number" min="0" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Charge to</label>
+            <select v-model="costModal.charge_to" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+              <option value="owner">Owner</option><option value="tenant">Tenant</option><option value="service">Service</option><option value="insurance">Insurance</option>
+            </select>
+          </div>
+        </div>
+        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn-ghost" @click="costModal = null">Cancel</button>
+          <button class="btn-primary" :disabled="costSaving" @click="submitCost" style="padding:9px 18px">{{ costSaving ? 'Saving…' : '💾 Save cost' }}</button>
         </div>
       </div>
     </template>
@@ -827,5 +1416,9 @@ async function delTenant(t) {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
+}
+.done-item {
+  text-decoration: line-through;
+  opacity: .6;
 }
 </style>

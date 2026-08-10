@@ -9639,6 +9639,51 @@ case 'app-invoice-pay': {
     json_out(['ok' => true, 'receipt_id' => $rid, 'payment_id' => $pid, 'paid' => $newPaid, 'status' => $status, 'remaining' => max(0, (int)$iv['net'] - $newPaid)]);
 }
 
+/* ── Tenant drawer: targeted due/upcoming payment reminder (email + board notice) ── */
+case 'app-tenant-remind': {
+    $u = require_user();
+    if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+        json_out(['ok' => false, 'error' => 'Your role cannot send reminders.'], 403);
+    $pdo = db();
+    $tid = trim($body['tenant_id'] ?? '');
+    if (!$tid) json_out(['ok' => false, 'error' => 'tenant_id required.'], 400);
+    $st = $pdo->prepare('SELECT * FROM tenants WHERE id=?'); $st->execute([$tid]);
+    $tn = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$tn) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
+    $st = $pdo->prepare('SELECT * FROM leases WHERE t=?'); $st->execute([$tid]);
+    $leases = $st->fetchAll(PDO::FETCH_ASSOC);
+    $leaseIds = array_column($leases, 'id');
+    $invs = [];
+    if ($leaseIds) {
+        $st = $pdo->prepare('SELECT i.*, l.u AS unit FROM invoices i JOIN leases l ON l.id=i.l WHERE i.l IN (' . ai_in_list($leaseIds) . ") AND i.status != 'Paid' ORDER BY i.m");
+        $st->execute($leaseIds);
+        $invs = $st->fetchAll(PDO::FETCH_ASSOC);
+    }
+    if (!$invs) json_out(['ok' => false, 'error' => 'No unpaid invoices to remind about.'], 400);
+    $total = (int)array_sum(array_column($invs, 'net'));
+    $lines = '';
+    foreach ($invs as $iv) {
+        $lines .= '<li><b>' . esc($iv['id']) . '</b> — ' . esc($iv['m'] ?? '') . ' (lease ' . esc($iv['l']) . ') — ৳' . number_format((int)$iv['net']) . ' — ' . esc($iv['status']) . '</li>';
+    }
+    $to = trim($tn['sub_email'] ?? '');
+    $sent = false;
+    if ($to && mail_switch($pdo, 'rent_reminders') && notify_ok($pdo, $to, 'notify_rent')) {
+        $subj = '[KRTaker] Payment reminder — ' . count($invs) . ' invoice(s) · ৳' . number_format($total) . ' due';
+        $html = '<p>Hello ' . esc($tn['name']) . ',</p>'
+            . '<p>This is a friendly reminder that the following rent invoice(s) are due:</p><ul>' . $lines . '</ul>'
+            . '<p><b>Total due: ৳' . number_format($total) . '</b></p>'
+            . '<p>You can pay through your tenant portal or by bank transfer. Please reach out if you have any questions.</p>';
+        $sent = send_mail($to, $subj, $html, null, true);
+    }
+    /* board notice too */
+    $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
+    $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+    $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
+        ->execute([$ntc, 'Payment reminder — ' . $tn['name'], count($invs) . ' invoice(s) due · ৳' . number_format($total) . ' · ' . $tid, $u['name']]);
+    audit($u['name'], 'Payment reminder sent', 'tenants', $tid, count($invs) . ' inv ৳' . $total . ' email=' . ($sent ? 'sent' : 'skipped'));
+    json_out(['ok' => true, 'notice_id' => $ntc, 'invoices' => count($invs), 'total_due' => $total, 'emailed' => $sent]);
+}
+
 default:
     json_out(['ok' => false, 'error' => 'Unknown endpoint.'], 404);
 }

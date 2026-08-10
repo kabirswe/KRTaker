@@ -135,7 +135,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260809) {
+        if ($__sv < 20260810) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -257,6 +257,8 @@ function db() {
             nrb INTEGER DEFAULT 0, kind TEXT DEFAULT 'Individual', sub_email TEXT DEFAULT '')");
         $pc2 = array_column($pdo->query('PRAGMA table_info(tenants)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('photo', $pc2, true)) $pdo->exec("ALTER TABLE tenants ADD COLUMN photo TEXT DEFAULT ''");
+        if (!in_array('family', $pc2, true)) $pdo->exec("ALTER TABLE tenants ADD COLUMN family TEXT DEFAULT ''");    /* JSON array: family members (individual tenants) */
+        if (!in_array('company', $pc2, true)) $pdo->exec("ALTER TABLE tenants ADD COLUMN company TEXT DEFAULT ''");  /* JSON object: company profile (corporate tenants) */
         $pc3 = array_column($pdo->query('PRAGMA table_info(app_users)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('photo', $pc3, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN photo TEXT DEFAULT ''");
         $pc4 = array_column($pdo->query('PRAGMA table_info(subscribers)')->fetchAll(PDO::FETCH_ASSOC), 'name');
@@ -952,7 +954,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
-        try { $pdo->exec('PRAGMA user_version=20260809'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260810'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -1583,7 +1585,7 @@ function CRUD_FIELDS() {
     return [
         'properties' => ['name','type','jur','holding','sqft','value','status','sub_email','address','photo','description','featured','created_at','lat','lng'],
         'units'      => ['p','name','floor','sqft','status','rent','sub_email','beds','baths','furnished'],
-        'tenants'    => ['name','phone','email','nid','nrb','kind','sub_email'],
+        'tenants'    => ['name','phone','email','nid','nrb','kind','sub_email','photo','family','company'],
         'leases'     => ['u','t','start','end','rent','adv','res','reg_office','reg_deed','status'],
         'invoices'   => ['l','m','gross','tds','net','status'],
         'tickets'    => ['u','desc','reported','liab','status','con','cost'],
@@ -19339,6 +19341,51 @@ case 'app-invoice-pay': {
     $pdo->prepare('UPDATE invoices SET status=? WHERE id=?')->execute([$status, $inv]);
     audit($u['name'], 'Partial payment', 'invoices', $inv, $rid . ' ৳' . $amount . ' ' . $method . ' -> ' . $status);
     json_out(['ok' => true, 'receipt_id' => $rid, 'payment_id' => $pid, 'paid' => $newPaid, 'status' => $status, 'remaining' => max(0, (int)$iv['net'] - $newPaid)]);
+}
+
+/* ── Tenant drawer: targeted due/upcoming payment reminder (email + board notice) ── */
+case 'app-tenant-remind': {
+    $u = require_user();
+    if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+        json_out(['ok' => false, 'error' => 'Your role cannot send reminders.'], 403);
+    $pdo = db();
+    $tid = trim($body['tenant_id'] ?? '');
+    if (!$tid) json_out(['ok' => false, 'error' => 'tenant_id required.'], 400);
+    $st = $pdo->prepare('SELECT * FROM tenants WHERE id=?'); $st->execute([$tid]);
+    $tn = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$tn) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
+    $st = $pdo->prepare('SELECT * FROM leases WHERE t=?'); $st->execute([$tid]);
+    $leases = $st->fetchAll(PDO::FETCH_ASSOC);
+    $leaseIds = array_column($leases, 'id');
+    $invs = [];
+    if ($leaseIds) {
+        $st = $pdo->prepare('SELECT i.*, l.u AS unit FROM invoices i JOIN leases l ON l.id=i.l WHERE i.l IN (' . ai_in_list($leaseIds) . ") AND i.status != 'Paid' ORDER BY i.m");
+        $st->execute($leaseIds);
+        $invs = $st->fetchAll(PDO::FETCH_ASSOC);
+    }
+    if (!$invs) json_out(['ok' => false, 'error' => 'No unpaid invoices to remind about.'], 400);
+    $total = (int)array_sum(array_column($invs, 'net'));
+    $lines = '';
+    foreach ($invs as $iv) {
+        $lines .= '<li><b>' . esc($iv['id']) . '</b> — ' . esc($iv['m'] ?? '') . ' (lease ' . esc($iv['l']) . ') — ৳' . number_format((int)$iv['net']) . ' — ' . esc($iv['status']) . '</li>';
+    }
+    $to = trim($tn['sub_email'] ?? '');
+    $sent = false;
+    if ($to && mail_switch($pdo, 'rent_reminders') && notify_ok($pdo, $to, 'notify_rent')) {
+        $subj = '[KRTaker] Payment reminder — ' . count($invs) . ' invoice(s) · ৳' . number_format($total) . ' due';
+        $html = '<p>Hello ' . esc($tn['name']) . ',</p>'
+            . '<p>This is a friendly reminder that the following rent invoice(s) are due:</p><ul>' . $lines . '</ul>'
+            . '<p><b>Total due: ৳' . number_format($total) . '</b></p>'
+            . '<p>You can pay through your tenant portal or by bank transfer. Please reach out if you have any questions.</p>';
+        $sent = send_mail($to, $subj, $html, null, true);
+    }
+    /* board notice too */
+    $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
+    $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+    $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
+        ->execute([$ntc, 'Payment reminder — ' . $tn['name'], count($invs) . ' invoice(s) due · ৳' . number_format($total) . ' · ' . $tid, $u['name']]);
+    audit($u['name'], 'Payment reminder sent', 'tenants', $tid, count($invs) . ' inv ৳' . $total . ' email=' . ($sent ? 'sent' : 'skipped'));
+    json_out(['ok' => true, 'notice_id' => $ntc, 'invoices' => count($invs), 'total_due' => $total, 'emailed' => $sent]);
 }
 
 default:

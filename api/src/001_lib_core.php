@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260809) {
+        if ($__sv < 20260810) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -220,6 +220,8 @@ function db() {
             nrb INTEGER DEFAULT 0, kind TEXT DEFAULT 'Individual', sub_email TEXT DEFAULT '')");
         $pc2 = array_column($pdo->query('PRAGMA table_info(tenants)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('photo', $pc2, true)) $pdo->exec("ALTER TABLE tenants ADD COLUMN photo TEXT DEFAULT ''");
+        if (!in_array('family', $pc2, true)) $pdo->exec("ALTER TABLE tenants ADD COLUMN family TEXT DEFAULT ''");    /* JSON array: family members (individual tenants) */
+        if (!in_array('company', $pc2, true)) $pdo->exec("ALTER TABLE tenants ADD COLUMN company TEXT DEFAULT ''");  /* JSON object: company profile (corporate tenants) */
         $pc3 = array_column($pdo->query('PRAGMA table_info(app_users)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('photo', $pc3, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN photo TEXT DEFAULT ''");
         $pc4 = array_column($pdo->query('PRAGMA table_info(subscribers)')->fetchAll(PDO::FETCH_ASSOC), 'name');
@@ -915,7 +917,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
-        try { $pdo->exec('PRAGMA user_version=20260809'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260810'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

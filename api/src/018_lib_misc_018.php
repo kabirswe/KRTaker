@@ -22,7 +22,7 @@ function CRUD_FIELDS() {
     return [
         'properties' => ['name','type','jur','holding','sqft','value','status','sub_email','address','photo','description','featured','created_at','lat','lng'],
         'units'      => ['p','name','floor','sqft','status','rent','sub_email','beds','baths','furnished'],
-        'tenants'    => ['name','phone','email','nid','nrb','kind','sub_email'],
+        'tenants'    => ['name','phone','email','nid','nrb','kind','sub_email','photo','family','company'],
         'leases'     => ['u','t','start','end','rent','adv','res','reg_office','reg_deed','status'],
         'invoices'   => ['l','m','gross','tds','net','status'],
         'tickets'    => ['u','desc','reported','liab','status','con','cost'],
