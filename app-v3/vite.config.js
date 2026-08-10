@@ -11,6 +11,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,   // custom registration in main.js (versioned + auto-reload on update)
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'KRTaker — AI Caretaker',

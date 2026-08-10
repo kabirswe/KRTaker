@@ -3,7 +3,19 @@
 // Override at build time: VITE_API_BASE=https://krtaker.com/api (e.g. staging cross-origin).
 import { useAuthStore } from '../stores/auth'
 
-const API_BASE = (import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://krtaker.com/api/' : '../api/')).replace(/\/?$/, '/')
+const API_BASE = (() => {
+  const base = (import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://krtaker.com/api/' : '../api/')).replace(/\/?$/, '/')
+  // Runtime guard: in production, never let the API point at a non-krtaker.com
+  // host. A stale bundle with a relative base ('../api/') resolves to
+  // test.krtaker.com/api (404 → "Empty response from server") — force the live API.
+  if (import.meta.env.PROD && typeof window !== 'undefined') {
+    try {
+      const u = new URL(base, window.location.href)
+      if (u.hostname !== 'krtaker.com') return 'https://krtaker.com/api/'
+    } catch (e) { /* keep base */ }
+  }
+  return base
+})()
 
 export async function apiCall(path, data = null) {
   const opts = { method: data ? 'POST' : 'GET', headers: {} }
