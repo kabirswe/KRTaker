@@ -520,6 +520,24 @@ async function onDocPick(e) {
     else window.__krToast?.(r.error || 'Upload failed', 'error')
   } finally { docUploading.value = false }
 }
+// Attach a scanned lease paper to the LEASE (kind='lease' → shows in the agreement viewer).
+const agreeUploading = ref(false)
+async function attachAgreement(e) {
+  const f = e.target.files && e.target.files[0]
+  e.target.value = ''
+  if (!f || !agreeModal.value) return
+  const fd = new FormData()
+  fd.append('file', f)
+  fd.append('kind', 'lease')
+  fd.append('ref', agreeModal.value.id)
+  fd.append('cat', 'agreement')
+  agreeUploading.value = true
+  try {
+    const r = await apiUpload('app-doc-upload', fd)
+    if (r.ok) { window.__krToast?.('📎 Agreement attached to ' + agreeModal.value.id, 'ok'); await data.bootstrap() }
+    else window.__krToast?.(r.error || 'Upload failed', 'error')
+  } finally { agreeUploading.value = false }
+}
 async function delDoc(d) {
   if (!confirm(`Delete document "${d.name}"?`)) return
   const r = await apiCall('app-doc-delete', { id: d.id })
@@ -576,11 +594,11 @@ const form = ref({})
 const saving = ref(false)
 const formErr = ref('')
 function openAdd() {
-  form.value = { name: '', phone: '', email: '', nid: '', nrb: false, kind: 'Individual' }
+  form.value = { name: '', phone: '', email: '', nid: '', nrb: false, kind: 'Individual', sub_email: '' }
   formErr.value = ''; modal.value = { mode: 'add' }
 }
 function openEdit(t) {
-  form.value = { name: t.name || '', phone: t.phone || '', email: t.email || '', nid: t.nid || '', nrb: String(t.nrb) === '1', kind: t.kind || 'Individual' }
+  form.value = { name: t.name || '', phone: t.phone || '', email: t.email || '', nid: t.nid || '', nrb: String(t.nrb) === '1', kind: t.kind || 'Individual', sub_email: t.sub_email || '' }
   formErr.value = ''; modal.value = { mode: 'edit', t }
 }
 function closeModal() { modal.value = null; formErr.value = '' }
@@ -588,7 +606,7 @@ async function submitForm() {
   if (!form.value.name.trim()) { formErr.value = 'Tenant name is required.'; return }
   formErr.value = ''; saving.value = true
   try {
-    const payload = { name: form.value.name.trim(), phone: form.value.phone.trim(), email: form.value.email.trim(), nid: form.value.nid.trim(), nrb: form.value.nrb ? 1 : 0, kind: form.value.kind }
+    const payload = { name: form.value.name.trim(), phone: form.value.phone.trim(), email: form.value.email.trim(), nid: form.value.nid.trim(), nrb: form.value.nrb ? 1 : 0, kind: form.value.kind, sub_email: (form.value.sub_email || '').trim() }
     const r = await apiCall('app-crud', {
       action: modal.value.mode === 'edit' ? 'update' : 'create', collection: 'tenants',
       ...(modal.value.mode === 'edit' ? { id: modal.value.t.id } : {}), data: payload,
@@ -1087,8 +1105,14 @@ async function delTenant(t) {
               <div style="font-size:12.5px;font-weight:700;margin-top:2px">{{ agreeModal.reg_deed || '—' }}</div>
             </div>
           </div>
-          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📎 Agreement documents</div>
-          <div v-if="!leaseDocsOf(agreeModal.id).length" class="c-sub" style="font-size:12px;padding:8px 0">No scanned agreement attached to this lease yet. Upload it from the Documents tab of the tenant or the Leases page.</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">📎 Agreement documents</div>
+            <label v-if="canManage" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800">
+              {{ agreeUploading ? 'Uploading…' : '⬆ Attach scanned agreement' }}
+              <input type="file" style="display:none" @change="attachAgreement">
+            </label>
+          </div>
+          <div v-if="!leaseDocsOf(agreeModal.id).length" class="c-sub" style="font-size:12px;padding:8px 0">No scanned agreement attached to this lease yet. Click <b>Attach scanned agreement</b> to upload the signed lease paper.</div>
           <div v-for="d in leaseDocsOf(agreeModal.id)" :key="d.id" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:8px">
             <div style="flex:1;min-width:0">
               <div style="font-weight:700;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</div>
@@ -1368,6 +1392,11 @@ async function delTenant(t) {
           <div>
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Email</label>
             <input v-model="form.email" type="email" placeholder="name@email.com" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Portal email</label>
+            <input v-model="form.sub_email" type="email" placeholder="tenant portal login (optional)" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <div class="c-sub" style="font-size:10.5px;margin-top:3px">Sets the tenant's login for the portal (login + invoice/chat access).</div>
           </div>
           <div>
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">NID / BIN</label>

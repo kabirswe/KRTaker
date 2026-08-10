@@ -56,11 +56,17 @@ const router = createRouter({
 })
 
 // Auth + data guard: no token → login; token but no data → bootstrap before render.
+// Also restore the user identity on reload (token persists in localStorage but auth.user
+// is null after a page refresh — without fetchMe every role gate that reads
+// auth.user?.role would be off until a fresh login).
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const data = useDataStore()
   if (to.meta.public) return true
   if (!auth.isAuthed) return { name: 'login' }
+  if (!auth.user) {
+    try { await auth.fetchMe() } catch (e) { /* bootstrap below still validates the token */ }
+  }
   if (!data.loaded && !data.loading) {
     const ok = await data.bootstrap()
     if (!ok && !data.offline) {

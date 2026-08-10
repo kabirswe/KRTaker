@@ -18,12 +18,12 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthed: (s) => !!s.token,
-    role: (s) => s.user?.role || 'owner',
+    role: (s) => s.user?.role || '',
     isStaff: (s) => !!s.user?.is_staff,
     isImpersonating: (s) => !!s.impersonator,
     // Three-group hierarchy for subordinate switching (matches server app-view-as)
-    rank: (s) => HIERARCHY[s.user?.role || 'owner']?.r ?? 0,
-    canSwitchTo: (s) => (roleId) => canViewAs(s.user?.role || 'owner', roleId),
+    rank: (s) => HIERARCHY[s.user?.role || '']?.r ?? 0,
+    canSwitchTo: (s) => (roleId) => canViewAs(s.user?.role || '', roleId),
   },
   actions: {
     async login(email, password, twofaCode = '') {
