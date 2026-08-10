@@ -521,3 +521,10 @@ async function toggleFeatured(p) {
     </template>
   </div>
 </template>
+
+<style scoped>
+/* Property card badges: white background (keep colored text from .b-* classes) */
+.panel.chip .badge {
+  background: #ffffff;
+}
+</style>
