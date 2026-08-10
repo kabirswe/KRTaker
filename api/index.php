@@ -19304,6 +19304,43 @@ case 'app-error-log': {
     json_out(['ok' => true, 'errors' => $errs, 'since' => $since, 'count_24h' => $h24, 'count_7d' => $h7d, 'top' => $top]);
 }
 
+/* ── Tenant drawer: record a (partial) payment against an invoice / monthly rent ──
+   Inserts a receipt + a success payment row, then recomputes the invoice status:
+   fully paid → Paid, any payment → Partial, none → Unpaid. */
+case 'app-invoice-pay': {
+    $u = require_user();
+    if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+        json_out(['ok' => false, 'error' => 'Your role cannot record payments.'], 403);
+    $pdo = db();
+    $inv = trim($body['invoice_id'] ?? '');
+    $amount = (int)($body['amount'] ?? 0);
+    $date = trim($body['date'] ?? '');
+    $method = trim($body['method'] ?? 'Manual');
+    $sig = trim($body['sig'] ?? '');
+    if (!$inv) json_out(['ok' => false, 'error' => 'invoice_id required.'], 400);
+    if ($amount <= 0) json_out(['ok' => false, 'error' => 'amount must be positive.'], 400);
+    $st = $pdo->prepare('SELECT * FROM invoices WHERE id=?'); $st->execute([$inv]);
+    $iv = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$iv) json_out(['ok' => false, 'error' => 'Invoice not found.'], 404);
+    if (!$date) $date = date('Y-m-d');
+    $st = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM receipts WHERE inv=?'); $st->execute([$inv]);
+    $paidSoFar = (int)$st->fetchColumn();
+    $remaining = (int)$iv['net'] - $paidSoFar;
+    if ($remaining <= 0) json_out(['ok' => false, 'error' => 'Invoice already fully paid.'], 409);
+    if ($amount > $remaining) json_out(['ok' => false, 'error' => 'Amount exceeds remaining balance (৳' . $remaining . ').'], 400);
+    $rid = 'RCP-' . str_pad((string)((int)$pdo->query("SELECT COALESCE(MAX(CAST(REPLACE(id,'RCP-','') AS INTEGER)),0) FROM receipts")->fetchColumn() + 1), 3, '0', STR_PAD_LEFT);
+    $pid = 'PAY-' . str_pad((string)((int)$pdo->query("SELECT COALESCE(MAX(CAST(REPLACE(id,'PAY-','') AS INTEGER)),0) FROM payments")->fetchColumn() + 1), 3, '0', STR_PAD_LEFT);
+    $pdo->prepare('INSERT INTO receipts (id, inv, amount, date, method, sig) VALUES (?,?,?,?,?,?)')
+        ->execute([$rid, $inv, $amount, $date, $method, $sig]);
+    $pdo->prepare("INSERT INTO payments (id, inv, amount, method, ref, date, status) VALUES (?,?,?,?,?,?,'Success')")
+        ->execute([$pid, $inv, $amount, $method, 'manual:' . $sig, $date]);
+    $newPaid = $paidSoFar + $amount;
+    $status = $newPaid >= (int)$iv['net'] ? 'Paid' : 'Partial';
+    $pdo->prepare('UPDATE invoices SET status=? WHERE id=?')->execute([$status, $inv]);
+    audit($u['name'], 'Partial payment', 'invoices', $inv, $rid . ' ৳' . $amount . ' ' . $method . ' -> ' . $status);
+    json_out(['ok' => true, 'receipt_id' => $rid, 'payment_id' => $pid, 'paid' => $newPaid, 'status' => $status, 'remaining' => max(0, (int)$iv['net'] - $newPaid)]);
+}
+
 default:
     json_out(['ok' => false, 'error' => 'Unknown endpoint.'], 404);
 }

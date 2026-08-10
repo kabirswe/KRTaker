@@ -39,6 +39,43 @@ export async function apiCall(path, data = null) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
+// Base URL for building direct asset URLs (photos, docs).
+export const apiBase = () => API_BASE
+
+// Multipart upload (tenant photo, documents) — sends FormData with the Bearer token.
+export async function apiUpload(path, formData) {
+  const auth = useAuthStore()
+  try {
+    const res = await fetch(API_BASE + path, {
+      method: 'POST',
+      headers: auth.token ? { Authorization: 'Bearer ' + auth.token } : {},
+      body: formData,
+    })
+    const text = await res.text()
+    let j = null
+    try { j = JSON.parse(text) } catch (e) { j = null }
+    if (!j) return { ok: false, error: 'Empty response from server.', _status: res.status }
+    j._status = res.status
+    return j
+  } catch (e) {
+    return { ok: false, error: 'Network error — upload failed.' }
+  }
+}
+
+// Fetch a binary endpoint (photo view / document view/download) with auth → object URL (or null).
+export async function apiBlob(path) {
+  const auth = useAuthStore()
+  try {
+    const res = await fetch(API_BASE + path, {
+      headers: auth.token ? { Authorization: 'Bearer ' + auth.token } : {},
+    })
+    if (!res.ok) return null
+    return URL.createObjectURL(await res.blob())
+  } catch (e) {
+    return null
+  }
+}
+
 // ── Bot guard (mirrors api/src/064_router.php bot_guard_check) ──
 // PoW: sha256(window:nonce) with >= N leading zero bits, window = floor(epoch/300).
 // Difficulty from admin_cfg bot_pow_bits (default 12); server accepts ±1 window.
