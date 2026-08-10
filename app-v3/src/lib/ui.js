@@ -14,7 +14,7 @@ const BADGE_MAP = {
   Open: 'b-red', Overdue: 'b-red', Terminated: 'b-red', Rejected: 'b-red', Failed: 'b-red', Critical: 'b-red',
   // orange — attention / in-between
   Unpaid: 'b-orange', Partial: 'b-orange', Pending: 'b-orange', 'Pending Registration': 'b-orange',
-  'Awaiting Payment': 'b-orange', Maintenance: 'b-orange', Due: 'b-orange', 'Soft Due': 'b-orange',
+  'Awaiting Payment': 'b-orange', Maintenance: 'b-orange', Due: 'b-orange', 'Soft Due': 'b-orange', Probation: 'b-orange',
   // blue — in motion / assigned
   'In Progress': 'b-blue', Assigned: 'b-blue', Offered: 'b-blue', Scheduled: 'b-blue', 'Move-out': 'b-orange',
 }
