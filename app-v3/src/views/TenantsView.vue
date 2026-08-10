@@ -294,7 +294,12 @@ async function sendReminder() {
   remindSending.value = true
   try {
     const r = await apiCall('app-tenant-remind', { tenant_id: sel.value.id })
-    if (r.ok) window.__krToast?.(`🔔 Reminder sent — ${r.invoices} invoice(s), ৳${(r.total_due || 0).toLocaleString('en-IN')}${r.emailed ? ' + email' : ''}`, 'ok')
+    if (r.ok) {
+      const parts = []
+      if (r.total_due > 0) parts.push(`${r.invoices} due · ৳${(r.total_due || 0).toLocaleString('en-IN')}`)
+      if (r.total_upcoming > 0) parts.push(`upcoming ৳${(r.total_upcoming || 0).toLocaleString('en-IN')}`)
+      window.__krToast?.(`🔔 Reminder sent — ${parts.join(' + ') || 'nothing due'}${r.emailed ? ' + email' : ''}`, 'ok')
+    }
     else window.__krToast?.(r.error || 'Reminder failed', 'error')
   } finally { remindSending.value = false }
 }

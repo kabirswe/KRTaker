@@ -19343,7 +19343,11 @@ case 'app-invoice-pay': {
     json_out(['ok' => true, 'receipt_id' => $rid, 'payment_id' => $pid, 'paid' => $newPaid, 'status' => $status, 'remaining' => max(0, (int)$iv['net'] - $newPaid)]);
 }
 
-/* ── Tenant drawer: targeted due/upcoming payment reminder (email + board notice) ── */
+/* ── Tenant drawer: targeted due/upcoming payment reminder (email + board notice) ──
+   Covers BOTH buckets:
+     · due      — unpaid invoices for months <= current month (overdue + due this month)
+     · upcoming — next month's expected rent (from active leases; or existing unpaid
+                  next-month invoices), so the tenant is reminded before the due date. */
 case 'app-tenant-remind': {
     $u = require_user();
     if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
@@ -19354,38 +19358,75 @@ case 'app-tenant-remind': {
     $st = $pdo->prepare('SELECT * FROM tenants WHERE id=?'); $st->execute([$tid]);
     $tn = $st->fetch(PDO::FETCH_ASSOC);
     if (!$tn) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
+    $cur = gmdate('Y-m');
+    $next = date('Y-m', strtotime($cur . ' +1 month'));
     $st = $pdo->prepare('SELECT * FROM leases WHERE t=?'); $st->execute([$tid]);
     $leases = $st->fetchAll(PDO::FETCH_ASSOC);
     $leaseIds = array_column($leases, 'id');
-    $invs = [];
+    /* due invoices: unpaid, month <= current (overdue + due_soon) */
+    $due = [];
     if ($leaseIds) {
-        $st = $pdo->prepare('SELECT i.*, l.u AS unit FROM invoices i JOIN leases l ON l.id=i.l WHERE i.l IN (' . ai_in_list($leaseIds) . ") AND i.status != 'Paid' ORDER BY i.m");
-        $st->execute($leaseIds);
-        $invs = $st->fetchAll(PDO::FETCH_ASSOC);
+        $st = $pdo->prepare('SELECT i.*, l.u AS unit FROM invoices i JOIN leases l ON l.id=i.l WHERE i.l IN (' . ai_in_list($leaseIds) . ") AND i.status != 'Paid' AND i.m <= ? ORDER BY i.m");
+        $st->execute(array_merge($leaseIds, [$cur]));
+        $due = $st->fetchAll(PDO::FETCH_ASSOC);
     }
-    if (!$invs) json_out(['ok' => false, 'error' => 'No unpaid invoices to remind about.'], 400);
-    $total = (int)array_sum(array_column($invs, 'net'));
+    /* upcoming: next-month unpaid invoices + active leases' expected next-month rent */
+    $upcoming = [];
+    if ($leaseIds) {
+        $st = $pdo->prepare('SELECT i.*, l.u AS unit FROM invoices i JOIN leases l ON l.id=i.l WHERE i.l IN (' . ai_in_list($leaseIds) . ") AND i.status != 'Paid' AND i.m = ? ORDER BY i.m");
+        $st->execute(array_merge($leaseIds, [$next]));
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $iv) {
+            $upcoming[] = ['kind' => 'invoice', 'ref' => $iv['id'], 'lease' => $iv['l'], 'unit' => $iv['u'], 'month' => $iv['m'], 'amount' => (int)$iv['net']];
+        }
+        $haveNext = array_column($upcoming, 'lease');
+        foreach ($leases as $l) {
+            if (!in_array(strtolower($l['status']), ['active', 'pending registration'], true)) continue;
+            if (in_array($l['id'], $haveNext, true)) continue;
+            $rent = (int)$l['rent'];
+            if ($rent <= 0) continue;
+            $unit = $pdo->prepare('SELECT name FROM units WHERE id=?'); $unit->execute([$l['u']]);
+            $upcoming[] = ['kind' => 'lease', 'ref' => $l['id'], 'lease' => $l['id'], 'unit' => (string)$unit->fetchColumn(), 'month' => $next, 'amount' => $rent];
+        }
+    }
+    if (!$due && !$upcoming) json_out(['ok' => false, 'error' => 'Nothing to remind about — no due invoices and no upcoming rent.'], 400);
+    $totalDue = (int)array_sum(array_column($due, 'net'));
+    $totalUp = (int)array_sum(array_column($upcoming, 'amount'));
     $lines = '';
-    foreach ($invs as $iv) {
+    foreach ($due as $iv) {
         $lines .= '<li><b>' . esc($iv['id']) . '</b> — ' . esc($iv['m'] ?? '') . ' (lease ' . esc($iv['l']) . ') — ৳' . number_format((int)$iv['net']) . ' — ' . esc($iv['status']) . '</li>';
+    }
+    if ($upcoming) {
+        $lines .= '<li style="margin-top:6px"><b>Upcoming rent (' . esc($next) . '):</b></li>';
+        foreach ($upcoming as $up) {
+            $lines .= '<li>' . ($up['kind'] === 'invoice' ? esc($up['ref']) : esc($up['lease']) . ' next instalment') . ' — ' . esc($up['month']) . ' (unit ' . esc($up['unit'] ?: '—') . ') — ৳' . number_format($up['amount']) . '</li>';
+        }
     }
     $to = trim($tn['sub_email'] ?? '');
     $sent = false;
     if ($to && mail_switch($pdo, 'rent_reminders') && notify_ok($pdo, $to, 'notify_rent')) {
-        $subj = '[KRTaker] Payment reminder — ' . count($invs) . ' invoice(s) · ৳' . number_format($total) . ' due';
+        $subj = '[KRTaker] Payment reminder — ' . $tn['name'] . ($totalDue > 0 ? ' · ৳' . number_format($totalDue) . ' due' : '') . ($totalUp > 0 ? ' · ৳' . number_format($totalUp) . ' upcoming' : '');
         $html = '<p>Hello ' . esc($tn['name']) . ',</p>'
-            . '<p>This is a friendly reminder that the following rent invoice(s) are due:</p><ul>' . $lines . '</ul>'
-            . '<p><b>Total due: ৳' . number_format($total) . '</b></p>'
+            . ($totalDue > 0 ? '<p>This is a friendly reminder that the following rent invoice(s) are due:</p><ul>' . implode('', array_map(function ($iv) {
+                return '<li><b>' . esc($iv['id']) . '</b> — ' . esc($iv['m'] ?? '') . ' (lease ' . esc($iv['l']) . ') — ৳' . number_format((int)$iv['net']) . ' — ' . esc($iv['status']) . '</li>';
+            }, $due)) . '</ul>' : '')
+            . ($totalUp > 0 ? '<p><b>Upcoming rent (' . esc($next) . '):</b></p><ul>' . implode('', array_map(function ($up) {
+                return '<li>' . ($up['kind'] === 'invoice' ? esc($up['ref']) : esc($up['lease']) . ' next instalment') . ' — unit ' . esc($up['unit'] ?: '—') . ' — ৳' . number_format($up['amount']) . '</li>';
+            }, $upcoming)) . '</ul>' : '')
+            . ($totalDue > 0 ? '<p><b>Total due: ৳' . number_format($totalDue) . '</b></p>' : '')
             . '<p>You can pay through your tenant portal or by bank transfer. Please reach out if you have any questions.</p>';
         $sent = send_mail($to, $subj, $html, null, true);
     }
     /* board notice too */
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
     $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+    $bodyTxt = ($totalDue > 0 ? count($due) . ' invoice(s) due · ৳' . number_format($totalDue) : '')
+        . ($totalDue > 0 && $totalUp > 0 ? ' + ' : '')
+        . ($totalUp > 0 ? 'upcoming rent ৳' . number_format($totalUp) . ' (' . $next . ')' : '')
+        . ' · ' . $tid;
     $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-        ->execute([$ntc, 'Payment reminder — ' . $tn['name'], count($invs) . ' invoice(s) due · ৳' . number_format($total) . ' · ' . $tid, $u['name']]);
-    audit($u['name'], 'Payment reminder sent', 'tenants', $tid, count($invs) . ' inv ৳' . $total . ' email=' . ($sent ? 'sent' : 'skipped'));
-    json_out(['ok' => true, 'notice_id' => $ntc, 'invoices' => count($invs), 'total_due' => $total, 'emailed' => $sent]);
+        ->execute([$ntc, 'Payment reminder — ' . $tn['name'], $bodyTxt, $u['name']]);
+    audit($u['name'], 'Payment reminder sent', 'tenants', $tid, count($due) . ' due ৳' . $totalDue . ' / ' . count($upcoming) . ' upcoming ৳' . $totalUp . ' email=' . ($sent ? 'sent' : 'skipped'));
+    json_out(['ok' => true, 'notice_id' => $ntc, 'invoices' => count($due), 'total_due' => $totalDue, 'upcoming' => count($upcoming), 'total_upcoming' => $totalUp, 'emailed' => $sent]);
 }
 
 default:
