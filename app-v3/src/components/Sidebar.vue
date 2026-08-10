@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
+import { ROLES, roleLabel } from '../lib/roles'
 
 const router = useRouter()
 const route = useRoute()
@@ -23,7 +24,6 @@ const GROUPS = [
   { id: 'admin', label: 'Admin', items: [['caretaker', '👑', 'Caretaker']] },
 ]
 
-// Ported views get real routes; not-yet-ported modules show the stub banner.
 const VIEW_ROUTES = {
   dashboard: '/dashboard', analytics: '/analytics', ai: '/ai',
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases',
@@ -38,22 +38,11 @@ const VIEW_ROUTES = {
   health: '/meter-readings', samity: '/samity', caretaker: '/dashboard',
 }
 
-const ROLES = [
-  { id: 'owner', role: 'Property Owner', ico: '🏠', desc: 'Portfolio-wide view across every building' },
-  { id: 'manager', role: 'Property Manager', ico: '🗝️', desc: 'Day-to-day ops on assigned properties' },
-  { id: 'tenant', role: 'Tenant', ico: '🔑', desc: 'Invoices, receipts, repairs — your side' },
-  { id: 'partner', role: 'Service Partner', ico: '🛠️', desc: 'Jobs, QC feedback, payouts' },
-  { id: 'svc_mgr', role: 'Service Manager', ico: '✅', desc: 'Quality control & SLA across partners' },
-  { id: 'legal', role: 'Legal Counsel', ico: '⚖️', desc: 'Registrations, PRCA cases, compliance docket' },
-  { id: 'crm', role: 'CRM & Help Desk', ico: '🎧', desc: 'Tickets, CSAT, tenant onboarding, leads' },
-  { id: 'accountant', role: 'Accountant', ico: '💰', desc: 'Cash flow, TDS, invoices, aging' },
-  { id: 'hr', role: 'HR & Admin', ico: '👥', desc: 'Staff, onboarding, org admin' },
-]
-
+// Module gating follows the EFFECTIVE user (updates after a real role switch).
 const can = (mod) => {
-  const user = data.user || auth.user
+  const user = auth.user || data.user
   if (!user) return true
-  if (user.role_modules) return (user.role_modules[data.previewRole] || []).includes(mod)
+  if (user.role_modules) return (user.role_modules[user.role] || user.modules || []).includes(mod)
   return true
 }
 
@@ -68,8 +57,10 @@ const initials = computed(() => {
   const n = (data.user || auth.user)?.name || ''
   return n.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase()
 })
+const roleName = computed(() => roleLabel((data.user || auth.user)?.role))
 
 const openRoles = ref(false)
+const switching = ref(false)
 
 function go(view) {
   const r = VIEW_ROUTES[view]
@@ -77,11 +68,34 @@ function go(view) {
   else router.push({ path: '/dashboard', query: { stub: view } })
   emit('close')
 }
-function pick(r) {
-  data.setPreviewRole(r.id)
-  openRoles.value = false
-  emit('close')
-  if (typeof window.__krToast === 'function') window.__krToast('Switched to ' + r.role)
+async function pick(r) {
+  if (switching.value) return
+  switching.value = true
+  try {
+    const res = await auth.viewAs(r.email)
+    if (!res.ok) {
+      window.__krToast?.('❌ ' + (res.error || 'Switch failed'))
+      return
+    }
+    await data.bootstrap()
+    data.setPreviewRole(r.id)
+    window.__krToast?.(auth.isImpersonating ? `👁 Viewing as ${r.role}` : 'Switched to ' + r.role)
+  } finally {
+    switching.value = false
+    openRoles.value = false
+    emit('close')
+  }
+}
+async function backToMe() {
+  switching.value = true
+  try {
+    await auth.backToMe()
+    await data.bootstrap()
+    data.setPreviewRole(auth.user?.role || 'owner')
+    window.__krToast?.('Back to ' + roleLabel(auth.user?.role))
+  } finally {
+    switching.value = false
+  }
 }
 </script>
 
@@ -104,18 +118,22 @@ function pick(r) {
         <div class="role-ava">{{ initials }}</div>
         <div>
           <div class="rc-name">{{ (data.user || auth.user)?.name }}</div>
-          <div class="rc-role">{{ data.previewRole }}</div>
+          <div class="rc-role">{{ roleName }}<span v-if="auth.isImpersonating" style="color:var(--warn)"> · 👁</span></div>
         </div>
       </div>
-      <button class="role-switch-btn" @click="openRoles = true">🔀 Switch role</button>
+      <template v-if="auth.isImpersonating">
+        <button class="role-switch-btn" style="background:var(--primary-light);color:var(--primary-dark);border:1px solid var(--primary)" :disabled="switching" @click="backToMe()">↩ Back to my account</button>
+      </template>
+      <button v-else class="role-switch-btn" @click="openRoles = true">🔀 Switch role</button>
     </div>
 
     <!-- Subordinate role switch modal -->
     <div v-if="openRoles" class="overlay" @click.self="openRoles = false">
       <div class="modal">
         <div class="modal-h"><span class="t">🔀 Switch to subordinate user</span><button class="close" @click="openRoles = false">✕</button></div>
-        <div class="role-grid">
-          <div v-for="r in roles" :key="r.id" class="role-opt" :class="{ active: r.id === data.previewRole }" @click="pick(r)">
+        <div v-if="switching" style="padding:20px;text-align:center;color:var(--text-mute)">Switching…</div>
+        <div v-else class="role-grid">
+          <div v-for="r in roles" :key="r.id" class="role-opt" :class="{ active: r.id === (data.user || auth.user)?.role }" @click="pick(r)">
             <div class="ro-ic">{{ r.ico }}</div>
             <div class="ro-t">{{ r.role }}</div>
             <div class="ro-d">{{ r.desc }}</div>

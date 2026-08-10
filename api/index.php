@@ -10177,6 +10177,42 @@ case 'app-setup': {
     json_out(['ok' => true, 'seeded' => seed_app()]);
 }
 
+case 'app-view-as': {
+    /* Rank-based subordinate view (v3.89): a staff user may temporarily view-as
+       any user strictly BELOW their ROLE_RANK (owner→manager/staff/tenant/partner,
+       manager→staff/tenant/partner, staff→tenant/partner, tenant/partner→none).
+       Issues a 30-min temp token carrying the impersonator identity; bootstrap then
+       scopes data to the subordinate — real data, not a cosmetic label. */
+    $u = require_user();
+    $pdo = db();
+    $RANK = ['superadmin'=>100, 'owner'=>90, 'manager'=>80, 'svc_mgr'=>60, 'legal'=>60, 'crm'=>60, 'accountant'=>60, 'hr'=>60, 'tenant'=>20, 'partner'=>20];
+    $target = strtolower(trim($body['email'] ?? ''));
+    if ($target === '') json_out(['ok' => false, 'error' => 'email required.'], 400);
+    if ($target === strtolower($u['email'])) json_out(['ok' => false, 'error' => 'Cannot view as yourself.'], 400);
+    $st = $pdo->prepare("SELECT id, name, email, role FROM subscribers WHERE lower(email)=? AND status='active'");
+    $st->execute([$target]);
+    $t = $st->fetch(PDO::FETCH_ASSOC);
+    $kind = 'sub';
+    if (!$t) {
+        $st = $pdo->prepare('SELECT id, name, email, role FROM app_users WHERE lower(email)=? AND active=1');
+        $st->execute([$target]);
+        $t = $st->fetch(PDO::FETCH_ASSOC);
+        $kind = 'staff';
+    }
+    if (!$t) json_out(['ok' => false, 'error' => 'No active user with that email.'], 404);
+    $me = $RANK[$u['role']] ?? 0;
+    $them = $RANK[$t['role']] ?? 0;
+    if ($them <= 0 || $them >= $me) {
+        audit($u['name'], 'View-as denied', 'system', $t['email'], "rank {$me} -> {$them}");
+        json_out(['ok' => false, 'error' => 'Not allowed — that user is not a subordinate.'], 403);
+    }
+    $ttl = 30 * 60;
+    $tok = make_token($t['id'], $kind, $u['name'], $ttl);
+    audit($u['name'], 'View-as started', 'system', $t['email'], '30-minute token (rank-based)');
+    json_out(['ok' => true, 'token' => $tok, 'expires_at' => gmdate('Y-m-d H:i:s', time() + $ttl), 'impersonator' => $u['name'],
+              'user' => ['name' => $t['name'], 'email' => $t['email'], 'role' => $t['role'] ?? '', 'kind' => $kind]]);
+}
+
 case 'app-login': {
     $email = strtolower(trim($body['email'] ?? ''));
     $pass  = $body['password'] ?? '';
