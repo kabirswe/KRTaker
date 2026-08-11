@@ -1,93 +1,139 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { apiCall } from '../api/client'
+import LineChart from '../components/charts/LineChart.vue'
+import Donut from '../components/charts/Donut.vue'
+import HBars from '../components/charts/HBars.vue'
 
 const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
+const C = { blue: '#2F80ED', green: '#12a150', amber: '#f6a609', orange: '#e67e22', red: '#e74c3c', purple: '#8e5cf7', teal: '#14b8a6', pink: '#ec4899' }
+const shortMonth = (m) => { const [y, mm] = String(m || '').split('-'); const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return names[(parseInt(mm) || 1) - 1] + ' ' + String(y).slice(2) }
+const shortDate = (d) => String(d || '').slice(5)
+
+const TABS = [
+  ['overview', '📊 Overview'], ['cashflow', '💸 Cashflow'], ['collections', '💳 Collections'], ['expenses', '🧾 Expenses'],
+  ['maintenance', '🔧 Maintenance'], ['tenants', '👥 Tenants'], ['aging', '⏳ Aging'], ['vacancy', '🏚️ Vacancy'],
+  ['forecast', '🔮 Forecast'], ['board', '📋 Board'],
+]
 const tab = ref('overview')
 const loading = ref(false)
 const err = ref('')
 const toast = ref('')
-
-// ── shared month ──
 const now = new Date()
 const month = ref(now.toISOString().slice(0, 7))
 
-// ── Overview: P&L per property (app-analytics pnl) ──
+function exportCsv(name, headers, rows) {
+  const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+  const csv = [headers.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n')
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob); a.download = name + '.csv'
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 500)
+}
+const flash = (m) => { toast.value = m; setTimeout(() => toast.value = '', 4000) }
+
+// ── Overview: P&L per property ──
 const pnl = ref(null)
 async function loadPnl() {
-  loading.value = true; err.value = ''
-  try {
-    const r = await apiCall('app-analytics', { action: 'pnl', month: month.value })
-    if (!r.ok) { err.value = r.error || 'Failed to load P&L.'; return }
-    pnl.value = r
-  } catch (e) { err.value = e.message }
-  finally { loading.value = false }
+  const r = await apiCall('app-analytics', { action: 'pnl', month: month.value })
+  if (r.ok) pnl.value = r; else if (!err.value) err.value = r.error || 'Failed to load P&L.'
 }
 const pnlRows = computed(() => pnl.value?.properties || [])
 const pnlTotals = computed(() => pnl.value?.totals || {})
 
-// ── Trends: 12-month issued vs collected ──
+// ── Trends ──
 const trends = ref(null)
 async function loadTrends() {
-  loading.value = true; err.value = ''
-  try {
-    const r = await apiCall('app-analytics', { action: 'trends', months: 12 })
-    if (!r.ok) { err.value = r.error || 'Failed to load trends.'; return }
-    trends.value = r
-  } catch (e) { err.value = e.message }
-  finally { loading.value = false }
+  const r = await apiCall('app-analytics', { action: 'trends', months: 12 })
+  if (r.ok) trends.value = r
 }
-const trendMonths = computed(() => trends.value?.months || [])
-const trendMax = computed(() => Math.max(1, ...trendMonths.value.map(m => Math.max(m.issued, m.collected))))
 
-// ── Aging: 30/60/90+ buckets ──
+// ── Aging ──
 const aging = ref(null)
 async function loadAging() {
-  loading.value = true; err.value = ''
-  try {
-    const r = await apiCall('app-analytics', { action: 'aging' })
-    if (!r.ok) { err.value = r.error || 'Failed to load aging.'; return }
-    aging.value = r.buckets
-  } catch (e) { err.value = e.message }
-  finally { loading.value = false }
+  const r = await apiCall('app-analytics', { action: 'aging' })
+  if (r.ok) aging.value = r.buckets
 }
-const agingBuckets = computed(() => {
+const agingSegs = computed(() => {
   const b = aging.value || {}
   return [
-    ['Current month', b.current || 0, '#12a150'],
-    ['1 month late', b.d30 || 0, '#f6a609'],
-    ['2 months late', b.d60 || 0, '#e67e22'],
-    ['3+ months late', b.d90 || 0, '#e74c3c'],
+    { label: 'Current', value: b.current || 0, color: C.green },
+    { label: '30 days', value: b.d30 || 0, color: C.amber },
+    { label: '60 days', value: b.d60 || 0, color: C.orange },
+    { label: '90+ days', value: b.d90 || 0, color: C.red },
   ]
 })
 const agingTotal = computed(() => aging.value?.total || 0)
-const agingMax = computed(() => Math.max(1, ...agingBuckets.value.map(x => x[1])))
 
 // ── Vacancy ──
 const vacancy = ref(null)
 async function loadVacancy() {
-  loading.value = true; err.value = ''
-  try {
-    const r = await apiCall('app-analytics', { action: 'vacancy' })
-    if (!r.ok) { err.value = r.error || 'Failed to load vacancy.'; return }
-    vacancy.value = r
-  } catch (e) { err.value = e.message }
-  finally { loading.value = false }
+  const r = await apiCall('app-analytics', { action: 'vacancy' })
+  if (r.ok) vacancy.value = r
 }
 
 // ── Forecast ──
 const forecast = ref(null)
 async function loadForecast() {
-  loading.value = true; err.value = ''
-  try {
-    const r = await apiCall('app-analytics', { action: 'forecast' })
-    if (!r.ok) { err.value = r.error || 'Failed to load forecast.'; return }
-    forecast.value = r
-  } catch (e) { err.value = e.message }
-  finally { loading.value = false }
+  const r = await apiCall('app-analytics', { action: 'forecast' })
+  if (r.ok) forecast.value = r
 }
 const fcMonths = computed(() => forecast.value?.months || [])
-const fcMax = computed(() => Math.max(1, ...fcMonths.value.map(m => Math.max(m.expected, m.collected))))
+
+// ── Cashflow ──
+const cashflow = ref(null)
+async function loadCashflow() {
+  const r = await apiCall('app-analytics', { action: 'cashflow', months: 12 })
+  if (r.ok) cashflow.value = r
+}
+const cfMonths = computed(() => cashflow.value?.months || [])
+const cfLabels = computed(() => cfMonths.value.map((m) => shortMonth(m.month)))
+
+// ── Collections ──
+const collections = ref(null)
+async function loadCollections() {
+  const r = await apiCall('app-analytics', { action: 'collections', months: 12 })
+  if (r.ok) collections.value = r
+}
+const METHOD_COLORS = { bKash: C.pink, Nagad: C.orange, Rocket: C.teal, Cash: C.green, 'Bank Transfer': C.blue, Cheque: C.purple, Card: C.amber, SSLCommerz: C.red, Manual: C.blue }
+const methodSegs = computed(() => (collections.value?.by_method || []).map((m) => ({ label: m.method, value: m.amount, color: METHOD_COLORS[m.method] || C.blue })))
+
+// ── Expenses ──
+const expenses = ref(null)
+async function loadExpenses() {
+  const r = await apiCall('app-analytics', { action: 'expenses', months: 12 })
+  if (r.ok) expenses.value = r
+}
+const CAT_COLORS = { plumbing: C.blue, electrical: C.amber, structural: C.red, appliance: C.purple, 'hvac': C.teal, other: '#8A94A6' }
+const expCatSegs = computed(() => (expenses.value?.by_category || []).map((c) => ({ label: c.category, value: c.cost, color: CAT_COLORS[c.category] || C.blue })))
+const expVendorRows = computed(() => (expenses.value?.by_vendor || []).map((v) => ({ label: v.vendor, value: v.cost, sub: v.n + ' job' + (v.n === 1 ? '' : 's') })))
+
+// ── Tenants (scorecards) ──
+const scores = ref(null)
+async function loadScores() {
+  const r = await apiCall('app-analytics', { action: 'scores' })
+  if (r.ok) scores.value = r
+}
+const BAND_COLORS = { Excellent: C.green, Good: C.blue, Fair: C.orange, Risky: C.red }
+const bandSegs = computed(() => Object.entries(scores.value?.bands || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ label: k, value: v, color: BAND_COLORS[k] || C.blue })))
+
+// ── Occupancy ──
+const occupancy = ref(null)
+async function loadOccupancy() {
+  const r = await apiCall('app-analytics', { action: 'occupancy' })
+  if (r.ok) occupancy.value = r
+}
+const occBars = computed(() => (occupancy.value?.properties || []).map((p) => ({ label: p.name, value: p.occupancy, sub: p.leased + '/' + p.units + ' leased' })))
+
+// ── Maintenance ──
+const maintenance = ref(null)
+async function loadMaintenance() {
+  const r = await apiCall('app-analytics', { action: 'maintenance' })
+  if (r.ok) maintenance.value = r
+}
+const mStatusRows = computed(() => (maintenance.value?.by_status || []).map((s) => ({ label: s.status, value: s.n })))
+const mPrioRows = computed(() => (maintenance.value?.by_priority || []).map((s) => ({ label: s.priority, value: s.n, color: s.priority === 'urgent' ? C.red : s.priority === 'high' ? C.orange : s.priority === 'medium' ? C.amber : C.blue })))
 
 // ── Board reports ──
 const boards = ref([])
@@ -95,10 +141,8 @@ const boardMd = ref('')
 const boardId = ref('')
 const boardMonth = ref('')
 async function loadBoards() {
-  try {
-    const r = await apiCall('app-analytics', { action: 'boards' })
-    if (r.ok) boards.value = r.reports || []
-  } catch (e) { /* non-fatal */ }
+  const r = await apiCall('app-analytics', { action: 'boards' })
+  if (r.ok) boards.value = r.reports || []
 }
 async function genBoard() {
   loading.value = true; err.value = ''
@@ -106,30 +150,66 @@ async function genBoard() {
     const r = await apiCall('app-analytics', { action: 'board', month: month.value })
     if (!r.ok) { err.value = r.error || 'Board generation failed.'; return }
     boardId.value = r.id; boardMonth.value = r.month; boardMd.value = r.markdown || ''
-    toast.value = `📊 ${r.id} generated for ${r.month}`
-    setTimeout(() => toast.value = '', 4000)
+    flash(`📊 ${r.id} generated for ${r.month}`)
     await loadBoards()
-  } catch (e) { err.value = e.message }
-  finally { loading.value = false }
+  } catch (e) { err.value = e.message } finally { loading.value = false }
 }
 function viewBoard(b) {
   boardId.value = b.id; boardMonth.value = b.month; boardMd.value = '…'
-  apiCall('app-analytics', { action: 'board', month: b.month }).then(r => {
+  apiCall('app-analytics', { action: 'board', month: b.month }).then((r) => {
     if (r.ok) { boardId.value = r.id; boardMonth.value = r.month; boardMd.value = r.markdown || '' }
   })
 }
 
-function switchTab(t) {
+// ── loaders ──
+const LOADERS = {
+  overview: () => Promise.allSettled([loadPnl(), loadCashflow(), loadAging(), loadOccupancy(), loadCollections(), loadForecast()]),
+  cashflow: loadCashflow, collections: loadCollections, expenses: loadExpenses, maintenance: loadMaintenance,
+  tenants: loadScores, aging: loadAging, vacancy: loadVacancy, forecast: loadForecast, board: loadBoards,
+}
+async function switchTab(t) {
   tab.value = t
-  if (t === 'overview') loadPnl()
-  else if (t === 'trends') loadTrends()
-  else if (t === 'aging') loadAging()
-  else if (t === 'vacancy') loadVacancy()
-  else if (t === 'forecast') loadForecast()
-  else if (t === 'board') loadBoards()
+  err.value = ''
+  loading.value = true
+  try {
+    const fn = LOADERS[t]
+    if (fn) await fn()
+  } catch (e) { err.value = e.message } finally { loading.value = false }
+}
+onMounted(() => { switchTab('overview') })
+
+// ── CSV exports ──
+function csvOverview() {
+  exportCsv('analytics-pnl', ['Property', 'Type', 'Gross', 'Collected', 'TDS', 'Service', 'Expenses', 'Net'],
+    pnlRows.value.map((p) => [p.name, p.type, p.gross, p.collected, p.tds, p.service, p.expenses, p.net]))
+}
+function csvCashflow() {
+  exportCsv('analytics-cashflow', ['Month', 'Income', 'Expenses', 'Net', 'Cumulative'],
+    cfMonths.value.map((m) => [m.month, m.income, m.expenses, m.net, m.cumulative]))
+}
+function csvCollections() {
+  exportCsv('analytics-collections', ['Month', 'Issued', 'Collected', 'Rate %'],
+    (collections.value?.by_month || []).map((m) => [m.month, m.issued, m.collected, m.rate]))
+}
+function csvExpenses() {
+  exportCsv('analytics-expenses', ['Category', 'Jobs', 'Cost'],
+    (expenses.value?.by_category || []).map((c) => [c.category, c.n, c.cost]))
+}
+function csvMaintenance() {
+  exportCsv('analytics-maintenance', ['ID', 'Title', 'Status', 'Priority', 'Open Days'],
+    (maintenance.value?.aging || []).map((a) => [a.id, a.title, a.status, a.priority, a.days]))
+}
+function csvTenants() {
+  exportCsv('analytics-at-risk-tenants', ['ID', 'Name', 'Band', 'Score', 'Overdue', 'On-time %', 'Tenure mo', 'Tickets open'],
+    (scores.value?.at_risk || []).map((t) => [t.id, t.name, t.band, t.score, t.overdue, t.on_time, t.tenure, t.tickets_open]))
+}
+function csvOccupancy() {
+  exportCsv('analytics-occupancy', ['Property', 'Units', 'Leased', 'Vacant', 'Occupancy %', 'Rent roll', 'Vacancy loss'],
+    (occupancy.value?.properties || []).map((p) => [p.name, p.units, p.leased, p.vacant, p.occupancy, p.rent_roll, p.vacancy_loss]))
 }
 
-onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForecast(); loadBoards() })
+// KPI card row helper (value can be colored)
+const kpiStyle = (c) => c ? { color: c } : {}
 </script>
 
 <template>
@@ -137,11 +217,11 @@ onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForec
     <div class="page-head">
       <div>
         <h1>📈 Analytics</h1>
-        <div class="sub">P&amp;L, trends, arrears aging, vacancy &amp; forecast — live from API</div>
+        <div class="sub">Portfolio intelligence — P&amp;L, cashflow, collections, expenses, tenants &amp; risk</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input v-model="month" type="month" style="padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none" @change="switchTab(tab)">
-        <button class="btn-ghost" @click="switchTab(tab)">🔄 Refresh</button>
+        <button class="btn-ghost" @click="switchTab(tab)" :disabled="loading">{{ loading ? '⏳…' : '🔄 Refresh' }}</button>
       </div>
     </div>
 
@@ -149,33 +229,57 @@ onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForec
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
-      <button v-for="t in [['overview','📊 Overview'],['trends','📅 Trends'],['aging','⏳ Aging'],['vacancy','🏚️ Vacancy'],['forecast','🔮 Forecast'],['board','📋 Board']]" :key="t[0]" class="btn-ghost" :style="tab === t[0] ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" @click="switchTab(t[0])">{{ t[1] }}</button>
+      <button v-for="t in TABS" :key="t[0]" class="btn-ghost" :style="tab === t[0] ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" @click="switchTab(t[0])">{{ t[1] }}</button>
     </div>
 
-    <!-- Overview: P&L -->
+    <!-- ══ OVERVIEW ══ -->
     <template v-if="tab === 'overview'">
       <div class="stats">
         <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Gross rent</div><div class="s-value">{{ money(pnlTotals.gross) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Collected</div><div class="s-value">{{ money(pnlTotals.collected) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>TDS</div><div class="s-value">{{ money(pnlTotals.tds) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🧹</span>Service</div><div class="s-value">{{ money(pnlTotals.service) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🛠️</span>Expenses</div><div class="s-value">{{ money(pnlTotals.expenses) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Net</div><div class="s-value" :style="{ color: (pnlTotals.net || 0) >= 0 ? 'var(--ok,#12a150)' : 'var(--danger)' }">{{ money(pnlTotals.net) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Net</div><div class="s-value" :style="kpiStyle((pnlTotals.net || 0) >= 0 ? C.green : C.red)">{{ money(pnlTotals.net) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💳</span>Collection rate</div><div class="s-value">{{ forecast?.collection_rate ?? '—' }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏠</span>Occupancy</div><div class="s-value">{{ occupancy?.occupancy ?? trends?.occupancy ?? 0 }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>Vacancy loss</div><div class="s-value" style="color:var(--danger)">{{ money(occupancy?.vacancy_loss ?? vacancy?.monthly_loss) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Arrears</div><div class="s-value" style="color:var(--danger)">{{ money(agingTotal) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>12-mo net flow</div><div class="s-value" :style="kpiStyle((cashflow?.total_net || 0) >= 0 ? C.green : C.red)">{{ money(cashflow?.total_net) }}</div></div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🏢</span>Profit &amp; loss · {{ pnl?.month || month }}</div></div>
+        <div class="panel-h">
+          <div class="t"><span class="pi">💸</span>Cash flow · income vs expenses</div>
+          <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvCashflow">⬇ CSV</button>
+        </div>
+        <div class="panel-b">
+          <LineChart :series="[
+            { name: 'Income', color: C.blue, points: cfMonths.map(m => m.income) },
+            { name: 'Expenses', color: C.red, points: cfMonths.map(m => m.expenses) },
+          ]" :labels="cfLabels" :fmt="money" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">⏰</span>Arrears aging · {{ money(agingTotal) }}</div></div>
+          <div class="panel-b"><Donut :segments="agingSegs" center-label="arrears" :center-value="money(agingTotal)" :fmt="money" /></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">💳</span>Payment methods</div></div>
+          <div class="panel-b"><Donut :segments="methodSegs" center-label="collected" :center-value="money((collections?.by_method || []).reduce((s, m) => s + m.amount, 0))" :fmt="money" /></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">
+          <div class="t"><span class="pi">🏢</span>Profit &amp; loss · {{ pnl?.month || month }}</div>
+          <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvOverview">⬇ CSV</button>
+        </div>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Expenses</th><th>Net</th></tr></thead>
             <tbody>
               <tr v-for="p in pnlRows" :key="p.prop">
                 <td><span class="c-name">{{ p.name }}</span><div class="c-sub">{{ p.type }}</div></td>
-                <td>{{ money(p.gross) }}</td>
-                <td>{{ money(p.collected) }}</td>
-                <td>{{ money(p.tds) }}</td>
-                <td>{{ money(p.service) }}</td>
-                <td>{{ money(p.expenses) }}</td>
-                <td style="font-weight:800" :style="{ color: p.net >= 0 ? '#12a150' : 'var(--danger)' }">{{ money(p.net) }}</td>
+                <td>{{ money(p.gross) }}</td><td>{{ money(p.collected) }}</td><td>{{ money(p.tds) }}</td>
+                <td>{{ money(p.service) }}</td><td>{{ money(p.expenses) }}</td>
+                <td style="font-weight:800" :style="kpiStyle(p.net >= 0 ? C.green : C.red)">{{ money(p.net) }}</td>
               </tr>
               <tr v-if="!pnlRows.length"><td colspan="7" class="m">No data for this month.</td></tr>
             </tbody>
@@ -184,52 +288,273 @@ onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForec
       </div>
     </template>
 
-    <!-- Trends -->
-    <template v-if="tab === 'trends'">
+    <!-- ══ CASHFLOW ══ -->
+    <template v-if="tab === 'cashflow'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🏠</span>Units</div><div class="s-value">{{ trends?.units || 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🔑</span>Leased</div><div class="s-value">{{ trends?.leased || 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📊</span>Occupancy</div><div class="s-value">{{ trends?.occupancy || 0 }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📥</span>12-mo income</div><div class="s-value">{{ money(cashflow?.total_income) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📤</span>12-mo expenses</div><div class="s-value" style="color:var(--danger)">{{ money(cashflow?.total_expenses) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Net flow</div><div class="s-value" :style="kpiStyle((cashflow?.total_net || 0) >= 0 ? C.green : C.red)">{{ money(cashflow?.total_net) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Expense ratio</div><div class="s-value">{{ cashflow?.expense_ratio ?? 0 }}%</div></div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">📅</span>Issued vs collected · last 12 months</div></div>
+        <div class="panel-h">
+          <div class="t"><span class="pi">💸</span>Income vs expenses · 12 months</div>
+          <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvCashflow">⬇ CSV</button>
+        </div>
         <div class="panel-b">
-          <div v-for="m in trendMonths" :key="m.month" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="width:64px;font-size:11.5px;font-weight:700;color:var(--text-mute)">{{ m.month }}</span>
-            <div style="flex:1;display:flex;gap:3px;align-items:center">
-              <div :style="{ width: (m.issued / trendMax * 100) + '%', minWidth: '2px', height: 16, background: 'var(--primary)', opacity: .85, borderRadius: 4 }" :title="'Issued ' + money(m.issued)"></div>
-              <div :style="{ width: (m.collected / trendMax * 100) + '%', minWidth: '2px', height: 16, background: '#12a150', opacity: .75, borderRadius: 4 }" :title="'Collected ' + money(m.collected)"></div>
-            </div>
-            <span style="width:120px;text-align:right;font-size:11.5px">{{ money(m.issued) }} / {{ money(m.collected) }}</span>
-          </div>
-          <div v-if="!trendMonths.length" class="c-sub">No data.</div>
+          <LineChart :series="[
+            { name: 'Income', color: C.blue, points: cfMonths.map(m => m.income) },
+            { name: 'Expenses', color: C.red, points: cfMonths.map(m => m.expenses) },
+          ]" :labels="cfLabels" :fmt="money" />
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div class="t"><span class="pi">📈</span>Cumulative net position</div></div>
+        <div class="panel-b">
+          <LineChart :series="[{ name: 'Cumulative', color: C.green, points: cfMonths.map(m => m.cumulative) }]" :labels="cfLabels" :fmt="money" :area="false" />
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div class="t"><span class="pi">📅</span>Monthly detail</div></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Net</th><th>Cumulative</th></tr></thead>
+            <tbody>
+              <tr v-for="m in cfMonths" :key="m.month">
+                <td><span class="c-name">{{ shortMonth(m.month) }}</span></td>
+                <td>{{ money(m.income) }}</td><td>{{ money(m.expenses) }}</td>
+                <td :style="{ fontWeight: 800, color: m.net >= 0 ? C.green : C.red }">{{ money(m.net) }}</td>
+                <td :style="{ fontWeight: 700, color: m.cumulative >= 0 ? 'var(--text)' : C.red }">{{ money(m.cumulative) }}</td>
+              </tr>
+              <tr v-if="!cfMonths.length"><td colspan="5" class="m">No data.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </template>
 
-    <!-- Aging -->
+    <!-- ══ COLLECTIONS ══ -->
+    <template v-if="tab === 'collections'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>On-time rate</div><div class="s-value" :style="kpiStyle((collections?.on_time_rate || 0) >= 70 ? C.green : C.orange)">{{ collections?.on_time_rate ?? 0 }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🐢</span>Avg days late</div><div class="s-value">{{ collections?.avg_days_late ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>Late amount</div><div class="s-value" style="color:var(--danger)">{{ money(collections?.late_amount) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Payments</div><div class="s-value">{{ collections?.payments ?? 0 }}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+        <div class="panel">
+          <div class="panel-h">
+            <div class="t"><span class="pi">💳</span>By payment method</div>
+            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvCollections">⬇ CSV</button>
+          </div>
+          <div class="panel-b"><Donut :segments="methodSegs" center-label="collected" :center-value="money((collections?.by_method || []).reduce((s, m) => s + m.amount, 0))" :fmt="money" /></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">📈</span>Collection rate · 12 months</div></div>
+          <div class="panel-b">
+            <div v-for="m in collections?.by_month || []" :key="m.month" style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
+              <span style="width:60px;font-size:11.5px;font-weight:700;color:var(--text-mute)">{{ shortMonth(m.month) }}</span>
+              <div style="flex:1;height:11px;background:var(--bg-alt);border-radius:6px;overflow:hidden">
+                <div :style="{ width: Math.min(100, m.rate) + '%', height: '100%', background: m.rate >= 80 ? C.green : m.rate >= 60 ? C.amber : C.red, borderRadius: 6 }"></div>
+              </div>
+              <span style="width:86px;text-align:right;font-size:11.5px;font-weight:700">{{ money(m.collected) }} <span style="color:var(--text-mute);font-weight:600">· {{ m.rate }}%</span></span>
+            </div>
+            <div v-if="!(collections?.by_month || []).length" class="c-sub">No data.</div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══ EXPENSES ══ -->
+    <template v-if="tab === 'expenses'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total cost</div><div class="s-value">{{ money(expenses?.total_all) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Paid out</div><div class="s-value">{{ money(expenses?.total_paid) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Open est.</div><div class="s-value" style="color:var(--danger)">{{ money(expenses?.estimated_open) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🛠️</span>Avg job cost</div><div class="s-value">{{ money(expenses?.avg_job_cost) }}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+        <div class="panel">
+          <div class="panel-h">
+            <div class="t"><span class="pi">🗂️</span>By category</div>
+            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvExpenses">⬇ CSV</button>
+          </div>
+          <div class="panel-b"><Donut :segments="expCatSegs" center-label="total" :center-value="money(expenses?.total_all)" :fmt="money" /></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🧑‍🔧</span>Top vendors by cost</div></div>
+          <div class="panel-b"><HBars :rows="expVendorRows" color="#e67e22" :fmt="money" /></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div class="t"><span class="pi">📅</span>Paid expense trend · 12 months</div></div>
+        <div class="panel-b">
+          <LineChart :series="[{ name: 'Expenses', color: C.orange, points: (expenses?.trend || []).map(t => t.cost) }]" :labels="(expenses?.trend || []).map(t => shortMonth(t.month))" :fmt="money" />
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div class="t"><span class="pi">🏢</span>By property</div></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Property</th><th>Jobs</th><th>Open</th><th>Cost</th></tr></thead>
+            <tbody>
+              <tr v-for="p in expenses?.by_property || []" :key="p.prop">
+                <td><span class="c-name">{{ p.prop }}</span></td><td>{{ p.n }}</td>
+                <td><span :style="{ color: p.open ? C.orange : C.green, fontWeight: 700 }">{{ p.open }}</span></td>
+                <td>{{ money(p.cost) }}</td>
+              </tr>
+              <tr v-if="!(expenses?.by_property || []).length"><td colspan="4" class="m">No expenses.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══ MAINTENANCE ══ -->
+    <template v-if="tab === 'maintenance'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total cost</div><div class="s-value">{{ money(maintenance?.total_cost) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>Open tickets</div><div class="s-value" style="color:var(--danger)">{{ maintenance?.open_count ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Resolved</div><div class="s-value">{{ maintenance?.done_count ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏱️</span>Avg resolve</div><div class="s-value">{{ maintenance?.avg_resolve_days ?? 0 }} d</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🚦</span>By status</div></div>
+          <div class="panel-b">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+              <span v-for="s in maintenance?.by_status || []" :key="s.status" style="padding:6px 12px;border-radius:20px;font-size:12px;font-weight:800;background:rgba(47,128,237,.1);color:var(--text)">{{ s.status }} · {{ s.n }}</span>
+              <span v-if="!(maintenance?.by_status || []).length" class="c-sub">No tickets.</span>
+            </div>
+            <HBars :rows="mPrioRows" empty="No priorities." />
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🧾</span>Charge to</div></div>
+          <div class="panel-b">
+            <table>
+              <thead><tr><th>Party</th><th>Jobs</th><th>Cost</th></tr></thead>
+              <tbody>
+                <tr v-for="c in maintenance?.by_charge || []" :key="c.charge_to">
+                  <td><span class="c-name">{{ c.charge_to }}</span></td><td>{{ c.n }}</td><td>{{ money(c.cost) }}</td>
+                </tr>
+                <tr v-if="!(maintenance?.by_charge || []).length"><td colspan="3" class="m">No data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">
+          <div class="t"><span class="pi">⏰</span>Oldest open tickets</div>
+          <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvMaintenance">⬇ CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Open days</th></tr></thead>
+            <tbody>
+              <tr v-for="a in maintenance?.aging || []" :key="a.id">
+                <td><span class="c-name">{{ a.id }}</span></td>
+                <td>{{ a.title }}</td><td>{{ a.status }}</td>
+                <td><span :style="{ color: a.priority === 'urgent' ? C.red : a.priority === 'high' ? C.orange : 'var(--text-mute)', fontWeight: 700 }">{{ a.priority }}</span></td>
+                <td :style="{ fontWeight: 800, color: a.days > 14 ? C.red : a.days > 7 ? C.orange : 'var(--text)' }">{{ a.days }}d</td>
+              </tr>
+              <tr v-if="!(maintenance?.aging || []).length"><td colspan="5" class="m">All caught up 🎉</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══ TENANTS ══ -->
+    <template v-if="tab === 'tenants'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>Scored tenants</div><div class="s-value">{{ scores?.total ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Avg score</div><div class="s-value">{{ scores?.avg_score ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>At risk</div><div class="s-value" style="color:var(--danger)">{{ (scores?.at_risk || []).length }}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🏆</span>Risk distribution</div></div>
+          <div class="panel-b"><Donut :segments="bandSegs" center-label="tenants" :center-value="String(scores?.total ?? 0)" :fmt="(v) => String(v)" /></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🎚️</span>Band legend</div></div>
+          <div class="panel-b">
+            <div v-for="(v, k) in scores?.bands || {}" :key="k" style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border)">
+              <span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px"><i :style="{ width: 10, height: 10, borderRadius: 3, background: BAND_COLORS[k], display: 'inline-block' }"></i>{{ k }}</span>
+              <span style="font-weight:800">{{ v }}</span>
+            </div>
+            <div v-if="!scores?.total" class="c-sub">No tenants scored.</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">
+          <div class="t"><span class="pi">🚨</span>At-risk tenants (Fair / Risky)</div>
+          <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvTenants">⬇ CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Tenant</th><th>Band</th><th>Score</th><th>Overdue</th><th>On-time</th><th>Tenure</th><th>Tickets</th></tr></thead>
+            <tbody>
+              <tr v-for="t in scores?.at_risk || []" :key="t.id">
+                <td><span class="c-name">{{ t.name }}</span><div class="c-sub">{{ t.id }} · {{ t.kind }}</div></td>
+                <td><span :style="{ color: BAND_COLORS[t.band], fontWeight: 800 }">{{ t.band }}</span></td>
+                <td style="font-weight:800" :style="{ color: BAND_COLORS[t.band] }">{{ t.score }}</td>
+                <td>{{ t.overdue }}</td><td>{{ t.on_time }}%</td><td>{{ t.tenure }} mo</td>
+                <td :style="{ color: t.tickets_open ? C.orange : 'var(--text-mute)' }">{{ t.tickets_open }}</td>
+              </tr>
+              <tr v-if="!(scores?.at_risk || []).length"><td colspan="7" class="m">No at-risk tenants 🎉</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══ AGING ══ -->
     <template v-if="tab === 'aging'">
       <div class="stats">
         <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Total arrears</div><div class="s-value" style="color:var(--danger)">{{ money(agingTotal) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>90+ days</div><div class="s-value" style="color:var(--danger)">{{ money(aging.value?.d90) }}</div></div>
       </div>
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">⏰</span>Outstanding by age</div></div>
-        <div class="panel-b">
-          <div v-for="[label, val, color] in agingBuckets" :key="label" style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-bottom:4px"><span>{{ label }}</span><span>{{ money(val) }}</span></div>
-            <div style="height:10px;background:var(--bg-alt);border-radius:6px;overflow:hidden"><div :style="{ width: (val / agingMax * 100) + '%', height: '100%', background: color, borderRadius: 6 }"></div></div>
-          </div>
-          <div v-if="!agingTotal" class="c-sub">All paid 🎉</div>
-        </div>
+        <div class="panel-b"><Donut :segments="agingSegs" center-label="arrears" :center-value="money(agingTotal)" :fmt="money" /></div>
       </div>
     </template>
 
-    <!-- Vacancy -->
+    <!-- ══ VACANCY ══ -->
     <template v-if="tab === 'vacancy'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>Vacant units</div><div class="s-value">{{ vacancy?.count || 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Monthly loss</div><div class="s-value" style="color:var(--danger)">{{ money(vacancy?.monthly_loss) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Annual loss</div><div class="s-value" style="color:var(--danger)">{{ money(vacancy?.annual_loss) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>Vacant units</div><div class="s-value">{{ occupancy?.vacant ?? vacancy?.count ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Monthly loss</div><div class="s-value" style="color:var(--danger)">{{ money(occupancy?.vacancy_loss ?? vacancy?.monthly_loss) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Annual loss</div><div class="s-value" style="color:var(--danger)">{{ money((occupancy?.vacancy_loss ?? (vacancy?.monthly_loss || 0)) * 12) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔑</span>Rent roll</div><div class="s-value">{{ money(occupancy?.rent_roll) }}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+        <div class="panel">
+          <div class="panel-h">
+            <div class="t"><span class="pi">🏢</span>Occupancy by property</div>
+            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvOccupancy">⬇ CSV</button>
+          </div>
+          <div class="panel-b"><HBars :rows="occBars" color="#2F80ED" :fmt="(v) => v + '%'" /></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">⏳</span>Leases expiring · 90 days</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Lease</th><th>Unit</th><th>Tenant</th><th>Expires</th></tr></thead>
+              <tbody>
+                <tr v-for="e in occupancy?.expiries || []" :key="e.id">
+                  <td><span class="c-name">{{ e.id }}</span></td><td>{{ e.unit }}</td><td>{{ e.tenant }}</td>
+                  <td style="font-weight:700" :style="{ color: C.orange }">{{ shortDate(e.end) }}</td>
+                </tr>
+                <tr v-if="!(occupancy?.expiries || []).length"><td colspan="4" class="m">No expiries in the next 90 days.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">🏚️</span>Vacant units</div></div>
@@ -239,8 +564,7 @@ onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForec
             <tbody>
               <tr v-for="u in vacancy?.units || []" :key="u.id">
                 <td><span class="c-name">{{ u.name }}</span><div class="c-sub">{{ u.id }}</div></td>
-                <td>{{ u.prop }}</td>
-                <td>{{ money(u.rent) }}</td>
+                <td>{{ u.prop }}</td><td>{{ money(u.rent) }}</td>
               </tr>
               <tr v-if="!(vacancy?.units || []).length"><td colspan="3" class="m">No vacant units 🎉</td></tr>
             </tbody>
@@ -249,7 +573,7 @@ onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForec
       </div>
     </template>
 
-    <!-- Forecast -->
+    <!-- ══ FORECAST ══ -->
     <template v-if="tab === 'forecast'">
       <div class="stats">
         <div class="stat"><div class="s-label"><span class="s-ico">📈</span>Collection rate</div><div class="s-value">{{ forecast?.collection_rate || 0 }}%</div></div>
@@ -260,20 +584,15 @@ onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForec
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">🔮</span>Next 12 months projection</div></div>
         <div class="panel-b">
-          <div v-for="m in fcMonths" :key="m.month" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="width:64px;font-size:11.5px;font-weight:700;color:var(--text-mute)">{{ m.month }}</span>
-            <div style="flex:1;display:flex;gap:3px;align-items:center">
-              <div :style="{ width: (m.expected / fcMax * 100) + '%', minWidth: '2px', height: 14, background: 'var(--primary)', opacity: .8, borderRadius: 4 }" :title="'Expected ' + money(m.expected)"></div>
-              <div :style="{ width: (m.collected / fcMax * 100) + '%', minWidth: '2px', height: 14, background: '#12a150', opacity: .7, borderRadius: 4 }" :title="'Collected ' + money(m.collected)"></div>
-            </div>
-            <span style="width:120px;text-align:right;font-size:11.5px">{{ money(m.expected) }} / {{ money(m.collected) }}</span>
-          </div>
-          <div v-if="!fcMonths.length" class="c-sub">No data.</div>
+          <LineChart :series="[
+            { name: 'Expected', color: C.blue, points: fcMonths.map(m => m.expected) },
+            { name: 'Collected', color: C.green, points: fcMonths.map(m => m.collected) },
+          ]" :labels="fcMonths.map(m => shortMonth(m.month))" :fmt="money" />
         </div>
       </div>
     </template>
 
-    <!-- Board -->
+    <!-- ══ BOARD ══ -->
     <template v-if="tab === 'board'">
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">📋</span>Board report · {{ boardMonth || month }}</div>
@@ -291,10 +610,7 @@ onMounted(() => { loadPnl(); loadTrends(); loadAging(); loadVacancy(); loadForec
             <thead><tr><th>ID</th><th>Month</th><th>Created by</th><th>When</th><th></th></tr></thead>
             <tbody>
               <tr v-for="b in boards" :key="b.id">
-                <td><span class="c-name">{{ b.id }}</span></td>
-                <td>{{ b.month }}</td>
-                <td>{{ b.created_by }}</td>
-                <td>{{ b.ts }}</td>
+                <td><span class="c-name">{{ b.id }}</span></td><td>{{ b.month }}</td><td>{{ b.created_by }}</td><td>{{ b.ts }}</td>
                 <td><button class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="viewBoard(b)">👁 View</button></td>
               </tr>
               <tr v-if="!boards.length"><td colspan="5" class="m">No reports yet.</td></tr>

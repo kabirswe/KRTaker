@@ -5681,6 +5681,12 @@ case 'app-analytics': {
     if ($action === 'aging') json_out(['ok' => true] + ['buckets' => analytics_aging($pdo)]);
     if ($action === 'vacancy') json_out(['ok' => true] + analytics_vacancy($pdo));
     if ($action === 'forecast') json_out(['ok' => true] + analytics_forecast($pdo));
+    if ($action === 'cashflow') json_out(['ok' => true] + analytics_cashflow($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
+    if ($action === 'collections') json_out(['ok' => true] + analytics_collections($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
+    if ($action === 'expenses') json_out(['ok' => true] + analytics_expenses($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
+    if ($action === 'scores') json_out(['ok' => true] + analytics_scores($pdo));
+    if ($action === 'occupancy') json_out(['ok' => true] + analytics_occupancy($pdo));
+    if ($action === 'maintenance') json_out(['ok' => true] + analytics_maintenance($pdo));
     if ($action === 'board') {
         $md = board_report_md($pdo, $month);
         $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'BR-','') AS INTEGER)) FROM board_reports")->fetchColumn();
@@ -5694,7 +5700,7 @@ case 'app-analytics': {
         $rows = $pdo->query('SELECT id, month, kind, created_by, ts FROM board_reports ORDER BY ts DESC LIMIT 25')->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'reports' => $rows]);
     }
-    json_out(['ok' => false, 'error' => 'action must be pnl|trends|aging|vacancy|forecast|board|boards.'], 400);
+    json_out(['ok' => false, 'error' => 'action must be pnl|trends|aging|vacancy|forecast|cashflow|collections|expenses|scores|occupancy|maintenance|board|boards.'], 400);
 }
 
 

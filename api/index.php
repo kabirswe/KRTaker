@@ -8872,6 +8872,120 @@ function analytics_forecast($pdo) {
         'renewals_due' => $renewals, 'top_risk' => $topRisk,
     ];
 }
+/* ---------- V2.0.2: analytics expansion — cashflow, collections, expenses, scores, occupancy, maintenance ---------- */
+function analytics_cashflow($pdo, $months = 12) {
+    $incSt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='Success' AND substr(date,1,7)=?");
+    $mntSt = $pdo->prepare("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1 AND substr(pay_paid_at,1,7)=?");
+    $vpSt  = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM vendor_payouts WHERE status='Paid' AND month=?");
+    $spSt  = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM statement_payouts WHERE status='Paid' AND month=?");
+    $out = []; $cum = 0; $cur = new DateTime(date('Y-m-01'));
+    for ($i = $months - 1; $i >= 0; $i--) {
+        $m = (clone $cur)->modify("-{$i} months")->format('Y-m');
+        $incSt->execute([$m]); $income = (int)$incSt->fetchColumn();
+        $mntSt->execute([$m]); $exp = (int)$mntSt->fetchColumn();
+        $vpSt->execute([$m]);  $exp += (int)$vpSt->fetchColumn();
+        $spSt->execute([$m]);  $exp += (int)$spSt->fetchColumn();
+        $cum += $income - $exp;
+        $out[] = ['month' => $m, 'income' => $income, 'expenses' => $exp, 'net' => $income - $exp, 'cumulative' => $cum];
+    }
+    $totI = array_sum(array_column($out, 'income')); $totE = array_sum(array_column($out, 'expenses'));
+    return ['months' => $out, 'total_income' => $totI, 'total_expenses' => $totE, 'total_net' => $totI - $totE, 'expense_ratio' => $totI ? (int)round($totE / $totI * 100) : 0];
+}
+function analytics_collections($pdo, $months = 12) {
+    $byMethod = $pdo->query("SELECT method, COUNT(*) n, SUM(amount) amount FROM payments WHERE status='Success' GROUP BY method ORDER BY amount DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $onTime = 0; $late = 0; $lateDays = 0; $lateAmt = 0;
+    foreach ($pdo->query("SELECT p.date pd, p.amount, i.m mth FROM payments p JOIN invoices i ON i.id=p.inv WHERE p.status='Success'")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        if (!$r['mth'] || !$r['pd']) continue;
+        $due = strtotime($r['mth'] . '-01') + 3 * 86400;  // 1st + 3-day grace
+        $pd = strtotime($r['pd']);
+        if ($pd <= $due) { $onTime++; }
+        else { $late++; $lateDays += max(0, (int)floor(($pd - $due) / 86400)); $lateAmt += (int)$r['amount']; }
+    }
+    $issSt = $pdo->prepare('SELECT COALESCE(SUM(net),0) FROM invoices WHERE m=?');
+    $colSt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments p JOIN invoices i ON i.id=p.inv WHERE i.m=? AND p.status='Success'");
+    $byMonth = []; $cur = new DateTime(date('Y-m-01'));
+    for ($i = $months - 1; $i >= 0; $i--) {
+        $m = (clone $cur)->modify("-{$i} months")->format('Y-m');
+        $issSt->execute([$m]); $iss = (int)$issSt->fetchColumn();
+        $colSt->execute([$m]); $col = (int)$colSt->fetchColumn();
+        $byMonth[] = ['month' => $m, 'issued' => $iss, 'collected' => $col, 'rate' => $iss ? (int)round($col / $iss * 100) : 0];
+    }
+    $tot = $onTime + $late;
+    return ['by_method' => $byMethod, 'by_month' => $byMonth, 'payments' => $tot,
+        'on_time' => $onTime, 'late' => $late, 'on_time_rate' => $tot ? (int)round($onTime / $tot * 100) : 0,
+        'avg_days_late' => $late ? (int)round($lateDays / $late) : 0, 'late_amount' => $lateAmt];
+}
+function analytics_expenses($pdo, $months = 12) {
+    $totalPaid = (int)$pdo->query("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1")->fetchColumn();
+    $totalAll = (int)$pdo->query('SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests')->fetchColumn();
+    $estOpen = (int)$pdo->query("SELECT COALESCE(SUM(cost_estimate),0) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
+    $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
+    $byCategory = $pdo->query("SELECT COALESCE(NULLIF(category,''),'other') category, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests GROUP BY category ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $byVendor = $pdo->query("SELECT COALESCE(NULLIF(vendor,''),'Unassigned') vendor, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests WHERE vendor<>'' GROUP BY vendor ORDER BY cost DESC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC);
+    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(prop,''),'—') prop, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost, SUM(CASE WHEN status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests GROUP BY prop ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $trSt = $pdo->prepare("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1 AND substr(pay_paid_at,1,7)=?");
+    $trend = []; $cur = new DateTime(date('Y-m-01'));
+    for ($i = $months - 1; $i >= 0; $i--) {
+        $m = (clone $cur)->modify("-{$i} months")->format('Y-m');
+        $trSt->execute([$m]); $trend[] = ['month' => $m, 'cost' => (int)$trSt->fetchColumn()];
+    }
+    $avgJob = 0;
+    $nn = (int)$pdo->query('SELECT COUNT(*) FROM maintenance_requests WHERE actual_cost>0')->fetchColumn();
+    if ($nn) $avgJob = (int)round($totalAll / $nn);
+    return ['total_paid' => $totalPaid, 'total_all' => $totalAll, 'estimated_open' => $estOpen, 'open_count' => $openCount,
+        'avg_job_cost' => $avgJob, 'by_category' => $byCategory, 'by_vendor' => $byVendor, 'by_property' => $byProperty, 'trend' => $trend];
+}
+function analytics_scores($pdo) {
+    $tenants = $pdo->query('SELECT DISTINCT t.id, t.name, t.kind FROM tenants t JOIN leases l ON l.t=t.id')->fetchAll(PDO::FETCH_ASSOC);
+    $bands = ['Excellent' => 0, 'Good' => 0, 'Fair' => 0, 'Risky' => 0];
+    $atRisk = []; $scoreSum = 0; $scored = 0;
+    foreach ($tenants as $t) {
+        $sc = tenant_scorecard($pdo, $t['id']);
+        if (!$sc) continue;
+        $bands[$sc['band']] = ($bands[$sc['band']] ?? 0) + 1;
+        $scoreSum += $sc['score']; $scored++;
+        if ($sc['band'] === 'Risky' || $sc['band'] === 'Fair') {
+            $atRisk[] = ['id' => $t['id'], 'name' => $t['name'], 'kind' => $t['kind'] ?? '', 'score' => $sc['score'],
+                'band' => $sc['band'], 'band_color' => $sc['band_color'] ?? '', 'overdue' => $sc['stats']['overdue'] ?? 0,
+                'on_time' => $sc['stats']['on_time_rate'] ?? 0, 'tenure' => $sc['stats']['tenure_months'] ?? 0,
+                'tickets_open' => $sc['stats']['tickets_open'] ?? 0];
+        }
+    }
+    usort($atRisk, fn($a, $b) => $a['score'] <=> $b['score']);
+    return ['bands' => $bands, 'total' => $scored, 'avg_score' => $scored ? (int)round($scoreSum / $scored) : 0, 'at_risk' => $atRisk];
+}
+function analytics_occupancy($pdo) {
+    $props = $pdo->query('SELECT id, name, type FROM properties ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $rows = []; $totU = 0; $totL = 0; $roll = 0; $vLoss = 0;
+    foreach ($props as $p) {
+        $uSt = $pdo->prepare('SELECT COUNT(*) FROM units WHERE p=?'); $uSt->execute([$p['id']]); $units = (int)$uSt->fetchColumn();
+        $lSt = $pdo->prepare("SELECT COUNT(*) FROM units WHERE p=? AND status='Leased'"); $lSt->execute([$p['id']]); $leased = (int)$lSt->fetchColumn();
+        $rSt = $pdo->prepare("SELECT COALESCE(SUM(rent),0) FROM units WHERE p=? AND status='Leased'"); $rSt->execute([$p['id']]); $rentRoll = (int)$rSt->fetchColumn();
+        $vSt = $pdo->prepare("SELECT COALESCE(SUM(rent),0) FROM units WHERE p=? AND status='Vacant'"); $vSt->execute([$p['id']]); $vacLoss = (int)$vSt->fetchColumn();
+        $rows[] = ['prop' => $p['id'], 'name' => $p['name'], 'type' => $p['type'], 'units' => $units, 'leased' => $leased,
+            'vacant' => $units - $leased, 'occupancy' => $units ? (int)round($leased / $units * 100) : 0,
+            'rent_roll' => $rentRoll, 'vacancy_loss' => $vacLoss];
+        $totU += $units; $totL += $leased; $roll += $rentRoll; $vLoss += $vacLoss;
+    }
+    $exp = $pdo->query("SELECT l.id, l.end, l.rent, t.name tenant, u.name unit, p.name prop FROM leases l JOIN tenants t ON t.id=l.t JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE l.status='Active' AND l.end <= date('now','+90 days') AND l.end >= date('now') ORDER BY l.end")->fetchAll(PDO::FETCH_ASSOC);
+    return ['properties' => $rows, 'units' => $totU, 'leased' => $totL, 'vacant' => $totU - $totL,
+        'occupancy' => $totU ? (int)round($totL / $totU * 100) : 0, 'rent_roll' => $roll, 'vacancy_loss' => $vLoss, 'expiries' => $exp];
+}
+function analytics_maintenance($pdo) {
+    $byStatus = $pdo->query('SELECT status, COUNT(*) n FROM maintenance_requests GROUP BY status ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
+    $byPriority = $pdo->query('SELECT priority, COUNT(*) n FROM maintenance_requests GROUP BY priority ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
+    $byCharge = $pdo->query("SELECT charge_to, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests GROUP BY charge_to ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(prop,''),'—') prop, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost, SUM(CASE WHEN status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests GROUP BY prop ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $totalCost = (int)$pdo->query('SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests')->fetchColumn();
+    $estOpen = (int)$pdo->query("SELECT COALESCE(SUM(cost_estimate),0) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
+    $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
+    $doneCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status IN ('Closed','Done')")->fetchColumn();
+    $avgResolve = (float)$pdo->query("SELECT COALESCE(AVG(julianday(updated_at)-julianday(ts)),0) FROM maintenance_requests WHERE status IN ('Closed','Done') AND updated_at<>ts AND updated_at<>''")->fetchColumn();
+    $aging = $pdo->query("SELECT id, title, status, priority, CAST(julianday('now')-julianday(ts) AS INTEGER) days FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done') ORDER BY days DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+    return ['by_status' => $byStatus, 'by_priority' => $byPriority, 'by_charge' => $byCharge, 'by_property' => $byProperty,
+        'total_cost' => $totalCost, 'estimated_open' => $estOpen, 'open_count' => $openCount, 'done_count' => $doneCount,
+        'avg_resolve_days' => round($avgResolve, 1), 'aging' => $aging];
+}
 function board_report_md($pdo, $month) {
     $pnl = analytics_pnl($pdo, $month);
     $tr = analytics_trends($pdo, 6);
@@ -15531,6 +15645,12 @@ case 'app-analytics': {
     if ($action === 'aging') json_out(['ok' => true] + ['buckets' => analytics_aging($pdo)]);
     if ($action === 'vacancy') json_out(['ok' => true] + analytics_vacancy($pdo));
     if ($action === 'forecast') json_out(['ok' => true] + analytics_forecast($pdo));
+    if ($action === 'cashflow') json_out(['ok' => true] + analytics_cashflow($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
+    if ($action === 'collections') json_out(['ok' => true] + analytics_collections($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
+    if ($action === 'expenses') json_out(['ok' => true] + analytics_expenses($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
+    if ($action === 'scores') json_out(['ok' => true] + analytics_scores($pdo));
+    if ($action === 'occupancy') json_out(['ok' => true] + analytics_occupancy($pdo));
+    if ($action === 'maintenance') json_out(['ok' => true] + analytics_maintenance($pdo));
     if ($action === 'board') {
         $md = board_report_md($pdo, $month);
         $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'BR-','') AS INTEGER)) FROM board_reports")->fetchColumn();
@@ -15544,7 +15664,7 @@ case 'app-analytics': {
         $rows = $pdo->query('SELECT id, month, kind, created_by, ts FROM board_reports ORDER BY ts DESC LIMIT 25')->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'reports' => $rows]);
     }
-    json_out(['ok' => false, 'error' => 'action must be pnl|trends|aging|vacancy|forecast|board|boards.'], 400);
+    json_out(['ok' => false, 'error' => 'action must be pnl|trends|aging|vacancy|forecast|cashflow|collections|expenses|scores|occupancy|maintenance|board|boards.'], 400);
 }
 
 
