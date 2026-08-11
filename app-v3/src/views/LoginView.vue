@@ -17,14 +17,42 @@ const password = ref('')
 const twofa = ref('')
 const show2fa = ref(false)
 const err = ref('')
+const turnstile = ref('')      // widget site key when configured
+const tsToken = ref('')        // latest Turnstile token (sent with login)
+const tsEl = ref(null)
 
 // Anchor page-load time for bot-guard ft (like krBG.attach does in v2)
-onMounted(() => { window.__krtFt = Date.now() })
+onMounted(() => {
+  window.__krtFt = Date.now()
+  // Optional Cloudflare Turnstile widget — only when a site key is configured
+  // (theme exposes it; server verifies only when turnstile_secret is set).
+  try {
+    fetch('../api/app-theme', { headers: {} }).then((r) => r.json()).then((d) => {
+      const key = (d && d.theme && d.theme.turnstile_site_key) || ''
+      if (!key) return
+      turnstile.value = key
+      const s = document.createElement('script')
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      s.onload = () => {
+        try {
+          window.turnstile.render(tsEl.value, {
+            sitekey: key,
+            callback: (tok) => { tsToken.value = tok },
+            'expired-callback': () => { tsToken.value = '' },
+          })
+        } catch (e) { /* widget unavailable — PoW still guards */ }
+      }
+      document.head.appendChild(s)
+    }).catch(() => {})
+  } catch (e) { /* optional */ }
+})
 
 async function doLogin() {
   err.value = ''
   if (!email.value || !password.value) { err.value = 'Email and password are required.'; return }
-  const r = await auth.login(email.value, password.value, twofa.value)
+  // Turnstile token rides along when the widget rendered (server ignores it otherwise)
+  const extra = tsToken.value ? { 'cf-turnstile-response': tsToken.value } : {}
+  const r = await auth.login(email.value, password.value, twofa.value, extra)
   if (r.ok) {
     const ok = await data.bootstrap()
     if (ok || data.offline) router.push(redirectTo)
@@ -62,6 +90,7 @@ async function doLogin() {
       <input type="text" v-model="twofa" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" @keyup.enter="doLogin">
     </div>
     <button class="auth-btn" :disabled="auth.loading" @click="doLogin">{{ auth.loading ? 'Signing in…' : 'Log in' }}</button>
+    <div v-if="turnstile" ref="tsEl" class="auth-ts" style="margin-top:12px;display:flex;justify-content:center"></div>
     <div class="auth-creds">
       New here? <a href="https://krtaker.com/register.html" style="color:var(--primary);font-weight:700">Create an account →</a>
     </div>

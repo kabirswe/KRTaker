@@ -31,6 +31,7 @@ onMounted(async () => {
     account.value = r.account || r.user || {}
     twofa.value = r.twofa ?? (r.account?.twofa ?? null)
   }
+  loadSecurity()
 })
 
 function setLang(lang) { prefs.value.lang = lang }
@@ -66,6 +67,40 @@ const roleLabel = computed(() => {
   const m = { superadmin: 'Super Admin', owner: 'Owner', manager: 'Property Manager', staff: 'Staff', tenant: 'Tenant', partner: 'Partner' }
   return m[data.previewRole || auth.user?.role] || auth.user?.role || '—'
 })
+
+// ── Login security (reCAPTCHA v3 + Cloudflare Turnstile) — owner/superadmin only ──
+const isOwner = computed(() => ['superadmin', 'owner'].includes(auth.user?.role))
+const secForm = ref({ recaptcha_site_key: '', recaptcha_secret: '', turnstile_site_key: '', turnstile_secret: '', bot_guard: true, bot_pow_bits: 12 })
+const secLoading = ref(false)
+const secSaving = ref(false)
+
+async function loadSecurity() {
+  if (!isOwner.value) return
+  secLoading.value = true
+  try {
+    const r = await apiCall('app-security', { action: 'config-get' })
+    if (r.ok) {
+      secForm.value = {
+        recaptcha_site_key: r.recaptcha_site_key || '',
+        recaptcha_secret: r.recaptcha_secret || '',
+        turnstile_site_key: r.turnstile_site_key || '',
+        turnstile_secret: r.turnstile_secret || '',
+        bot_guard: !!r.bot_guard,
+        bot_pow_bits: r.bot_pow_bits || 12,
+      }
+    }
+  } finally { secLoading.value = false }
+}
+
+async function saveSecurity() {
+  err.value = ''; saved.value = ''
+  secSaving.value = true
+  try {
+    const r = await apiCall('app-security', { action: 'config-save', ...secForm.value })
+    if (r.ok) { saved.value = 'Security settings saved.'; await loadSecurity() }
+    else err.value = r.error || 'Failed to save security settings.'
+  } finally { secSaving.value = false }
+}
 </script>
 
 <template>
@@ -160,6 +195,43 @@ const roleLabel = computed(() => {
           </div>
           <button class="btn-primary" style="width:100%" @click="changePassword">Change password</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Login security (owner) -->
+    <div v-if="isOwner" class="panel" style="margin-top:18px">
+      <div class="panel-h"><div class="t"><span class="pi">🔐</span>Login security <span class="badge b-blue" style="margin-left:8px">Owner</span></div></div>
+      <div class="panel-b">
+        <div class="c-sub" style="font-size:12.5px;margin-bottom:14px">Optional human-verification on the login form. When a secret is set, a valid token is required to log in; leave both blank to keep the built-in proof-of-work guard only.</div>
+        <div class="grid grid-2" style="gap:14px">
+          <div class="form-field">
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Google reCAPTCHA v3 — site key</label>
+            <input v-model="secForm.recaptcha_site_key" placeholder="6Lc…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+          </div>
+          <div class="form-field">
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Google reCAPTCHA v3 — secret key</label>
+            <input v-model="secForm.recaptcha_secret" placeholder="6Lc…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+          </div>
+          <div class="form-field">
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Cloudflare Turnstile — site key</label>
+            <input v-model="secForm.turnstile_site_key" placeholder="0x4AAAA…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+          </div>
+          <div class="form-field">
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Cloudflare Turnstile — secret key</label>
+            <input v-model="secForm.turnstile_secret" placeholder="0x4AAAA…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+          </div>
+        </div>
+        <div style="display:flex;gap:24px;align-items:center;margin:14px 0;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer">
+            <input type="checkbox" v-model="secForm.bot_guard"> Bot guard (PoW + time-trap) enabled
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
+            PoW difficulty
+            <input type="number" v-model.number="secForm.bot_pow_bits" min="8" max="24" style="width:70px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--bg);color:var(--text)">
+          </label>
+        </div>
+        <div class="c-sub" style="font-size:12px;margin-bottom:12px">Get keys from Google Cloud console (reCAPTCHA → v3) or the Cloudflare dashboard (Turnstile). Secrets are masked — an unchanged value is kept as-is; blank clears.</div>
+        <button class="btn-primary" :disabled="secSaving" @click="saveSecurity">{{ secSaving ? 'Saving…' : '💾 Save security settings' }}</button>
       </div>
     </div>
   </div>

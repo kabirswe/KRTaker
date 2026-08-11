@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { apiCall, botFields } from '../api/client'
+import { apiCall, botFields, attachHumanTokens } from '../api/client'
 import { HIERARCHY, canViewAs } from '../lib/roles'
 
 const TOKEN_KEY = 'krtaker' + '_dash_' + 'token'  // same key as dashboard-v2
@@ -30,10 +30,12 @@ export const useAuthStore = defineStore('auth', {
     canSwitchTo: (s) => (roleId) => canViewAs(s.user?.role || '', roleId),
   },
   actions: {
-    async login(email, password, twofaCode = '') {
+    async login(email, password, twofaCode = '', extra = {}) {
       this.loading = true; this.error = ''; this.need2fa = false
       try {
-        const body = { email, password, ...botFields() }
+        const body = { email, password, ...botFields(), ...extra }
+        // Optional reCAPTCHA v3 / Turnstile tokens — added only when configured
+        await attachHumanTokens(body)
         if (twofaCode) body['2fa_code'] = twofaCode
         const r = await apiCall('app-login', body)
         if (r.ok) {

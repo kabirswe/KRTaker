@@ -10887,7 +10887,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -12866,6 +12866,58 @@ case 'app-sms': {
         json_out(['ok' => true, 'log' => $rows]);
     }
     json_out(['ok' => false, 'error' => 'action must be config-get|config-save|send-test|log.'], 400);
+}
+
+/* ── Login security (bharakhata parity): reCAPTCHA v3 + Cloudflare Turnstile ──
+   Both are OPTIONAL: when a secret is configured the bot-guard middleware
+   (bot_guard_check) enforces a valid token from the matching provider; when
+   empty, the existing PoW+time-trap guard alone protects login/register forms.
+   Secrets are masked on read; an unchanged (masked) value is never re-saved. */
+case 'app-security': {
+    $u = require_user();
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? 'config-get');
+    $isAdmin = in_array($u['role'], ['superadmin', 'owner'], true);
+    if ($action === 'config-get') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $g = function ($k) use ($pdo) { return trim((string)admin_cfg($pdo, $k, '')); };
+        $mask = function ($v) { return $v === '' ? '' : substr($v, 0, 4) . '…' . substr($v, -2); };
+        json_out(['ok' => true,
+            'recaptcha_site_key' => $g('recaptcha_site_key'),
+            'recaptcha_secret'   => $mask($g('recaptcha_secret')),
+            'turnstile_site_key' => $g('turnstile_site_key'),
+            'turnstile_secret'   => $mask($g('turnstile_secret')),
+            'bot_guard'          => (int)admin_cfg($pdo, 'bot_guard', 1) === 1,
+            'bot_pow_bits'       => max(8, min(24, (int)admin_cfg($pdo, 'bot_pow_bits', 12))),
+            'masked'             => 1,
+        ]);
+    }
+    if ($action === 'config-save') {
+        if (!$isAdmin) json_out(['ok' => false, 'error' => 'Only the owner can change security settings.'], 403);
+        $in = [];
+        $cur = [
+            'recaptcha_secret' => trim((string)admin_cfg($pdo, 'recaptcha_secret', '')),
+            'turnstile_secret' => trim((string)admin_cfg($pdo, 'turnstile_secret', '')),
+        ];
+        $unchanged = function ($curV, $v) {
+            if ($v === '') return false;                 // blank = explicit clear
+            if ($curV === '') return false;              // nothing to compare against
+            return $v === substr($curV, 0, 4) . '…' . substr($curV, -2);
+        };
+        if (isset($body['recaptcha_site_key'])) $in['recaptcha_site_key'] = trim((string)$body['recaptcha_site_key']);
+        if (isset($body['recaptcha_secret']) && !$unchanged($cur['recaptcha_secret'], trim((string)$body['recaptcha_secret'])))
+            $in['recaptcha_secret'] = trim((string)$body['recaptcha_secret']);
+        if (isset($body['turnstile_site_key'])) $in['turnstile_site_key'] = trim((string)$body['turnstile_site_key']);
+        if (isset($body['turnstile_secret']) && !$unchanged($cur['turnstile_secret'], trim((string)$body['turnstile_secret'])))
+            $in['turnstile_secret'] = trim((string)$body['turnstile_secret']);
+        if (isset($body['bot_guard'])) $in['bot_guard'] = $body['bot_guard'] ? '1' : '0';
+        if (isset($body['bot_pow_bits'])) $in['bot_pow_bits'] = (string)max(8, min(24, (int)$body['bot_pow_bits']));
+        foreach ($in as $k => $v) admin_cfg_save($pdo, $k, $v);
+        if ($in) audit($u['name'], 'Login security config updated', 'security', 'cfg', implode(',', array_keys($in)));
+        json_out(['ok' => true, 'saved' => array_keys($in)]);
+    }
+    json_out(['ok' => false, 'error' => 'action must be config-get|config-save.'], 400);
 }
 
 /* ── Gateway IPN (server-to-server callback, 2026-08-09) ──
@@ -19526,6 +19578,7 @@ case 'app-theme': {
         'sizes' => $h, 'margin' => $ma, 'padding' => $pa, 'titles' => $tt,
         /* V3.88: reCAPTCHA site key (public) — empty when not configured; secret stays server-side */
         'recaptcha_site_key' => trim((string)admin_cfg($pdo, 'recaptcha_site_key', '')),
+        'turnstile_site_key' => trim((string)admin_cfg($pdo, 'turnstile_site_key', '')),
     ]]);
 }
 

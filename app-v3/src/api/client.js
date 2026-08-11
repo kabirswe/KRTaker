@@ -121,6 +121,70 @@ export function botFields() {
   return { hp: '', ft, pow: powSolve(12).pow }
 }
 
+// ── Optional human-verification tokens (mirror server bot_guard_check) ──
+// reCAPTCHA v3: invisible, score-based. Turnstile: rendered widget. Both are
+// OPTIONAL — the server only verifies when the matching secret is configured;
+// when no key/secret exists these helpers return '' and PoW alone protects.
+let _themeKeysCache = null
+async function themeKeys() {
+  if (_themeKeysCache) return _themeKeysCache
+  try {
+    const res = await fetch((API_BASE || '../api/') + 'app-theme', { headers: {} })
+    const d = await res.json()
+    _themeKeysCache = {
+      recaptcha: (d && d.theme && d.theme.recaptcha_site_key) || '',
+      turnstile: (d && d.theme && d.theme.turnstile_site_key) || '',
+    }
+  } catch (e) { _themeKeysCache = { recaptcha: '', turnstile: '' } }
+  return _themeKeysCache
+}
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector('script[src="' + src + '"]')) return res()
+    const s = document.createElement('script')
+    s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s)
+  })
+}
+
+// Google reCAPTCHA v3 token for a given action ('login'|'submit'…) — '' when unconfigured/failed.
+export async function recaptchaToken(action = 'submit') {
+  try {
+    const k = await themeKeys()
+    if (!k.recaptcha) return ''
+    await loadScript('https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(k.recaptcha))
+    return new Promise((resolve) => {
+      try {
+        window.grecaptcha.ready(() => {
+          window.grecaptcha.execute(k.recaptcha, { action })
+            .then((tok) => resolve(tok)).catch(() => resolve(''))
+        })
+      } catch (e) { resolve('') }
+    })
+  } catch (e) { return '' }
+}
+
+// Cloudflare Turnstile token — reads the rendered widget's hidden input.
+export function turnstileToken() {
+  try {
+    const el = document.querySelector('[name="cf-turnstile-response"]')
+    return (el && el.value) ? el.value : ''
+  } catch (e) { return '' }
+}
+
+// Merge both optional tokens into a payload (used by login/register forms).
+export async function attachHumanTokens(body) {
+  try {
+    const rp = await recaptchaToken('login')
+    if (rp) body['g-recaptcha-response'] = rp
+  } catch (e) { /* optional */ }
+  try {
+    const ts = turnstileToken()
+    if (ts) body['cf-turnstile-response'] = ts
+  } catch (e) { /* optional */ }
+  return body
+}
+
 // Tiny sync SHA-256 (hex). No WebCrypto dependency needed for the PoW loop speed;
 // this is a compact pure-JS implementation.
 function sha256Sync(ascii) {
