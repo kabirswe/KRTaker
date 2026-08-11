@@ -13,28 +13,29 @@ const data = useDataStore()
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
 
-// Same GROUPS as dashboard-v2
+// Same GROUPS as dashboard-v2 (v3 consolidation: legal cluster grouped, vendor finance merged into Vendors workspace)
 const GROUPS = [
   { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
-  { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
+  { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['insurance', '🛡️', 'Insurance'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
   { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['taxes', '🏛️', 'Holding Taxes'], ['statements', '💰', 'Statements'], ['remit', '🌍', 'Remittances'], ['nrb', '🌐', 'NRB Hub'], ['subscriptions', '💠', 'Subscriptions']] },
   { id: 'bms', label: 'BMS', items: [['maintenance', '🔧', 'Maintenance'], ['gate', '🚪', 'Gate Visits'], ['staff', '👷', 'Staff'], ['attendance', '⏱️', 'Attendance'], ['payroll', '💵', 'Payroll'], ['meter', '⚡', 'Meter Readings'], ['utilities', '🔌', 'Utility Bills'], ['samity', '🏘️', 'Samity']] },
-  { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'Trust Engine']] },
-  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors'], ['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine']] },
+  { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'Trust Engine'], ['support', '🎧', 'Support']] },
+  { id: 'legal', label: 'Legal', items: [['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine'], ['cases', '👨‍⚖️', 'Cases'], ['concierge', '🗂️', 'Legal Concierge']] },
+  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors']] },
   { id: 'secure', label: 'Safety & Security', items: [['smarthome', '🔐', 'Smart Home'], ['land', '🛰️', 'Land Guard'], ['build', '🏗️', 'Build Watch'], ['firesafety', '🧯', 'Fire Safety'], ['systems', '⚙️', 'Systems Watch'], ['health', '🌦️', 'Health Check']] },
   { id: 'admin', label: 'Admin', items: [['caretaker', '👑', 'Caretaker']] },
 ]
 
 const VIEW_ROUTES = {
   dashboard: '/dashboard', analytics: '/analytics', ai: '/ai',
-  properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases',
+  properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
   taxes: '/holding-taxes', remit: '/remittances', nrb: '/nid', subscriptions: '/vendors',
-  notices: '/notices', referrals: '/referrals', trust: '/nid',
+  notices: '/notices', referrals: '/referrals', trust: '/nid', support: '/support',
   maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
   staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',
-  compliance: '/compliance', legal: '/legal', concierge: '/concierge',
+  compliance: '/compliance', legal: '/legal', cases: '/cases', concierge: '/concierge',
   smarthome: '/units', land: '/land', build: '/build', gate: '/gate-visits',
   firesafety: '/fire-safety', systems: '/units', staffwatch: '/staff-attendance',
   health: '/meter-readings', samity: '/samity', caretaker: '/dashboard',
