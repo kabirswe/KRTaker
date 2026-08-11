@@ -193,7 +193,7 @@ const previewHtml = ref('')
 const previewDoc = ref(null)
 const previewLoading = ref(false)
 const previewErr = ref('')
-const isAdmin = computed(() => ['superadmin', 'super_admin', 'admin'].includes(data.user?.role || ''))
+const isAdmin = computed(() => ['superadmin', 'super_admin', 'admin', 'owner', 'manager'].includes(data.user?.role || ''))
 
 async function openPrintCfg() {
   tfCfgErr.value = ''
@@ -264,6 +264,12 @@ async function savePrintCfg() {
 }
 async function resetPrintCfg() {
   tfCfgForm.value = { ...(tfCfgDefaults.value || {}) }
+  tfCfgDirty.value = true
+  applyCfgPreview()
+}
+// Default — restore the exact factory defaults (original column-wise layout), independent of any saved config
+function defaultPrintCfg() {
+  tfCfgForm.value = { fs: 12.5, lh: 1.15, ls: 0, pd: 0, mg: 7.5, px: 0, py: 0 }
   tfCfgDirty.value = true
   applyCfgPreview()
 }
@@ -530,10 +536,11 @@ async function resetPrintCfg() {
             </div>
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0">
-            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="resetPrintCfg">↺ Reset to default</button>
+            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="defaultPrintCfg">⏮ Default</button>
+            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="resetPrintCfg">↺ Reset</button>
             <div style="flex:1"></div>
             <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="tfCfg = false">Cancel</button>
-            <button class="btn-primary" style="padding:9px 16px;font-size:12.5px" :disabled="tfCfgSaving || !tfCfgDirty" @click="savePrintCfg">💾 Save for all forms {{ tfCfgSaving ? '…' : '' }}</button>
+            <button class="btn-primary" style="padding:9px 16px;font-size:12.5px" :disabled="tfCfgSaving || !tfCfgDirty" @click="savePrintCfg">💾 Save {{ tfCfgSaving ? '…' : '' }}</button>
           </div>
         </div>
       </div>

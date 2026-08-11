@@ -181,6 +181,9 @@ table.kr.compact td{padding:8px 10px;font-size:12.5px}
 /* ── Overlay / modal ── */
 .overlay{position:fixed;inset:0;z-index:150;background:rgba(10,18,34,.55);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
 .modal{background:var(--card);border-radius:16px;max-width:640px;width:100%;max-height:86vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,.25)}
+/* Drawer panel (side/modal sheet) — must constrain height so the footer stays visible */
+.drawer{background:var(--card);border-radius:16px;width:100%;max-width:760px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.25)}
+[data-theme="dark"] .drawer{background:#141c2c}
 .modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
 .modal-h .t{font-size:15px;font-weight:800}
 .modal-h .close{border:none;background:var(--bg-alt);border-radius:8px;width:30px;height:30px;font-size:14px;color:var(--text-soft);cursor:pointer}

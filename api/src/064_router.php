@@ -5059,7 +5059,7 @@ case 'app-trust': {
     $u = require_user();
     $pdo = db();
     $isStaff = in_array($u['role'], ['superadmin', 'owner', 'manager', 'legal', 'accountant', 'svc_mgr'], true);
-    $isAdmin = in_array($u['role'], ['superadmin', 'super_admin', 'admin'], true);
+    $isAdmin = in_array($u['role'], ['superadmin', 'super_admin', 'admin', 'owner', 'manager'], true);
     $myTid = trust_tenant_id($pdo, $u);
     if (!$isStaff && !$myTid) json_out(['ok' => false, 'error' => 'No tenant profile for this account.'], 403);
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
