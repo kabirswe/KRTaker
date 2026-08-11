@@ -30,6 +30,8 @@ const routes = [
   { path: '/partner-invoices', redirect: '/vendors' },
   { path: '/vendor-payouts', redirect: '/vendors' },
   { path: '/remittances', name: 'remittances', component: () => import('../views/RemittancesView.vue') },
+  { path: '/statements', name: 'statements', component: () => import('../views/StatementsView.vue') },
+  { path: '/templates', name: 'templates', component: () => import('../views/TemplatesView.vue') },
   { path: '/onboarding', name: 'onboarding', component: () => import('../views/OnboardingView.vue') },
   { path: '/concierge', name: 'concierge', component: () => import('../views/ConciergeView.vue') },
   { path: '/documents', name: 'documents', component: () => import('../views/DocumentsView.vue') },
