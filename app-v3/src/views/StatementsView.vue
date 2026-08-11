@@ -137,6 +137,19 @@ const payouts = computed(() => (data.list('statement_payouts') || [])
 const paidCount = computed(() => payouts.value.filter(p => p.status === 'Paid').length)
 const payoutTotal = computed(() => payouts.value.reduce((a, p) => a + (p.amount || 0), 0))
 
+// ── print document ──
+const printOpen = ref(false)
+const printIncludePayouts = ref(true)
+const printSignatures = ref(true)
+const genDate = computed(() => new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))
+function openPrint() { printOpen.value = true }
+function closePrint() { printOpen.value = false }
+function doPrint() {
+  document.body.classList.add('print-statements')
+  window.print()
+  document.body.classList.remove('print-statements')
+}
+
 // ── rent config ──
 const rentCfg = ref([])        // [{prop, property, config, mix, units}]
 const rentLoading = ref(false)
@@ -225,6 +238,7 @@ onMounted(async () => {
         </div>
         <button v-if="!isCurrentMonth" class="btn-ghost" style="font-size:12.5px" @click="month = now.toISOString().slice(0, 7); loadList()">Today</button>
         <button class="btn-ghost" @click="loadList">🔄 Refresh</button>
+        <button v-if="tab === 'statements'" class="btn-ghost" style="font-weight:700" @click="openPrint">🖨️ Print</button>
       </div>
     </div>
 
@@ -501,6 +515,140 @@ onMounted(async () => {
           <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
             <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="payOpen = false">Cancel</button>
             <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="busy" @click="savePayout">Save payout</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- print modal -->
+      <div v-if="printOpen" class="overlay" @click.self="printOpen = false">
+        <div class="modal" style="max-width:840px;padding:0;display:flex;flex-direction:column;overflow:hidden">
+          <div class="modal-h" style="flex-shrink:0">
+            <span class="t">🖨️ Print statement</span>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" v-model="printIncludePayouts" style="accent-color:var(--primary)"> Payouts</label>
+              <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" v-model="printSignatures" style="accent-color:var(--primary)"> Signatures</label>
+              <button class="btn-primary" style="padding:7px 14px;font-size:12.5px" @click="doPrint">🖨️ Print / PDF</button>
+              <button class="close" @click="printOpen = false">✕</button>
+            </div>
+          </div>
+          <div id="print-scroll" style="overflow:auto;padding:22px 24px;background:var(--bg-alt)">
+            <div id="print-doc" style="background:#fff;color:#111;max-width:760px;margin:0 auto;padding:36px 40px;border-radius:12px;font-size:12.5px;line-height:1.5">
+              <!-- letterhead -->
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1E5EB8;padding-bottom:14px;margin-bottom:18px">
+                <div>
+                  <div style="font-size:19px;font-weight:800;color:#1E5EB8;letter-spacing:-.3px">KRTaker</div>
+                  <div style="font-size:9.5px;color:#8a94a6;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Owner statement</div>
+                </div>
+                <div style="text-align:right;font-size:11px;color:#444">
+                  <div style="font-weight:800;font-size:15px;color:#111">{{ monthLabel }}</div>
+                  <div style="margin-top:2px">Generated {{ genDate }}</div>
+                </div>
+              </div>
+
+              <!-- summary -->
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+                <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Gross rent</div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px">{{ money(totals.gross) }}</div>
+                </div>
+                <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Collected</div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;color:#12924f">{{ money(totals.collected) }}</div>
+                  <div style="font-size:9.5px;color:#666;margin-top:1px">{{ collectRate }}%</div>
+                </div>
+                <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">TDS + service</div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px">{{ money(totals.tds + totals.service) }}</div>
+                </div>
+                <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Expenses</div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;color:#c0392b">{{ money(totals.expenses) }}</div>
+                </div>
+                <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Net payout</div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px" :style="netStyle(totals.net)">{{ money(totals.net) }}</div>
+                </div>
+              </div>
+
+              <!-- statements table -->
+              <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#1E5EB8;margin:20px 0 6px">Property statements</div>
+              <table style="width:100%;border-collapse:collapse;font-size:11px">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Property</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Gross</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Collected</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">TDS</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Service</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Expenses</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Net</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Payout</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in list" :key="s.prop">
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;font-weight:700">{{ s.name }}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right">{{ money(s.gross) }}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right">{{ money(s.collected) }}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right">{{ money(s.tds) }}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right">{{ money(s.service) }}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right">{{ money(s.expenses) }}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right;font-weight:800" :style="netStyle(s.net)">{{ money(s.net) }}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right;font-size:10px">{{ s.payout ? s.payout.status + ' ' + money(s.payout.amount) : '—' }}</td>
+                  </tr>
+                  <tr v-if="!list.length"><td colspan="8" style="padding:16px;text-align:center;color:#8a94a6">No statements for {{ monthLabel }}.</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;font-weight:800">Total</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.gross) }}</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.collected) }}</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.tds) }}</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.service) }}</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.expenses) }}</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800" :style="netStyle(totals.net)">{{ money(totals.net) }}</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8"></td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              <!-- payout ledger -->
+              <template v-if="printIncludePayouts">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#1E5EB8;margin:20px 0 6px">Payout ledger</div>
+                <table style="width:100%;border-collapse:collapse;font-size:11px">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Property</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Month</th>
+                      <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Amount</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Status</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Method</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Ref</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in payouts" :key="p.prop + p.month">
+                      <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;font-weight:700">{{ p.prop }}</td>
+                      <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2">{{ p.month }}</td>
+                      <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;text-align:right;font-weight:700">{{ money(p.amount) }}</td>
+                      <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2">{{ p.status }}</td>
+                      <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2">{{ p.method || '—' }}</td>
+                      <td style="padding:6px 8px;border-bottom:1px solid #e7ebf2;font-family:monospace;font-size:10px">{{ p.ref || '—' }}</td>
+                    </tr>
+                    <tr v-if="!payouts.length"><td colspan="6" style="padding:14px;text-align:center;color:#8a94a6">No payouts recorded for {{ monthLabel }}.</td></tr>
+                  </tbody>
+                </table>
+              </template>
+
+              <!-- signatures -->
+              <div v-if="printSignatures" style="display:flex;gap:40px;margin-top:42px;font-size:11px;color:#444">
+                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">Owner signature</div></div>
+                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">Date</div></div>
+                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">KRTaker seal</div></div>
+              </div>
+
+              <div style="margin-top:26px;padding-top:10px;border-top:1px dashed #dde3ec;font-size:9.5px;color:#8a94a6;text-align:center">Generated by KRTaker · computer-generated owner statement · {{ genDate }}</div>
+            </div>
           </div>
         </div>
       </div>

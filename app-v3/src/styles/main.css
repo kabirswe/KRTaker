@@ -287,6 +287,16 @@ table.kr.compact td{padding:8px 10px;font-size:12.5px}
   body.print-analytics .board-report .br-div { display: none; }
 }
 
+/* Statements printable document (body class toggled by StatementsView 🖨 Print) */
+@media print {
+  body.print-statements * { visibility: hidden; }
+  body.print-statements #print-doc, body.print-statements #print-doc * { visibility: visible; }
+  body.print-statements .overlay { overflow: visible !important; padding: 0 !important; }
+  body.print-statements .modal { max-height: none !important; overflow: visible !important; box-shadow: none !important; }
+  body.print-statements #print-scroll { overflow: visible !important; max-height: none !important; padding: 0 !important; background: #fff !important; }
+  body.print-statements #print-doc { position: absolute; left: 0; top: 0; max-width: 100%; margin: 0; border-radius: 0; padding: 0; box-shadow: none; }
+}
+
 /* ══ Board report — beautified executive pack (V2.0.8) ══ */
 .board-report { font-size: 13.5px; color: var(--text); }
 .board-report .br-hero {
