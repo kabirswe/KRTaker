@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { useAuthStore } from '../stores/auth'
+import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
@@ -11,6 +13,9 @@ const viewMode = useViewMode('compliance')
 const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
+const auth = useAuthStore()
+const canManage = computed(() => ['superadmin', 'owner', 'manager'].includes(auth.user?.role || ''))
+const canDelete = computed(() => ['superadmin', 'owner'].includes(auth.user?.role || ''))
 const cplAll = computed(() => data.list('compliance_items'))
 
 const ITEM_META = {
@@ -107,6 +112,69 @@ function detailFields(row) {
   const skip = new Set(['id', 'label', 'item', 'entity_type', 'entity_id', 'status', 'expiry_date'])
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
+
+// ── writes ──
+const addModal = ref(false)
+const addForm = ref({ label: '', entity_type: 'property', entity_id: '', item: 'trade_license', ref_no: '', issue_date: '', expiry_date: '', notes: '' })
+function openAdd() {
+  addForm.value = { label: '', entity_type: 'property', entity_id: data.list('properties')[0]?.id || '', item: 'trade_license', ref_no: '', issue_date: new Date().toISOString().slice(0, 10), expiry_date: '', notes: '' }
+  addModal.value = true
+}
+function entityOptions() {
+  const t = addForm.value.entity_type
+  if (t === 'property') return data.list('properties').map(p => ({ id: p.id, label: p.name }))
+  if (t === 'lease') return data.list('leases').map(l => ({ id: l.id, label: l.id + ' · ' + l.rent }))
+  if (t === 'tenant') return data.list('tenants').map(x => ({ id: x.id, label: x.name }))
+  return []
+}
+async function submitAdd() {
+  const f = addForm.value
+  if (!f.label.trim()) { window.__krToast?.('❌ Label is required'); return }
+  if (f.entity_type !== 'property' && !f.entity_id) { window.__krToast?.('❌ Select an entity'); return }
+  const r = await apiCall('app-compliance', { action: 'create', label: f.label.trim(), entity_type: f.entity_type, entity_id: f.entity_id, item: f.item, ref_no: f.ref_no.trim(), issue_date: f.issue_date, expiry_date: f.expiry_date, notes: f.notes.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  addModal.value = false
+  window.__krToast?.('✅ ' + (r.id || 'Item') + ' added', 'ok')
+  await data.bootstrap()
+}
+const editForm = ref({ expiry_date: '', ref_no: '', notes: '', status: 'active' })
+function openEdit(c) {
+  editForm.value = { expiry_date: c.expiry_date || '', ref_no: c.ref_no || '', notes: c.notes || '', status: c.status || 'active' }
+}
+async function saveEdit() {
+  const f = editForm.value
+  const r = await apiCall('app-compliance', { action: 'update', id: sel.value.id, expiry_date: f.expiry_date, ref_no: f.ref_no.trim(), notes: f.notes.trim(), status: f.status })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('✅ ' + sel.value.id + ' updated', 'ok')
+  await data.bootstrap()
+  refreshSel()
+}
+async function delItem(c) {
+  if (!window.confirm('Delete compliance item ' + c.id + ' (' + c.label + ')?')) return
+  const r = await apiCall('app-compliance', { action: 'delete', id: c.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  closeDetail()
+  await data.bootstrap()
+}
+async function runRemind() {
+  if (!window.confirm('Email a compliance digest for all due/expired items to your account?')) return
+  const r = await apiCall('app-compliance', { action: 'remind' })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('📧 ' + (r.sent || 0) + ' of ' + (r.due || 0) + ' due items emailed', 'ok')
+  await data.bootstrap()
+}
+async function runSync() {
+  const r = await apiCall('app-compliance', { action: 'sync' })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🔄 Compliance resynced (lease expiries recomputed)', 'ok')
+  await data.bootstrap()
+}
+function refreshSel() {
+  if (!sel.value) return
+  const fresh = cplAll.value.find(x => x.id === sel.value.id)
+  if (fresh) sel.value = fresh
+}
 </script>
 
 <template>
@@ -134,6 +202,11 @@ function detailFields(row) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <template v-if="canManage">
+          <button @click="runRemind" class="btn-ghost" title="Email due/expired digest">📧 Remind</button>
+          <button @click="runSync" class="btn-ghost" title="Recompute from leases">🔄 Sync</button>
+          <button @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add item</button>
+        </template>
       </div>
     </div>
 
@@ -190,6 +263,67 @@ function detailFields(row) {
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
+    <!-- add modal -->
+    <template v-if="addModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="addModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(500px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">📋 Add compliance item</div>
+          <button @click="addModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px">
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Label *</div>
+            <input v-model="addForm.label" placeholder="e.g. Trade license 2026-27" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Type</div>
+              <select v-model="addForm.item" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
+                <option v-for="(m, k) in ITEM_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Entity type</div>
+              <select v-model="addForm.entity_type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
+                <option value="property">🏢 Property</option>
+                <option value="lease">📄 Lease</option>
+                <option value="tenant">👤 Tenant</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Entity</div>
+            <select v-model="addForm.entity_id" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
+              <option v-if="addForm.entity_type === 'property'" v-for="p in data.list('properties')" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
+              <option v-if="addForm.entity_type === 'lease'" v-for="l in data.list('leases')" :key="l.id" :value="l.id">{{ l.id }} · rent {{ l.rent }}</option>
+              <option v-if="addForm.entity_type === 'tenant'" v-for="t in data.list('tenants')" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Ref no.</div>
+              <input v-model="addForm.ref_no" placeholder="e.g. TL-2026-114" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Issue date</div>
+              <input v-model="addForm.issue_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Expiry date</div>
+            <input v-model="addForm.expiry_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            <div class="c-sub" style="font-size:11px;margin-top:4px">Leave blank if it never expires.</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
+            <textarea v-model="addForm.notes" rows="2" placeholder="Optional" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+          </div>
+          <button @click="submitAdd" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">＋ Add item</button>
+        </div>
+      </div>
+    </template>
+
     <!-- drawer -->
     <template v-if="sel">
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:60" @click="closeDetail"></div>
@@ -232,6 +366,31 @@ function detailFields(row) {
             <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
+          <template v-if="canManage">
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">✏️ Update item</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Expiry date</div>
+                  <input v-model="editForm.expiry_date" type="date" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                </div>
+                <div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Status</div>
+                  <select v-model="editForm.status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px;font-family:inherit;outline:none">
+                    <option value="active">Active</option>
+                    <option value="expired">Expired</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+              <input v-model="editForm.ref_no" placeholder="Ref no." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;margin-top:8px">
+              <textarea v-model="editForm.notes" rows="2" placeholder="Notes" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;resize:vertical;margin-top:8px"></textarea>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button @click="saveEdit" style="flex:1;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save changes</button>
+                <button v-if="canDelete" @click="delItem(sel)" style="padding:9px 14px;border:none;border-radius:9px;background:var(--danger);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🗑 Delete</button>
+              </div>
+            </div>
+          </template>
           <div style="height:24px"></div>
         </div>
       </div>

@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { useAuthStore } from '../stores/auth'
+import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
@@ -11,6 +13,8 @@ const viewMode = useViewMode('cases')
 const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
+const auth = useAuthStore()
+const canManage = computed(() => ['superadmin', 'owner', 'manager', 'legal'].includes(auth.user?.role || ''))
 const casesAll = computed(() => data.list('cases'))
 const eventsAll = computed(() => data.list('case_events'))
 
@@ -97,6 +101,52 @@ function detailFields(row) {
   const skip = new Set(['id', 'title', 'ref_lease', 'type', 'status', 'stage'])
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
+
+// ── writes ──
+const CASE_STATUSES = ['Open', 'Hearing', 'Negotiation', 'Closed', 'Won', 'Lost']
+const caseModal = ref(false)
+const caseForm = ref({ ref_lease: '', type: 'eviction', title: '', stage: 'Notice', lawyer: '', next_hearing: '', notes: '' })
+function openCase() {
+  caseForm.value = { ref_lease: data.list('leases')[0]?.id || '', type: 'eviction', title: '', stage: 'Notice', lawyer: '', next_hearing: '', notes: '' }
+  caseModal.value = true
+}
+async function submitCase() {
+  const f = caseForm.value
+  if (!f.ref_lease) { window.__krToast?.('❌ Select a lease'); return }
+  const r = await apiCall('app-legal', { action: 'case-create', ref_lease: f.ref_lease, type: f.type, title: f.title.trim(), stage: f.stage.trim(), lawyer: f.lawyer.trim(), next_hearing: f.next_hearing, notes: f.notes.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  caseModal.value = false
+  window.__krToast?.('✅ ' + (r.id || 'Case') + ' opened', 'ok')
+  await data.bootstrap()
+}
+const updForm = ref({ stage: '', status: 'Open', lawyer: '', next_hearing: '', notes: '', note: '' })
+function openUpdate(c) {
+  updForm.value = { stage: c.stage || '', status: c.status || 'Open', lawyer: c.lawyer || '', next_hearing: c.next_hearing || '', notes: c.notes || '', note: '' }
+}
+async function saveUpdate() {
+  const f = updForm.value
+  const r = await apiCall('app-legal', { action: 'case-update', id: sel.value.id, stage: f.stage.trim(), status: f.status, lawyer: f.lawyer.trim(), next_hearing: f.next_hearing, notes: f.notes.trim(), note: f.note.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('✅ ' + sel.value.id + ' updated', 'ok')
+  await data.bootstrap()
+  refreshSel()
+}
+const evForm = ref({ ev_type: 'note', body: '' })
+async function addEvent() {
+  const f = evForm.value
+  if (!f.body.trim()) { window.__krToast?.('❌ Event body is required'); return }
+  const r = await apiCall('app-legal', { action: 'case-event', id: sel.value.id, ev_type: f.ev_type, body: f.body.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  evForm.value = { ev_type: 'note', body: '' }
+  window.__krToast?.('✅ Timeline event added', 'ok')
+  await data.bootstrap()
+  refreshSel()
+}
+function refreshSel() {
+  if (!sel.value) return
+  const fresh = casesAll.value.find(x => x.id === sel.value.id)
+  if (fresh) sel.value = fresh
+}
 </script>
 
 <template>
@@ -125,6 +175,7 @@ function detailFields(row) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="canManage" @click="openCase" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New case</button>
       </div>
     </div>
 
@@ -183,6 +234,59 @@ function detailFields(row) {
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
+    <!-- new case modal -->
+    <template v-if="caseModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="caseModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(500px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">⚖️ Open new case</div>
+          <button @click="caseModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px">
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Lease *</div>
+            <select v-model="caseForm.ref_lease" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
+              <option v-for="l in data.list('leases')" :key="l.id" :value="l.id">{{ l.id }} · rent {{ l.rent }}</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Type</div>
+              <select v-model="caseForm.type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
+                <option value="eviction">🚪 Eviction</option>
+                <option value="arrears">💰 Rent arrears</option>
+                <option value="damages">🛠️ Damages</option>
+                <option value="other">⚖️ Other</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Stage</div>
+              <input v-model="caseForm.stage" placeholder="e.g. Notice / Filing" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Title</div>
+            <input v-model="caseForm.title" placeholder="e.g. Eviction — Sultana Rahman (L-007)" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Lawyer</div>
+              <input v-model="caseForm.lawyer" placeholder="Counsel name" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Next hearing</div>
+              <input v-model="caseForm.next_hearing" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
+            <textarea v-model="caseForm.notes" rows="2" placeholder="Optional" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+          </div>
+          <button @click="submitCase" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">⚖️ Open case</button>
+        </div>
+      </div>
+    </template>
+
     <!-- drawer -->
     <template v-if="sel">
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:60" @click="closeDetail"></div>
@@ -225,6 +329,43 @@ function detailFields(row) {
             <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
+          <template v-if="canManage">
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin:14px 0">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">✏️ Update case</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Stage</div>
+                  <input v-model="updForm.stage" placeholder="e.g. Hearing" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                </div>
+                <div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Status</div>
+                  <select v-model="updForm.status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px;font-family:inherit;outline:none">
+                    <option v-for="s in CASE_STATUSES" :key="s" :value="s">{{ s }}</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+                <input v-model="updForm.lawyer" placeholder="Lawyer" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                <input v-model="updForm.next_hearing" type="date" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+              </div>
+              <textarea v-model="updForm.notes" rows="2" placeholder="Notes" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;resize:vertical;margin-top:8px"></textarea>
+              <input v-model="updForm.note" placeholder="Note for the timeline (optional)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;margin-top:8px">
+              <button @click="saveUpdate" style="margin-top:10px;width:100%;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save update</button>
+            </div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📝 Add timeline event</div>
+              <div style="display:flex;gap:8px">
+                <select v-model="evForm.ev_type" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px;font-family:inherit;outline:none">
+                  <option value="note">📝 Note</option>
+                  <option value="hearing">⚖️ Hearing</option>
+                  <option value="stage">🔄 Stage</option>
+                  <option value="doc">📎 Doc</option>
+                </select>
+                <input v-model="evForm.body" placeholder="What happened?" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+              </div>
+              <button @click="addEvent" style="margin-top:9px;width:100%;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add event</button>
+            </div>
+          </template>
           <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Timeline · {{ timeline.length }} events</div>
             <div v-if="!timeline.length" class="c-sub" style="font-size:12.5px">No events recorded.</div>
