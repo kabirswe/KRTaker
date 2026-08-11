@@ -1,10 +1,14 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useDataStore } from './stores/data'
+import { apiCall } from './api/client'
 import Sidebar from './components/Sidebar.vue'
 import Topbar from './components/Topbar.vue'
 
+const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const data = useDataStore()
 
@@ -20,6 +24,31 @@ function toast(msg, type = 'info') {
 
 // Expose toast globally (components use it via inject/emit; simple window hook for now)
 window.__krToast = toast
+
+// ── Gateway return (retired dashboard-v2 callback): ?gw=<code>&sid=<session>&val_id=…&status=…
+// Mirrors the legacy dashboard-v2.html gatewayReturn() so bKash/SSLCommerz/Nagad redirects
+// (and the old /dashboard-v2.html?gw=…&sid=… links from in-flight checkouts) keep working.
+// Fires once, after the persisted token has been validated (i.e. the shell is live).
+let gwHandled = false
+// Fire when validation completes AND the gw/sid query is present. Watching the
+// query too matters on the login flow: validated flips while still on /login,
+// then router.push(redirect) lands on the gw URL a tick later.
+watch(() => [auth.validated, route.query.gw, route.query.sid], async ([v, gw, sid]) => {
+  if (!v || gwHandled) return
+  if (!gw || !sid) return
+  gwHandled = true
+  const ref = route.query.val_id || route.query.paymentID || route.query.order_id || route.query.tran_id || ''
+  const status = route.query.status || ''
+  if (status && !['Completed', 'VALID', 'Success', 'success', 'CANCELLED'].includes(String(status))) {
+    toast('Payment was not completed (' + status + ')')
+    return
+  }
+  if (!ref) { toast('Gateway did not return a reference — contact support with session ' + sid); return }
+  const d = await apiCall('app-payment-confirm', { session_id: sid, gateway_ref: ref })
+  if (d.ok) toast('Payment ' + d.payment + ' recorded · receipt ' + d.receipt, 'ok')
+  else toast(d.error || 'Verification failed', 'error')
+  router.replace({ query: {} }).catch(() => {})
+}, { immediate: true })
 
 function toggleSidebar() { sidebarOpen.value = !sidebarOpen.value }
 function closeSidebar() { sidebarOpen.value = false }

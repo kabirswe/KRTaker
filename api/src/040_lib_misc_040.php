@@ -353,7 +353,7 @@ function tpl_print_page($tpl, $merged, $kind) {
 function email_sample_vars($id) {
     switch ($id) {
         case 'otp': return ['code' => '483920', 'name' => 'Tahmina Akter', 'expiry' => '5 minutes'];
-        case 'welcome': return ['name' => 'Tahmina Akter', 'trial_end' => '26 Jun 2026', 'workspace_url' => 'https://krtaker.com/dashboard-v2.html'];
+        case 'welcome': return ['name' => 'Tahmina Akter', 'trial_end' => '26 Jun 2026', 'workspace_url' => 'https://krtaker.com/app-v3/'];
         case 'collections': return ['unpaid' => '3', 'total' => '৳4,82,000', 'items' => '<tr><td style="padding:8px 10px;border-bottom:1px solid #E4EAF3;font-size:13px"><b>INV-2026-0011</b><br><span style="color:#8A94A6;font-size:11px">Sultana Rahman · Green View Residency</span></td><td style="padding:8px 10px;border-bottom:1px solid #E4EAF3;font-size:13px">2026-06</td><td style="padding:8px 10px;border-bottom:1px solid #E4EAF3;font-size:13px;text-align:right">৳32,000</td></tr><tr><td style="padding:8px 10px;font-size:13px"><b>INV-2026-0012</b><br><span style="color:#8A94A6;font-size:11px">Rahim Steel · Banani Commercial Tower</span></td><td style="padding:8px 10px;font-size:13px">2026-06</td><td style="padding:8px 10px;font-size:13px;text-align:right">৳4,50,000</td></tr>'];
         case 'rent_reminder': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'amount' => '32,000', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)'];
         case 'invoice': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'amount' => '32,000', 'due' => '32,000', 'due_color' => '#B91C1C'];

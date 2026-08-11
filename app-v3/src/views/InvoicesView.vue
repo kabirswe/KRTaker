@@ -93,9 +93,12 @@ function exportCsv() {
 const sel = ref(null)
 function openDetail(i) { sel.value = i }
 function closeDetail() { sel.value = null }
-// deep link: /invoices?open=INV-001
+// deep link: /invoices?open=INV-001[&pay=1]  (pay=1 → auto-open the payment modal; used by invoice email pay_url)
 watch(() => route.query.open, (id) => {
-  if (id) { const i = invoicesAll.value.find(x => x.id === id); if (i) openDetail(i) }
+  if (id) {
+    const i = invoicesAll.value.find(x => x.id === id)
+    if (i) { openDetail(i); if (route.query.pay === '1' && invDue(i) > 0) openPay(i) }
+  }
 }, { immediate: true })
 const selPays = computed(() => sel.value ? paysOfInv(sel.value) : [])
 const selRcps = computed(() => sel.value ? rcpOfInv(sel.value) : [])

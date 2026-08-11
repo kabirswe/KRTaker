@@ -4,7 +4,7 @@ function otp_email_html($code, $name) {
 }
 
 function welcome_email_html($name, $trial_end) {
-    list($s, $h) = email_render('welcome', ['name' => $name, 'trial_end' => $trial_end, 'workspace_url' => 'https://krtaker.com/dashboard-v2.html']);
+    list($s, $h) = email_render('welcome', ['name' => $name, 'trial_end' => $trial_end, 'workspace_url' => 'https://krtaker.com/app-v3/']);
     return $h;
 }
 

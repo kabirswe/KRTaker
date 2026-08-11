@@ -65,7 +65,7 @@ function reminder_send_one($pdo, $r, $cfg) {
     $t = $cfg['tiers'][(string)$tier];
     if (empty($r['email'])) return ['inv' => $r['inv'], 'ok' => false, 'reason' => 'no-email'];
     $tier_note = render_merge($t['note'], ['month' => $r['m']]);
-    $pay_url = 'https://krtaker.com/dashboard-v2.html?inv=' . rawurlencode($r['inv']) . '&pay=1';
+    $pay_url = 'https://krtaker.com/app-v3/#/invoices?open=' . rawurlencode($r['inv']) . '&pay=1';
     list($subj, $html) = email_render('rent_reminder', [
         'tenant_name' => $r['tenant'], 'invoice_id' => $r['inv'], 'month' => $r['m'],
         'amount' => number_format($r['due']), 'property' => $r['property'], 'unit' => $r['unit'],

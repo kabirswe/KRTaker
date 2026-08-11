@@ -88,7 +88,7 @@ function webpush_send($endpoint, $p256dh, $auth, $payload, $ttl = 86400) {
 }
 
 /* Send a notification to every device registered for an email */
-function push_to_user($pdo, $email, $title, $body, $url = '/dashboard-v2.html') {
+function push_to_user($pdo, $email, $title, $body, $url = '/app-v3/') {
     if (!$email) return ['sent' => 0, 'removed' => 0, 'errors' => []];
     $st = $pdo->prepare('SELECT endpoint, p256dh, auth FROM push_subs WHERE sub_email=?');
     $st->execute([$email]);

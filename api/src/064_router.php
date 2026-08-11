@@ -338,7 +338,7 @@ case 'verify-otp': {
     $trial_end = $row['trial_end'] ?: gmdate('d M Y', time() + $trial_days * 86400);
     $st = $pdo->prepare('UPDATE subscribers SET status="active", otp_hash=NULL, verified_at=? WHERE id=?');
     $st->execute([$now, $row['id']]);
-    list($wSubj, $wBody) = email_render('welcome', ['name' => $row['name'], 'trial_end' => $trial_end, 'workspace_url' => 'https://krtaker.com/dashboard-v2.html']);
+    list($wSubj, $wBody) = email_render('welcome', ['name' => $row['name'], 'trial_end' => $trial_end, 'workspace_url' => 'https://krtaker.com/app-v3/']);
     if (mail_switch($pdo, 'welcome')) send_mail($email, $wSubj, $wBody, null, true);
     json_out(['ok' => true, 'trial_end' => $trial_end, 'trial_days' => $trial_days]);
 }
@@ -1026,7 +1026,7 @@ case 'push-remove': {
 case 'push-test': {
     $u = require_user();
     $pdo = db();
-    $res = push_to_user($pdo, $u['email'], '🔔 KRTaker test notification', 'Push notifications are working! You will be alerted about tickets, payments and rent here.', '/dashboard-v2.html');
+    $res = push_to_user($pdo, $u['email'], '🔔 KRTaker test notification', 'Push notifications are working! You will be alerted about tickets, payments and rent here.', '/app-v3/');
     audit($u['name'], 'Push test', 'notifications', '', json_encode($res));
     json_out(['ok' => true, 'result' => $res]);
 }
@@ -1036,7 +1036,7 @@ case 'push-send': {
     $to = trim($body['email'] ?? ''); $title = trim($body['title'] ?? 'KRTaker'); $msg = trim($body['body'] ?? '');
     if (!$to || !$msg) json_out(['ok' => false, 'error' => 'email and body required.'], 400);
     $pdo = db();
-    $res = push_to_user($pdo, $to, $title, $msg, trim($body['url'] ?? '/dashboard-v2.html'));
+    $res = push_to_user($pdo, $to, $title, $msg, trim($body['url'] ?? '/app-v3/'));
     json_out(['ok' => true, 'result' => $res]);
 }
 case 'team-list': {
@@ -1169,7 +1169,7 @@ case 'app-ticket-create': {
         if ($own !== '' && strcasecmp($own, $u['email']) !== 0)
             push_to_user($pdo, $own, '🔧 Maintenance ticket ' . $id,
                 ($u['role'] === 'tenant' ? 'Tenant ' : '') . $u['name'] . ' reported: ' . mb_substr($desc, 0, 90),
-                '/dashboard-v2.html#maintenance');
+                '/app-v3/#/maintenance');
     } catch (Exception $e) {}
     json_out(['ok' => true, 'id' => $id]);
 }
@@ -1533,7 +1533,7 @@ case 'app-invoice-email': {
         'tenant_name' => $r['tname'], 'invoice_id' => $invId, 'month' => $r['m'],
         'property' => $r['pname'], 'unit' => $r['uname'], 'amount' => number_format((int)$r['net']),
         'due' => number_format(max(0, $due)), 'due_color' => $due > 0 ? '#B91C1C' : '#065F46',
-        'pay_url' => 'https://krtaker.com/dashboard-v2.html?inv=' . rawurlencode($invId) . '&pay=1',
+        'pay_url' => 'https://krtaker.com/app-v3/#/invoices?open=' . rawurlencode($invId) . '&pay=1',
     ]);
     $ok = send_mail($r['temail'], $subj, $html, null, true);
     audit($u['name'], 'Invoice emailed', 'invoices', $invId, $r['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
@@ -1968,7 +1968,7 @@ case 'app-payment-confirm': {
             if ($own !== '' && strcasecmp($own, $u['email']) !== 0)
                 push_to_user($pdo, $own, '💰 Payment received — ৳' . number_format((int)$tx['amount']),
                     $u['name'] . ' paid ৳' . number_format((int)$tx['amount']) . ' for ' . $tx['invoice_id'] . ' via ' . $tx['method'],
-                    '/dashboard-v2.html#invoices');
+                    '/app-v3/#/invoices');
         } catch (Exception $e) {}
     }
     json_out($res);
@@ -2720,7 +2720,7 @@ case 'app-rent-due-push': {
             if ($o['overdue'] > 0) $parts[] = '৳' . number_format($o['overdue']) . ' overdue';
             if ($o['due_soon'] > 0) $parts[] = '৳' . number_format($o['due_soon']) . ' due this month';
             if ($o['upcoming'] > 0) $parts[] = '৳' . number_format($o['upcoming']) . ' due next month';
-            $res = push_to_user($pdo, $o['email'], 'Rent due — KRTaker', implode(' · ', $parts), '/dashboard-v2.html');
+            $res = push_to_user($pdo, $o['email'], 'Rent due — KRTaker', implode(' · ', $parts), '/app-v3/');
             $rec['sent'] = $res['sent']; $rec['errors'] = $res['errors'];
             $sent += $res['sent']; $removed += $res['removed'];
             $errors = array_merge($errors, $res['errors']);
@@ -3279,7 +3279,7 @@ case 'app-premium-subscribe': {
         list($pSubj, $pBody) = email_render('premium_welcome', [
             'name' => $u['name'], 'tier_label' => PREMIUM_TIERS()[$tier]['label'],
             'property' => $propName, 'cycle' => $cycle, 'price' => '৳' . number_format($price),
-            'next_invoice' => $next, 'workspace_url' => 'https://krtaker.com/dashboard-v2.html',
+            'next_invoice' => $next, 'workspace_url' => 'https://krtaker.com/app-v3/',
         ]);
         send_mail($u['email'], $pSubj, $pBody);
     } else {
@@ -3571,7 +3571,7 @@ case 'app-moveout': {
                 'dmg_due' => number_format($settle['totals']['damages']), 'deposit' => number_format($settle['deposit']),
                 'balance' => number_format($settle['totals']['balance']), 'status' => $settle['status'],
                 'status_color' => $sc[$settle['status']] ?? '#344054',
-                'workspace_url' => 'https://krtaker.com/dashboard-v2.html',
+                'workspace_url' => 'https://krtaker.com/app-v3/',
             ];
             list($subj, $html) = email_render('move_out', $vars);
             send_mail($to, $subj, $html, null);
@@ -3641,7 +3641,7 @@ case 'app-premium-billing': {
                     'tenant_name' => $nm, 'invoice_id' => $cid, 'month' => $s['next_invoice'],
                     'property' => $pn, 'unit' => 'Workspace', 'amount' => number_format((int)$s['price']),
                     'due' => number_format((int)$s['price']), 'due_color' => '#B91C1C',
-                    'pay_url' => 'https://krtaker.com/dashboard-v2.html',
+                    'pay_url' => 'https://krtaker.com/app-v3/',
                 ]);
                 send_mail($s['user_email'], $subj, $html, null);
             }

@@ -1,6 +1,6 @@
 function gateway_init($code, $tx, $inv, $due, $u) {
     $g = GATEWAYS()[$code];
-    $cb = 'https://krtaker.com/dashboard-v2.html?gw=' . $code . '&sid=' . urlencode($tx['id']);
+    $cb = 'https://krtaker.com/app-v3/#/dashboard?gw=' . $code . '&sid=' . urlencode($tx['id']);
     if ($code === 'sslcommerz') {
         $r = gw_http_post($g['checkout'], [
             'store_id' => $g['store_id'], 'store_passwd' => $g['store_pass'],

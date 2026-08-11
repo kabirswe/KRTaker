@@ -1,12 +1,16 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const data = useDataStore()
+
+// Deep-link destination preserved by the router guard (?redirect=/dashboard?gw=…&sid=…)
+const redirectTo = (() => { try { return String(route.query.redirect || '/dashboard') } catch (e) { return '/dashboard' } })()
 
 const email = ref('')
 const password = ref('')
@@ -23,7 +27,7 @@ async function doLogin() {
   const r = await auth.login(email.value, password.value, twofa.value)
   if (r.ok) {
     const ok = await data.bootstrap()
-    if (ok || data.offline) router.push('/dashboard')
+    if (ok || data.offline) router.push(redirectTo)
     else { err.value = data.error || 'Login failed.'; auth.clear() }
   } else if (r.need2fa) {
     show2fa.value = true

@@ -70,7 +70,9 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const data = useDataStore()
   if (to.meta.public) return true
-  if (!auth.isAuthed) return { name: 'login' }
+  // Preserve the intended destination (incl. deep-link query like ?gw=&sid= or ?open=)
+  // so it survives the login detour — a lost query silently breaks gateway callbacks.
+  if (!auth.isAuthed) return { name: 'login', query: { redirect: to.fullPath } }
   if (!auth.user) {
     try { await auth.fetchMe() } catch (e) { /* bootstrap below still validates the token */ }
   }
@@ -78,7 +80,7 @@ router.beforeEach(async (to) => {
     const ok = await data.bootstrap()
     if (!ok && !data.offline) {
       auth.clear()
-      return { name: 'login' }
+      return { name: 'login', query: { redirect: to.fullPath } }
     }
   }
   return true
