@@ -5059,6 +5059,7 @@ case 'app-trust': {
     $u = require_user();
     $pdo = db();
     $isStaff = in_array($u['role'], ['superadmin', 'owner', 'manager', 'legal', 'accountant', 'svc_mgr'], true);
+    $isAdmin = in_array($u['role'], ['superadmin', 'super_admin', 'admin'], true);
     $myTid = trust_tenant_id($pdo, $u);
     if (!$isStaff && !$myTid) json_out(['ok' => false, 'error' => 'No tenant profile for this account.'], 403);
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
@@ -5225,7 +5226,7 @@ case 'app-trust': {
         json_out(['ok' => true, 'status' => $new]);
     }
 
-    /* tif-print — printable bilingual form (echo + exit) */
+    /* tif-print — printable bilingual form (echo + exit); preview=1 skips the audit log */
     if ($action === 'tif-print') {
         $id = trim($_GET['id'] ?? $body['id'] ?? '');
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
@@ -5236,7 +5237,7 @@ case 'app-trust': {
         $row['payload'] = json_decode($row['payload'], true) ?: [];
         $cfg = tif_print_cfg_effective($pdo, $row['payload']);
         $html = tif_print_html($row, $cfg);
-        audit($u['name'], 'Thana form printed', 'trust', $id, $row['tenant']);
+        if (empty($body['preview'])) audit($u['name'], 'Thana form printed', 'trust', $id, $row['tenant']);
         header('Content-Type: text/html; charset=utf-8');
         echo '<!DOCTYPE html><html lang="bn"><head><meta charset="utf-8"><title>' . htmlspecialchars($id) . ' — ভাড়াটিয়া নিবন্ধন ফরম</title></head><body>' . $html . '</body></html>';
         exit;
@@ -5255,8 +5256,9 @@ case 'app-trust': {
         json_out(['ok' => true, 'cfg' => tif_print_cfg_effective($pdo, $payload), 'override' => $local, 'defaults' => tif_print_cfg_defaults(), 'global' => tif_print_cfg_global($pdo)]);
     }
 
-    /* tif-print-cfg-save — per-form override (stored in payload._print) */
+    /* tif-print-cfg-save — per-form override (stored in payload._print); admin only */
     if ($action === 'tif-print-cfg-save') {
+        if (!$isAdmin) json_out(['ok' => false, 'error' => 'Only admins can adjust print settings.'], 403);
         $id = trim($body['id'] ?? '');
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
         $st = $pdo->prepare('SELECT * FROM thana_forms WHERE id=?'); $st->execute([$id]);
@@ -5272,9 +5274,9 @@ case 'app-trust': {
         json_out(['ok' => true, 'cfg' => $cfg]);
     }
 
-    /* tif-print-cfg-global — staff: get/save the global default (platform_meta tif_print_cfg) */
+    /* tif-print-cfg-global — admin: get/save the global default (platform_meta tif_print_cfg) */
     if ($action === 'tif-print-cfg-global') {
-        if (!$isStaff) json_out(['ok' => false, 'error' => 'Only staff can edit global print settings.'], 403);
+        if (($body['mode'] ?? '') === 'save' && !$isAdmin) json_out(['ok' => false, 'error' => 'Only admins can adjust print settings.'], 403);
         if (($body['mode'] ?? '') === 'save') {
             $cfg = tif_print_cfg_sanitize($body['cfg'] ?? []);
             if ($cfg) {

@@ -173,7 +173,7 @@ async function printTf(f) {
   } catch (e) { tfErr.value = e.message }
 }
 
-// ══ Print settings (font size / gap / letter-spacing / padding / margin / position nudge) ══
+// ══ Print settings (font size / gap / letter-spacing / padding / margin / position nudge) — GLOBAL for all DMP Thana forms, admin only ══
 const PRINT_CFG_FIELDS = [
   ['fs', 'Font size (px)', 6, 40, 0.5],
   ['lh', 'Line gap (line-height)', 0.5, 4, 0.05],
@@ -183,48 +183,89 @@ const PRINT_CFG_FIELDS = [
   ['px', 'Position X (%)', -50, 50, 0.5],
   ['py', 'Position Y (%)', -50, 50, 0.5],
 ]
-const tfCfg = ref(null)          // { id, formLabel }
+const tfCfg = ref(false)
 const tfCfgForm = ref({})
 const tfCfgSaving = ref(false)
 const tfCfgErr = ref('')
-const tfCfgGlobal = ref(null)    // staff: global defaults
+const tfCfgDefaults = ref(null)
 const tfCfgDirty = ref(false)
+const previewHtml = ref('')
+const previewDoc = ref(null)
+const previewLoading = ref(false)
+const previewErr = ref('')
+const isAdmin = computed(() => ['superadmin', 'super_admin', 'admin'].includes(data.user?.role || ''))
 
-async function openPrintCfg(f) {
+async function openPrintCfg() {
   tfCfgErr.value = ''
-  tfCfg.value = { id: f.id, formLabel: `${f.id} · ${f.tenant_name || f.tenant || ''}` }
+  previewErr.value = ''
+  tfCfg.value = true
   tfCfgForm.value = {}
+  tfCfgDirty.value = false
   try {
-    const r = await apiCall('app-trust', { action: 'tif-print-cfg-get', id: f.id })
+    const r = await apiCall('app-trust', { action: 'tif-print-cfg-global' })
     if (!r.ok) { tfCfgErr.value = r.error || 'Failed to load print settings.'; return }
-    tfCfgForm.value = { ...(r.cfg || {}) }
-    if (isStaff.value) tfCfgGlobal.value = r.global || r.defaults || null
-    tfCfgDirty.value = false
+    tfCfgForm.value = { ...(r.global || r.defaults || {}) }
+    tfCfgDefaults.value = r.defaults || null
+    // fetch a live preview of the official form with a sample tenant's data
+    const sample = tfItems.value.find(f => f.payload?.name || f.tenant_name) || tfItems.value[0]
+    if (sample) {
+      previewLoading.value = true
+      try {
+        const res = await fetch(apiBase() + 'app-trust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('krtaker_dash_token') },
+          body: JSON.stringify({ action: 'tif-print', id: sample.id, preview: 1 }),
+        })
+        const html = await res.text()
+        if (html && !html.startsWith('{')) previewHtml.value = html
+        else previewErr.value = 'Preview unavailable.'
+      } catch (e) { previewErr.value = e.message }
+      finally { previewLoading.value = false }
+    } else {
+      previewErr.value = 'No forms yet — create one to see the preview.'
+    }
   } catch (e) { tfCfgErr.value = e.message }
 }
 const cfgSliderStyle = 'flex:1;accent-color:var(--primary)'
-async function savePrintCfg(asDefault = false) {
+function onCfgInput(k, val) {
+  tfCfgForm.value[k] = val
+  tfCfgDirty.value = true
+  applyCfgPreview()
+}
+function applyCfgPreview() {
+  const d = previewDoc.value
+  if (!d) return
+  const f = tfCfgForm.value
+  const el = d.documentElement
+  el.style.setProperty('--fs', (f.fs ?? 12.5) + 'px')
+  el.style.setProperty('--lh', f.lh ?? 1.15)
+  el.style.setProperty('--ls', (f.ls ?? 0) + 'px')
+  el.style.setProperty('--pd', (f.pd ?? 0) + 'px')
+  el.style.setProperty('--mg', (f.mg ?? 7.5) + 'mm')
+  el.style.setProperty('--px', (f.px ?? 0) + '%')
+  el.style.setProperty('--py', (f.py ?? 0) + '%')
+}
+function onPreviewLoad() {
+  const ifr = document.querySelector('.print-preview-iframe')
+  previewDoc.value = ifr && ifr.contentDocument ? ifr.contentDocument : null
+  applyCfgPreview()
+}
+async function savePrintCfg() {
   if (!tfCfg.value) return
   tfCfgSaving.value = true; tfCfgErr.value = ''
   try {
-    if (asDefault && isStaff.value) {
-      const r = await apiCall('app-trust', { action: 'tif-print-cfg-global', mode: 'save', cfg: tfCfgForm.value })
-      if (!r.ok) { tfCfgErr.value = r.error || 'Failed to save default.'; return }
-      tfCfgGlobal.value = r.cfg || tfCfgGlobal.value
-    }
-    const r = await apiCall('app-trust', { action: 'tif-print-cfg-save', id: tfCfg.value.id, cfg: tfCfgForm.value })
+    const r = await apiCall('app-trust', { action: 'tif-print-cfg-global', mode: 'save', cfg: tfCfgForm.value })
     if (!r.ok) { tfCfgErr.value = r.error || 'Failed to save settings.'; return }
     tfCfgDirty.value = false
-    tfCfg.value = null
-    toast?.('Print settings saved')
+    tfCfg.value = false
+    toast?.('Print settings saved — applies to all DMP Thana forms')
   } catch (e) { tfCfgErr.value = e.message }
   finally { tfCfgSaving.value = false }
 }
 async function resetPrintCfg() {
-  if (!tfCfg.value) return
-  const r = await apiCall('app-trust', { action: 'tif-print-cfg-get', id: tfCfg.value.id })
-  tfCfgForm.value = { ...(r.ok ? (r.defaults || {}) : {}) }
+  tfCfgForm.value = { ...(tfCfgDefaults.value || {}) }
   tfCfgDirty.value = true
+  applyCfgPreview()
 }
 </script>
 
@@ -387,6 +428,7 @@ async function resetPrintCfg() {
         </div>
         <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-ghost" @click="loadTf()">🔄 Refresh</button>
+          <button v-if="isAdmin" class="btn-ghost" title="Print settings — applies to all DMP Thana forms (admin only)" @click="openPrintCfg()">⚙️ Print settings</button>
         </div>
       </div>
       <div v-if="tfErr" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ tfErr }}</div>
@@ -423,7 +465,6 @@ async function resetPrintCfg() {
                   <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--ok,#12a150)" @click="verifyTf(f, 'approve')">✅ Approve</button>
                   <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" @click="verifyTf(f, 'reject')">❌ Reject</button>
                   <button v-if="f.payload?.name || f.tenant_name" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="printTf(f)">🖨 Print</button>
-                  <button class="btn-ghost" style="padding:4px 9px;font-size:11.5px" title="Print settings (font, gap, margin, position)" @click="openPrintCfg(f)">⚙️</button>
                 </td>
               </tr>
             </tbody>
@@ -454,28 +495,45 @@ async function resetPrintCfg() {
         </div>
       </div>
 
-      <!-- print settings modal -->
-      <div v-if="tfCfg" class="overlay" @click.self="tfCfg = null">
-        <div class="drawer" style="max-width:520px">
-          <div class="modal-h"><span class="t">⚙️ Print settings · {{ tfCfg.formLabel }}</span><button class="close" @click="tfCfg = null">✕</button></div>
-          <div style="padding:16px 20px 0;overflow-y:auto;flex:1">
-            <div v-if="tfCfgErr" style="padding:8px 12px;border-radius:9px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:12px;font-weight:600;font-size:12.5px">⚠️ {{ tfCfgErr }}</div>
-            <div class="c-sub" style="margin-bottom:10px;font-size:12px">These apply to the print of this form (template is the official DMP file — adjust how the filled values sit on it).</div>
-            <div v-for="[k, label, mn, mx, st] in PRINT_CFG_FIELDS" :key="k" style="margin-bottom:12px">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                <label style="font-size:12.5px;font-weight:700">{{ label }}</label>
-                <input v-model.number="tfCfgForm[k]" type="number" :step="st" :min="mn" :max="mx" style="width:78px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none;text-align:center" @input="tfCfgDirty = true">
+      <!-- print settings modal (global, admin only, live preview) -->
+      <div v-if="tfCfg" class="overlay" @click.self="tfCfg = false">
+        <div class="drawer" style="max-width:1080px">
+          <div class="modal-h"><span class="t">⚙️ Print settings · all DMP Thana forms</span><button class="close" @click="tfCfg = false">✕</button></div>
+          <div style="padding:16px 20px 0;overflow-y:auto;flex:1;display:flex;gap:20px">
+            <!-- left: sliders -->
+            <div style="flex:0 0 320px">
+              <div v-if="tfCfgErr" style="padding:8px 12px;border-radius:9px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:12px;font-weight:600;font-size:12.5px">⚠️ {{ tfCfgErr }}</div>
+              <div class="c-sub" style="margin-bottom:10px;font-size:12px">These apply to the print of <b>every</b> DMP Thana form (template is the official DMP file — adjust how the filled values sit on it). Only admins can change these.</div>
+              <div v-for="[k, label, mn, mx, st] in PRINT_CFG_FIELDS" :key="k" style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                  <label style="font-size:12.5px;font-weight:700">{{ label }}</label>
+                  <input v-model.number="tfCfgForm[k]" type="number" :step="st" :min="mn" :max="mx" style="width:78px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none;text-align:center" @input="tfCfgDirty = true; applyCfgPreview()">
+                </div>
+                <input :value="tfCfgForm[k]" type="range" :min="mn" :max="mx" :step="st" :style="cfgSliderStyle" @input="onCfgInput(k, parseFloat($event.target.value))">
               </div>
-              <input :value="tfCfgForm[k]" type="range" :min="mn" :max="mx" :step="st" :style="cfgSliderStyle" @input="tfCfgForm[k] = parseFloat($event.target.value); tfCfgDirty = true">
+              <div v-if="tfCfgDefaults" class="c-sub" style="font-size:11.5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:4px">↺ Default: fs {{ tfCfgDefaults.fs }} · gap {{ tfCfgDefaults.lh }} · margin {{ tfCfgDefaults.mg }}mm — “Reset” restores the original column-wise layout.</div>
+              <div style="height:8px"></div>
             </div>
-            <div v-if="isStaff && tfCfgGlobal" class="c-sub" style="font-size:11.5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:4px">🌐 Global default (used by new forms): fs {{ tfCfgGlobal.fs }} · gap {{ tfCfgGlobal.lh }} · margin {{ tfCfgGlobal.mg }}mm — “Save as default” overwrites it.</div>
-            <div style="height:8px"></div>
+            <!-- right: live preview -->
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:12.5px;font-weight:700">👁 Live preview — changes apply instantly</span>
+                <span v-if="previewLoading" class="c-sub" style="font-size:11.5px">loading…</span>
+              </div>
+              <div v-if="previewErr" style="padding:10px 14px;border-radius:9px;background:var(--bg-alt);border:1px solid var(--border);font-size:12.5px;color:var(--text-mute)">{{ previewErr }}</div>
+              <div v-else style="flex:1;background:#525659;border-radius:10px;padding:14px;overflow:auto;display:flex;justify-content:center;align-items:flex-start">
+                <div style="flex:0 0 auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.35);width:640px;height:905px;overflow:hidden;position:relative">
+                  <iframe v-if="previewHtml" :srcdoc="previewHtml" @load="onPreviewLoad" class="print-preview-iframe" style="width:852px;height:1205px;border:none;transform:scale(0.75);transform-origin:top left"></iframe>
+                  <div v-else style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-mute);font-size:13px">Loading preview…</div>
+                </div>
+              </div>
+            </div>
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0">
-            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="resetPrintCfg">↺ Reset</button>
+            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="resetPrintCfg">↺ Reset to default</button>
             <div style="flex:1"></div>
-            <button v-if="isStaff" class="btn-ghost" style="padding:9px 14px;font-size:12.5px" :disabled="tfCfgSaving" @click="savePrintCfg(true)">🌐 Save as default</button>
-            <button class="btn-primary" style="padding:9px 16px;font-size:12.5px" :disabled="tfCfgSaving" @click="savePrintCfg(false)">💾 Save {{ tfCfgSaving ? '…' : '' }}</button>
+            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="tfCfg = false">Cancel</button>
+            <button class="btn-primary" style="padding:9px 16px;font-size:12.5px" :disabled="tfCfgSaving || !tfCfgDirty" @click="savePrintCfg">💾 Save for all forms {{ tfCfgSaving ? '…' : '' }}</button>
           </div>
         </div>
       </div>
