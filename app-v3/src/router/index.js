@@ -37,6 +37,7 @@ const routes = [
   { path: '/nid', name: 'nid', component: () => import('../views/NidView.vue') },
   { path: '/insurance', name: 'insurance', component: () => import('../views/InsuranceView.vue') },
   { path: '/holding-taxes', name: 'holding-taxes', component: () => import('../views/HoldingTaxesView.vue') },
+  { path: '/collections', name: 'collections', component: () => import('../views/CollectionView.vue') },
   { path: '/gate-visits', name: 'gate-visits', component: () => import('../views/GateVisitsView.vue') },
   { path: '/staff-attendance', name: 'staff-attendance', component: () => import('../views/StaffAttendanceView.vue') },
   { path: '/staff-payroll', name: 'staff-payroll', component: () => import('../views/StaffPayrollView.vue') },
