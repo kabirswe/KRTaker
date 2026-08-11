@@ -48,7 +48,7 @@ Body: `{action: "create"|"update"|"delete", collection, data:{...}, id?}`
 
 ## Module endpoints (all POST, require auth, JSON body)
 171 total actions in router. Key families:
-- Finance: app-collections-summary, app-collections-run, app-payment-recon, app-refund, app-gateway-cleanup, app-payment, app-gateways, app-payment-init, app-payment-confirm, app-payment-cancel, app-payment-ipn, app-payment-reconcile
+- Finance: app-collections-summary, app-collections-run, app-payment-recon, app-refund, app-gateway-cleanup, app-payment, app-gateways, app-payment-init, app-payment-confirm, app-payment-cancel, app-payment-ipn, app-payment-reconcile, app-invoice-auto
 - Templates: app-tpl-list/get/save/dup/delete/reset/render, app-email-tpl-*
 - AI: app-ai-meta, app-ai-chat
 - Admin: app-admin (user mgmt), app-crud, app-profile, app-settings-get/save, app-org-settings-get/save, app-rent-config-*
