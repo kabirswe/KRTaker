@@ -362,7 +362,7 @@ function printReport() {
     <div v-if="toast" style="padding:10px 14px;border-radius:10px;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);margin-bottom:14px;font-weight:700;font-size:13.5px">{{ toast }}</div>
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+    <div class="kr-tabs" style="gap:6px">
       <button v-for="t in TABS" :key="t[0]" class="btn-ghost" :style="tab === t[0] ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" @click="switchTab(t[0])">{{ t[1] }}</button>
     </div>
 

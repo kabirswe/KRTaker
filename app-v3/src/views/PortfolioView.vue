@@ -94,10 +94,9 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
     </div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <div class="kr-tabs">
       <button v-for="[k, ico, l] in TAB_ORDER" :key="k" @click="goTab(k)"
-        :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
-        style="padding:9px 15px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">
+        :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">
         {{ ico }} {{ l }}
       </button>
     </div>

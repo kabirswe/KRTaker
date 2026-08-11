@@ -267,7 +267,7 @@ onMounted(load)
       <div v-if="loading" style="text-align:center;padding:40px;color:var(--text-mute)">Loading…</div>
       <div v-else-if="!filtered.length" style="text-align:center;padding:40px;color:var(--text-mute)">No KYC records match.</div>
       <div v-else class="panel" style="overflow:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <table class="kr" style="width:100%;border-collapse:collapse;font-size:13px">
           <thead>
             <tr style="text-align:left;color:var(--text-mute);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px">
               <th style="padding:10px 12px">Tenant</th>

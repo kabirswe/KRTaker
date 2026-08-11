@@ -458,10 +458,9 @@ function exportCsv(kind) {
     </div>
 
     <!-- tabs -->
-    <div style="display:flex;gap:8px;margin:18px 0 14px;flex-wrap:wrap">
+    <div class="kr-tabs" style="margin:18px 0 14px">
       <button v-for="t in tabs" :key="t.id" @click="setTab(t.id)"
-        :style="tab === t.id ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'"
-        style="padding:9px 16px;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">{{ t.l }}</button>
+        :style="tab === t.id ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'">{{ t.l }}</button>
     </div>
 
     <!-- ── PARTNERS (category chips) ── -->
