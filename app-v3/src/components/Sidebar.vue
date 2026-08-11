@@ -17,10 +17,11 @@ const emit = defineEmits(['close'])
 const GROUPS = [
   { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
   { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
-  { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['taxes', '🏛️', 'Taxes'], ['statements', '💰', 'Statements'], ['remit', '🌍', 'Remittances'], ['nrb', '🌐', 'NRB Hub'], ['subscriptions', '💠', 'Subscriptions']] },
+  { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['taxes', '🏛️', 'Holding Taxes'], ['statements', '💰', 'Statements'], ['remit', '🌍', 'Remittances'], ['nrb', '🌐', 'NRB Hub'], ['subscriptions', '💠', 'Subscriptions']] },
+  { id: 'bms', label: 'BMS', items: [['maintenance', '🔧', 'Maintenance'], ['gate', '🚪', 'Gate Visits'], ['staff', '👷', 'Staff'], ['attendance', '⏱️', 'Attendance'], ['payroll', '💵', 'Payroll'], ['meter', '⚡', 'Meter Readings'], ['utilities', '🔌', 'Utility Bills'], ['samity', '🏘️', 'Samity']] },
   { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'Trust Engine']] },
-  { id: 'ops', label: 'Operations', items: [['maintenance', '🔧', 'Maintenance'], ['vendors', '🧰', 'Vendors'], ['utilities', '🔌', 'Utilities'], ['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine']] },
-  { id: 'secure', label: 'Safety & Security', items: [['smarthome', '🔐', 'Smart Home'], ['land', '🛰️', 'Land Guard'], ['build', '🏗️', 'Build Watch'], ['gate', '🚪', 'Gate Watch'], ['firesafety', '🧯', 'Fire Safety'], ['systems', '⚙️', 'Systems Watch'], ['staffwatch', '👷', 'Staff Watch'], ['health', '🌦️', 'Health Check']] },
+  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors'], ['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine']] },
+  { id: 'secure', label: 'Safety & Security', items: [['smarthome', '🔐', 'Smart Home'], ['land', '🛰️', 'Land Guard'], ['build', '🏗️', 'Build Watch'], ['firesafety', '🧯', 'Fire Safety'], ['systems', '⚙️', 'Systems Watch'], ['health', '🌦️', 'Health Check']] },
   { id: 'admin', label: 'Admin', items: [['caretaker', '👑', 'Caretaker']] },
 ]
 
@@ -29,9 +30,10 @@ const VIEW_ROUTES = {
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
-  remit: '/remittances', nrb: '/nid', subscriptions: '/vendors',
+  taxes: '/holding-taxes', remit: '/remittances', nrb: '/nid', subscriptions: '/vendors',
   notices: '/notices', referrals: '/referrals', trust: '/nid',
   maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
+  staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',
   compliance: '/compliance', legal: '/legal', concierge: '/concierge',
   smarthome: '/units', land: '/land', build: '/build', gate: '/gate-visits',
   firesafety: '/compliance', systems: '/units', staffwatch: '/staff-attendance',
