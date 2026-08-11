@@ -1,0 +1,220 @@
+<script setup>
+import { computed, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useDataStore } from '../stores/data'
+import { useViewMode, usePager, fmtTs, maskNid, avatarColor, initials } from '../lib/ui'
+import PagerBar from '../components/PagerBar.vue'
+
+const router = useRouter()
+const route = useRoute()
+const viewMode = useViewMode('nid')
+const go = (path, q) => router.push({ path, query: q })
+
+const data = useDataStore()
+const nvAll = computed(() => data.list('nid_verifications'))
+const tenantName = (tid) => data.list('tenants').find(t => t.id === tid)?.name || tid || ''
+
+const stCls = (s) => s === 'verified' ? 'b-green' : (s === 'unverified' ? 'b-orange' : (s === 'mismatch' ? 'b-red' : 'b-gray'))
+const okBadge = (v) => v ? 'b-green' : 'b-red'
+
+// ── KPIs ──
+const kpis = computed(() => {
+  const vs = nvAll.value
+  const verified = vs.filter(v => v.status === 'verified').length
+  const unverified = vs.filter(v => v.status === 'unverified').length
+  const mismatch = vs.filter(v => v.status === 'mismatch').length
+  const ck = vs.filter(v => v.checksum_ok).length
+  const age = vs.filter(v => v.age_ok).length
+  const tenants = new Set(vs.map(v => v.tenant).filter(Boolean)).size
+  return [
+    { label: 'Verifications', ico: '🪪', value: vs.length, trend: 'NID checks run' },
+    { label: 'Verified', ico: '✅', value: verified, trend: verified ? 'identity confirmed' : 'none', ok: verified > 0 },
+    { label: 'Unverified', ico: '⚠️', value: unverified, trend: unverified ? 'pending manual check' : 'none', ok: unverified === 0 },
+    { label: 'Mismatch', ico: '🚨', value: mismatch, trend: mismatch ? 'check-digit failures' : 'none', ok: mismatch === 0 },
+    { label: 'Checksum OK', ico: '🧮', value: ck, trend: 'valid check digits' },
+    { label: 'Age OK', ico: '🎂', value: age, trend: tenants + ' tenants screened' },
+  ]
+})
+
+// ── filters ──
+const query = ref('')
+const statusFilter = ref('')
+const statusOptions = computed(() => [...new Set(nvAll.value.map(v => v.status).filter(Boolean))].sort())
+const filtered = computed(() => {
+  let out = nvAll.value
+  const q = query.value.trim().toLowerCase()
+  if (q) out = out.filter(v => JSON.stringify(v).toLowerCase().includes(q) || (tenantName(v.tenant) || '').toLowerCase().includes(q))
+  if (statusFilter.value) out = out.filter(v => (v.status || '') === statusFilter.value)
+  return [...out].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')))
+})
+const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
+
+function exportCsv() {
+  const rows = filtered.value; if (!rows.length) return
+  const esc = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+  const cols = [...new Set(rows.flatMap(r => Object.keys(r)))]
+  const lines = [cols.map(esc).join(',')]
+  rows.forEach(r => lines.push(cols.map(c => esc(r[c])).join(',')))
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })); a.download = 'nid.csv'; a.click(); URL.revokeObjectURL(a.href)
+}
+
+// ── drawer ──
+const sel = ref(null)
+function openDetail(v) { sel.value = v }
+function closeDetail() { sel.value = null }
+watch(() => route.query.open, (id) => {
+  if (id) { const v = nvAll.value.find(x => x.id === id); if (v) openDetail(v) }
+}, { immediate: true })
+function detailFields(row) {
+  const skip = new Set(['id', 'tenant', 'nid', 'dob', 'status', 'method', 'checksum_ok', 'age_ok', 'verified_by', 'verified_at', 'notes'])
+  return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
+}
+</script>
+
+<template>
+  <div>
+    <div class="page-head">
+      <div>
+        <h1>🪪 NID Verification</h1>
+        <div class="sub">{{ nvAll.length }} verifications · {{ kpis[1]?.value || 0 }} verified · live from API</div>
+      </div>
+      <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input v-model="query" placeholder="Search tenant, NID…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          <option value="">All statuses</option>
+          <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div v-for="k in kpis" :key="k.label" class="stat">
+        <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
+        <div class="s-value" :style="k.ok !== undefined ? (k.ok ? 'color:var(--ok)' : 'color:var(--danger)') : ''">{{ k.value }}</div>
+        <div class="s-trend">{{ k.trend }}</div>
+      </div>
+    </div>
+
+    <!-- GRID -->
+    <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+      <div v-for="v in paged" :key="v.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(v)">
+        <div style="height:84px;position:relative;background:var(--grad)">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">🪪</div>
+          <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
+            <span class="badge" :class="stCls(v.status)" style="background:#ffffff">{{ v.status || '—' }}</span>
+          </div>
+          <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ v.id }}</div>
+        </div>
+        <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff" :style="{ background: avatarColor(v.tenant || v.id) }">{{ initials(tenantName(v.tenant)) }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:14px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tenantName(v.tenant) }}</div>
+              <div class="c-sub" style="font-size:11.5px">{{ v.tenant }}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge b-gray" style="font-family:monospace">{{ maskNid(v.nid) }}</span>
+            <span v-if="v.method" class="badge b-blue">{{ v.method }}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span v-if="v.dob" class="badge b-gray">🎂 {{ v.dob }}</span>
+            <span class="badge" :class="okBadge(v.checksum_ok)">{{ v.checksum_ok ? '✅ Checksum' : '❌ Checksum' }}</span>
+            <span class="badge" :class="okBadge(v.age_ok)">{{ v.age_ok ? '✅ Age' : '❌ Age' }}</span>
+          </div>
+          <div style="display:flex;gap:13px;font-size:11.5px;margin-top:auto" class="c-sub">
+            <span>🕓 {{ fmtTs(v.ts) }}</span>
+            <span v-if="v.verified_by">✅ {{ v.verified_by }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIST -->
+    <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="kr" style="width:100%">
+          <thead><tr><th>ID</th><th>Tenant</th><th>NID</th><th>DOB</th><th>Method</th><th>Checks</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr v-for="v in paged" :key="v.id" style="cursor:pointer" @click="openDetail(v)">
+              <td style="font-weight:700;white-space:nowrap">{{ v.id }}</td>
+              <td style="white-space:nowrap">{{ tenantName(v.tenant) }}</td>
+              <td style="white-space:nowrap;font-family:monospace" class="c-sub">{{ maskNid(v.nid) }}</td>
+              <td style="white-space:nowrap" class="c-sub">{{ v.dob || '—' }}</td>
+              <td style="white-space:nowrap" class="c-sub">{{ v.method || '—' }}</td>
+              <td style="white-space:nowrap">{{ v.checksum_ok ? '✅' : '❌' }} {{ v.age_ok ? '✅' : '❌' }}</td>
+              <td style="white-space:nowrap"><span class="badge" :class="stCls(v.status)">{{ v.status || '—' }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No verifications found{{ query ? ' for “' + query + '”' : '' }}.</div>
+
+    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
+
+    <!-- drawer -->
+    <template v-if="sel">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:60" @click="closeDetail"></div>
+      <div style="position:fixed;top:0;right:0;bottom:0;width:min(600px,94vw);background:var(--card);z-index:61;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
+        <div class="d-cover" style="height:120px;background:var(--grad);position:relative;flex-shrink:0">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:46px">🪪</div>
+          <button @click="closeDetail" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+          <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge" style="background:#ffffff">{{ sel.id }}</span>
+            <span class="badge" :class="stCls(sel.status)" style="background:#ffffff">{{ sel.status || '—' }}</span>
+          </div>
+        </div>
+        <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:58px;height:58px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff" :style="{ background: avatarColor(sel.tenant || sel.id) }">{{ initials(tenantName(sel.tenant)) }}</div>
+            <div>
+              <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ tenantName(sel.tenant) }}</h2>
+              <div class="c-sub" style="margin-top:4px;font-size:12.5px">checked {{ fmtTs(sel.ts) }}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px">
+            <button class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="go('/tenants', { open: sel.tenant })">👤 Tenant {{ sel.tenant }}</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px;margin-top:14px">
+            <div style="font-size:13px">
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">NID number</div>
+              <div style="font-weight:700;margin-top:1px;font-family:monospace">{{ maskNid(sel.nid) }}</div>
+            </div>
+            <div style="font-size:13px">
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Date of birth</div>
+              <div style="font-weight:700;margin-top:1px">{{ sel.dob || '—' }}</div>
+            </div>
+            <div style="font-size:13px">
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Method</div>
+              <div style="font-weight:700;margin-top:1px">{{ sel.method || '—' }}</div>
+            </div>
+            <div style="font-size:13px">
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Verified by</div>
+              <div style="font-weight:700;margin-top:1px">{{ sel.verified_by || '—' }}<template v-if="sel.verified_at"> · {{ fmtTs(sel.verified_at) }}</template></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0">
+            <span class="badge" :class="okBadge(sel.checksum_ok)">{{ sel.checksum_ok ? '✅ Check digit valid' : '❌ Check digit mismatch' }}</span>
+            <span class="badge" :class="okBadge(sel.age_ok)">{{ sel.age_ok ? '✅ Age OK' : '❌ Age check failed' }}</span>
+          </div>
+          <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
+          <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
+          </div>
+          <div style="height:24px"></div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.d-cover .badge { background: #ffffff; }
+</style>
