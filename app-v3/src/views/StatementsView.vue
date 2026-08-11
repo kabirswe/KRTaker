@@ -279,9 +279,9 @@ onMounted(async () => {
 
       <!-- Statements table -->
       <div class="panel">
-        <div class="panel-h">
-          <div class="t"><span class="pi">🏢</span>Statements <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px">📅 {{ monthLabel }}</span></div>
-          <span class="badge" :class="list.length ? 'b-blue' : 'b-gray'" style="font-size:11px">{{ list.length ? list.length + ' propert' + (list.length === 1 ? 'y' : 'ies') + ' · ' + money(totals.gross) + ' gross' : 'No statements' }}</span>
+        <div class="panel-h" style="flex-wrap:wrap;row-gap:6px">
+          <div class="t"><span class="pi">🏢</span>Statements <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📅 {{ monthLabel }}</span></div>
+          <span class="badge" :class="list.length ? 'b-blue' : 'b-gray'" style="font-size:11px;flex-shrink:0;white-space:nowrap;margin-left:auto">{{ list.length ? list.length + ' propert' + (list.length === 1 ? 'y' : 'ies') + ' · ' + money(totals.gross) + ' gross' : 'No statements' }}</span>
         </div>
         <div v-if="loading" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
         <div v-else-if="!list.length" style="padding:42px 20px;text-align:center">
@@ -291,7 +291,7 @@ onMounted(async () => {
           <button class="btn-ghost" style="font-size:12px" @click="openLatestWithData()">↩ Jump to nearest month with data</button>
         </div>
         <div v-else class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Expenses</th><th>Net</th><th>Payout</th><th></th></tr></thead>
             <tbody>
               <tr v-for="s in list" :key="s.prop">
@@ -320,14 +320,16 @@ onMounted(async () => {
                   <span v-else class="badge b-gray" style="font-size:11px">—</span>
                 </td>
                 <td style="white-space:nowrap">
-                  <button class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="openDetail(s)">👁 Detail</button>
-                  <button v-if="['superadmin','owner','accountant'].includes(auth.user?.role || '')" class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="openPayout(s)">💸 Payout</button>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <button class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="openDetail(s)">👁 Detail</button>
+                    <button v-if="['superadmin','owner','accountant'].includes(auth.user?.role || '')" class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="openPayout(s)">💸 Payout</button>
+                  </div>
                 </td>
               </tr>
             </tbody>
             <tfoot>
-              <tr style="background:var(--bg-alt);font-weight:800">
-                <td style="padding:10px 12px">Total</td>
+              <tr style="background:var(--bg-alt);font-weight:800;border-top:2px solid var(--border)">
+                <td style="padding:10px 13px">Total</td>
                 <td>{{ money(totals.gross) }}</td>
                 <td>{{ money(totals.collected) }}</td>
                 <td>{{ money(totals.tds) }}</td>
@@ -343,12 +345,12 @@ onMounted(async () => {
 
       <!-- Payout ledger -->
       <div class="panel" style="margin-top:14px">
-        <div class="panel-h">
-          <div class="t"><span class="pi">💸</span>Payout ledger <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px">📅 {{ monthLabel }}</span></div>
-          <span class="badge" :class="payouts.length ? (paidCount === payouts.length ? 'b-green' : 'b-orange') : 'b-gray'" style="font-size:11px">{{ payouts.length ? paidCount + '/' + payouts.length + ' paid · ' + money(payoutTotal) : 'No payouts yet' }}</span>
+        <div class="panel-h" style="flex-wrap:wrap;row-gap:6px">
+          <div class="t"><span class="pi">💸</span>Payout ledger <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📅 {{ monthLabel }}</span></div>
+          <span class="badge" :class="payouts.length ? (paidCount === payouts.length ? 'b-green' : 'b-orange') : 'b-gray'" style="font-size:11px;flex-shrink:0;white-space:nowrap;margin-left:auto">{{ payouts.length ? paidCount + '/' + payouts.length + ' paid · ' + money(payoutTotal) : 'No payouts yet' }}</span>
         </div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>Property</th><th>Month</th><th>Amount</th><th>Status</th><th>Method</th><th>Ref</th></tr></thead>
             <tbody>
               <tr v-for="p in payouts" :key="p.prop + p.month">
@@ -410,7 +412,7 @@ onMounted(async () => {
                 <span class="badge b-gray" style="font-size:10.5px">{{ detail.lines?.length || 0 }}</span>
               </div>
               <div class="tbl-wrap">
-                <table>
+                <table class="kr">
                   <thead><tr><th>Invoice</th><th>Unit</th><th>Tenant</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Net</th><th>Status</th></tr></thead>
                   <tbody>
                     <tr v-for="l in detail.lines || []" :key="l.inv">
@@ -427,8 +429,8 @@ onMounted(async () => {
                     <tr v-if="!(detail.lines || []).length"><td colspan="9" class="m">No invoices this month.</td></tr>
                   </tbody>
                   <tfoot v-if="(detail.lines || []).length">
-                    <tr style="background:var(--bg-alt);font-weight:700">
-                      <td colspan="3" style="padding:8px 12px">Total</td>
+                    <tr style="background:var(--bg-alt);font-weight:700;border-top:2px solid var(--border)">
+                      <td colspan="3" style="padding:8px 13px">Total</td>
                       <td>{{ money(dTot('gross')) }}</td>
                       <td>{{ money(dTot('collected')) }}</td>
                       <td>{{ money(dTot('tds')) }}</td>
@@ -445,7 +447,7 @@ onMounted(async () => {
                 <span class="badge b-gray" style="font-size:10.5px">{{ detail.expense_items?.length || 0 }}</span>
               </div>
               <div class="tbl-wrap">
-                <table>
+                <table class="kr">
                   <thead><tr><th>Ticket</th><th>Title</th><th>Category</th><th>Amount</th></tr></thead>
                   <tbody>
                     <tr v-for="e in detail.expense_items || []" :key="e.id">
