@@ -211,13 +211,40 @@ function csvOccupancy() {
 // KPI card row helper (value can be colored)
 const kpiStyle = (c) => c ? { color: c } : {}
 
-// ── Markdown → HTML (board report) ──
+// ── Markdown → HTML (board report, beautified executive pack) ──
+// Converts the backend's board_report_md into a styled report:
+//   hero header, KPI card grid (exec summary), icon section headers,
+//   table.kr with total-row highlight, stacked aging bar, vacancy tiles,
+//   expiring-lease badge, footer. Zero deps — string building only.
 function mdToHtml(md) {
   const lines = String(md || '').split('\n')
   let html = '', inUl = false, inTable = false
+  let section = ''
+  let kpiBuf = []   // exec-summary KPI cards
+  let vacBuf = []   // vacancy-loss tiles
   const closeUl = () => { if (inUl) { html += '</ul>\n'; inUl = false } }
   const closeTable = () => { if (inTable) { html += '</tbody></table>\n'; inTable = false } }
   const inline = (s) => s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>')
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const flushBufs = () => {
+    if (kpiBuf.length) { html += '<div class="br-kpis">' + kpiBuf.join('') + '</div>\n'; kpiBuf = [] }
+    if (vacBuf.length) { html += '<div class="br-vac-grid">' + vacBuf.join('') + '</div>\n'; vacBuf = [] }
+  }
+  const secKey = (t) => {
+    const l = t.toLowerCase()
+    if (l.includes('executive')) return 'exec'
+    if (l.includes('p&l') || l.includes('profit')) return 'pnl'
+    if (l.includes('cashflow') || l.includes('cash flow')) return 'cash'
+    if (l.includes('collection')) return 'coll'
+    if (l.includes('occupancy') || l.includes('renewal')) return 'occ'
+    if (l.includes('maintenance')) return 'mnt'
+    if (l.includes('at-risk') || l.includes('at risk')) return 'risk'
+    if (l.includes('aging')) return 'aging'
+    if (l.includes('vacancy')) return 'vac'
+    if (l.includes('forecast')) return 'fc'
+    return ''
+  }
+  const SEC_ICON = { exec: '📊', pnl: '🧾', cash: '💸', coll: '💳', occ: '🏠', mnt: '🔧', risk: '⚠️', aging: '⏳', vac: '🏚️', fc: '🔮' }
   for (const raw of lines) {
     const line = raw.trimEnd()
     if (!line.trim()) { closeUl(); closeTable(); continue }
@@ -226,24 +253,87 @@ function mdToHtml(md) {
       const cells = line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim())
       if (!inTable) {
         inTable = true
-        html += '<table class="kr"><thead><tr>' + cells.map((c) => '<th>' + inline(c.replace(/^:+|:+$/g, '')) + '</th>').join('') + '</tr></thead><tbody>\n'
+        html += '<table class="kr br-table"><thead><tr>' + cells.map((c) => '<th>' + inline(c.replace(/^:+|:+$/g, '')) + '</th>').join('') + '</tr></thead><tbody>\n'
       } else if (cells.every((c) => /^:?-+:?$/.test(c))) {
         // separator row — skip
       } else {
-        html += '<tr>' + cells.map((c) => '<td>' + inline(c) + '</td>').join('') + '</tr>\n'
+        const isTotal = /^\*\*Total\*\*$/.test(cells[0])
+        html += '<tr' + (isTotal ? ' class="br-total"' : '') + '>' + cells.map((c) => '<td>' + inline(c) + '</td>').join('') + '</tr>\n'
       }
       continue
     }
     closeTable()
     if (/^### /.test(line)) { closeUl(); html += '<h4>' + inline(line.slice(4)) + '</h4>\n'; continue }
-    if (/^## /.test(line)) { closeUl(); html += '<h3>' + inline(line.slice(3)) + '</h3>\n'; continue }
-    if (/^# /.test(line)) { closeUl(); html += '<h2>' + inline(line.slice(2)) + '</h2>\n'; continue }
-    if (/^---$/.test(line.trim())) { closeUl(); html += '<hr>\n'; continue }
-    if (/^- /.test(line)) { if (!inUl) { html += '<ul>\n'; inUl = true } html += '<li>' + inline(line.slice(2)) + '</li>\n'; continue }
+    if (/^## /.test(line)) {
+      flushBufs(); closeUl()
+      const t = line.slice(3)
+      section = secKey(t)
+      html += '<h3 class="br-h"><span class="br-h-ic">' + (SEC_ICON[section] || '📋') + '</span>' + inline(t) + '</h3>\n'
+      continue
+    }
+    if (/^# /.test(line)) {
+      flushBufs(); closeUl()
+      const t = line.slice(2)
+      const m = t.split('—')
+      const title = (m[0] || t).trim()
+      const month = m[1] ? m[1].trim() : ''
+      html += '<div class="br-hero"><div class="br-hero-badge">📋 Board report</div><div class="br-hero-title">' + esc(title) + '</div>' + (month ? '<div class="br-hero-month">' + esc(month) + '</div>' : '') + '</div>\n'
+      continue
+    }
+    if (/^---$/.test(line.trim())) { flushBufs(); closeUl(); html += '<div class="br-div"></div>\n'; continue }
+    if (/^- /.test(line)) {
+      if (!inUl) { html += '<ul class="br-list">\n'; inUl = true }
+      const item = line.slice(2)
+      // Executive summary bullets → KPI cards (split on · for multi-metric lines)
+      if (section === 'exec' && item.includes(':')) {
+        closeUl()
+        const parts = item.split('·').map((p) => p.trim()).filter(Boolean)
+        for (const p of parts) {
+          const mm = p.match(/^(.+?):\s*(.+)$/)
+          if (!mm) continue
+          const label = mm[1].trim(), val = mm[2].trim()
+          const l = label.toLowerCase()
+          let tone = ''
+          if (/^৳-/.test(val)) tone = ' neg'
+          else if (l.includes('arrears') || l.includes('loss') || l.includes('risk')) tone = ' warn'
+          else if (l.includes('rate') || l.includes('occupancy') || l.includes('collected') || l.includes('net') || l.includes('income')) tone = ' pos'
+          kpiBuf.push('<div class="br-kpi' + tone + '"><div class="br-kpi-l">' + esc(label) + '</div><div class="br-kpi-v">' + inline(val) + '</div></div>')
+        }
+        continue
+      }
+      // Aging → stacked horizontal bar
+      if (section === 'aging' && item.includes('Current:')) {
+        closeUl()
+        const g = {}
+        item.split('·').forEach((p) => {
+          const mm = p.match(/^(.+?):\s*৳?([\d,]+)/)
+          if (mm) g[mm[1].trim().replace('+', '')] = parseInt(mm[2].replace(/,/g, ''), 10) || 0
+        })
+        const segs = [['Current', g['Current'] || 0, '#2F80ED'], ['30d', g['30d'] || 0, '#F59E0B'], ['60d', g['60d'] || 0, '#F97316'], ['90d+', g['90d+'] || 0, '#E74C3C']]
+        html += '<div class="br-aging"><div class="br-aging-bar">' + segs.map(([l, v, c]) => '<div class="br-aging-seg" style="flex:' + (v || 0) + ';background:' + c + '" title="' + l + ' ' + money(v) + '"></div>').join('') + '</div><div class="br-aging-legend">' + segs.map(([l, v, c]) => '<span><i style="background:' + c + '"></i>' + l + ': ' + money(v) + '</span>').join('') + '</div></div>\n'
+        continue
+      }
+      // Vacancy loss bullets → tiles
+      if (section === 'vac' && item.includes('market')) {
+        closeUl()
+        const mm = item.match(/^(.+?)\s*·\s*(.+?)\s*·\s*market\s*(.+)$/)
+        if (mm) { vacBuf.push('<div class="br-vac"><b>' + esc(mm[1].trim()) + '</b><span>' + esc(mm[2].trim()) + '</span><i>' + inline(mm[3].trim()) + '</i></div>'); continue }
+      }
+      html += '<li>' + inline(item) + '</li>\n'
+      continue
+    }
     closeUl()
+    if (/^\*\*.+\*\*$/.test(line.trim())) {
+      html += '<div class="br-badge-line">' + inline(line.trim()) + '</div>\n'
+      continue
+    }
+    if (/^Generated /.test(line.trim())) {
+      html += '<div class="br-foot">⚡ ' + inline(line.trim()) + '</div>\n'
+      continue
+    }
     html += '<p>' + inline(line) + '</p>\n'
   }
-  closeUl(); closeTable()
+  flushBufs(); closeUl(); closeTable()
   return html
 }
 
@@ -653,7 +743,7 @@ function printReport() {
             <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" :disabled="loading" @click="genBoard">＋ Generate</button>
           </div>
         </div>
-        <div class="panel-b" style="max-height:560px;overflow:auto" id="boardReport">
+        <div class="panel-b" style="max-height:72vh;overflow:auto;padding:22px 24px" id="boardReport">
           <div v-if="boardMd" class="board-report" v-html="mdToHtml(boardMd)"></div>
           <div v-else class="c-sub">Generate a board report — an executive summary of this month's portfolio (P&amp;L, collections, arrears, renewals, risks).</div>
         </div>
