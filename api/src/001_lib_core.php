@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260810) {
+        if ($__sv < 20260811) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -849,6 +849,25 @@ function db() {
             amount INTEGER DEFAULT 0, method TEXT DEFAULT 'Cash', collected_at TEXT DEFAULT '',
             receipt_no TEXT DEFAULT '', note TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sc_bill ON samity_collections(bill)");$pdo->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sp_unique ON staff_payroll(staff, month)");
+        /* VAS-S1 (20260811): samity expenses + per-property scoping */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS samity_expenses (
+            id TEXT PRIMARY KEY, owner_email TEXT DEFAULT '', prop TEXT DEFAULT '',
+            category TEXT DEFAULT 'other', title TEXT DEFAULT '', amount INTEGER DEFAULT 0,
+            exp_date TEXT DEFAULT '', note TEXT DEFAULT '', created_by TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_se_prop ON samity_expenses(prop, exp_date)");
+        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_members)')->fetchAll(PDO::FETCH_COLUMN), true)) {
+            $pdo->exec("ALTER TABLE samity_members ADD COLUMN prop TEXT DEFAULT ''");
+            $pdo->exec("UPDATE samity_members SET prop='P-001' WHERE prop=''");  /* society flats live at Green View Residency */
+        }
+        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_bills)')->fetchAll(PDO::FETCH_COLUMN), true)) {
+            $pdo->exec("ALTER TABLE samity_bills ADD COLUMN prop TEXT DEFAULT ''");
+            $pdo->exec("UPDATE samity_bills SET prop=(SELECT p FROM units WHERE units.id=samity_bills.unit) WHERE unit IN (SELECT id FROM units)");
+        }
+        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_collections)')->fetchAll(PDO::FETCH_COLUMN), true)) {
+            $pdo->exec("ALTER TABLE samity_collections ADD COLUMN prop TEXT DEFAULT ''");
+            $pdo->exec("UPDATE samity_collections SET prop=(SELECT prop FROM samity_bills WHERE samity_bills.id=samity_collections.bill)");
+        }
 
 
 
@@ -917,7 +936,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
-        try { $pdo->exec('PRAGMA user_version=20260810'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260811'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

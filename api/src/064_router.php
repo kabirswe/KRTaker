@@ -825,7 +825,8 @@ case 'app-bootstrap': {
             'staff_attendance' => $q('SELECT * FROM staff_attendance ORDER BY ts DESC'),
                         'samity_members' => $q('SELECT * FROM samity_members ORDER BY ts DESC'),
             'samity_bills' => $q('SELECT * FROM samity_bills ORDER BY ts DESC'),
-            'samity_collections' => $q('SELECT * FROM samity_collections ORDER BY ts DESC'),'staff_payroll' => $q('SELECT * FROM staff_payroll ORDER BY ts DESC'),
+            'samity_collections' => $q('SELECT * FROM samity_collections ORDER BY ts DESC'),
+            'samity_expenses' => $q('SELECT * FROM samity_expenses ORDER BY ts DESC'),'staff_payroll' => $q('SELECT * FROM staff_payroll ORDER BY ts DESC'),
             'sys_services' => $q('SELECT * FROM sys_services ORDER BY ts DESC'),
             'sys_fuel' => $q('SELECT * FROM sys_fuel ORDER BY ts DESC'),
             'resident_vehicles' => $q('SELECT * FROM resident_vehicles ORDER BY ts DESC'),
@@ -889,7 +890,7 @@ case 'app-bootstrap': {
             'gate_visits' => [], 'resident_vehicles' => [], 'gate_watchlist' => [],
             'fire_assets' => [], 'fire_incidents' => [], 'evacuation_plans' => [], 'emergency_contacts' => [],
             'sys_assets' => [], 'sys_services' => [], 'sys_fuel' => [],
-            'samity_members' => [], 'samity_bills' => [], 'samity_collections' => [],            'building_staff' => [], 'staff_attendance' => [], 'staff_payroll' => [],
+            'samity_members' => [], 'samity_bills' => [], 'samity_collections' => [], 'samity_expenses' => [],            'building_staff' => [], 'staff_attendance' => [], 'staff_payroll' => [],
         ];
     } else { /* partner */
         $me = $q('SELECT * FROM partners WHERE sub_email=?', [$u['email']]);
@@ -2557,7 +2558,7 @@ case 'app-export': {
     if ($u['role'] !== 'superadmin' && $u['email'] !== ADMIN_EMAIL) json_out(['ok' => false, 'error' => 'Super admin only.'], 403);
     $pdo = db();
     $out = ['_exported_at' => gmdate('c'), '_db' => 'sqlite', '_tables' => []];
-    $tables = ['subscribers','contacts','newsletter_emails','app_users','app_tokens','plan_catalog','audit_log','auth_attempts','properties','units','tenants','leases','invoices','receipts','payments','tickets','partners','staff','support','platform_meta','cases','gateway_tx','legal_docs','doc_templates','email_templates','handover_checklists','property_rent','amenities','caretaker_subs','caretaker_invoices','insurance_plans','insurance_policies','maintenance_requests','leads','statement_payouts','compliance_items','renewal_requests','meter_readings','utility_bills','utility_tariffs','partner_invoices','vendor_payouts','remittances','onboarding_apps','sla_config','vendor_ratings','job_media','nid_verifications','thana_forms','legal_notices','case_events','land_parcels','land_visits','land_media','land_events','nrb_tax_returns','nrb_repatriations','nrb_vacancies','nrb_showings','nrb_disputes','concierge_requests','concierge_docs','holding_taxes','smart_locks','cctv_cameras','health_plans','build_projects','build_milestones','build_expenses','build_media','gate_visits','resident_vehicles','gate_watchlist','fire_assets','fire_incidents','evacuation_plans','emergency_contacts','sys_assets','sys_services','sys_fuel','building_staff','staff_attendance','staff_payroll','samity_members','samity_bills','samity_collections'];
+    $tables = ['subscribers','contacts','newsletter_emails','app_users','app_tokens','plan_catalog','audit_log','auth_attempts','properties','units','tenants','leases','invoices','receipts','payments','tickets','partners','staff','support','platform_meta','cases','gateway_tx','legal_docs','doc_templates','email_templates','handover_checklists','property_rent','amenities','caretaker_subs','caretaker_invoices','insurance_plans','insurance_policies','maintenance_requests','leads','statement_payouts','compliance_items','renewal_requests','meter_readings','utility_bills','utility_tariffs','partner_invoices','vendor_payouts','remittances','onboarding_apps','sla_config','vendor_ratings','job_media','nid_verifications','thana_forms','legal_notices','case_events','land_parcels','land_visits','land_media','land_events','nrb_tax_returns','nrb_repatriations','nrb_vacancies','nrb_showings','nrb_disputes','concierge_requests','concierge_docs','holding_taxes','smart_locks','cctv_cameras','health_plans','build_projects','build_milestones','build_expenses','build_media','gate_visits','resident_vehicles','gate_watchlist','fire_assets','fire_incidents','evacuation_plans','emergency_contacts','sys_assets','sys_services','sys_fuel','building_staff','staff_attendance','staff_payroll','samity_members','samity_bills','samity_collections','samity_expenses'];
     foreach ($tables as $t) {
         try {
             $out['_tables'][$t] = $pdo->query("SELECT * FROM $t")->fetchAll(PDO::FETCH_ASSOC);
@@ -7683,7 +7684,10 @@ case 'app-samity': {
         $members = samity_member_rows($pdo, $u);
         $bills = array_map(fn($b) => samity_bill_enrich($pdo, $b), samity_bill_rows($pdo, $u));
         $col = samity_collection_rows($pdo, $u);
+        $exp = samity_expense_rows($pdo, $u);
         $fund = samity_fund($pdo, $bills, $col);
+        $expTotal = 0; foreach ($exp as $e) { $expTotal += (int)$e['amount']; }
+        $expMonth = 0; $ym = date('Y-m'); foreach ($exp as $e) { if (substr((string)$e['exp_date'], 0, 7) === $ym) $expMonth += (int)$e['amount']; }
         $stats = [
             'members_total' => count($members),
             'members_active' => count(array_filter($members, fn($m) => $m['status'] === 'active')),
@@ -7695,8 +7699,12 @@ case 'app-samity': {
             'fund_collected' => $fund['total_collected'],
             'fund_outstanding' => $fund['outstanding'],
             'collection_rate' => $fund['collection_rate'],
+            'expenses_total' => count($exp),
+            'expenses_amount' => $expTotal,
+            'expenses_this_month' => $expMonth,
+            'fund_net' => max(0, $fund['total_collected'] - $expTotal),
         ];
-        $summary = ['stats' => $stats, 'members' => $members, 'bills' => $bills, 'collections' => $col, 'fund' => $fund, 'config' => ['alert_days' => (int)(samity_cfg($pdo, 'alert_days', 7)), 'default_charge' => (int)(samity_cfg($pdo, 'default_charge', 3000))]];
+        $summary = ['stats' => $stats, 'members' => $members, 'bills' => $bills, 'collections' => $col, 'expenses' => $exp, 'fund' => $fund, 'config' => ['alert_days' => (int)(samity_cfg($pdo, 'alert_days', 7)), 'default_charge' => (int)(samity_cfg($pdo, 'default_charge', 3000))]];
         json_out(['ok' => true, 'summary' => $summary, 'config' => $summary['config']]);
     }
     if ($action === 'member-list') json_out(['ok' => true, 'members' => samity_member_rows($pdo, $u)]);
@@ -7715,8 +7723,8 @@ case 'app-samity': {
         $role = trim($body['role'] ?? 'Member');
         if (!in_array($role, ['Chairman', 'Secretary', 'Treasurer', 'Member'], true)) $role = 'Member';
         $oe = ($u['role'] === 'owner') ? $u['email'] : trim($body['owner_email'] ?? '');
-        $st = $pdo->prepare('INSERT INTO samity_members (id, owner_email, name, role, phone, since_date, status, notes) VALUES (?,?,?,?,?,?,?,?)');
-        $st->execute([$id, $oe, $name, $role, trim($body['phone'] ?? ''), trim($body['since_date'] ?? date('Y-m-d')), trim($body['status'] ?? 'active'), trim($body['notes'] ?? '')]);
+        $st = $pdo->prepare('INSERT INTO samity_members (id, owner_email, prop, name, role, phone, since_date, status, notes) VALUES (?,?,?,?,?,?,?,?,?)');
+        $st->execute([$id, $oe, trim($body['prop'] ?? ''), $name, $role, trim($body['phone'] ?? ''), trim($body['since_date'] ?? date('Y-m-d')), trim($body['status'] ?? 'active'), trim($body['notes'] ?? '')]);
         audit($u['name'], 'member-create', 'samity', $id . ' ' . $role);
         json_out(['ok' => true, 'id' => $id]);
     }
@@ -7762,8 +7770,10 @@ case 'app-samity': {
         $id = samity_next_id($pdo, 'SB-');
         $due = trim($body['due_date'] ?? date('Y-m-05'));
         $oe = ($u['role'] === 'owner') ? $u['email'] : trim($body['owner_email'] ?? '');
-        $st = $pdo->prepare('INSERT INTO samity_bills (id, owner_email, unit, month, amount, due_date, status, note) VALUES (?,?,?,?,?,?,?,?)');
-        $st->execute([$id, $oe, $unit, $month, $amount, $due, trim($body['status'] ?? 'Pending'), trim($body['note'] ?? '')]);
+        $up = $pdo->prepare('SELECT p FROM units WHERE id=?'); $up->execute([$unit]);
+        $prop = (string)($up->fetchColumn() ?: '');
+        $st = $pdo->prepare('INSERT INTO samity_bills (id, owner_email, prop, unit, month, amount, due_date, status, note) VALUES (?,?,?,?,?,?,?,?,?)');
+        $st->execute([$id, $oe, $prop, $unit, $month, $amount, $due, trim($body['status'] ?? 'Pending'), trim($body['note'] ?? '')]);
         audit($u['name'], 'bill-create', 'samity', $id . ' ' . $unit . ' ' . $month);
         json_out(['ok' => true, 'id' => $id]);
     }
@@ -7803,8 +7813,8 @@ case 'app-samity': {
         if (!in_array($method, ['Cash', 'bKash', 'Nagad', 'Bank'], true)) $method = 'Cash';
         $id = samity_next_id($pdo, 'SC-');
         $oe = ($u['role'] === 'owner') ? $u['email'] : trim($body['owner_email'] ?? $b['owner_email']);
-        $st = $pdo->prepare('INSERT INTO samity_collections (id, owner_email, bill, amount, method, collected_at, receipt_no, note) VALUES (?,?,?,?,?,?,?,?)');
-        $st->execute([$id, $oe, $bid, $amount, $method, trim($body['collected_at'] ?? date('Y-m-d')), 'RCPT-' . $id, trim($body['note'] ?? '')]);
+        $st = $pdo->prepare('INSERT INTO samity_collections (id, owner_email, prop, bill, amount, method, collected_at, receipt_no, note) VALUES (?,?,?,?,?,?,?,?,?)');
+        $st->execute([$id, $oe, $b['prop'] ?? '', $bid, $amount, $method, trim($body['collected_at'] ?? date('Y-m-d')), 'RCPT-' . $id, trim($body['note'] ?? '')]);
         if ($already + $amount >= (int)$b['amount'] && $b['status'] === 'Pending') {
             $pdo->prepare("UPDATE samity_bills SET status='Paid' WHERE id=?")->execute([$bid]);
         } elseif ($b['status'] === 'Pending') {
@@ -7828,6 +7838,43 @@ case 'app-samity': {
             $pdo->prepare('UPDATE samity_bills SET status=? WHERE id=?')->execute([$ns, $b['id']]);
         }
         audit($u['name'], 'collection-delete', 'samity', $id);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'expense-list') json_out(['ok' => true, 'expenses' => samity_expense_rows($pdo, $u)]);
+    if ($action === 'expense-create') {
+        $title = trim($body['title'] ?? '');
+        if ($title === '') json_out(['ok' => false, 'error' => 'Title is required.'], 400);
+        $amount = max(1, (int)($body['amount'] ?? 0));
+        $cat = trim($body['category'] ?? 'other');
+        if (!in_array($cat, ['maintenance', 'utility', 'repair', 'cleaning', 'event', 'security', 'other'], true)) $cat = 'other';
+        $id = samity_next_id($pdo, 'SE-');
+        $oe = ($u['role'] === 'owner') ? $u['email'] : trim($body['owner_email'] ?? '');
+        $st = $pdo->prepare('INSERT INTO samity_expenses (id, owner_email, prop, category, title, amount, exp_date, note, created_by) VALUES (?,?,?,?,?,?,?,?,?)');
+        $st->execute([$id, $oe, trim($body['prop'] ?? ''), $cat, $title, $amount, trim($body['exp_date'] ?? date('Y-m-d')), trim($body['note'] ?? ''), $u['name']]);
+        audit($u['name'], 'expense-create', 'samity', $id . ' ' . $cat . ' ' . $amount);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($action === 'expense-save') {
+        $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare('SELECT * FROM samity_expenses WHERE id=?'); $st->execute([$id]);
+        $e = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$e) json_out(['ok' => false, 'error' => 'Expense not found.'], 404);
+        if (!$ownerOk($e['owner_email'])) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $cat = trim($body['category'] ?? $e['category']);
+        if (!in_array($cat, ['maintenance', 'utility', 'repair', 'cleaning', 'event', 'security', 'other'], true)) $cat = $e['category'];
+        $st = $pdo->prepare('UPDATE samity_expenses SET prop=?, category=?, title=?, amount=?, exp_date=?, note=? WHERE id=?');
+        $st->execute([trim($body['prop'] ?? $e['prop']), $cat, trim($body['title'] ?? $e['title']), max(1, (int)($body['amount'] ?? $e['amount'])), trim($body['exp_date'] ?? $e['exp_date']), trim($body['note'] ?? $e['note']), $id]);
+        audit($u['name'], 'expense-save', 'samity', $id);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'expense-delete') {
+        $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare('SELECT * FROM samity_expenses WHERE id=?'); $st->execute([$id]);
+        $e = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$e) json_out(['ok' => false, 'error' => 'Expense not found.'], 404);
+        if (!$ownerOk($e['owner_email'])) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $pdo->prepare('DELETE FROM samity_expenses WHERE id=?')->execute([$id]);
+        audit($u['name'], 'expense-delete', 'samity', $id);
         json_out(['ok' => true]);
     }
     if ($action === 'config-get') {

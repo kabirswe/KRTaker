@@ -392,7 +392,7 @@ function samity_cfg($pdo, $key, $def = '') {
     $v = $st->fetchColumn(); return $v === false ? $def : $v;
 }
 function samity_next_id($pdo, $prefix) {
-    $tbl = ['SM-' => 'samity_members', 'SB-' => 'samity_bills', 'SC-' => 'samity_collections'][$prefix] ?? 'samity_members';
+    $tbl = ['SM-' => 'samity_members', 'SB-' => 'samity_bills', 'SC-' => 'samity_collections', 'SE-' => 'samity_expenses'][$prefix] ?? 'samity_members';
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'$prefix','') AS INTEGER)) FROM $tbl")->fetchColumn();
     return $prefix . str_pad((string)($mx + 1), 3, '0', STR_PAD_LEFT);
 }
@@ -407,6 +407,10 @@ function samity_bill_rows($pdo, $u) {
 function samity_collection_rows($pdo, $u) {
     if ($u['role'] === 'owner') { $st = $pdo->prepare("SELECT * FROM samity_collections WHERE owner_email=? OR owner_email='' ORDER BY collected_at DESC, ts DESC"); $st->execute([$u['email']]); return $st->fetchAll(PDO::FETCH_ASSOC); }
     return $pdo->query('SELECT * FROM samity_collections ORDER BY collected_at DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+}
+function samity_expense_rows($pdo, $u) {
+    if ($u['role'] === 'owner') { $st = $pdo->prepare("SELECT * FROM samity_expenses WHERE owner_email=? OR owner_email='' ORDER BY exp_date DESC, ts DESC"); $st->execute([$u['email']]); return $st->fetchAll(PDO::FETCH_ASSOC); }
+    return $pdo->query('SELECT * FROM samity_expenses ORDER BY exp_date DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
 }
 function samity_unit_label($pdo, $unit) {
     $st = $pdo->prepare('SELECT u.name, p.name FROM units u LEFT JOIN properties p ON p.id=u.p WHERE u.id=?'); $st->execute([$unit]);

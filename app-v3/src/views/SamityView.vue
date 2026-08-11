@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { apiCall } from '../api/client'
 import { useViewMode, usePager, money, fmtTs, avatarColor, initials, monthLabel, today } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
@@ -11,15 +12,21 @@ const viewMode = useViewMode('samity')
 const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
-const memAll = computed(() => data.list('samity_members'))
-const billsAll = computed(() => data.list('samity_bills'))
-const colsAll = computed(() => data.list('samity_collections'))
+const propsList = computed(() => data.list('properties'))
+const propName = (pid) => propsList.value.find(p => p.id === pid)?.name || pid || ''
+const role = computed(() => (data.user || {}).role || '')
+const canManage = computed(() => ['superadmin', 'owner', 'manager', 'svc_mgr'].includes(role.value))
+
+// ── property scoping dropdown ──
+const propFilter = ref('')
+const inProp = (row) => !propFilter.value || (row.prop || '') === propFilter.value
 
 // ── tabs ──
 const TABS = [
   ['committee', '👥', 'Committee'],
   ['bills', '🧾', 'Bills'],
   ['collection', '💳', 'Collection'],
+  ['expenses', '💸', 'Expenses'],
   ['report', '🖨', 'Report'],
   ['settings', '⚙️', 'Settings'],
 ]
@@ -36,23 +43,39 @@ const stCls = (s) => s === 'active' ? 'b-green' : 'b-gray'
 const bStCls = (s) => s === 'Paid' ? 'b-green' : (s === 'Partial' ? 'b-orange' : 'b-gray')
 const METHOD_TINT = { bKash: '#e2136e', Nagad: '#f6921e', Rocket: '#8c3494', Bank: '#1f6feb', Cheque: '#8957e5', Cash: '#12a150', Card: '#c2410c' }
 const methodTint = (m) => { const c = METHOD_TINT[m] || '#5b6b8c'; return { background: c + '22', color: c, border: '1px solid ' + c + '44' } }
+const EXP_CAT = {
+  maintenance: { ico: '🔧', cls: 'b-blue', label: 'Maintenance' },
+  utility: { ico: '💡', cls: 'b-orange', label: 'Utility' },
+  repair: { ico: '🛠️', cls: 'b-green', label: 'Repair' },
+  cleaning: { ico: '🧹', cls: 'b-gray', label: 'Cleaning' },
+  event: { ico: '🎉', cls: 'b-blue', label: 'Event' },
+  security: { ico: '🛡️', cls: 'b-red', label: 'Security' },
+  other: { ico: '📦', cls: 'b-gray', label: 'Other' },
+}
+const expCat = (c) => EXP_CAT[c] || EXP_CAT.other
 
-// ── KPIs ──
+// ── collections (raw) ──
+const memAll = computed(() => data.list('samity_members'))
+const billsAll = computed(() => data.list('samity_bills'))
+const colsAll = computed(() => data.list('samity_collections'))
+const expAll = computed(() => data.list('samity_expenses'))
+
+// ── KPIs (respect property filter) ──
 const kpis = computed(() => {
-  const ms = memAll.value
+  const ms = memAll.value.filter(inProp)
+  const bs = billsAll.value.filter(inProp)
   const active = ms.filter(m => m.status === 'active').length
   const bearers = ms.filter(m => m.role && m.role !== 'Member').length
   const flats = ms.filter(m => /flat/i.test(m.notes || '')).length
-  const phones = ms.filter(m => m.phone).length
   const since = ms.map(m => m.since_date).filter(Boolean).sort()
-  const billsDue = billsAll.value.filter(b => b.status !== 'Paid').reduce((s, b) => s + (b.amount || 0), 0)
+  const billsDue = bs.filter(b => b.status !== 'Paid').reduce((s, b) => s + (b.amount || 0), 0)
   return [
     { label: 'Members', ico: '🏘️', value: ms.length, trend: 'samity roster' },
     { label: 'Active', ico: '✅', value: active, trend: active === ms.length ? 'all active' : active + ' of ' + ms.length, ok: active === ms.length },
     { label: 'Office bearers', ico: '⭐', value: bearers, trend: 'chairman · secretary · treasurer' },
     { label: 'Flat owners', ico: '🏠', value: flats, trend: 'resident members' },
-    { label: 'Bill balance', ico: '🧾', value: money(billsDue), trend: 'unpaid society bills' },
-    { label: 'Since', ico: '📅', value: since.length ? since[0] : '—', trend: 'earliest membership' },
+    { label: 'Bill balance', ico: '🧾', value: money(billsDue), trend: 'unpaid society bills', ok: billsDue === 0 },
+    { label: 'Since', ico: '📅', value: since.length ? since[0] : '—', trend: propFilter.value ? propName(propFilter.value) : 'earliest membership' },
   ]
 })
 
@@ -61,7 +84,7 @@ const query = ref('')
 const roleFilter = ref('')
 const roleOptions = computed(() => [...new Set(memAll.value.map(m => m.role).filter(Boolean))].sort())
 const filtered = computed(() => {
-  let out = memAll.value
+  let out = memAll.value.filter(inProp)
   const q = query.value.trim().toLowerCase()
   if (q) out = out.filter(m => JSON.stringify(m).toLowerCase().includes(q))
   if (roleFilter.value) out = out.filter(m => (m.role || '') === roleFilter.value)
@@ -86,7 +109,7 @@ const bMonth = ref('')
 const bStatusOptions = computed(() => [...new Set(billsAll.value.map(b => b.status).filter(Boolean))].sort())
 const bMonthOptions = computed(() => [...new Set(billsAll.value.map(b => b.month).filter(Boolean))].sort().reverse())
 const billsFiltered = computed(() => {
-  let out = billsAll.value
+  let out = billsAll.value.filter(inProp)
   const q = bq.value.trim().toLowerCase()
   if (q) out = out.filter(b => JSON.stringify(b).toLowerCase().includes(q))
   if (bStatus.value) out = out.filter(b => (b.status || '') === bStatus.value)
@@ -102,7 +125,7 @@ const cq = ref('')
 const cMethod = ref('')
 const cMethodOptions = computed(() => [...new Set(colsAll.value.map(c => c.method).filter(Boolean))].sort())
 const colsFiltered = computed(() => {
-  let out = colsAll.value
+  let out = colsAll.value.filter(inProp)
   const q = cq.value.trim().toLowerCase()
   if (q) out = out.filter(c => JSON.stringify(c).toLowerCase().includes(q))
   if (cMethod.value) out = out.filter(c => (c.method || '') === cMethod.value)
@@ -115,18 +138,66 @@ const cByMethod = computed(() => {
   return Object.entries(map)
 })
 
+// ── Expenses tab ──
+const eq = ref('')
+const eCat = ref('')
+const eCatOptions = computed(() => [...new Set(expAll.value.map(e => e.category).filter(Boolean))].sort())
+const expFiltered = computed(() => {
+  let out = expAll.value.filter(inProp)
+  const q = eq.value.trim().toLowerCase()
+  if (q) out = out.filter(e => JSON.stringify(e).toLowerCase().includes(q))
+  if (eCat.value) out = out.filter(e => (e.category || '') === eCat.value)
+  return [...out].sort((a, b) => String(b.exp_date || '').localeCompare(String(a.exp_date || '')) || String(b.ts || '').localeCompare(String(a.ts || '')))
+})
+const eTotal = computed(() => expFiltered.value.reduce((s, e) => s + (e.amount || 0), 0))
+const eMonth = computed(() => {
+  const ym = today().slice(0, 7)
+  return expFiltered.value.filter(e => String(e.exp_date || '').slice(0, 7) === ym).reduce((s, e) => s + (e.amount || 0), 0)
+})
+const eTopCat = computed(() => {
+  const map = {}
+  expFiltered.value.forEach(e => { const c = e.category || 'other'; map[c] = (map[c] || 0) + (e.amount || 0) })
+  const sorted = Object.entries(map).sort((a, b) => b[1] - a[1])
+  return sorted.length ? sorted[0] : null
+})
+
+const expModal = ref(false)
+const expForm = ref({ title: '', category: 'maintenance', amount: '', exp_date: today(), prop: '', note: '' })
+function openExpModal() {
+  expForm.value = { title: '', category: 'maintenance', amount: '', exp_date: today(), prop: propFilter.value || propsList.value[0]?.id || '', note: '' }
+  expModal.value = true
+}
+async function addExpense() {
+  const f = expForm.value
+  if (!f.title.trim()) { window.__krToast?.('❌ Title is required'); return }
+  if (!(parseInt(f.amount) > 0)) { window.__krToast?.('❌ Amount is required'); return }
+  const r = await apiCall('app-samity', { action: 'expense-create', title: f.title.trim(), category: f.category, amount: parseInt(f.amount), exp_date: f.exp_date || today(), prop: f.prop, note: f.note.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  expModal.value = false
+  window.__krToast?.('✅ Expense recorded')
+  await data.bootstrap()
+}
+async function delExpense(e) {
+  if (!window.confirm('Delete expense ' + e.id + ' — ' + (e.title || '') + '?')) return
+  const r = await apiCall('app-samity', { action: 'expense-delete', id: e.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  await data.bootstrap()
+}
+
 // ── Report tab ──
 const rMonth = ref('')
 const rMonths = computed(() => [...new Set(billsAll.value.map(b => b.month).filter(Boolean))].sort().reverse())
 const report = computed(() => {
   const month = rMonth.value
-  const bills = billsAll.value.filter(b => !month || b.month === month)
-  const colls = colsAll.value.filter(c => !month || String(c.collected_at || '').slice(0, 7) === month)
+  const bills = billsAll.value.filter(inProp).filter(b => !month || b.month === month)
+  const colls = colsAll.value.filter(inProp).filter(c => !month || String(c.collected_at || '').slice(0, 7) === month)
+  const exps = expAll.value.filter(inProp).filter(e => !month || String(e.exp_date || '').slice(0, 7) === month)
   const issued = bills.reduce((s, b) => s + (b.amount || 0), 0)
   const collected = colls.reduce((s, c) => s + (c.amount || 0), 0)
-  const paidBills = bills.filter(b => b.status === 'Paid').reduce((s, b) => s + (b.amount || 0), 0)
+  const expTotal = exps.reduce((s, e) => s + (e.amount || 0), 0)
   const outstanding = Math.max(0, issued - collected)
-  return { bills, colls, issued, collected, paidBills, outstanding, rate: issued ? Math.round((collected / issued) * 100) : 0 }
+  return { bills, colls, exps, issued, collected, expTotal, net: Math.max(0, collected - expTotal), outstanding, rate: issued ? Math.round((collected / issued) * 100) : 0 }
 })
 function printReport() {
   document.body.classList.add('print-samity')
@@ -143,7 +214,7 @@ const settings = computed(() => {
   return {
     defCharge, dueDay: dueDays.join(', ') || '—', months,
     members: memAll.value.length, active: memAll.value.filter(m => m.status === 'active').length,
-    bills: billsAll.value.length, collections: colsAll.value.length,
+    bills: billsAll.value.length, collections: colsAll.value.length, expenses: expAll.value.length,
   }
 })
 
@@ -155,7 +226,7 @@ watch(() => route.query.open, (id) => {
   if (id) { const m = memAll.value.find(x => x.id === id); if (m) openDetail(m) }
 }, { immediate: true })
 function detailFields(row) {
-  const skip = new Set(['id', 'name', 'role', 'phone', 'since_date', 'status', 'notes', 'owner_email'])
+  const skip = new Set(['id', 'name', 'role', 'phone', 'since_date', 'status', 'notes', 'owner_email', 'prop'])
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
 </script>
@@ -165,9 +236,13 @@ function detailFields(row) {
     <div class="page-head">
       <div>
         <h1>🏘️ Samity</h1>
-        <div class="sub">{{ memAll.length }} members · {{ kpis[4]?.value || '৳0' }} bill balance · live from API</div>
+        <div class="sub">{{ kpis[0]?.value || 0 }} members · {{ kpis[4]?.value || '৳0' }} bill balance · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select v-model="propFilter" title="Manage this property" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;font-weight:700;color:var(--text);outline:none">
+          <option value="">🏢 All properties</option>
+          <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
+        </select>
         <template v-if="tab === 'committee'">
           <input v-model="query" placeholder="Search name, phone, flat…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
           <select v-model="roleFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
@@ -199,6 +274,15 @@ function detailFields(row) {
             <option v-for="m in cMethodOptions" :key="m" :value="m">{{ m }}</option>
           </select>
           <button v-if="colsFiltered.length" @click="exportCsv(colsFiltered, 'samity-collections')" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        </template>
+        <template v-else-if="tab === 'expenses'">
+          <input v-model="eq" placeholder="Search title, note…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
+          <select v-model="eCat" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <option value="">All categories</option>
+            <option v-for="c in eCatOptions" :key="c" :value="c">{{ expCat(c).label }}</option>
+          </select>
+          <button v-if="expFiltered.length" @click="exportCsv(expFiltered, 'samity-expenses')" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+          <button v-if="canManage" @click="openExpModal" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add expense</button>
         </template>
         <template v-else-if="tab === 'report'">
           <select v-model="rMonth" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
@@ -233,7 +317,7 @@ function detailFields(row) {
             <div style="width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff" :style="{ background: avatarColor(m.id) }">{{ initials(m.name) }}</div>
             <div style="flex:1;min-width:0">
               <div style="font-weight:800;font-size:14.5px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name || '—' }}</div>
-              <div class="c-sub" style="font-size:12px">since {{ m.since_date || '—' }}</div>
+              <div class="c-sub" style="font-size:12px">since {{ m.since_date || '—' }}<template v-if="m.prop"> · {{ propName(m.prop) }}</template></div>
             </div>
             <span class="badge" :class="stCls(m.status)">{{ m.status || '—' }}</span>
           </div>
@@ -254,13 +338,14 @@ function detailFields(row) {
       <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>Member</th><th>Role</th><th>Phone</th><th>Since</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID</th><th>Member</th><th>Role</th><th>Phone</th><th>Property</th><th>Since</th><th>Status</th></tr></thead>
             <tbody>
               <tr v-for="m in paged" :key="m.id" style="cursor:pointer" @click="openDetail(m)">
                 <td style="font-weight:700;white-space:nowrap">{{ m.id }}</td>
                 <td style="white-space:nowrap">{{ m.name || '—' }}</td>
                 <td style="white-space:nowrap"><span class="badge" :class="roleMeta(m.role).cls">{{ roleMeta(m.role).ico }} {{ m.role || '—' }}</span></td>
                 <td style="white-space:nowrap" class="c-sub">{{ m.phone || '—' }}</td>
+                <td style="white-space:nowrap" class="c-sub">{{ m.prop ? propName(m.prop) : '—' }}</td>
                 <td style="white-space:nowrap" class="c-sub">{{ m.since_date || '—' }}</td>
                 <td style="white-space:nowrap"><span class="badge" :class="stCls(m.status)">{{ m.status || '—' }}</span></td>
               </tr>
@@ -354,13 +439,58 @@ function detailFields(row) {
       <div v-else class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No collections found for the current filters.</div>
     </template>
 
+    <!-- ── 💸 EXPENSES ── -->
+    <template v-else-if="tab === 'expenses'">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div style="flex:1;min-width:140px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Total spent</div>
+          <div style="font-weight:800;font-size:18px;margin-top:2px" :style="eTotal ? 'color:var(--danger)' : ''">{{ money(eTotal) }}</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">This month</div>
+          <div style="font-weight:800;font-size:18px;margin-top:2px">{{ money(eMonth) }}</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Entries</div>
+          <div style="font-weight:800;font-size:18px;margin-top:2px">{{ expFiltered.length }}</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Top category</div>
+          <div v-if="eTopCat" style="margin-top:3px"><span class="badge" :class="expCat(eTopCat[0]).cls">{{ expCat(eTopCat[0]).ico }} {{ expCat(eTopCat[0]).label }}</span></div>
+          <div v-else class="c-sub" style="font-size:12px;margin-top:3px">—</div>
+        </div>
+      </div>
+      <div v-if="expFiltered.length" class="panel" style="overflow:hidden">
+        <div class="tbl-wrap">
+          <table class="kr" style="width:100%">
+            <thead><tr><th>ID</th><th>Category</th><th>Title</th><th>Amount</th><th>Date</th><th>Property</th><th>Note</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="e in expFiltered" :key="e.id">
+                <td style="font-weight:700;white-space:nowrap">{{ e.id }}</td>
+                <td style="white-space:nowrap"><span class="badge" :class="expCat(e.category).cls">{{ expCat(e.category).ico }} {{ expCat(e.category).label }}</span></td>
+                <td style="white-space:nowrap;font-weight:600">{{ e.title || '—' }}</td>
+                <td style="white-space:nowrap;font-weight:700" :style="'color:var(--danger)'">{{ money(e.amount) }}</td>
+                <td style="white-space:nowrap" class="c-sub">{{ e.exp_date || '—' }}</td>
+                <td style="white-space:nowrap" class="c-sub">{{ e.prop ? propName(e.prop) : '—' }}</td>
+                <td style="white-space:nowrap" class="c-sub">{{ e.note || '—' }}</td>
+                <td style="white-space:nowrap">
+                  <button v-if="canManage" @click.stop="delExpense(e)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div v-else class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No expenses recorded yet<template v-if="canManage"> — hit “＋ Add expense” to log the first one</template>.</div>
+    </template>
+
     <!-- ── 🖨 REPORT ── -->
     <template v-else-if="tab === 'report'">
       <div class="report-area panel" style="padding:26px 28px;overflow:hidden">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--border);padding-bottom:16px">
           <div>
             <div style="font-size:20px;font-weight:800;letter-spacing:-.3px">🏘️ Samity Society Report</div>
-            <div class="c-sub" style="font-size:12.5px;margin-top:3px">{{ rMonth ? monthLabel(rMonth) : 'All months' }} · generated {{ today() }} · KRTaker</div>
+            <div class="c-sub" style="font-size:12.5px;margin-top:3px">{{ rMonth ? monthLabel(rMonth) : 'All months' }}<template v-if="propFilter.value"> · {{ propName(propFilter.value) }}</template> · generated {{ today() }} · KRTaker</div>
           </div>
           <div style="text-align:right">
             <div class="c-sub" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Collection rate</div>
@@ -377,19 +507,19 @@ function detailFields(row) {
             <div style="font-weight:800;font-size:17px;margin-top:2px;color:var(--ok)">{{ money(report.collected) }}</div>
           </div>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
-            <div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Outstanding</div>
-            <div style="font-weight:800;font-size:17px;margin-top:2px" :style="report.outstanding ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(report.outstanding) }}</div>
+            <div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Expenses</div>
+            <div style="font-weight:800;font-size:17px;margin-top:2px" :style="report.expTotal ? 'color:var(--danger)' : ''">{{ money(report.expTotal) }}</div>
           </div>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
-            <div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Members</div>
-            <div style="font-weight:800;font-size:17px;margin-top:2px">{{ settings.active }} / {{ settings.members }} active</div>
+            <div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Net fund</div>
+            <div style="font-weight:800;font-size:17px;margin-top:2px" :style="report.net ? 'color:var(--ok)' : ''">{{ money(report.net) }}</div>
           </div>
         </div>
         <div style="font-size:13px;font-weight:800;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Committee</div>
         <table class="kr" style="width:100%">
           <thead><tr><th>Name</th><th>Role</th><th>Flat</th><th>Phone</th></tr></thead>
           <tbody>
-            <tr v-for="m in memAll" :key="m.id">
+            <tr v-for="m in memAll.filter(inProp)" :key="m.id">
               <td style="white-space:nowrap;font-weight:600">{{ m.name || '—' }}</td>
               <td style="white-space:nowrap">{{ m.role || '—' }}</td>
               <td style="white-space:nowrap" class="c-sub">{{ (m.notes || '').replace(/—.*/, '') }}</td>
@@ -425,6 +555,19 @@ function detailFields(row) {
             </tr>
           </tbody>
         </table>
+        <div v-if="report.exps.length" style="font-size:13px;font-weight:800;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Expenses · {{ report.exps.length }}</div>
+        <table v-if="report.exps.length" class="kr" style="width:100%">
+          <thead><tr><th>ID</th><th>Category</th><th>Title</th><th>Amount</th><th>Date</th></tr></thead>
+          <tbody>
+            <tr v-for="e in report.exps" :key="e.id">
+              <td style="white-space:nowrap;font-weight:600">{{ e.id }}</td>
+              <td style="white-space:nowrap">{{ expCat(e.category).label }}</td>
+              <td style="white-space:nowrap">{{ e.title || '—' }}</td>
+              <td style="white-space:nowrap">{{ money(e.amount) }}</td>
+              <td style="white-space:nowrap" class="c-sub">{{ e.exp_date || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
         <div class="c-sub" style="font-size:11.5px;margin-top:18px;text-align:center">Generated by KRTaker app-v3 · {{ today() }} · Samity module report</div>
       </div>
     </template>
@@ -448,8 +591,8 @@ function detailFields(row) {
               <span style="font-weight:700">{{ settings.months.map(monthLabel).join(', ') || '—' }}</span>
             </div>
             <div style="display:flex;justify-content:space-between;gap:10px">
-              <span class="c-sub" style="font-size:12.5px">Bills / Collections</span>
-              <span style="font-weight:700">{{ settings.bills }} / {{ settings.collections }}</span>
+              <span class="c-sub" style="font-size:12.5px">Bills / Collections / Expenses</span>
+              <span style="font-weight:700">{{ settings.bills }} / {{ settings.collections }} / {{ settings.expenses }}</span>
             </div>
           </div>
         </div>
@@ -458,7 +601,7 @@ function detailFields(row) {
           <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
             <div v-for="(meta, role) in ROLE_META" :key="role" style="display:flex;align-items:center;gap:10px">
               <span class="badge" :class="meta.cls">{{ meta.ico }} {{ role }}</span>
-              <span class="c-sub" style="font-size:12px">{{ memAll.filter(m => m.role === role).length }} member(s)</span>
+              <span class="c-sub" style="font-size:12px">{{ memAll.filter(m => m.role === role && inProp(m)).length }} member(s)</span>
             </div>
           </div>
         </div>
@@ -474,10 +617,60 @@ function detailFields(row) {
               <span style="font-weight:700">{{ memAll[0]?.owner_email || '—' }}</span>
             </div>
             <div style="display:flex;justify-content:space-between;gap:10px">
-              <span class="c-sub" style="font-size:12.5px">Default charge</span>
-              <span style="font-weight:700">{{ money(settings.defCharge) }}</span>
+              <span class="c-sub" style="font-size:12.5px">Scoped property</span>
+              <span style="font-weight:700">{{ propFilter.value ? propName(propFilter.value) : 'All properties' }}</span>
             </div>
-            <div style="font-size:12px;color:var(--text-mute);line-height:1.6;margin-top:4px">Values are derived from live society data. Billing, collections and member edits are managed through the platform API.</div>
+            <div style="font-size:12px;color:var(--text-mute);line-height:1.6;margin-top:4px">Values are derived from live society data. Billing, collections, expenses and member edits are managed through the platform API.</div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- expense modal -->
+    <template v-if="expModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="expModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">💸 Add society expense</div>
+          <button @click="expModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Title *</div>
+            <input v-model="expForm.title" placeholder="e.g. Lift maintenance, Common-area cleaning…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Category</div>
+              <select v-model="expForm.category" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+                <option v-for="(meta, c) in EXP_CAT" :key="c" :value="c">{{ meta.ico }} {{ meta.label }}</option>
+              </select>
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Amount (৳) *</div>
+              <input v-model="expForm.amount" type="number" min="1" placeholder="e.g. 2500" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Date</div>
+              <input v-model="expForm.exp_date" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Property</div>
+              <select v-model="expForm.prop" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+                <option value="">—</option>
+                <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Note</div>
+            <input v-model="expForm.note" placeholder="Optional details…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="expModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="addExpense" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save expense</button>
           </div>
         </div>
       </div>
@@ -500,7 +693,7 @@ function detailFields(row) {
             <div style="width:58px;height:58px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff" :style="{ background: avatarColor(sel.id) }">{{ initials(sel.name) }}</div>
             <div>
               <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ sel.name || '—' }}</h2>
-              <div class="c-sub" style="margin-top:4px;font-size:12.5px">member since {{ sel.since_date || '—' }}</div>
+              <div class="c-sub" style="margin-top:4px;font-size:12.5px">member since {{ sel.since_date || '—' }}<template v-if="sel.prop"> · {{ propName(sel.prop) }}</template></div>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px">
