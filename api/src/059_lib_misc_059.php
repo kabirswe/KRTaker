@@ -12,56 +12,137 @@ function lease_audit_all($pdo) {
 }
 function tif_print_html($row) {
     $p = $row['payload'];
-    $rowItem = function ($label, $val) {
-        return '<tr><td style="padding:8px 12px;border:1px solid #DDE3EC;background:#F7F9FC;font-size:12px;font-weight:700;color:#445;width:220px">' . htmlspecialchars($label) . '</td>'
-            . '<td style="padding:8px 12px;border:1px solid #DDE3EC;font-size:13px">' . htmlspecialchars((string)$val) . '</td></tr>';
-    };
-    $rows = '';
-    $items = [
-        'Tenant name / ভাড়াটিয়ার নাম' => $p['name'] ?? '',
-        'NID number / জাতীয় পরিচয়পত্র নম্বর' => $p['nid'] ?? '',
-        'Date of birth / জন্ম তারিখ' => $p['dob'] ?? '',
-        'Phone / মোবাইল' => $p['phone'] ?? '',
-        'Father / পিতার নাম' => $p['father'] ?? '',
-        'Mother / মাতার নাম' => $p['mother'] ?? '',
-        'Profession / পেশা' => $p['profession'] ?? '',
-        'Employer / কর্মস্থল' => $p['employer'] ?? '',
-        'Present flat / বর্তমান ফ্ল্যাট' => $p['present_flat'] ?? '',
-        'Present road / বর্তমান রোড' => $p['present_road'] ?? '',
-        'Present area / বর্তমান এলাকা' => $p['present_area'] ?? '',
-        'Permanent address / স্থায়ী ঠিকানা' => $p['permanent_address'] ?? '',
-        'Spouse / স্বামী/স্ত্রীর নাম' => $p['spouse'] ?? '',
-        'Spouse phone / স্বামী/স্ত্রীর মোবাইল' => $p['spouse_phone'] ?? '',
-        'Family members / পরিবারের সদস্য সংখ্যা' => $p['family_count'] ?? '',
-        'Reference 1 / রেফারেন্স ১' => ($p['ref1_name'] ?? '') . ($p['ref1_phone'] ? ' — ' . $p['ref1_phone'] : ''),
-        'Reference 1 address / রেফারেন্স ১ এর ঠিকানা' => $p['ref1_address'] ?? '',
-        'Reference 2 / রেফারেন্স ২' => ($p['ref2_name'] ?? '') . ($p['ref2_phone'] ? ' — ' . $p['ref2_phone'] : ''),
-        'Reference 2 address / রেফারেন্স ২ এর ঠিকানা' => $p['ref2_address'] ?? '',
-        'Landlord / বাড়ির মালিক' => $p['landlord_name'] ?? '',
-        'Landlord NID / মালিকের এনআইডি' => $p['landlord_nid'] ?? '',
-        'Landlord phone / মালিকের মোবাইল' => $p['landlord_phone'] ?? '',
-        'Move-in date / ভাড়া শুরুর তারিখ' => $p['move_in'] ?? '',
-        'Lease term (months) / লিজের মেয়াদ' => $p['lease_term'] ?? '',
-        'Vehicle / গাড়ি' => $p['vehicle'] ?? '',
-        'Remarks / মন্তব্য' => $p['remarks'] ?? '',
-    ];
-    foreach ($items as $k => $v) $rows .= $rowItem($k, $v);
+    $e = function ($v) { return htmlspecialchars((string)$v); };
     $thana = $row['thana'] ?: ($p['thana'] ?? '');
     $district = $row['district'] ?: ($p['district'] ?? '');
-    $statusBadge = ['Draft' => '#F0B429', 'Submitted' => '#2F80ED', 'Verified' => '#27AE60'][$row['status']] ?? '#8A94A6';
-    return '<div style="font-family:Arial,Helvetica,sans-serif;color:#223;max-width:820px;margin:0 auto;padding:20px">
-        <div style="margin-bottom:10px">' . print_brand_img() . '</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #2F80ED;padding-bottom:12px;margin-bottom:16px">
-            <div><div style="font-size:20px;font-weight:800">Tenant Information Form</div>
-            <div style="font-size:12px;color:#667">ভাড়াটিয়া তথ্য ফরম — ' . htmlspecialchars($thana ?: '—') . ' থানা, ' . htmlspecialchars($district ?: '') . '</div></div>
-            <div style="text-align:right"><div style="font-size:12px;color:#667">Form ' . htmlspecialchars($row['id']) . '</div>
-            <div style="display:inline-block;margin-top:4px;padding:4px 10px;border-radius:999px;color:#fff;background:' . $statusBadge . ';font-size:11px;font-weight:700">' . htmlspecialchars($row['status']) . '</div></div></div>
-        <table style="border-collapse:collapse;width:100%">' . $rows . '</table>
-        <div style="margin-top:18px;display:flex;justify-content:space-between;gap:30px">
-            <div style="font-size:12px;color:#667">Prepared by (owner/landlord representative)</div>
-            <div style="font-size:12px;color:#667">Verified by (OC / thana)</div>
+    $house = trim(($p['present_flat'] ?? '') . ' ' . ($p['present_road'] ?? ''));
+    $area = trim($p['present_area'] ?? '');
+    $presentAddr = trim(implode(', ', array_filter([$p['present_flat'] ?? '', $p['present_road'] ?? '', $p['present_area'] ?? ''])));
+    $permAddr = trim($p['permanent_address'] ?? '');
+    $family = (int)($p['family_count'] ?? 0);
+    $famCount = $family > 0 ? $family : 4;
+
+    /* one fill row */
+    $line = function ($label, $val = '', $labelStyle = '') use ($e) {
+        return '<tr><td class="lbl" style="' . $labelStyle . '">' . $e($label) . '</td><td class="fill">'
+            . ($val !== '' ? '<span class="v">' . $e($val) . '</span>' : '') . '</td></tr>';
+    };
+    /* two fill columns in one row */
+    $two = function ($l1, $v1, $l2, $v2) use ($e) {
+        return '<tr><td class="lbl" style="width:32%">' . $e($l1) . '</td><td class="fill" style="width:18%">'
+            . ($v1 !== '' ? '<span class="v">' . $e($v1) . '</span>' : '')
+            . '</td><td class="lbl" style="width:32%">' . $e($l2) . '</td><td class="fill" style="width:18%">'
+            . ($v2 !== '' ? '<span class="v">' . $e($v2) . '</span>' : '') . '</td></tr>';
+    };
+
+    $rows = '';
+    $rows .= $line('১. ভাড়াটিয়া/বাড়ীওয়ালার নাম', $p['name'] ?? '');
+    $rows .= $line('২. পিতার নাম', $p['father'] ?? '');
+    $rows .= $two('৩. জন্ম তারিখ', $p['dob'] ?? '', 'বৈবাহিক অবস্থা', '');
+    $rows .= $line('৪. স্থায়ী ঠিকানা', $permAddr);
+    $rows .= $line('৫. পেশা ও প্রতিষ্ঠান/কর্মস্থলের ঠিকানা', trim(implode(' — ', array_filter([$p['profession'] ?? '', $p['employer'] ?? '']))));
+    $rows .= $two('৬. ধর্ম', '', 'শিক্ষাগত যোগ্যতা', '');
+    $rows .= $two('৭. মোবাইল নম্বর', $p['phone'] ?? '', 'ই-মেইল আইডি', '');
+    $rows .= $line('৮. জাতীয় পরিচয়পত্র নম্বর', $p['nid'] ?? '');
+    $rows .= $line('৯. পাসপোর্ট নম্বর (যদি থাকে)', $p['passport'] ?? '');
+    $rows .= $line('১০. জরুরী যোগাযোগ', '');
+    $rows .= $two('(ক) নাম', $p['spouse'] ?? '', '(খ) সম্পর্ক', '');
+    $rows .= $two('(গ) ঠিকানা', $permAddr, '(ঘ) মোবাইল নম্বর', $p['spouse_phone'] ?? '');
+
+    /* ১১ — family table */
+    $famRows = '';
+    for ($i = 1; $i <= $famCount; $i++) {
+        $famRows .= '<tr><td class="fill" style="text-align:center">' . $i . '</td><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr>';
+    }
+    $rows .= '<tr><td class="lbl" style="vertical-align:top">১১. পরিবার / মেসের সঙ্গীয় সদস্যদের বিবরণ</td><td class="fill" style="padding:0">'
+        . '<table class="sub"><tr><th style="width:8%">ক্রঃনং</th><th style="width:32%">নাম</th><th style="width:14%">বয়স</th><th style="width:22%">পেশা</th><th style="width:24%">মোবাইল নম্বর</th></tr>'
+        . $famRows . '</table></td></tr>';
+
+    $rows .= $two('১২. গৃহকর্মীর নাম', '', 'জাতীয় পরিচয়পত্র নং', '');
+    $rows .= $two('১৩. ড্রাইভারের নাম', $p['driver_name'] ?? '', 'জাতীয় পরিচয়পত্র নং', '');
+    $rows .= $two('মোবাইল নম্বর', '', 'স্থায়ী ঠিকানা', '');
+    $rows .= $two('১৪. পূর্ববর্তী বাড়িওয়ালার নাম', $p['prev_landlord'] ?? '', 'মোবাইল নম্বর', '');
+    $rows .= $line('ঠিকানা', '');
+    $rows .= $line('১৫. পূর্ববর্তী বাসা ছাড়ার কারণ', $p['prev_reason'] ?? '');
+    $rows .= $two('১৬. বর্তমান বাড়িওয়ালার নাম', $p['landlord_name'] ?? '', 'মোবাইল নম্বর', $p['landlord_phone'] ?? '');
+    $rows .= $line('১৭. বর্তমান বাড়ীতে কোন তারিখ থেকে বসবাস', $p['move_in'] ?? '');
+
+    /* supplementary data the app holds that the official form omits */
+    $extra = [];
+    if (trim($p['mother'] ?? '') !== '') $extra[] = '<b>মাতার নাম:</b> ' . $e($p['mother']);
+    if ($presentAddr !== '') $extra[] = '<b>বর্তমান ঠিকানা:</b> ' . $e($presentAddr);
+    if (trim($p['landlord_nid'] ?? '') !== '') $extra[] = '<b>মালিকের এনআইডি:</b> ' . $e($p['landlord_nid']);
+    if (trim($p['lease_term'] ?? '') !== '') $extra[] = '<b>লিজের মেয়াদ:</b> ' . $e($p['lease_term']) . ' মাস';
+    if (trim($p['vehicle'] ?? '') !== '') $extra[] = '<b>গাড়ি:</b> ' . $e($p['vehicle']);
+    if (trim($p['ref1_name'] ?? '') !== '') $extra[] = '<b>রেফারেন্স ১:</b> ' . $e($p['ref1_name']) . ($p['ref1_phone'] ? ' — ' . $e($p['ref1_phone']) : '') . ($p['ref1_address'] ? ', ' . $e($p['ref1_address']) : '');
+    if (trim($p['ref2_name'] ?? '') !== '') $extra[] = '<b>রেফারেন্স ২:</b> ' . $e($p['ref2_name']) . ($p['ref2_phone'] ? ' — ' . $e($p['ref2_phone']) : '') . ($p['ref2_address'] ? ', ' . $e($p['ref2_address']) : '');
+    if (trim($p['remarks'] ?? '') !== '') $extra[] = '<b>মন্তব্য:</b> ' . $e($p['remarks']);
+    $extraHtml = $extra ? '<div class="extra"><div class="extra-t">অতিরিক্ত তথ্য / Additional information</div><div style="padding:4px 6px;font-size:11px;line-height:1.7">' . implode('<br>', $extra) . '</div></div>' : '';
+
+    return '<style>
+        @page { size: A4 portrait; margin: 10mm 12mm; }
+        body { font-family: "Kalpurush","SolaimanLipi","Nikosh","Noto Sans Bengali","Arial",sans-serif; color:#111; font-size:12px; line-height:1.45; margin:0; padding:0; background:#fff; }
+        .wrap { width: 188mm; margin:0 auto; }
+        table.grid { border-collapse: collapse; width:100%; }
+        table.grid td, table.grid th { border:1px solid #000; padding:4px 7px; vertical-align:middle; }
+        td.lbl { background:#F5F5F5; font-weight:700; width:42%; }
+        td.fill { min-height:26px; height:26px; }
+        td.fill .v { font-weight:600; border-bottom:1px dotted #444; padding:0 2px; }
+        td.fill:empty::after { content:"\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0"; text-decoration:underline; text-decoration-style:dotted; color:transparent; }
+        table.sub { border-collapse: collapse; width:100%; }
+        table.sub th, table.sub td { border:1px solid #000; padding:3px 5px; font-size:11px; }
+        table.sub th { background:#EDEDED; }
+        .head { border:2px solid #000; border-collapse: collapse; width:100%; margin-bottom:0; }
+        .head td { border:1px solid #000; padding:5px 8px; }
+        .police { text-align:center; font-size:19px; font-weight:700; letter-spacing:1px; }
+        .police-sub { text-align:center; font-size:9px; letter-spacing:2.5px; color:#333; }
+        .copyline { font-size:10px; font-weight:700; text-align:center; }
+        .photobox { width:96px; height:112px; border:1.5px dashed #000; text-align:center; font-size:10px; color:#333; display:flex; align-items:center; justify-content:center; margin:0 auto; }
+        .title { text-align:center; font-size:21px; font-weight:800; letter-spacing:1px; padding:8px 0 6px; border-bottom:2px solid #000; }
+        .title-sub { text-align:center; font-size:9px; letter-spacing:2px; color:#333; }
+        .sigrow { display:flex; justify-content:space-between; margin-top:14px; font-size:12px; font-weight:700; }
+        .sigbox { border-bottom:1px solid #000; width:60mm; height:24px; }
+        .hdline { display:inline-block; min-width:70px; border-bottom:1px dotted #444; font-weight:600; }
+        .note { margin-top:12px; font-size:10.5px; border:1px solid #000; padding:4px 8px; }
+        .footer { margin-top:8px; font-size:9px; color:#555; text-align:center; }
+        .extra { margin-top:12px; border:1px solid #000; }
+        .extra-t { background:#EDEDED; font-weight:700; font-size:11px; padding:3px 6px; border-bottom:1px solid #000; }
+    </style>
+    <div class="wrap">
+        <table class="head">
+            <tr>
+                <td style="width:34%;text-align:center;border-right:1px solid #000">
+                    <div class="copyline">ভাড়াটিয়ার এক কপি</div>
+                    <div style="font-size:9px;color:#333">(Tenant’s copy)</div>
+                    <div style="margin-top:6px;text-align:left;font-size:11px">
+                        বিভাগ: <span class="hdline">' . $e($district) . '</span><br>
+                        থানা: <span class="hdline">' . $e($thana) . '</span><br>
+                        বাড়ী/হোল্ডিং: <span class="hdline">' . $e($house) . '</span><br>
+                        এলাকা: <span class="hdline">' . $e($area) . '</span>
+                    </div>
+                </td>
+                <td style="width:32%;text-align:center">
+                    <div class="police">ঢাকা মেট্রোপলিটন পুলিশ</div>
+                    <div class="police-sub">DHAKA METROPOLITAN POLICE</div>
+                    <div style="margin-top:4px;font-size:10px;color:#333">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার</div>
+                    <div style="font-size:9px;color:#333">People’s Republic of Bangladesh</div>
+                </td>
+                <td style="width:34%;text-align:center">
+                    <div class="photobox">পাসপোর্ট সাইজ ছবি<br><span style="font-size:8px">(Passport photo)</span></div>
+                </td>
+            </tr>
+        </table>
+        <div class="title">ভাড়াটিয়া নিবন্ধন ফরম<div class="title-sub">TENANT REGISTRATION FORM</div></div>
+        <table class="grid">
+            ' . $rows . '
+        </table>
+        <div class="sigrow">
+            <div>তারিখ: <span class="sigbox"></span></div>
+            <div>ভাড়াটিয়ার স্বাক্ষর: <span class="sigbox"></span></div>
         </div>
-        <div style="margin-top:26px;border-top:1px solid #DDE3EC;padding-top:8px;font-size:10.5px;color:#99A">KRTaker Trust Engine · Generated ' . date('Y-m-d H:i') . ' · ' . htmlspecialchars($row['id']) . '</div>
+        <div class="note">বিঃদ্রঃ এই ফরমের একটি কপি বাড়ির মালিক অবশ্যই সংরক্ষণ করবেন।<br><span style="font-weight:400">Note: The landlord must preserve a copy of this form.</span></div>
+        ' . $extraHtml . '
+        <div class="footer">' . $e($row['id']) . ' · ' . $e($row['status']) . ' · KRTaker Trust Engine · Generated ' . date('Y-m-d H:i') . '</div>
     </div>';
 }
 function trust_summary($pdo) {

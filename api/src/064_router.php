@@ -5237,7 +5237,7 @@ case 'app-trust': {
         $html = tif_print_html($row);
         audit($u['name'], 'Thana form printed', 'trust', $id, $row['tenant']);
         header('Content-Type: text/html; charset=utf-8');
-        echo '<!DOCTYPE html><html lang="bn"><head><meta charset="utf-8"><title>' . htmlspecialchars($id) . ' — Tenant Information Form</title></head><body>' . $html . '</body></html>';
+        echo '<!DOCTYPE html><html lang="bn"><head><meta charset="utf-8"><title>' . htmlspecialchars($id) . ' — ভাড়াটিয়া নিবন্ধন ফরম</title></head><body>' . $html . '</body></html>';
         exit;
     }
 
