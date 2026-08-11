@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
+import { apiCall } from '../api/client'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
 
 const router = useRouter()
@@ -96,7 +97,38 @@ const initials = computed(() => {
 
 function onDocClick(e) {
   if (!e.target.closest('.tb-user') && !e.target.closest('.user-menu')) menuOpen.value = false
+  if (!e.target.closest('.tb-bell') && !e.target.closest('.bell-menu')) bellOpen.value = false
 }
+
+// ── Notification bell (app-kr-alert) ──
+const bellOpen = ref(false)
+const alerts = ref([])
+const bellBusy = ref(false)
+async function loadAlerts() {
+  try {
+    const r = await apiCall('app-kr-alert', { action: 'list' })
+    if (r.ok) alerts.value = r.alerts || []
+  } catch (e) { /* silent */ }
+}
+function toggleBell() {
+  bellOpen.value = !bellOpen.value
+  if (bellOpen.value) loadAlerts()
+}
+async function dismissAlert(id) {
+  bellBusy.value = true
+  try {
+    await apiCall('app-kr-alert', { action: 'dismiss', id })
+    await loadAlerts()
+  } finally { bellBusy.value = false }
+}
+async function dismissAllAlerts() {
+  bellBusy.value = true
+  try {
+    await apiCall('app-kr-alert', { action: 'dismiss-all' })
+    await loadAlerts()
+  } finally { bellBusy.value = false }
+}
+const sevIco = (s) => s === 'critical' ? '🚨' : (s === 'warning' ? '⚠️' : (s === 'success' ? '✅' : '🔔'))
 onMounted(() => document.addEventListener('click', onDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
@@ -115,6 +147,34 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         <div class="tb-actions">
           <button class="icon-btn" @click="toggleLang()">বাংলা</button>
           <button class="icon-btn" @click="toggleTheme()">{{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}</button>
+          <div style="position:relative;display:inline-block" class="tb-bell">
+            <button class="icon-btn" @click.stop="toggleBell()" title="Notifications" style="position:relative">🔔<span v-if="alerts.length" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ alerts.length }}</span></button>
+            <!-- bell dropdown -->
+            <div v-if="bellOpen" class="bell-menu" style="position:absolute;top:calc(100% + 10px);right:0;width:min(360px,86vw);background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16);z-index:90;overflow:hidden">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border)">
+                <div style="font-weight:800;font-size:14px">🔔 Notifications</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span v-if="alerts.length" class="c-sub" style="font-size:11.5px">{{ alerts.length }} open</span>
+                  <button v-if="alerts.length" @click="dismissAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--text-mute);font-weight:800;font-size:11.5px;cursor:pointer">Clear all</button>
+                </div>
+              </div>
+              <div style="max-height:min(420px,60vh);overflow-y:auto">
+                <div v-if="!alerts.length" style="padding:34px 16px;text-align:center;color:var(--text-mute);font-size:13px">No open notifications 🎉</div>
+                <div v-for="a in alerts" :key="a.id" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+                  <div style="font-size:17px;flex-shrink:0">{{ sevIco(a.severity) }}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:800;font-size:13px">{{ a.title }}</div>
+                    <div v-if="a.body" class="c-sub" style="font-size:12px;margin-top:2px;line-height:1.5;white-space:pre-wrap">{{ a.body }}</div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-top:5px">
+                      <span v-if="a.ref" class="badge b-gray" style="font-size:10.5px">{{ a.ref }}</span>
+                      <span class="c-sub" style="font-size:11px">{{ a.ts }}</span>
+                    </div>
+                  </div>
+                  <button @click="dismissAlert(a.id)" :disabled="bellBusy" title="Dismiss" style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <button class="icon-btn" @click="goSettings()" title="Settings">⚙️</button>
           <div class="tb-user" id="tbUserChip" @click.stop="toggleMenu()">
             <div class="role-ava" style="width:34px;height:34px;font-size:12px">{{ initials }}</div>

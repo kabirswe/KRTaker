@@ -8,6 +8,54 @@ const data = useDataStore()
 const auth = useAuthStore()
 const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
 
+const tab = ref('statements')
+
+// ── rent config (app-rent-config-get / save) ──
+const rentCfg = ref([])        // [{prop, property, config, mix, units}]
+const rentLoading = ref(false)
+const rentSaving = ref(false)
+const editProp = ref(null)     // prop id being edited
+const editForm = ref({})
+const canEditRent = computed(() => ['superadmin', 'owner', 'manager'].includes(auth.user?.role || ''))
+
+async function loadRentConfig() {
+  rentLoading.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-rent-config-get')
+    if (!r.ok) { err.value = r.error || 'Failed to load rent config.'; return }
+    rentCfg.value = r.rent_configs || []
+  } catch (e) { err.value = e.message }
+  finally { rentLoading.value = false }
+}
+function openEdit(p) {
+  editProp.value = p.prop
+  editForm.value = {
+    service_charge_pct: p.config.service_charge_pct || 0,
+    utility_advance: p.config.utility_advance || 0,
+    parking_fee: p.config.parking_fee || 0,
+    escalation_pct: p.config.escalation_pct || 0,
+    advance_months: p.config.advance_months || 0,
+    due_day: p.config.due_day || 5,
+    late_fee_pct: p.config.late_fee_pct || 0,
+    rent_per_sqft: p.config.rent_per_sqft || 0,
+    notes: p.config.notes || '',
+  }
+}
+async function saveRentConfig() {
+  if (!editProp.value) return
+  if (!confirm(`Save rent configuration for this property?`)) return
+  rentSaving.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-rent-config-save', { prop: editProp.value, config: editForm.value })
+    if (!r.ok) { err.value = r.error || 'Failed to save rent config.'; return }
+    editProp.value = null
+    toast.value = '✅ Rent config saved'
+    setTimeout(() => toast.value = '', 4000)
+    await loadRentConfig()
+  } catch (e) { err.value = e.message }
+  finally { rentSaving.value = false }
+}
+
 const now = new Date()
 const month = ref(now.toISOString().slice(0, 7))
 const loading = ref(false)
@@ -103,6 +151,13 @@ onMounted(loadList)
     <div v-if="toast" style="padding:10px 14px;border-radius:10px;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);margin-bottom:14px;font-weight:700;font-size:13.5px">{{ toast }}</div>
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
+    <!-- Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button @click="tab = 'statements'" :style="tab === 'statements' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">💰 Statements</button>
+      <button @click="tab = 'rentconfig'; loadRentConfig()" :style="tab === 'rentconfig' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">⚙️ Rent Config</button>
+    </div>
+
+    <template v-if="tab === 'statements'">
     <div class="stats">
       <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Gross</div><div class="s-value">{{ money(totals.gross) }}</div></div>
       <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Collected</div><div class="s-value">{{ money(totals.collected) }}</div></div>
@@ -249,5 +304,89 @@ onMounted(loadList)
         </div>
       </div>
     </div>
+    </template>
+
+    <!-- ══ RENT CONFIG TAB ══ -->
+    <template v-if="tab === 'rentconfig'">
+      <div v-if="rentLoading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
+      <template v-else>
+        <div class="stats">
+          <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>Properties</div><div class="s-value">{{ rentCfg.length }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🧮</span>Total base rent</div><div class="s-value">{{ money(rentCfg.reduce((a, p) => a + (p.mix?.base || 0), 0)) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🧹</span>Service charges</div><div class="s-value">{{ money(rentCfg.reduce((a, p) => a + (p.mix?.service_charge || 0), 0)) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🅿️</span>Parking</div><div class="s-value">{{ money(rentCfg.reduce((a, p) => a + (p.mix?.parking || 0), 0)) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Rent mix total</div><div class="s-value">{{ money(rentCfg.reduce((a, p) => a + (p.mix?.total || 0), 0)) }}</div></div>
+        </div>
+
+        <div v-for="p in rentCfg" :key="p.prop" class="panel" style="padding:18px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div>
+              <div style="font-weight:800;font-size:15px">{{ p.property }}</div>
+              <div class="c-sub" style="font-size:12px;margin-top:2px">{{ p.prop }} · {{ p.units }} units · base {{ money(p.mix?.base) }} → mix {{ money(p.mix?.total) }} (service {{ money(p.mix?.service_charge) }} + parking {{ money(p.mix?.parking) }})</div>
+            </div>
+            <button v-if="canEditRent" class="btn-ghost" style="padding:8px 14px;font-size:12.5px" @click="openEdit(p)">✏️ Edit config</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 16px;margin-top:14px">
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Service charge</div>
+              <div style="font-weight:700;margin-top:1px">{{ p.config.service_charge_pct || 0 }}%</div>
+            </div>
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Utility advance</div>
+              <div style="font-weight:700;margin-top:1px">{{ money(p.config.utility_advance) }}</div>
+            </div>
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Parking fee</div>
+              <div style="font-weight:700;margin-top:1px">{{ money(p.config.parking_fee) }}</div>
+            </div>
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Escalation</div>
+              <div style="font-weight:700;margin-top:1px">{{ p.config.escalation_pct || 0 }}%</div>
+            </div>
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Advance months</div>
+              <div style="font-weight:700;margin-top:1px">{{ p.config.advance_months || 0 }}</div>
+            </div>
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Due day</div>
+              <div style="font-weight:700;margin-top:1px">{{ p.config.due_day || 5 }}</div>
+            </div>
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Late fee</div>
+              <div style="font-weight:700;margin-top:1px">{{ p.config.late_fee_pct || 0 }}%</div>
+            </div>
+            <div style="font-size:12.5px">
+              <div style="color:var(--text-mute);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Rent / sqft</div>
+              <div style="font-weight:700;margin-top:1px">{{ money(p.config.rent_per_sqft) }}</div>
+            </div>
+          </div>
+          <div v-if="p.config.notes" class="c-sub" style="font-size:12px;margin-top:10px">📝 {{ p.config.notes }}</div>
+        </div>
+
+        <div v-if="!rentCfg.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No properties found.</div>
+
+        <!-- edit modal -->
+        <div v-if="editProp" class="overlay" @click.self="editProp = null">
+          <div class="modal" style="max-width:560px">
+            <div class="modal-h"><span class="t">⚙️ Rent config · {{ rentCfg.find(p => p.prop === editProp)?.property }}</span><button class="close" @click="editProp = null">✕</button></div>
+            <div style="padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;overflow-y:auto;max-height:60vh">
+              <div class="form-field"><label>Service charge (%)</label><input v-model="editForm.service_charge_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>Utility advance (৳)</label><input v-model="editForm.utility_advance" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>Parking fee (৳)</label><input v-model="editForm.parking_fee" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>Escalation (%)</label><input v-model="editForm.escalation_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>Advance months</label><input v-model="editForm.advance_months" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>Due day</label><input v-model="editForm.due_day" type="number" min="1" max="31" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>Late fee (%)</label><input v-model="editForm.late_fee_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>Rent / sqft (৳)</label><input v-model="editForm.rent_per_sqft" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field" style="grid-column:1/-1"><label>Notes</label><textarea v-model="editForm.notes" rows="2" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea></div>
+            </div>
+            <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="editProp = null">Cancel</button>
+              <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="rentSaving" @click="saveRentConfig">💾 Save config {{ rentSaving ? '…' : '' }}</button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </template>
   </div>
 </template>

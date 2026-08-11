@@ -17,7 +17,7 @@ const emit = defineEmits(['close'])
 const GROUPS = [
   { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
   { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['insurance', '🛡️', 'Insurance'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
-  { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['recon', '📮', 'Collections'], ['taxes', '🏛️', 'Holding Taxes'], ['remit', '🌍', 'Remittances'], ['statements', '💰', 'Statements']] },
+  { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['recon', '📮', 'Collections'], ['taxes', '🏛️', 'Holding Taxes'], ['remit', '🌍', 'Remittances'], ['statements', '💰', 'Statements'], ['subscriptions', '💎', 'Subscriptions']] },
   { id: 'bms', label: 'BMS', items: [['maintenance', '🔧', 'Maintenance'], ['gate', '🚪', 'Gate Visits'], ['staff', '👷', 'Staff'], ['attendance', '⏱️', 'Attendance'], ['payroll', '💵', 'Payroll'], ['meter', '⚡', 'Meter Readings'], ['utilities', '🔌', 'Utility Bills'], ['samity', '🏘️', 'Samity']] },
   { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'NID & Trust'], ['support', '🎧', 'Support']] },
   { id: 'legal', label: 'Legal', items: [['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine'], ['cases', '👨‍⚖️', 'Cases'], ['concierge', '🗂️', 'Legal Concierge']] },
@@ -31,7 +31,7 @@ const VIEW_ROUTES = {
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents', templates: '/templates',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
-  taxes: '/holding-taxes', remit: '/remittances', recon: '/collections', statements: '/statements',
+  taxes: '/holding-taxes', remit: '/remittances', recon: '/collections', statements: '/statements', subscriptions: '/premium',
   notices: '/notices', referrals: '/referrals', trust: '/nid', support: '/support',
   maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
   staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',

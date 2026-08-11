@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { apiCall, apiBase } from '../api/client'
 import { useViewMode, usePager, fmtTs, maskNid, avatarColor, initials } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
@@ -69,10 +70,113 @@ function detailFields(row) {
   const skip = new Set(['id', 'tenant', 'nid', 'dob', 'status', 'method', 'checksum_ok', 'age_ok', 'verified_by', 'verified_at', 'notes'])
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
+
+// ══ DMP Thana / Tenant Information Forms (app-trust tif-*) ══
+const tab = ref('nid')
+const tfItems = ref([])
+const tfLoading = ref(false)
+const tfErr = ref('')
+const isStaff = computed(() => ['superadmin', 'owner', 'manager', 'legal', 'accountant', 'svc_mgr'].includes(data.user?.role || ''))
+const tfStatusCls = (s) => s === 'Verified' ? 'b-green' : (s === 'Submitted' ? 'b-blue' : (s === 'Draft' ? 'b-orange' : 'b-gray'))
+
+async function loadTf() {
+  tfLoading.value = true; tfErr.value = ''
+  try {
+    const r = await apiCall('app-trust', { action: 'tif-list' })
+    if (!r.ok) { tfErr.value = r.error || 'Failed to load thana forms.'; return }
+    tfItems.value = r.items || []
+  } catch (e) { tfErr.value = e.message }
+  finally { tfLoading.value = false }
+}
+
+// create
+const tfTenant = ref('')
+const tfCreating = ref(false)
+async function createTf() {
+  if (isStaff.value && !tfTenant.value) { tfErr.value = 'Select a tenant first.'; return }
+  tfCreating.value = true; tfErr.value = ''
+  try {
+    const body = { action: 'tif-create' }
+    if (isStaff.value) body.tenant = tfTenant.value
+    const r = await apiCall('app-trust', body)
+    if (!r.ok) { tfErr.value = r.error || 'Create failed.'; return }
+    await loadTf()
+    // open the edit form with the default payload
+    const f = tfItems.value.find(x => x.id === r.id)
+    openTfEdit(f || { id: r.id, tenant: tfTenant.value, payload: r.payload })
+    tfTenant.value = ''
+  } catch (e) { tfErr.value = e.message }
+  finally { tfCreating.value = false }
+}
+
+// edit
+const tfEdit = ref(null)     // { id, tenant_name, unit_name, property_name, thana, district, status, payload }
+const tfSaving = ref(false)
+function openTfEdit(f) {
+  tfEdit.value = {
+    id: f.id, tenant_name: f.tenant_name || f.tenant || '', thana: f.thana || '', district: f.district || '',
+    status: f.status || 'Draft', payload: JSON.parse(JSON.stringify(f.payload || {})),
+  }
+}
+const TF_FIELDS = [
+  ['name', 'Full name'], ['nid', 'NID'], ['dob', 'Date of birth'], ['phone', 'Phone'],
+  ['father', "Father's name"], ['mother', "Mother's name"], ['profession', 'Profession'], ['employer', 'Employer'],
+  ['present_flat', 'Present flat'], ['present_road', 'Present road'], ['present_area', 'Present area'],
+  ['permanent_address', 'Permanent address'], ['spouse', 'Spouse name'], ['spouse_phone', 'Spouse phone'],
+  ['family_count', 'Family members'], ['ref1_name', 'Referee 1 name'], ['ref1_phone', 'Referee 1 phone'],
+  ['ref1_address', 'Referee 1 address'], ['ref2_name', 'Referee 2 name'], ['ref2_phone', 'Referee 2 phone'],
+  ['ref2_address', 'Referee 2 address'], ['landlord_name', 'Landlord name'], ['landlord_nid', 'Landlord NID'],
+  ['landlord_phone', 'Landlord phone'], ['move_in', 'Move-in date'], ['lease_term', 'Lease term'],
+  ['vehicle', 'Vehicle'], ['remarks', 'Remarks'],
+]
+async function saveTf() {
+  if (!tfEdit.value) return
+  tfSaving.value = true; tfErr.value = ''
+  try {
+    const body = { action: 'tif-save', id: tfEdit.value.id, thana: tfEdit.value.thana, district: tfEdit.value.district }
+    for (const [k] of TF_FIELDS) body[k] = tfEdit.value.payload[k] || ''
+    const r = await apiCall('app-trust', body)
+    if (!r.ok) { tfErr.value = r.error || 'Save failed.'; return }
+    tfEdit.value = null
+    await loadTf()
+  } catch (e) { tfErr.value = e.message }
+  finally { tfSaving.value = false }
+}
+async function submitTf(f) {
+  if (!confirm(`Submit form ${f.id} to the thana? Status will move to Submitted (locked for verification).`)) return
+  tfErr.value = ''
+  const r = await apiCall('app-trust', { action: 'tif-submit', id: f.id })
+  if (!r.ok) { tfErr.value = r.error || 'Submit failed.'; return }
+  await loadTf()
+}
+async function verifyTf(f, verdict) {
+  if (!confirm(`${verdict === 'approve' ? 'Approve' : 'Reject'} form ${f.id}?`)) return
+  tfErr.value = ''
+  const r = await apiCall('app-trust', { action: 'tif-verify', id: f.id, verdict })
+  if (!r.ok) { tfErr.value = r.error || 'Verification failed.'; return }
+  await loadTf()
+}
+async function printTf(f) {
+  tfErr.value = ''
+  try {
+    const res = await fetch(apiBase() + 'app-trust', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('krtaker_dash_token') },
+      body: JSON.stringify({ action: 'tif-print', id: f.id }),
+    })
+    const html = await res.text()
+    if (!html || html.startsWith('{')) { tfErr.value = 'Print failed.'; return }
+    const w = window.open('', '_blank')
+    if (!w) { tfErr.value = 'Pop-up blocked — allow pop-ups for print.'; return }
+    w.document.write(html); w.document.close(); w.focus()
+    setTimeout(() => { try { w.print() } catch (e) {} }, 600)
+  } catch (e) { tfErr.value = e.message }
+}
 </script>
 
 <template>
   <div>
+    <template v-if="tab === 'nid'">
     <div class="page-head">
       <div>
         <h1>🪪 NID Verification</h1>
@@ -90,6 +194,12 @@ function detailFields(row) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button @click="tab = 'nid'" :style="tab === 'nid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">🪪 NID Checks</button>
+      <button @click="tab = 'thana'; loadTf()" :style="tab === 'thana' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">📋 Thana Forms</button>
     </div>
 
     <div class="stats">
@@ -209,6 +319,83 @@ function detailFields(row) {
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>
+        </div>
+      </div>
+    </template>
+    </template>
+
+    <!-- ══ THANA FORMS TAB ══ -->
+    <template v-if="tab === 'thana'">
+      <div class="page-head">
+        <div>
+          <h1>📋 DMP Thana Forms</h1>
+          <div class="sub">Tenant information forms for thana submission · create, submit, verify, print</div>
+        </div>
+        <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-ghost" @click="loadTf()">🔄 Refresh</button>
+        </div>
+      </div>
+      <div v-if="tfErr" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ tfErr }}</div>
+
+      <!-- create bar -->
+      <div v-if="isStaff" class="panel" style="padding:16px 18px;margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="font-weight:800;font-size:13.5px">＋ New DMP form</div>
+        <select v-model="tfTenant" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:200px">
+          <option value="">Select tenant…</option>
+          <option v-for="t in data.list('tenants')" :key="t.id" :value="t.id">{{ t.name }} ({{ t.id }})</option>
+        </select>
+        <button @click="createTf" :disabled="tfCreating || !tfTenant" style="padding:9px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">Create {{ tfCreating ? '…' : '' }}</button>
+      </div>
+
+      <div v-if="tfLoading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
+      <div v-else-if="!tfItems.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No thana forms yet{{ isStaff ? ' — create one above' : '' }}.</div>
+      <div v-else class="panel" style="overflow:hidden">
+        <div class="tbl-wrap">
+          <table class="kr" style="width:100%">
+            <thead><tr><th>ID</th><th>Tenant</th><th>Unit</th><th>Property</th><th>Thana</th><th>District</th><th>Status</th><th>Created</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="f in tfItems" :key="f.id">
+                <td style="font-weight:700;white-space:nowrap">{{ f.id }}</td>
+                <td style="white-space:nowrap">{{ f.tenant_name || f.tenant }}</td>
+                <td class="c-sub" style="white-space:nowrap">{{ f.unit_name || f.unit || '—' }}</td>
+                <td class="c-sub" style="white-space:nowrap">{{ f.property_name || f.prop || '—' }}</td>
+                <td class="c-sub">{{ f.thana || '—' }}</td>
+                <td class="c-sub">{{ f.district || '—' }}</td>
+                <td><span class="badge" :class="tfStatusCls(f.status)">{{ f.status }}</span></td>
+                <td class="c-sub" style="white-space:nowrap">{{ fmtTs(f.ts) }}</td>
+                <td style="white-space:nowrap">
+                  <button v-if="f.status !== 'Verified'" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="openTfEdit(f)">✏️ Edit</button>
+                  <button v-if="f.status === 'Draft'" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="submitTf(f)">📤 Submit</button>
+                  <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--ok,#12a150)" @click="verifyTf(f, 'approve')">✅ Approve</button>
+                  <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" @click="verifyTf(f, 'reject')">❌ Reject</button>
+                  <button v-if="f.payload?.name || f.tenant_name" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="printTf(f)">🖨 Print</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- edit modal -->
+      <div v-if="tfEdit" class="overlay" @click.self="tfEdit = null">
+        <div class="drawer">
+          <div class="modal-h"><span class="t">📋 {{ tfEdit.id }} · {{ tfEdit.tenant_name }}</span><button class="close" @click="tfEdit = null">✕</button></div>
+          <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-field"><label>Thana</label><input v-model="tfEdit.thana" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>District</label><input v-model="tfEdit.district" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div v-for="[k, label] in TF_FIELDS" :key="k" class="form-field" :class="{ 'span-2': k === 'remarks' || k === 'permanent_address' }">
+                <label>{{ label }}</label>
+                <textarea v-if="k === 'remarks'" v-model="tfEdit.payload[k]" rows="2" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
+                <input v-else v-model="tfEdit.payload[k]" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+              </div>
+            </div>
+            <div style="height:16px"></div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+            <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="tfEdit = null">Cancel</button>
+            <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="tfSaving" @click="saveTf">💾 Save form {{ tfSaving ? '…' : '' }}</button>
+          </div>
         </div>
       </div>
     </template>
