@@ -483,10 +483,9 @@ function exportCsv(kind) {
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
       </div>
-      <div v-if="filteredPartners.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
-        <div v-for="p in filteredPartners" :key="p.id" class="panel chip p-card" style="overflow:hidden;display:flex;flex-direction:column" @click="openPartner(p)">
-          <div style="height:84px;position:relative;background:var(--grad)">
-            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.35)">{{ initials(p.name) }}</div>
+      <div v-if="filteredPartners.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
+        <div v-for="p in filteredPartners" :key="p.id" class="panel chip p-card" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openPartner(p)">
+          <div class="p-cover" :style="`height:82px;position:relative;background:linear-gradient(135deg,${avatarColor(p.id)},#16A085)`">
             <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
               <span class="badge" :class="badge(p.status)">{{ p.status }}</span>
               <span v-if="p.cat" class="badge b-blue">{{ p.cat }}</span>
@@ -494,21 +493,24 @@ function exportCsv(kind) {
             <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ p.id }}</div>
           </div>
           <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
-            <div>
-              <div style="font-weight:800;font-size:15px;letter-spacing:-.2px">{{ p.name }}</div>
-              <div class="c-sub" style="margin-top:2px">🔧 {{ p.trade || '—' }}<template v-if="p.phone"> · 📞 {{ p.phone }}</template></div>
+            <div style="display:flex;gap:11px;align-items:center">
+              <div :style="`width:40px;height:40px;border-radius:50%;background:${avatarColor(p.id)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0`">{{ initials(p.name) }}</div>
+              <div style="min-width:0">
+                <div style="font-weight:800;font-size:15px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+                <div class="c-sub" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🔧 {{ p.trade || '—' }}<template v-if="p.phone"> · {{ p.phone }}</template></div>
+              </div>
             </div>
-            <div style="display:flex;gap:13px;font-size:12px;flex-wrap:wrap">
-              <span class="c-sub" title="Rating">⭐ {{ p.rating || 0 }}/5</span>
-              <span class="c-sub" title="Jobs">🔧 {{ p.jobs || 0 }} jobs</span>
-              <span v-if="p.open_jobs" class="c-sub" title="Open jobs" style="color:var(--danger)">⏳ {{ p.open_jobs }} open</span>
+            <div style="font-size:12px;display:flex;justify-content:space-between;align-items:center;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:7px 10px">
+              <span>💵 <b>{{ money(p.paid_total || 0) }}</b> paid</span>
+              <span class="c-sub">⭐ {{ p.rating || 0 }}/5 · {{ p.jobs || 0 }} jobs<template v-if="p.open_jobs"> · <b style="color:var(--danger)">{{ p.open_jobs }} open</b></template></span>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
-              <span class="badge b-blue">💰 {{ money(p.paid_total || 0) }} paid</span>
               <span v-if="p.sub_email" class="badge b-green">📧 portal</span>
-              <span v-if="p.avg_rating" class="badge b-orange">★ {{ p.avg_rating }}</span>
+              <span v-if="p.avg_rating" class="badge b-orange">★ {{ p.avg_rating }}<template v-if="p.rating_count"> ({{ p.rating_count }})</template></span>
             </div>
-            <div class="p-open-hint">👁 View profile</div>
+            <div style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:9px">
+              <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px">👁 View profile</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1224,7 +1226,7 @@ function exportCsv(kind) {
 /* partner grid cards + detail drawer */
 .p-card { cursor:pointer; transition:transform .15s, box-shadow .15s }
 .p-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(16,24,40,.1) }
-.p-open-hint { font-size:10.5px; font-weight:700; color:var(--primary); text-align:center; padding-top:7px; border-top:1px dashed var(--border); margin-top:2px }
+.p-cover .badge { background:#ffffff }
 .pstat { background:var(--bg-alt); border:1px solid var(--border); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:2px }
 .pstat-v { font-size:15px; font-weight:800; color:var(--text) }
 .pstat-l { font-size:10.5px; color:var(--text-mute) }
