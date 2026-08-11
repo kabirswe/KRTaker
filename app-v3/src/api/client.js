@@ -172,6 +172,33 @@ export function turnstileToken() {
   } catch (e) { return '' }
 }
 
+// ── Dynamic branding (app-theme): site_name, logo slots (nav/footer/print/
+// dash_header…), colors, per-slot sizes/margins/paddings/title toggles.
+// Public endpoint (no auth), cached after first fetch.
+let _brandingCache = null
+export async function getBranding() {
+  if (_brandingCache) return _brandingCache
+  try {
+    const res = await fetch((API_BASE || '../api/') + 'app-theme', { headers: {} })
+    const d = await res.json()
+    _brandingCache = (d && d.theme) ? d.theme : {}
+  } catch (e) { _brandingCache = {} }
+  return _brandingCache
+}
+// Absolutize a logo path (e.g. "/assets/branding/x.png") against the API base,
+// so it works from any host (prod origin, staging cross-origin preview, dev).
+export function brandUrl(p) {
+  if (!p) return ''
+  try { return new URL(p, API_BASE).href } catch (e) { return p }
+}
+export function brandSlotSize(brand, slot, fallback) {
+  const v = parseInt((brand.sizes || {})[slot], 10)
+  return (v > 0 && v <= 240) ? v : fallback
+}
+export function brandTitleOn(brand, slot) {
+  return ((brand.titles || {})[slot] || '0') === '1'
+}
+
 // Merge both optional tokens into a payload (used by login/register forms).
 export async function attachHumanTokens(body) {
   try {

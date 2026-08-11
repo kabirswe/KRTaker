@@ -1,14 +1,42 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
+import { getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const data = useDataStore()
+
+// ── Dynamic branding (app-theme): dash_header logo (dark variant), site name,
+// brand colors. Falls back to the classic "KR" mark + KRTaker text.
+const brand = ref({})
+const dark = ref(false)
+let themeObs = null
+function syncTheme() { dark.value = (document.documentElement.getAttribute('data-theme') === 'dark') }
+async function loadBranding() { brand.value = await getBranding() }
+const sbLogo = computed(() => {
+  const b = brand.value
+  const img = dark.value ? (b.dash_header_dark || b.dash_header) : b.dash_header
+  return {
+    img: img ? brandUrl(img) : '',
+    h: brandSlotSize(b, 'dash_header', 38),
+    showTitle: brandTitleOn(b, 'dash_header'),
+    name: b.site_name || 'KRTaker',
+    mark: b.logo_text || 'KR',
+    grad: b.primary ? ('linear-gradient(135deg,' + b.primary + ',' + (b.secondary || b.primary) + ')') : '',
+  }
+})
+onMounted(() => {
+  loadBranding()
+  syncTheme()
+  themeObs = new MutationObserver(syncTheme)
+  themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+})
+onBeforeUnmount(() => { if (themeObs) themeObs.disconnect() })
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -133,8 +161,9 @@ async function backToMe() {
 <template>
   <aside class="sidebar" :class="{ open }">
     <div class="sb-logo">
-      <div class="logo-mark">KR</div>
-      <div class="brand">KRTaker<small>Key Responsibility Taker</small></div>
+      <img v-if="sbLogo.img" :src="sbLogo.img" :alt="sbLogo.name" class="sb-logo-img" :style="{ height: sbLogo.h + 'px' }">
+      <div v-else class="logo-mark" :style="sbLogo.grad ? { background: sbLogo.grad } : {}">{{ sbLogo.mark }}</div>
+      <div class="brand" v-if="!sbLogo.img || sbLogo.showTitle">{{ sbLogo.name }}<small>Key Responsibility Taker</small></div>
     </div>
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">

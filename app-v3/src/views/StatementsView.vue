@@ -4,7 +4,7 @@
 // payouts) + per-property rent configuration. Pure frontend redesign; the
 // API contract (app-statements / app-rent-config-*) is unchanged.
 import { ref, computed, onMounted } from 'vue'
-import { apiCall } from '../api/client'
+import { apiCall, getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 
@@ -141,6 +141,16 @@ const payoutTotal = computed(() => payouts.value.reduce((a, p) => a + (p.amount 
 const printOpen = ref(false)
 const printIncludePayouts = ref(true)
 const printSignatures = ref(true)
+const printBrand = ref({})
+const ph = computed(() => {
+  const b = printBrand.value
+  return {
+    img: b.logo_print ? brandUrl(b.logo_print) : '',
+    h: brandSlotSize(b, 'print', 40),
+    showTitle: brandTitleOn(b, 'print'),
+    name: b.site_name || 'KRTaker',
+  }
+})
 const genDate = computed(() => new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }))
 function openPrint() { printOpen.value = true }
 function closePrint() { printOpen.value = false }
@@ -219,6 +229,7 @@ onMounted(async () => {
   await loadList()
   // Open on a month with no data? Auto-jump to the latest one that has statements.
   if (!list.value.length) await openLatestWithData()
+  printBrand.value = await getBranding()
 })
 </script>
 
@@ -536,7 +547,8 @@ onMounted(async () => {
               <!-- letterhead -->
               <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1E5EB8;padding-bottom:14px;margin-bottom:18px">
                 <div>
-                  <div style="font-size:19px;font-weight:800;color:#1E5EB8;letter-spacing:-.3px">KRTaker</div>
+                  <img v-if="ph.img" :src="ph.img" :alt="ph.name" :style="{ height: ph.h + 'px', display: 'block', width: 'auto', maxWidth: '240px', objectFit: 'contain' }">
+                  <span v-if="!ph.img || ph.showTitle" style="display:block;font-size:19px;font-weight:800;color:#1E5EB8;letter-spacing:-.3px">{{ ph.name }}</span>
                   <div style="font-size:9.5px;color:#8a94a6;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Owner statement</div>
                 </div>
                 <div style="text-align:right;font-size:11px;color:#444">
