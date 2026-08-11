@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { useAuthStore } from '../stores/auth'
+import { apiCall } from '../api/client'
 import { useViewMode, usePager, money, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
@@ -11,6 +13,8 @@ const viewMode = useViewMode('insurance')
 const go = (path, q) => router.push({ path, query: q })
 
 const data = useDataStore()
+const auth = useAuthStore()
+const canManage = computed(() => ['superadmin', 'owner', 'manager'].includes(auth.user?.role || ''))
 const polAll = computed(() => data.list('insurance_policies'))
 const tenantName = (tid) => data.list('tenants').find(t => t.id === tid)?.name || tid || ''
 const stCls = (s) => s === 'paid' ? 'b-green' : (s === 'active' ? 'b-green' : (s === 'expired' ? 'b-gray' : (s === 'cancelled' ? 'b-red' : 'b-gray')))
@@ -80,6 +84,28 @@ function detailFields(row) {
   const skip = new Set(['id', 'tenant', 'lease', 'plan', 'premium', 'coverage', 'score', 'status', 'start', 'end', 'claim', 'claim_amt', 'claim_ts'])
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
+
+// ── owner write actions ──
+const busy = ref('')
+async function cancelPolicy(p) {
+  if (!confirm(`Cancel policy ${p.id} for ${tenantName(p.tenant)}?`)) return
+  busy.value = p.id
+  const r = await apiCall('app-insurance', { action: 'cancel', id: p.id })
+  busy.value = ''
+  if (!r.ok) { alert(r.error || 'Cancel failed'); return }
+  await data.bootstrap()
+  closeDetail()
+}
+async function decideClaim(p, verdict) {
+  busy.value = p.id
+  const r = await apiCall('app-insurance', { action: 'decide', id: p.id, verdict })
+  busy.value = ''
+  if (!r.ok) { alert(r.error || 'Decision failed'); return }
+  await data.bootstrap()
+  closeDetail()
+}
+const cancellable = (p) => canManage.value && !['cancelled', 'expired'].includes(String(p.status || '')) && !p.claim
+const pendingClaim = (p) => canManage.value && p.claim && !p.claim_amt
 </script>
 
 <template>
@@ -212,6 +238,14 @@ function detailFields(row) {
               <span class="badge b-red">Claimed {{ money(sel.claim_amt) }}</span>
               <span class="c-sub">🕒 {{ fmtTs(sel.claim_ts) }}</span>
             </div>
+            <div v-if="pendingClaim(sel)" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+              <button :disabled="busy === sel.id" @click="decideClaim(sel, 'approve')" class="btn-primary" style="padding:8px 16px;font-size:12.5px">✓ Approve claim</button>
+              <button :disabled="busy === sel.id" @click="decideClaim(sel, 'reject')" class="btn-ghost" style="padding:8px 16px;font-size:12.5px;color:var(--danger)">✕ Reject</button>
+            </div>
+            <div v-else-if="sel.claim_amt" style="margin-top:8px;font-size:12px;color:var(--ok)">✅ Claim settled — {{ money(sel.claim_amt) }} paid out</div>
+          </div>
+          <div v-if="cancellable(sel)" style="display:flex;gap:8px;margin:14px 0;flex-wrap:wrap">
+            <button :disabled="busy === sel.id" @click="cancelPolicy(sel)" class="btn-ghost" style="padding:8px 14px;font-size:12.5px;color:var(--danger)">⛔ Cancel policy</button>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
             <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>

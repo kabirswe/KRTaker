@@ -36,7 +36,7 @@ const VIEW_ROUTES = {
   staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',
   compliance: '/compliance', legal: '/legal', concierge: '/concierge',
   smarthome: '/units', land: '/land', build: '/build', gate: '/gate-visits',
-  firesafety: '/compliance', systems: '/units', staffwatch: '/staff-attendance',
+  firesafety: '/fire-safety', systems: '/units', staffwatch: '/staff-attendance',
   health: '/meter-readings', samity: '/samity', caretaker: '/dashboard',
 }
 

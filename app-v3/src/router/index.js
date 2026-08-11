@@ -43,6 +43,7 @@ const routes = [
   { path: '/land', name: 'land', component: () => import('../views/LandView.vue') },
   { path: '/build', name: 'build', component: () => import('../views/BuildView.vue') },
   { path: '/samity', name: 'samity', component: () => import('../views/SamityView.vue') },
+  { path: '/fire-safety', name: 'fire-safety', component: () => import('../views/FireSafetyView.vue') },
   { path: '/analytics', name: 'analytics', component: () => import('../views/AnalyticsView.vue') },
   { path: '/ai', name: 'ai', component: () => import('../views/AiView.vue') },
   // ── Module views (custom) ──
