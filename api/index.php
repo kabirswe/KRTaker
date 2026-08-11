@@ -135,7 +135,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260812) {
+        if ($__sv < 20260816) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -946,6 +946,11 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_templates (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL,
             updated_by TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))");
+        /* Phase 16: template language support (en/bn) */
+        $dtCols = array_column($pdo->query('PRAGMA table_info(doc_templates)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('lang', $dtCols, true)) $pdo->exec("ALTER TABLE doc_templates ADD COLUMN lang TEXT DEFAULT 'en'");
+        $etCols = array_column($pdo->query('PRAGMA table_info(email_templates)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('lang', $etCols, true)) $pdo->exec("ALTER TABLE email_templates ADD COLUMN lang TEXT DEFAULT 'en'");
         seed_templates($pdo);
         /* ── Phase 5: KR AI — legal knowledge base + FTS ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS legal_docs (
@@ -989,7 +994,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_account ON account_transactions(account, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_type ON account_transactions(type, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_recon ON account_transactions(reconciled, tx_date)");
-        try { $pdo->exec('PRAGMA user_version=20260812'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260816'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -2860,7 +2865,7 @@ function TPL_PALETTES() {
     $org = [['org_name','Your org'],['org_phone','Org phone'],['org_email','Org email'],['org_address','Org address'],['today','Today']];
     return [
         'lease' => array_merge([
-            ['lease_id','Lease ref'],['lease_start','Start date'],['lease_end','End date'],['rent','Rent (৳)'],['rent_words','Rent in words'],['advance','Advance (৳)'],['advance_words','Advance in words'],['reg_office','Reg office'],['reg_deed','Reg deed'],['reg_note','Registration note'],
+            ['lease_id','Lease ref'],['lease_start','Start date'],['lease_end','End date'],['rent','Rent (৳)'],['rent_words','Rent in words'],['rent_words_bn','Rent in words (বাংলা)'],['advance','Advance (৳)'],['advance_words','Advance in words'],['advance_words_bn','Advance in words (বাংলা)'],['reg_office','Reg office'],['reg_deed','Reg deed'],['reg_note','Registration note'],
             ['tenant_name','Tenant name'],['tenant_phone','Tenant phone'],['tenant_nid','Tenant NID'],['tenant_email','Tenant email'],
             ['property_name','Property name'],['property_address','Property address'],
             ['unit_name','Unit name'],['unit_id','Unit code'],['floor','Floor'],
@@ -2990,6 +2995,348 @@ For {{org_name}}
 Authorized Signature: _______________________
 
 This is a system-generated receipt from KRTaker. Verify at krtaker.com · {{org_phone}} · {{org_email}}
+HTML,
+'RCP-BN' => <<<'HTML'
+টাকা প্রাপ্তি রসিদ
+==================
+রসিদ নং: {{receipt_id}}                        তারিখ: {{date}}
+
+{{tenant_name}} (মোবাইল: {{tenant_phone}}) এর নিকট থেকে BDT {{amount}} (কথায়: {{amount_words_bn}}) টাকা সদয় প্রাপ্ত হইলাম — {{property_name}} — {{unit_name}} ({{unit_id}}), {{property_address}} ঠিকানার ভাড়া/বকেয়া বাবদ, Invoice {{invoice_id}} ({{month}}) এর বিপরীতে।
+
+পেমেন্ট মাধ্যম: {{method}}    রেফারেন্স/ট্রাঅ্যাকশন: {{ref}}
+
+{{org_name}} এর পক্ষে
+অনুমোদিত স্বাক্ষর: _______________________
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি রসিদ। krtaker.com · {{org_phone}} · {{org_email}}
+HTML,
+'NTC-ARR' => <<<'HTML'
+NOTICE OF ARREARS — {{property_name}}
+=====================================
+Date: {{today}}
+
+To,
+{{tenant_name}}
+{{unit_name}} ({{unit_id}}), Floor {{floor}}
+{{property_address}}
+Phone: {{tenant_phone}}
+
+Dear Sir/Madam,
+
+Re: Overdue rent — Lease {{lease_id}} ({{lease_start}} to {{lease_end}})
+
+This is to notify you that the rent for the above premises is overdue. As per the terms of your tenancy agreement, monthly rent of BDT {{rent}} (in words: {{rent_words}}) is payable in advance by the 7th day of each month.
+
+Kindly settle the outstanding amount within 7 (seven) days of receipt of this notice. If payment is not received within the stipulated period, we shall be constrained to take appropriate action in accordance with the Premises Rent Control Act, 1991 and the terms of the agreement, including termination of the tenancy.
+
+For payment via bKash/Nagad or the tenant portal, or for any clarification, please contact {{org_phone}} or {{org_email}}.
+
+Thanking you,
+For {{org_name}}
+Authorized Signatory
+
+This is a system-generated notice from KRTaker. Verify at krtaker.com
+HTML,
+'NTC-ARR-BN' => <<<'HTML'
+বকেয়া ভাড়া সংক্রান্ত নোটিশ — {{property_name}}
+===============================================
+তারিখ: {{today}}
+
+প্রাপক,
+{{tenant_name}}
+{{unit_name}} ({{unit_id}}), তলা: {{floor}}
+{{property_address}}
+মোবাইল: {{tenant_phone}}
+
+জনাব/জনাবা,
+
+বিষয়: বকেয়া ভাড়া — চুক্তি {{lease_id}} ({{lease_start}} হতে {{lease_end}})
+
+আপনার ভাড়া বকেয়া থাকায় আপনাকে জানানো যাচ্ছে যে, আপনার চুক্তি অনুযায়ী প্রতি মাসের ৭ তারিখের মধ্যে BDT {{rent}} (কথায়: {{rent_words_bn}}) টাকা অগ্রিম পরিশোধযোগ্য।
+
+অনুরোধ করা যাচ্ছে, এই নোটিশ পাওয়ার ৭ (সাত) দিনের মধ্যে বকেয়া পরিশোধ করুন। নির্ধারিত সময়ের মধ্যে পরিশোধ না করলে ১৯৯১ সনের ভাড়া নিয়ন্ত্রণ আইন ও চুক্তির শর্তানুযায়ী প্রয়োজনীয় ব্যবস্থা গ্রহণ করা হবে।
+
+bKash/Nagad অথবা টেন্যান্ট পোর্টালের মাধ্যমে পেমেন্ট করতে বা যেকোনো প্রয়োজনে যোগাযোগ করুন: {{org_phone}} অথবা {{org_email}}।
+
+ধন্যবাদান্তে,
+{{org_name}} এর পক্ষে
+অনুমোদিত স্বাক্ষরকারী
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি নোটিশ। krtaker.com
+HTML,
+'NTC-MOVE' => <<<'HTML'
+NOTICE OF MOVE-OUT / VACATION — {{property_name}}
+=================================================
+Date: {{today}}
+
+To,
+{{tenant_name}}
+{{unit_name}} ({{unit_id}}), Floor {{floor}}
+{{property_address}}
+Phone: {{tenant_phone}}
+
+Dear Sir/Madam,
+
+Re: Vacating the premises — Lease {{lease_id}} ({{lease_start}} to {{lease_end}})
+
+This is to notify you that your tenancy in respect of the above premises shall expire on {{lease_end}} and will not be renewed. You are therefore requested to hand over vacant and peaceful possession of the premises on or before {{lease_end}}.
+
+You are also requested to clear all outstanding dues (rent, service charges, utilities) and hand over all keys, cards and equipment belonging to the premises on the date of vacation. The advance/security deposit, after lawful deductions (if any), will be refunded within 30 days of vacating.
+
+If you have any dispute regarding the settlement, please contact {{org_phone}} or {{org_email}} at your earliest convenience.
+
+Thanking you,
+For {{org_name}}
+Authorized Signatory
+
+This is a system-generated notice from KRTaker. Verify at krtaker.com
+HTML,
+'NTC-MOVE-BN' => <<<'HTML'
+খালি করার নোটিশ — {{property_name}}
+===================================
+তারিখ: {{today}}
+
+প্রাপক,
+{{tenant_name}}
+{{unit_name}} ({{unit_id}}), তলা: {{floor}}
+{{property_address}}
+মোবাইল: {{tenant_phone}}
+
+জনাব/জনাবা,
+
+বিষয়: বাসস্থান ত্যাগ — চুক্তি {{lease_id}} ({{lease_start}} হতে {{lease_end}})
+
+আপনাকে জানানো যাচ্ছে যে, উপরোক্ত বাসস্থানের জন্য আপনার ভাড়া চুক্তি {{lease_end}} তারিখে শেষ হইবে এবং নবায়ন করা হবে না। তাই অনুরোধ করা যাচ্ছে, {{lease_end}} তারিখের মধ্যে অথবা তার পূর্বে বাসস্থানটি খালি করে হস্তান্তর করুন।
+
+খালি করার সময় সকল বকেয়া (ভাড়া, সার্ভিস চার্জ, ইউটিলিটি) পরিশোধ করুন এবং সকল চাবি, কার্ড ও জিনিসপত্র বুঝিয়ে দিন। জমাকৃত অগ্রিম/জামানত, যথাযথ কর্তন (যদি থাকে) সাপেক্ষে, খালি করার ৩০ দিনের মধ্যে ফেরত দেওয়া হবে।
+
+যেকোনো প্রকার জিজ্ঞাসার জন্য যোগাযোগ করুন: {{org_phone}} অথবা {{org_email}}।
+
+ধন্যবাদান্তে,
+{{org_name}} এর পক্ষে
+অনুমোদিত স্বাক্ষরকারী
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি নোটিশ। krtaker.com
+HTML,
+'NTC-UTIL' => <<<'HTML'
+NOTICE OF UTILITY / SERVICE CHARGES — {{property_name}}
+=======================================================
+Date: {{today}}
+
+To,
+{{tenant_name}}
+{{unit_name}} ({{unit_id}}), Floor {{floor}}
+{{property_address}}
+Phone: {{tenant_phone}}
+
+Dear Sir/Madam,
+
+Re: Utility / service charges — {{month}}
+
+As per the terms of your tenancy (Lease {{lease_id}}), please find below the utility/service charges billed for {{month}} in respect of {{property_name}} — {{unit_name}} ({{unit_id}}):
+
+The charges comprise electricity, gas, water, common-area maintenance and other recoverable expenses. Kindly pay the amount within 7 days of receipt of this notice through bKash/Nagad, the tenant portal, or at the management office.
+
+For any discrepancy in the billing, please contact {{org_phone}} or {{org_email}} within 3 days.
+
+Thanking you,
+For {{org_name}}
+Authorized Signatory
+
+This is a system-generated notice from KRTaker. Verify at krtaker.com
+HTML,
+'NTC-UTIL-BN' => <<<'HTML'
+ইউটিলিটি/সার্ভিস চার্জ নোটিশ — {{property_name}}
+=================================================
+তারিখ: {{today}}
+
+প্রাপক,
+{{tenant_name}}
+{{unit_name}} ({{unit_id}}), তলা: {{floor}}
+{{property_address}}
+মোবাইল: {{tenant_phone}}
+
+জনাব/জনাবা,
+
+বিষয়: ইউটিলিটি/সার্ভিস চার্জ — {{month}}
+
+আপনার চুক্তি ({{lease_id}}) অনুযায়ী, {{month}} মাসের জন্য {{property_name}} — {{unit_name}} ({{unit_id}}) এর ইউটিলিটি/সার্ভিস চার্জ নিম্নরূপ ধার্য করা হইল:
+
+এই চার্জে বিদ্যুৎ, গ্যাস, পানি, সাধারণ এলাকার রক্ষণাবেক্ষণ ও অন্যান্য পুনরুদ্ধারযোগ্য খরচ অন্তর্ভুক্ত। নোটিশ পাওয়ার ৭ দিনের মধ্যে bKash/Nagad, টেন্যান্ট পোর্টাল অথবা ব্যবস্থাপনা অফিসে পরিশোধের অনুরোধ করা যাচ্ছে।
+
+বিল সংক্রান্ত যেকোনো ভুলের ক্ষেত্রে ৩ দিনের মধ্যে যোগাযোগ করুন: {{org_phone}} অথবা {{org_email}}।
+
+ধন্যবাদান্তে,
+{{org_name}} এর পক্ষে
+অনুমোদিত স্বাক্ষরকারী
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি নোটিশ। krtaker.com
+HTML,
+'WRK-ORD' => <<<'HTML'
+WORK ORDER — {{org_name}}
+=========================
+Work Order No: {{today}} / {{partner_name}}
+Date: {{today}}
+
+To,
+{{partner_name}}
+Trade: {{partner_trade}}
+Email: {{partner_email}}
+
+Dear Sir/Madam,
+
+Re: Work order for maintenance / service work
+
+You are hereby engaged by {{org_name}} ({{org_address}}, Phone: {{org_phone}}) to carry out the following work at the premises:
+
+Scope of work: _________________________________________________________________
+Materials / supplies: __________________________________________________________
+Completion deadline: __________________________________________________________
+
+Terms & conditions:
+1. The work shall be carried out with due care and in accordance with professional standards.
+2. The rate/price shall be as mutually agreed; payment shall be released after satisfactory completion and verification.
+3. Any damage caused during the work shall be made good by you at your own cost.
+4. This work order does not constitute a contract of employment.
+
+Kindly confirm acceptance of this work order by return. For clarification, contact {{org_phone}} or {{org_email}}.
+
+Thanking you,
+For {{org_name}}
+Authorized Signatory
+
+This is a system-generated work order from KRTaker. Verify at krtaker.com
+HTML,
+'WRK-ORD-BN' => <<<'HTML'
+ওয়ার্ক অর্ডার — {{org_name}}
+==============================
+ওয়ার্ক অর্ডার নং: {{today}} / {{partner_name}}
+তারিখ: {{today}}
+
+প্রাপক,
+{{partner_name}}
+পেশা: {{partner_trade}}
+ইমেইল: {{partner_email}}
+
+জনাব/জনাবা,
+
+বিষয়: মেরামত/সার্ভিস কাজের ওয়ার্ক অর্ডার
+
+{{org_name}} ({{org_address}}, ফোন: {{org_phone}}) এর পক্ষ থেকে আপনাকে নিম্নোক্ত কাজ সম্পাদনের জন্য নিযুক্ত করা হইল:
+
+কাজের বিবরণ: _________________________________________________________________
+সামগ্রী/সরবরাহ: ______________________________________________________________
+সমাপ্তির সময়সীমা: __________________________________________________________
+
+শর্তাবলী:
+১. কাজটি যথাযথ যত্নসহ পেশাদার মান অনুযায়ী সম্পন্ন করতে হবে।
+২. মূল্য পারস্পরিক সম্মতিমতো; সন্তোষজনকভাবে কাজ সম্পন্ন ও যাচাইয়ের পর পেমেন্ট প্রদান করা হবে।
+৩. কাজ চলাকালীন যেকোনো ক্ষতির জন্য আপনিই দায়ী থাকবেন।
+৪. এই ওয়ার্ক অর্ডারটি চাকরির চুক্তি নয়।
+
+ওয়ার্ক অর্ডারটি গ্রহণের বিষয়টি নিশ্চিত করার জন্য অনুরোধ করা যাচ্ছে। প্রয়োজনে যোগাযোগ: {{org_phone}} অথবা {{org_email}}।
+
+ধন্যবাদান্তে,
+{{org_name}} এর পক্ষে
+অনুমোদিত স্বাক্ষরকারী
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি ওয়ার্ক অর্ডার। krtaker.com
+HTML,
+'NOC-STD' => <<<'HTML'
+NO OBJECTION CERTIFICATE (NOC)
+==============================
+Date: {{today}}
+NOC No: {{lease_id}} / {{today}}
+
+This is to certify that {{tenant_name}} (Phone: {{tenant_phone}}, NID: {{tenant_nid}}) is a bonafide tenant of {{property_name}}, {{property_address}}, occupying {{unit_name}} ({{unit_id}}), Floor {{floor}}, under Lease {{lease_id}} ({{lease_start}} to {{lease_end}}), paying monthly rent of BDT {{rent}} (in words: {{rent_words}}).
+
+As of {{today}}, there are no arrears or dues outstanding against the said tenancy, and {{org_name}} has no objection to the following (as applicable):
+
+1. Issuance of trade license / business permit in the name of {{tenant_name}} at the above premises.
+2. Connection of electricity / gas / water / internet in the name of {{tenant_name}}.
+3. Visa / bank / official purposes requiring proof of residence.
+
+This certificate is issued on the request of the tenant and is valid for 90 days from the date of issue. This does not transfer or affect any right, title or interest in the premises.
+
+For {{org_name}}
+Authorized Signatory
+{{org_address}} · {{org_phone}} · {{org_email}}
+
+This is a system-generated certificate from KRTaker. Verify at krtaker.com
+HTML,
+'NOC-BN' => <<<'HTML'
+আপত্তি-মুক্ত সনদ (এনওসি)
+========================
+তারিখ: {{today}}
+এনওসি নং: {{lease_id}} / {{today}}
+
+এতদ্বারা প্রত্যয়ন করা যাচ্ছে যে, {{tenant_name}} (মোবাইল: {{tenant_phone}}, জাতীয় পরিচয়পত্র: {{tenant_nid}}) {{property_name}}, {{property_address}} এর {{unit_name}} ({{unit_id}}), তলা {{floor}} এর বৈধ ভাড়াটিয়া — চুক্তি নং {{lease_id}} ({{lease_start}} হতে {{lease_end}}), মাসিক ভাড়া BDT {{rent}} (কথায়: {{rent_words_bn}})।
+
+{{today}} তারিখ পর্যন্ত উক্ত ভাড়ার বিপরীতে কোনো বকেয়া নেই এবং নিম্নলিখিত বিষয়ে {{org_name}} এর কোনো আপত্তি নাই (প্রযোজ্য ক্ষেত্রে):
+
+১. {{tenant_name}} এর নামে উপরোক্ত ঠিকানায় ট্রেড লাইসেন্স/ব্যবসার অনুমতি প্রদান।
+২. {{tenant_name}} এর নামে বিদ্যুৎ/গ্যাস/পানি/ইন্টারনেট সংযোগ।
+৩. ভিসা/ব্যাংক/সরকারি প্রয়োজনে বসবাসের প্রমাণ।
+
+এই সনদটি ভাড়াটিয়ার অনুরোধে প্রদান করা হইল এবং ইস্যুর তারিখ হতে ৯০ দিন পর্যন্ত বলবৎ থাকিবে। এই সনদ বাসস্থানের উপর কোনো স্বত্ব/স্বার্থ হস্তান্তর করে না।
+
+{{org_name}} এর পক্ষে
+অনুমোদিত স্বাক্ষরকারী
+{{org_address}} · {{org_phone}} · {{org_email}}
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি সনদ। krtaker.com
+HTML,
+'LSE-BN' => <<<'HTML'
+ভাড়া চুক্তি (Tenancy Agreement)
+================================
+আজ {{today}} তারিখে {{org_name}} (ঠিকানা: {{org_address}}, ফোন: {{org_phone}}, ইমেইল: {{org_email}}) — যাহাকে এখানে "ভাড়াদাতা" বলা হইবে — এবং {{tenant_name}} (মোবাইল: {{tenant_phone}}, জাতীয় পরিচয়পত্র: {{tenant_nid}}) — যাহাকে এখানে "ভাড়াটিয়া" বলা হইবে — এর মধ্যে নিম্নলিখিত শর্তে ভাড়া চুক্তি সম্পাদিত হইল:
+
+১. প্রাঙ্গণ (PREMISES): ভাড়াদাতা নিম্নবর্ণিত প্রাঙ্গণ ভাড়াটিয়ার নিকট ভাড়া প্রদান করিলেন — {{property_name}}, {{property_address}} এর {{unit_name}} (ইউনিট কোড: {{unit_id}}), তলা: {{floor}}।
+
+২. মেয়াদ (TERM): এই ভাড়া {{lease_start}} তারিখে শুরু হইয়া {{lease_end}} তারিখে শেষ হইবে (চুক্তি নং: {{lease_id}})। উভয় পক্ষের সম্মতি ব্যতীত মেয়াদ শেষে ভাড়াটিয়াকে প্রাঙ্গণ খালি করিতে হইবে।
+
+৩. ভাড়া (RENT): মাসিক ভাড়া BDT {{rent}} (কথায়: {{rent_words_bn}}) টাকা, প্রতি মাসের ৭ তারিখের মধ্যে অগ্রিম পরিশোধযোগ্য। আংশিক মাসের ভাড়া আনুপাতিক হারে গণনা করা হইবে।
+
+৪. অগ্রিম/জামানত (ADVANCE / SECURITY DEPOSIT): ভাড়াটিয়া BDT {{advance}} (কথায়: {{advance_words_bn}}) টাকা অগ্রিম/জামানত হিসাবে প্রদান করিয়াছেন, যাহা প্রাঙ্গণ খালি করার সময় বকেয়া বা ক্ষতিপূরণ বাদ দিয়া ফেরতযোগ্য।
+
+৫. ব্যবহার (USE): প্রাঙ্গণ শুধুমাত্র বাংলাদেশের আইন ও বিধি অনুযায়ী আবাসিক/বাণিজ্যিক উদ্দেশ্যে ব্যবহার করা যাইবে। ভাড়াদাতার লিখিত সম্মতি ব্যতীত উপ-ভাড়া প্রদান নিষিদ্ধ।
+
+৬. ইউটিলিটি ও রক্ষণাবেক্ষণ (UTILITIES & MAINTENANCE): বিদ্যুৎ, গ্যাস, পানি ও অন্যান্য ইউটিলিটি বিল ভাড়াটিয়া বহন করিবেন। কাঠামোগত মেরামত ভাড়াদাতা করিবেন; দৈনন্দিন মেরামত ১৯৯১ সনের ভাড়া নিয়ন্ত্রণ আইন অনুযায়ী ভাড়াটিয়ার দায়িত্ব।
+
+৭. নিবন্ধন (REGISTRATION): {{reg_note}} (নিবন্ধন অফিস: {{reg_office}} / দলিল: {{reg_deed}})
+
+৮. সমাপ্তি (TERMINATION): আইনানুযায়ী নোটিশ প্রদানপূর্বক যেকোনো পক্ষ এই ভাড়া সমাপ্ত করিতে পারিবে। মেয়াদ শেষে ভাড়াটিয়া প্রাঙ্গণ খালি করিয়া দিবেন।
+
+৯. governing আইন (GOVERNING LAW): এই চুক্তি গণপ্রজাতন্ত্রী বাংলাদেশ সরকারের আইন দ্বারা পরিচালিত হইবে।
+
+উপরোক্ত শর্তাবলীতে উভয় পক্ষ সাক্ষ্যদান করিলেন।
+
+ভাড়াদাতার স্বাক্ষর: ______________________   ভাড়াটিয়ার স্বাক্ষর: ______________________
+সাক্ষী ১: ______________________   সাক্ষী ২: ______________________
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি চুক্তি। krtaker.com · {{org_phone}} · {{org_email}}
+HTML,
+'SRV-BN' => <<<'HTML'
+সার্ভিস চুক্তি (Service Contract)
+==================================
+আজ {{today}} তারিখে {{org_name}} (ঠিকানা: {{org_address}}, ফোন: {{org_phone}}, ইমেইল: {{org_email}}) — যাহাকে "সেবাগ্রহীতা" বলা হইবে — এবং {{partner_name}} (পেশা: {{partner_trade}}, ইমেইল: {{partner_email}}) — যাহাকে "সেবা প্রদানকারী" বলা হইবে — এর মধ্যে নিম্নলিখিত শর্তে সার্ভিস চুক্তি সম্পাদিত হইল:
+
+১. সেবার বিবরণ: সেবা প্রদানকারী {{org_name}} এর জন্য নিম্নলিখিত সেবা প্রদান করিবেন: ______________________________________________________________
+
+২. মান ও সময়: সেবা পেশাদার মান অনুযায়ী এবং নির্ধারিত সময়সীমার মধ্যে সম্পন্ন করিতে হইবে।
+
+৩. পারিশ্রমিক: পারিশ্রমিক পারস্পরিক সম্মতিমতো; কাজ সন্তোষজনকভাবে সম্পন্ন ও যাচাইয়ের পর পরিশোধযোগ্য।
+
+৪. দায়িত্ব: কাজ চলাকালীন যেকোনো ক্ষতির জন্য সেবা প্রদানকারী দায়ী থাকিবেন।
+
+৫. মেয়াদ: এই চুক্তি উভয় পক্ষের সম্মতিতে যেকোনো সময় সমাপ্ত করা যাইবে।
+
+উপরোক্ত শর্তাবলীতে উভয় পক্ষ সাক্ষ্যদান করিলেন।
+
+সেবাগ্রহীতার স্বাক্ষর: ______________________   সেবা প্রদানকারীর স্বাক্ষর: ______________________
+সাক্ষী ১: ______________________   সাক্ষী ২: ______________________
+
+এটি KRTaker কর্তৃক স্বয়ংক্রিয়ভাবে তৈরি চুক্তি। krtaker.com · {{org_phone}} · {{org_email}}
 HTML,
     ];
     return $bodies[$id] ?? '';
@@ -3182,36 +3529,194 @@ HTML,
     <p style="margin:22px 0 0;color:#8A94A6;font-size:12.5px;line-height:1.7">The deposit refund (if any) is processed within 5 working days. Thank you for renting with KRTaker. 🇧🇩</p>
   </div>
   <div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+  </div>
+HTML,
+],
+'welcome_bn' => [
+'KRTaker-এ স্বাগতম 🎉 — আপনার ট্রায়াল শুরু হইল',
+<<<'HTML'
+<div style="font-family:Inter,'Hind Siliguri',Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#2F80ED,#1E5EB8);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">KRTaker<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KEY RESPONSIBILITY TAKER</span></div>
+</div>
+<div style="padding:32px">
+<h1 style="margin:0 0 8px;font-size:20px;color:#101828">স্বাগতম, {{name}} 🎉</h1>
+<p style="margin:0 0 8px;color:#475467;font-size:14px;line-height:1.7">আপনার KRTaker ওয়ার্কস্পেস <b>{{trial_end}}</b> পর্যন্ত <b>১৪ দিনের ফ্রি ট্রায়ালে</b> সক্রিয় — কোনো কার্ড প্রয়োজন নেই।</p>
+<p style="margin:0 0 22px;color:#475467;font-size:14px;line-height:1.7">আপনার প্রথম সম্পত্তি যোগ করুন, আপনার টিমকে আমন্ত্রণ জানান এবং KR — আপনার AI কেয়ারটেকার — কে ভাড়া, রসিদ, টিডিএস ও কমপ্লায়েন্স সামলাতে দিন।</p>
+<a href="{{workspace_url}}" style="display:inline-block;background:#2F80ED;color:#fff;padding:13px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px">ওয়ার্কস্পেস খুলুন →</a>
+<p style="margin:22px 0 0;color:#8A94A6;font-size:12.5px;line-height:1.7">প্রশ্ন আছে? এই ইমেইলের উত্তর দিন — আমরা ২৪ ঘণ্টার মধ্যে উত্তর দিই। 🇧🇩 বাংলাদেশের সম্পত্তি মালিকদের জন্য তৈরি।</p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh<br>support@krtaker.com · +880 1722-759646</div>
 </div>
 HTML,
 ],
-    ];
-    return $tpls[$id] ?? ['', ''];
+'rent_reminder_bn' => [
+'ভাড়া অনুস্মারক — {{invoice_id}} ({{month}})',
+<<<'HTML'
+<div style="font-family:Inter,'Hind Siliguri',Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#2F80ED,#1E5EB8);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">ভাড়া অনুস্মারক<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 14px;color:#475467;font-size:14px">প্রিয় {{tenant_name}},</p>
+<p style="margin:0 0 14px;color:#475467;font-size:14px;line-height:1.7"><b>{{property}}</b> ({{unit}}) এর জন্য <b>{{month}}</b> মাসের ইনভয়েস <b>{{invoice_id}}</b> — <b>৳{{amount}}</b> — পরিশোধযোগ্য।</p>
+<div style="background:#FFF4E5;border:1px solid #FFD9A0;border-radius:12px;padding:14px 18px;font-size:13px;color:#7A4A00;margin-bottom:16px">⚠️ <b>Tier {{tier}} অনুস্মারক</b> · {{days_overdue}} দিন অতিবাহিত — {{tier_note}}</div>
+<div style="margin:0 0 16px"><a href="{{pay_url}}" style="display:inline-block;background:#2F80ED;color:#ffffff;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none">💳 এখনই পরিশোধ করুন — ৳{{amount}}</a></div>
+<div style="background:#F6F9FE;border:1px solid #E4EAF3;border-radius:12px;padding:14px 18px;font-size:13px;color:#1A2433;margin-bottom:18px">bKash, Nagad অথবা KRTaker টেন্যান্ট পোর্টাল ব্যবহার করতে চান? বাটনটি আপনাকে ইনভয়েস <b>{{invoice_id}}</b> এর নিরাপদ চেকআউটে নিয়ে যাবে। {{late_fee}}</div>
+<p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, আপনার AI কেয়ারটেকার 🇧🇩</p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
+'invoice_bn' => [
+'আপনার ভাড়ার ইনভয়েস {{invoice_id}} ({{month}}) — KRTaker',
+<<<'HTML'
+<div style="font-family:Inter,'Hind Siliguri',Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#2F80ED,#1E5EB8);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">ভাড়ার ইনভয়েস<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 16px;color:#475467;font-size:14px">প্রিয় {{tenant_name}},</p>
+<div style="border:1px solid #E4EAF3;border-radius:14px;overflow:hidden;margin-bottom:18px">
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">ইনভয়েস</span><b>{{invoice_id}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">মাস</span><b>{{month}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">সম্পত্তি</span><b>{{property}} ({{unit}})</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">পরিমাণ</span><b>৳{{amount}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:14px 18px;background:#F6F9FE;font-size:14px"><span style="color:#8A94A6;font-weight:600">বকেয়া</span><b style="color:{{due_color}};font-size:16px">৳{{due}}</b></div>
+</div>
+<p style="margin:0 0 16px;color:#475467;font-size:13.5px;line-height:1.7">bKash, Nagad অথবা SSLCommerz-এ পরিশোধ করুন — বাটনটি ইনভয়েস <b>{{invoice_id}}</b> এর নিরাপদ চেকআউটে নিয়ে যাবে। প্রিন্টযোগ্য কপি আপনার KRTaker ড্যাশবোর্ডে পাওয়া যাবে।</p>
+<div style="margin:0 0 16px"><a href="{{pay_url}}" style="display:inline-block;background:#2F80ED;color:#ffffff;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none">💳 এখনই পরিশোধ করুন — ৳{{due}}</a></div>
+<p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, আপনার AI কেয়ারটেকার 🇧🇩</p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
+'receipt_bn' => [
+'পেমেন্ট রসিদ {{receipt_id}} — KRTaker',
+<<<'HTML'
+<div style="font-family:Inter,'Hind Siliguri',Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#27AE60,#1E8449);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">পেমেন্ট গৃহীত ✓<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 16px;color:#475467;font-size:14px">প্রিয় {{tenant_name}}, আপনার পেমেন্টের জন্য ধন্যবাদ।</p>
+<div style="border:1px solid #E4EAF3;border-radius:14px;overflow:hidden;margin-bottom:18px">
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">রসিদ</span><b>{{receipt_id}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">তারিখ</span><b>{{date}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">পরিমাণ</span><b style="font-size:16px">৳{{amount}}</b></div>
+  <div style="padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:12.5px;color:#475467;line-height:1.7"><span style="color:#8A94A6">কথায়:</span><br>{{amount_words_en}}<br>{{amount_words_bn}}</div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">মাধ্যম</span><b>{{method}} {{ref}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;font-size:13px"><span style="color:#8A94A6">বিষয়</span><b>{{property}} ({{unit}}) · {{month}}</b></div>
+</div>
+<p style="margin:0;color:#8A94A6;font-size:12.5px;line-height:1.7">রেকর্ডের জন্য এই ইমেইলটি সংরক্ষণ করুন — এটি আপনার আনুষ্ঠানিক টাকা প্রাপ্তি রসিদ। — KRTaker, আপনার AI কেয়ারটেকার 🇧🇩</p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
+'move_out_bn' => [
+'চুক্তি শেষ — {{property}} · {{unit_name}} · {{status}}',
+<<<'HTML'
+<div style="font-family:Inter,'Hind Siliguri',Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#101828,#344054);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">🚪 চুক্তি সম্পন্ন<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+</div>
+<div style="padding:32px">
+<h1 style="margin:0 0 8px;font-size:20px;color:#101828">নিষ্পত্তি বিবরণী, {{name}}</h1>
+<p style="margin:0 0 18px;color:#475467;font-size:14px;line-height:1.7"><b>{{property}}</b> — <b>{{unit_name}}</b> এ আপনার ভাড়া <b>{{move_out_date}}</b> তারিখে আনুষ্ঠানিকভাবে সমাপ্ত হইয়াছে। চূড়ান্ত নিষ্পত্তি নিম্নে দেওয়া হইল।</p>
+<div style="border:1px solid #E4EAF3;border-radius:14px;overflow:hidden;margin-bottom:18px">
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">চুক্তি</span><b>{{lease}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">ভাড়া বকেয়া</span><b>৳{{rent_due}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">ইউটিলিটি বকেয়া</span><b>৳{{util_due}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">ক্ষতিপূরণ কর্তন</span><b>৳{{dmg_due}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #E4EAF3;font-size:13px"><span style="color:#8A94A6">অগ্রিম জামানত</span><b>৳{{deposit}}</b></div>
+  <div style="display:flex;justify-content:space-between;padding:14px 18px;background:#F6F9FE;font-size:14px"><span style="color:#8A94A6;font-weight:600">চূড়ান্ত ব্যালেন্স</span><b style="color:{{status_color}}">৳{{balance}} · {{status}}</b></div>
+</div>
+<a href="{{workspace_url}}" style="display:inline-block;background:#2F80ED;color:#fff;padding:13px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px">নিষ্পত্তি সনদ দেখুন →</a>
+<p style="margin:22px 0 0;color:#8A94A6;font-size:12.5px;line-height:1.7">জামানত ফেরত (যদি থাকে) ৫ কর্মদিবসের মধ্যে প্রক্রিয়া করা হয়। KRTaker-এ ভাড়া নেওয়ার জন্য ধন্যবাদ। 🇧🇩</p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
+'arrears' => [
+'⚠️ Arrears notice — {{invoice_id}} ({{month}})',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#E74C3C,#B03A2E);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">⚠️ Arrears notice<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 14px;color:#475467;font-size:14px">Dear {{tenant_name}},</p>
+<p style="margin:0 0 14px;color:#475467;font-size:14px;line-height:1.7">Invoice <b>{{invoice_id}}</b> for <b>{{month}}</b> — <b>৳{{amount}}</b> — for <b>{{property}}</b> ({{unit}}) remains <b>unpaid</b>. As of today your total outstanding is <b>৳{{total_due}}</b>, including <b>{{days_overdue}} day(s)</b> of arrears.</p>
+<div style="background:#FDECEA;border:1px solid #F5C6C0;border-radius:12px;padding:14px 18px;font-size:13px;color:#7F1D1D;margin-bottom:16px">Kindly settle the balance within <b>7 days</b>. Continued non-payment may result in late fees and, ultimately, termination proceedings under the Premises Rent Control Act, 1991.</div>
+<div style="margin:0 0 16px"><a href="{{pay_url}}" style="display:inline-block;background:#E74C3C;color:#ffffff;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none">💳 Pay now — ৳{{amount}}</a></div>
+<p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, your AI caretaker 🇧🇩</p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
+'arrears_bn' => [
+'⚠️ বকেয়া নোটিশ — {{invoice_id}} ({{month}})',
+<<<'HTML'
+<div style="font-family:Inter,'Hind Siliguri',Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#E74C3C,#B03A2E);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">⚠️ বকেয়া নোটিশ<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 14px;color:#475467;font-size:14px">প্রিয় {{tenant_name}},</p>
+<p style="margin:0 0 14px;color:#475467;font-size:14px;line-height:1.7"><b>{{property}}</b> ({{unit}}) এর জন্য <b>{{month}}</b> মাসের ইনভয়েস <b>{{invoice_id}}</b> — <b>৳{{amount}}</b> — এখনও <b>অপরিশোধিত</b>। আজ পর্যন্ত আপনার মোট বকেয়া <b>৳{{total_due}}</b> টাকা, যাহাতে {{days_overdue}} দিনের বকেয়া অন্তর্ভুক্ত।</p>
+<div style="background:#FDECEA;border:1px solid #F5C6C0;border-radius:12px;padding:14px 18px;font-size:13px;color:#7F1D1D;margin-bottom:16px">অনুরোধ করা যাচ্ছে, <b>৭ দিনের</b> মধ্যে বকেয়া পরিশোধ করুন। অবিরত অনাপয়মেন্টের ক্ষেত্রে ১৯৯১ সনের ভাড়া নিয়ন্ত্রণ আইন অনুযায়ী বিলম্ব ফি এবং সর্বশেষে চুক্তি বাতিলের পদক্ষেপ গ্রহণ করা হইবে।</div>
+<div style="margin:0 0 16px"><a href="{{pay_url}}" style="display:inline-block;background:#E74C3C;color:#ffffff;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none">💳 এখনই পরিশোধ করুন — ৳{{amount}}</a></div>
+<p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, আপনার AI কেয়ারটেকার 🇧🇩</p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
+];
+return $tpls[$id] ?? ['', ''];
 }
 function seed_templates($pdo) {
     $names = [
-        'LSE-STD' => ['lease', 'Standard Tenancy Agreement', 'Tenancy Agreement'],
-        'SRV-STD' => ['service', 'Standard Service Contract', 'Service Contract'],
-        'RCP-RENT' => ['receipt', 'Rent Receipt', 'Money Receipt — Rent'],
-        'RCP-ADV' => ['receipt', 'Advance / Security Deposit Receipt', 'Money Receipt — Advance'],
-        'RCP-SVC' => ['receipt', 'Service Charge Receipt', 'Money Receipt — Service Charges'],
-        'RCP-GEN' => ['receipt', 'General Payment Receipt', 'Money Receipt — Payment Received'],
+        'LSE-STD' => ['lease', 'Standard Tenancy Agreement', 'Tenancy Agreement', 'en'],
+        'LSE-BN' => ['lease', 'ভাড়া চুক্তি (Bengali Tenancy Agreement)', 'ভাড়া চুক্তি', 'bn'],
+        'SRV-STD' => ['service', 'Standard Service Contract', 'Service Contract', 'en'],
+        'SRV-BN' => ['service', 'সার্ভিস চুক্তি (Bengali Service Contract)', 'সার্ভিস চুক্তি', 'bn'],
+        'RCP-RENT' => ['receipt', 'Rent Receipt', 'Money Receipt — Rent', 'en'],
+        'RCP-ADV' => ['receipt', 'Advance / Security Deposit Receipt', 'Money Receipt — Advance', 'en'],
+        'RCP-SVC' => ['receipt', 'Service Charge Receipt', 'Money Receipt — Service Charges', 'en'],
+        'RCP-GEN' => ['receipt', 'General Payment Receipt', 'Money Receipt — Payment Received', 'en'],
+        'RCP-BN' => ['receipt', 'টাকা প্রাপ্তি রসিদ (Bengali Money Receipt)', 'টাকা প্রাপ্তি রসিদ', 'bn'],
+        'NTC-ARR' => ['lease', 'Arrears / Dunning Notice', 'Notice of Arrears', 'en'],
+        'NTC-ARR-BN' => ['lease', 'বকেয়া ভাড়া নোটিশ (Arrears Notice)', 'বকেয়া ভাড়া সংক্রান্ত নোটিশ', 'bn'],
+        'NTC-MOVE' => ['lease', 'Move-out / Vacation Notice', 'Notice of Move-out', 'en'],
+        'NTC-MOVE-BN' => ['lease', 'খালি করার নোটিশ (Move-out Notice)', 'খালি করার নোটিশ', 'bn'],
+        'NTC-UTIL' => ['lease', 'Utility / Service Charge Notice', 'Notice of Utility Charges', 'en'],
+        'NTC-UTIL-BN' => ['lease', 'ইউটিলিটি/সার্ভিস চার্জ নোটিশ', 'ইউটিলিটি/সার্ভিস চার্জ নোটিশ', 'bn'],
+        'WRK-ORD' => ['service', 'Work Order', 'Work Order', 'en'],
+        'WRK-ORD-BN' => ['service', 'ওয়ার্ক অর্ডার (Work Order)', 'ওয়ার্ক অর্ডার', 'bn'],
+        'NOC-STD' => ['lease', 'No Objection Certificate (NOC)', 'No Objection Certificate', 'en'],
+        'NOC-BN' => ['lease', 'আপত্তি-মুক্ত সনদ (NOC)', 'আপত্তি-মুক্ত সনদ', 'bn'],
     ];
     foreach ($names as $id => $n) {
         $body = seed_tpl_body($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM doc_templates WHERE id=?'); $st->execute([$id]);
         if (!(int)$st->fetchColumn()) {
-            $pdo->prepare('INSERT INTO doc_templates (id,kind,name,title,body,is_default,updated_by) VALUES (?,?,?,?,?,1,?)')
-                ->execute([$id, $n[0], $n[1], $n[2], $body, 'system']);
+            $pdo->prepare('INSERT INTO doc_templates (id,kind,name,title,body,is_default,updated_by,lang) VALUES (?,?,?,?,?,1,?,?)')
+                ->execute([$id, $n[0], $n[1], $n[2], $body, 'system', $n[3]]);
         }
     }
-    $emails = ['otp' => 'Verification (OTP) Email', 'welcome' => 'Welcome Email', 'collections' => 'Collections Digest', 'rent_reminder' => 'Rent Reminder', 'invoice' => 'Invoice Email', 'receipt' => 'Receipt Email', 'renewal_status' => 'Lease Renewal Status', 'premium_welcome' => 'Caretaker Subscription Confirmation', 'move_out' => 'Move-out / Settlement Notice'];
-    foreach ($emails as $id => $nm) {
+    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn']];
+    foreach ($emails as $id => $em) {
         list($subj, $body) = seed_email_tpl($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM email_templates WHERE id=?'); $st->execute([$id]);
         if (!(int)$st->fetchColumn()) {
-            $pdo->prepare('INSERT INTO email_templates (id,name,subject,body,updated_by) VALUES (?,?,?,?,?)')
-                ->execute([$id, $nm, $subj, $body, 'system']);
+            $pdo->prepare('INSERT INTO email_templates (id,name,subject,body,updated_by,lang) VALUES (?,?,?,?,?,?)')
+                ->execute([$id, $em[0], $subj, $body, 'system', $em[1]]);
         }
     }
     /* Phase 15: refresh stock rent_reminder template with tier placeholders (only when not customized) */
@@ -3256,8 +3761,8 @@ function tpl_vars_for($u, $kind, $ref) {
         $res = ((int)($r['res'] ?? 1)) === 1;
         $vars += [
             'lease_id' => esc($r['lid']), 'lease_start' => esc($r['start']), 'lease_end' => esc($r['end']),
-            'rent' => money_bd((int)$r['rent']), 'rent_words' => num_to_words_en((int)$r['rent']),
-            'advance' => money_bd((int)$r['adv']), 'advance_words' => num_to_words_en((int)$r['adv']),
+            'rent' => money_bd((int)$r['rent']), 'rent_words' => num_to_words_en((int)$r['rent']), 'rent_words_bn' => num_to_words_bn((int)$r['rent']) . ' টাকা',
+            'advance' => money_bd((int)$r['adv']), 'advance_words' => num_to_words_en((int)$r['adv']), 'advance_words_bn' => num_to_words_bn((int)$r['adv']) . ' টাকা',
             'reg_office' => esc($r['reg_office']), 'reg_deed' => esc($r['reg_deed']),
             'reg_note' => $res
                 ? 'Rent is within the TPA 1882 §107 exemption — compulsory registration is not required, but registration is recommended for enforceability.'
@@ -3355,6 +3860,13 @@ function email_sample_vars($id) {
         case 'invoice': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'amount' => '32,000', 'due' => '32,000', 'due_color' => '#B91C1C'];
         case 'receipt': return ['tenant_name' => 'Sultana Rahman', 'receipt_id' => 'PAY-010', 'date' => '02 Aug 2026', 'amount' => '25,000', 'amount_words_en' => 'Twenty-Five Thousand', 'amount_words_bn' => 'পঁচিশ হাজার টাকা মাত্র', 'method' => 'bKash', 'ref' => '8T5XK2QZ', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'month' => '2026-06'];
         case 'renewal_status': return ['tenant_name' => 'Sultana Rahman', 'property' => 'Dhanmondi Apartment', 'unit' => 'Apartment 7B (U-010)', 'lease' => 'L-007', 'status' => 'Approved', 'new_end' => '14 Dec 2027', 'new_rent' => '42,000', 'note' => 'Thank you for being a valued tenant.'];
+        case 'welcome_bn': return ['name' => 'তহমিনা আক্তার', 'trial_end' => '২৬ জুন ২০২৬', 'workspace_url' => 'https://krtaker.com/app-v3/'];
+        case 'rent_reminder_bn': return ['tenant_name' => 'সুলতানা রহমান', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'amount' => '32,000', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)'];
+        case 'invoice_bn': return ['tenant_name' => 'সুলতানা রহমান', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'amount' => '32,000', 'due' => '32,000', 'due_color' => '#B91C1C'];
+        case 'receipt_bn': return ['tenant_name' => 'সুলতানা রহমান', 'receipt_id' => 'PAY-010', 'date' => '০২ আগস্ট ২০২৬', 'amount' => '25,000', 'amount_words_en' => 'Twenty-Five Thousand', 'amount_words_bn' => 'পঁচিশ হাজার টাকা মাত্র', 'method' => 'bKash', 'ref' => '8T5XK2QZ', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'month' => '2026-06'];
+        case 'move_out_bn': return ['name' => 'সুলতানা রহমান', 'property' => 'Green View Residency', 'unit_name' => 'Flat 3B (U-001)', 'move_out_date' => '০১ আগস্ট ২০২৬', 'lease' => 'L-005', 'rent_due' => '0', 'util_due' => '2,400', 'dmg_due' => '0', 'deposit' => '90,000', 'balance' => '87,600', 'status' => 'Refundable', 'status_color' => '#1E8449', 'workspace_url' => 'https://krtaker.com/app-v3/'];
+        case 'arrears': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'amount' => '32,000', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'total_due' => '96,000', 'days_overdue' => '21', 'pay_url' => 'https://krtaker.com/app-v3/'];
+        case 'arrears_bn': return ['tenant_name' => 'সুলতানা রহমান', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'amount' => '32,000', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'total_due' => '96,000', 'days_overdue' => '২১', 'pay_url' => 'https://krtaker.com/app-v3/'];
     }
     return [];
 }
@@ -12173,8 +12685,8 @@ case 'app-tpl-list': {
     $u = require_user();
     require_module($u, 'templates');
     $pdo = db();
-    $tpls = $pdo->query('SELECT id,kind,name,title,is_default,updated_by,updated_at FROM doc_templates ORDER BY kind, id')->fetchAll(PDO::FETCH_ASSOC);
-    $emails = $pdo->query('SELECT id,name,subject,updated_by,updated_at FROM email_templates ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $tpls = $pdo->query("SELECT id,kind,name,title,lang,is_default,updated_by,updated_at,substr(replace(replace(body,char(10),' '),char(13),' '),1,180) AS snippet FROM doc_templates ORDER BY kind, lang, id")->fetchAll(PDO::FETCH_ASSOC);
+    $emails = $pdo->query('SELECT id,name,subject,lang,updated_by,updated_at FROM email_templates ORDER BY lang, id')->fetchAll(PDO::FETCH_ASSOC);
     $refs = ['lease' => 'leases', 'service' => 'partners', 'receipt' => 'payments'];
     json_out(['ok' => true, 'templates' => $tpls, 'email' => $emails, 'palettes' => TPL_PALETTES(), 'refs' => $refs]);
 }
@@ -12198,8 +12710,10 @@ case 'app-tpl-save': {
     $kind = trim($body['kind'] ?? '');
     $name = trim($body['name'] ?? '');
     $title = trim($body['title'] ?? '');
+    $lang = trim($body['lang'] ?? 'en');
     $tplBody = $body['body'] ?? '';
     if (!in_array($kind, ['lease', 'service', 'receipt'], true)) json_out(['ok' => false, 'error' => 'kind must be lease|service|receipt.'], 400);
+    if (!in_array($lang, ['en', 'bn'], true)) $lang = 'en';
     if (!$name || trim($tplBody) === '') json_out(['ok' => false, 'error' => 'name and body are required.'], 400);
     $pdo = db();
     $toks = [];
@@ -12209,16 +12723,16 @@ case 'app-tpl-save': {
     if ($id) {
         $st = $pdo->prepare('SELECT * FROM doc_templates WHERE id=?'); $st->execute([$id]);
         if (!$st->fetch()) json_out(['ok' => false, 'error' => 'Template not found.'], 404);
-        $pdo->prepare('UPDATE doc_templates SET name=?, title=?, body=?, placeholders=?, updated_by=?, updated_at=datetime(\'now\') WHERE id=?')
-            ->execute([$name, $title, $tplBody, $ph, $u['name'], $id]);
+        $pdo->prepare('UPDATE doc_templates SET name=?, title=?, body=?, placeholders=?, lang=?, updated_by=?, updated_at=datetime(\'now\') WHERE id=?')
+            ->execute([$name, $title, $tplBody, $ph, $lang, $u['name'], $id]);
         audit($u['name'], 'Template updated', 'templates', $id, $kind);
         json_out(['ok' => true, 'id' => $id]);
     }
     $prefix = ['lease' => 'LSE-', 'service' => 'SRV-', 'receipt' => 'RCP-'][$kind];
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'$prefix','') AS INTEGER)) FROM doc_templates WHERE id LIKE '$prefix%'")->fetchColumn();
     $nid = $prefix . str_pad((string)($mx + 1), 2, '0', STR_PAD_LEFT);
-    $pdo->prepare('INSERT INTO doc_templates (id,kind,name,title,body,placeholders,is_default,updated_by) VALUES (?,?,?,?,?,?,0,?)')
-        ->execute([$nid, $kind, $name, $title, $tplBody, $ph, $u['name']]);
+    $pdo->prepare('INSERT INTO doc_templates (id,kind,name,title,body,placeholders,is_default,updated_by,lang) VALUES (?,?,?,?,?,?,0,?,?)')
+        ->execute([$nid, $kind, $name, $title, $tplBody, $ph, $u['name'], $lang]);
     audit($u['name'], 'Template created', 'templates', $nid, $kind);
     json_out(['ok' => true, 'id' => $nid]);
 }
@@ -12236,8 +12750,8 @@ case 'app-tpl-dup': {
     $prefix = ['lease' => 'LSE-', 'service' => 'SRV-', 'receipt' => 'RCP-'][$t['kind']];
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'$prefix','') AS INTEGER)) FROM doc_templates WHERE id LIKE '$prefix%'")->fetchColumn();
     $nid = $prefix . str_pad((string)($mx + 1), 2, '0', STR_PAD_LEFT);
-    $pdo->prepare('INSERT INTO doc_templates (id,kind,name,title,body,placeholders,is_default,updated_by) VALUES (?,?,?,?,?,?,0,?)')
-        ->execute([$nid, $t['kind'], $newName ?: ($t['name'] . ' (copy)'), $t['title'], $t['body'], $t['placeholders'], $u['name']]);
+    $pdo->prepare('INSERT INTO doc_templates (id,kind,name,title,body,placeholders,is_default,updated_by,lang) VALUES (?,?,?,?,?,?,0,?,?)')
+        ->execute([$nid, $t['kind'], $newName ?: ($t['name'] . ' (copy)'), $t['title'], $t['body'], $t['placeholders'], $u['name'], $t['lang'] ?? 'en']);
     audit($u['name'], 'Template duplicated', 'templates', $nid, 'from ' . $id);
     json_out(['ok' => true, 'id' => $nid]);
 }
@@ -12295,7 +12809,7 @@ case 'app-tpl-render': {
 case 'app-email-tpl-list': {
     $u = require_user();
     require_module($u, 'templates');
-    json_out(['ok' => true, 'templates' => db()->query('SELECT id,name,subject,updated_by,updated_at FROM email_templates ORDER BY id')->fetchAll(PDO::FETCH_ASSOC)]);
+    json_out(['ok' => true, 'templates' => db()->query('SELECT id,name,subject,lang,updated_by,updated_at FROM email_templates ORDER BY lang, id')->fetchAll(PDO::FETCH_ASSOC)]);
 }
 
 case 'app-email-tpl-get': {
@@ -12316,12 +12830,14 @@ case 'app-email-tpl-save': {
     $id = trim($body['id'] ?? '');
     $subject = trim($body['subject'] ?? '');
     $tplBody = $body['body'] ?? '';
+    $lang = trim($body['lang'] ?? 'en');
+    if (!in_array($lang, ['en', 'bn'], true)) $lang = 'en';
     if (!$id || !$subject || trim($tplBody) === '') json_out(['ok' => false, 'error' => 'id, subject and body are required.'], 400);
     $pdo = db();
     $st = $pdo->prepare('SELECT id FROM email_templates WHERE id=?'); $st->execute([$id]);
     if (!$st->fetch()) json_out(['ok' => false, 'error' => 'Email template not found.'], 404);
-    $pdo->prepare('UPDATE email_templates SET subject=?, body=?, updated_by=?, updated_at=datetime(\'now\') WHERE id=?')
-        ->execute([$subject, $tplBody, $u['name'], $id]);
+    $pdo->prepare('UPDATE email_templates SET subject=?, body=?, lang=?, updated_by=?, updated_at=datetime(\'now\') WHERE id=?')
+        ->execute([$subject, $tplBody, $lang, $u['name'], $id]);
     audit($u['name'], 'Email template updated', 'templates', $id, $subject);
     json_out(['ok' => true]);
 }
