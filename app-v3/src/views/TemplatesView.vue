@@ -69,8 +69,62 @@ const sampleRender = (body) => (body || '').replace(/\{\{(\w+)\}\}/g, (m, k) => 
 
 const previewOpen = ref(false)
 const previewBody = ref('')
+const previewRaw = ref('')
 const previewTitle = ref('')
-function showPreview(title, body) { previewTitle.value = title; previewBody.value = sampleRender(body); previewOpen.value = true }
+const previewKind = ref('doc')        // 'doc' | 'email'
+const previewSubject = ref('')
+function showPreview(title, body, kind = 'doc', subject = '') {
+  previewTitle.value = title
+  previewRaw.value = body || ''
+  previewBody.value = sampleRender(body)
+  previewKind.value = kind
+  previewSubject.value = sampleRender(subject || '')
+  previewOpen.value = true
+}
+const previewTokens = computed(() => {
+  const m = previewRaw.value.match(/\{\{(\w+)\}\}/g)
+  return m ? [...new Set(m.map(t => t.replace(/[{}]/g, '')))] : []
+})
+const tokTag = (t) => '{{' + t + '}}'
+async function previewTpl(t) {
+  let body = t.body
+  if (!body) {
+    try {
+      const r = await apiCall('app-tpl-get', { id: t.id })
+      if (r.ok) body = r.tpl?.body || ''
+    } catch (e) {}
+  }
+  showPreview(t.title || t.name, body, 'doc')
+}
+async function previewEmail(e) {
+  let body = e.body, subj = e.subject
+  if (!body) {
+    try {
+      const r = await apiCall('app-email-tpl-get', { id: e.id })
+      if (r.ok) { body = r.tpl?.body || ''; subj = r.tpl?.subject || subj }
+    } catch (e) {}
+  }
+  showPreview(e.name, body, 'email', subj)
+}
+async function copyPreview() {
+  const txt = previewBody.value
+  let ok = false
+  try {
+    await navigator.clipboard.writeText(txt)
+    ok = true
+  } catch (e) {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = txt
+      ta.style.position = 'fixed'; ta.style.opacity = '0'
+      document.body.appendChild(ta); ta.select()
+      ok = document.execCommand('copy')
+      ta.remove()
+    } catch (e2) { ok = false }
+  }
+  toast.value = ok ? '✅ Preview copied to clipboard' : '⚠️ Copy failed'
+  setTimeout(() => toast.value = '', 3000)
+}
 
 // ── editor modal (doc) ──
 const edit = ref(null)        // { id?, kind, name, title, body, lang }
@@ -249,7 +303,7 @@ onMounted(() => {
           </div>
           <div class="tpl-card-actions">
             <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="openTpl(t)">✏️ Edit</button>
-            <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="showPreview(t.title || t.name, t.body)">👁 Preview</button>
+            <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="previewTpl(t)">👁 Preview</button>
             <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="dupTpl(t)">⧉ Duplicate</button>
             <button v-if="t.is_default" class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="resetTpl(t)">↩ Reset</button>
             <div style="flex:1"></div>
@@ -285,7 +339,7 @@ onMounted(() => {
           </div>
           <div class="tpl-card-actions">
             <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="openEmail(e)">✏️ Edit</button>
-            <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="showPreview(e.subject, e.body)">👁 Preview</button>
+            <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="previewEmail(e)">👁 Preview</button>
             <div style="flex:1"></div>
             <button class="btn-ghost" style="padding:5px 11px;font-size:11.5px" @click="resetEmail(e)">↩ Reset</button>
           </div>
@@ -321,7 +375,7 @@ onMounted(() => {
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
           <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="editOpen = false">Cancel</button>
-          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="showPreview(edit.title || edit.name, edit.body)">👁 Preview</button>
+          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="showPreview(edit.title || edit.name, edit.body, 'doc')">👁 Preview</button>
           <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="loading" @click="saveTpl">💾 Save</button>
         </div>
       </div>
@@ -345,7 +399,7 @@ onMounted(() => {
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
           <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="emOpen = false">Cancel</button>
-          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="showPreview(emEdit.subject, emEdit.body)">👁 Preview</button>
+          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="showPreview(emEdit.name, emEdit.body, 'email', emEdit.subject)">👁 Preview</button>
           <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="loading" @click="saveEmail">💾 Save</button>
         </div>
       </div>
@@ -353,13 +407,33 @@ onMounted(() => {
 
     <!-- live preview modal -->
     <div v-if="previewOpen" class="overlay" @click.self="previewOpen = false">
-      <div class="modal" style="width:680px;max-width:94vw">
+      <div class="modal" style="width:720px;max-width:94vw">
         <div class="modal-h"><span class="t">👁 Preview · {{ previewTitle }}</span><button class="close" @click="previewOpen = false">✕</button></div>
-        <div style="padding:18px 20px">
-          <pre class="tpl-prev-box">{{ previewBody }}</pre>
+        <div style="padding:16px 20px">
+          <!-- email chrome -->
+          <div v-if="previewKind === 'email'" class="prev-mail">
+            <div class="pm-row"><span>From</span><b>{{ SAMPLE.org_name }} &lt;{{ SAMPLE.org_email }}&gt;</b></div>
+            <div class="pm-row"><span>To</span><b>{{ SAMPLE.tenant_email }}</b></div>
+            <div class="pm-row"><span>Subject</span><b class="pm-subj">{{ previewSubject }}</b></div>
+          </div>
+          <!-- rendered body -->
+          <div class="prev-paper" :class="previewKind">
+            <template v-if="previewKind === 'doc'">
+              <div class="prev-org">{{ SAMPLE.org_name }}<template v-if="SAMPLE.org_address"> · {{ SAMPLE.org_address }}</template><template v-if="SAMPLE.org_phone"> · {{ SAMPLE.org_phone }}</template></div>
+              <div v-if="previewTitle" class="prev-doc-title">{{ previewTitle }}</div>
+              <div class="prev-body">{{ previewBody }}</div>
+            </template>
+            <div v-else class="prev-body">{{ previewBody }}</div>
+          </div>
+          <!-- placeholder legend -->
+          <div v-if="previewTokens.length" class="prev-tokens">
+            <span class="c-sub" style="font-size:11px;font-weight:700">Placeholders:</span>
+            <span v-for="t in previewTokens" :key="t" class="prev-tok">{{ tokTag(t) }}</span>
+          </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="previewOpen = false">Close</button>
+          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="copyPreview">📋 Copy</button>
+          <button class="btn-primary" style="padding:9px 16px;font-size:13px" @click="previewOpen = false">Close</button>
         </div>
       </div>
     </div>
@@ -415,4 +489,18 @@ onMounted(() => {
 .tpl-ta { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:9px; background:var(--bg-alt); font-family:ui-monospace,monospace; font-size:12px; color:var(--text); outline:none; resize:vertical; line-height:1.55 }
 .tpl-tok { padding:3px 9px; font-size:10.5px; font-family:monospace }
 .tpl-prev-box { margin:0; white-space:pre-wrap; word-break:break-word; background:var(--bg-alt); border:1px solid var(--border); border-radius:12px; padding:16px; font-family:ui-monospace,monospace; font-size:12.5px; line-height:1.7; color:var(--text); max-height:52vh; overflow:auto }
+
+/* preview modal — email chrome + paper doc */
+.prev-mail { border:1px solid var(--border); border-radius:12px; padding:11px 14px; background:var(--bg-alt); margin-bottom:12px; display:flex; flex-direction:column; gap:6px; font-size:12.5px }
+.pm-row { display:flex; gap:10px; align-items:baseline }
+.pm-row span { width:62px; flex:none; color:var(--text-mute); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.3px }
+.pm-subj { color:var(--primary) }
+.prev-paper { background:var(--bg-alt); border:1px solid var(--border); border-radius:12px; padding:22px 24px; max-height:50vh; overflow:auto }
+.prev-paper.doc { font-family:Georgia,'Times New Roman',serif }
+.prev-org { text-align:center; font-size:11px; color:var(--text-mute); letter-spacing:.3px; text-transform:uppercase; padding-bottom:10px; border-bottom:1px dashed var(--border); margin-bottom:14px }
+.prev-doc-title { text-align:center; font-weight:800; font-size:17px; color:var(--text); margin-bottom:14px }
+.prev-body { white-space:pre-wrap; word-break:break-word; font-size:13.5px; line-height:1.8; color:var(--text) }
+.prev-paper.email .prev-body { font-family:ui-monospace,monospace; font-size:12.5px }
+.prev-tokens { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px }
+.prev-tok { border:1px solid var(--border); background:var(--bg-alt); color:var(--primary); border-radius:6px; padding:3px 9px; font-size:11px; font-family:monospace }
 </style>

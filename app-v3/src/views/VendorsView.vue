@@ -4,11 +4,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
-import { badge, money, fmtTs, monthLabel } from '../lib/ui'
+import { badge, money, fmtTs, monthLabel, useViewMode } from '../lib/ui'
 
 const router = useRouter()
 const route = useRoute()
 const go = (path, q) => router.push({ path, query: q })
+const viewMode = useViewMode('vendors-partners')
 
 const auth = useAuthStore()
 const data = useDataStore()
@@ -362,6 +363,32 @@ const partnerName = (pid) => partners.value.find(p => p.id === pid)?.name || pid
 const initials = (n) => String(n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
 const avatarColor = (s) => { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h},62%,45%)` }
 const payoutsOf = (p) => payouts.value.filter(x => x.partner === p.id)
+
+// ── partner detail drawer ──
+const selPartner = ref(null)
+const pJobs = ref([])
+const pInvoices = ref([])
+const pPayouts = ref([])
+const pSvc = ref([])
+const pOffers = ref([])
+const partnerOpen = ref(false)
+const partnerLoading = ref(false)
+async function openPartner(p) {
+  partnerLoading.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-vendors', { action: 'partner-get', id: p.id })
+    if (!r.ok) { err.value = r.error || 'Failed to load partner.'; return }
+    selPartner.value = r.partner || p
+    pJobs.value = r.jobs || []
+    pInvoices.value = r.invoices || []
+    pPayouts.value = r.payouts || []
+    pSvc.value = r.svc || []
+    pOffers.value = r.offers || []
+    partnerOpen.value = true
+  } catch (e) { err.value = e.message }
+  finally { partnerLoading.value = false }
+}
+function openSvcFromPartner(s) { partnerOpen.value = false; openJob(s) }
 function exportCsv(kind) {
   const rows = kind === 'partners' ? filteredPartners.value : kind === 'jobs' ? filteredJobs.value : kind === 'invoices' ? filteredInvoices.value : filteredPayouts.value
   if (!rows.length) return
@@ -443,6 +470,10 @@ function exportCsv(kind) {
         <button class="chip" :class="{ on: catFilter === '' }" @click="catFilter = ''">All <b>{{ partners.length }}</b></button>
         <button v-for="c in catOptions" :key="c" class="chip" :class="{ on: catFilter === c }" @click="catFilter = catFilter === c ? '' : c">{{ c }} <b>{{ catCounts[c] || 0 }}</b></button>
         <div style="flex:1"></div>
+        <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+        </div>
         <select v-model="tradeFilter" style="padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
           <option value="">All trades</option>
           <option v-for="t in tradeOptions" :key="t" :value="t">{{ t }}</option>
@@ -452,8 +483,8 @@ function exportCsv(kind) {
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
       </div>
-      <div v-if="filteredPartners.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
-        <div v-for="p in filteredPartners" :key="p.id" class="panel chip" style="overflow:hidden;display:flex;flex-direction:column">
+      <div v-if="filteredPartners.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
+        <div v-for="p in filteredPartners" :key="p.id" class="panel chip p-card" style="overflow:hidden;display:flex;flex-direction:column" @click="openPartner(p)">
           <div style="height:84px;position:relative;background:var(--grad)">
             <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.35)">{{ initials(p.name) }}</div>
             <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
@@ -477,7 +508,29 @@ function exportCsv(kind) {
               <span v-if="p.sub_email" class="badge b-green">📧 portal</span>
               <span v-if="p.avg_rating" class="badge b-orange">★ {{ p.avg_rating }}</span>
             </div>
+            <div class="p-open-hint">👁 View profile</div>
           </div>
+        </div>
+      </div>
+      <div v-if="filteredPartners.length && viewMode === 'list'" class="panel" style="overflow:hidden">
+        <div class="tbl-wrap">
+          <table class="kr" style="width:100%">
+            <thead><tr><th>Partner</th><th>Category</th><th>Trade</th><th>Phone</th><th>Status</th><th>Rating</th><th>Jobs</th><th>Paid</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="p in filteredPartners" :key="p.id" style="cursor:pointer" @click="openPartner(p)">
+                <td style="white-space:nowrap"><b>{{ p.name }}</b><div class="c-sub" style="font-size:11.5px">{{ p.id }}<template v-if="p.sub_email"> · {{ p.sub_email }}</template></div></td>
+                <td style="white-space:nowrap"><span class="badge b-blue">{{ p.cat || 'General / Other' }}</span></td>
+                <td style="white-space:nowrap" class="c-sub">{{ p.trade || '—' }}</td>
+                <td style="white-space:nowrap" class="c-sub">{{ p.phone || '—' }}</td>
+                <td style="white-space:nowrap"><span class="badge" :class="badge(p.status)">{{ p.status }}</span></td>
+                <td style="white-space:nowrap">⭐ {{ p.rating || 0 }}<template v-if="p.avg_rating"> · ★{{ p.avg_rating }}</template></td>
+                <td style="white-space:nowrap" class="c-sub">{{ p.jobs || 0 }}<template v-if="p.open_jobs"> <span style="color:var(--danger)">({{ p.open_jobs }} open)</span></template></td>
+                <td style="white-space:nowrap;font-weight:700">{{ money(p.paid_total || 0) }}</td>
+                <td style="white-space:nowrap" class="c-sub" title="View profile">👁</td>
+              </tr>
+              <tr v-if="!filteredPartners.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:22px">No partners found.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
       <div v-if="!filteredPartners.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No partners found.</div>
@@ -750,6 +803,145 @@ function exportCsv(kind) {
           </template>
           <template v-if="['open', 'offers'].includes(selJob.status)">
             <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;color:var(--danger)" @click="rfqAction('rfq-cancel', 'cancelled')">🚫 Cancel task</button>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── PARTNER DETAIL DRAWER ── -->
+    <template v-if="partnerOpen && selPartner">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="partnerOpen = false"></div>
+      <div style="position:fixed;top:0;right:0;bottom:0;width:min(620px,96vw);background:var(--card);z-index:71;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column">
+        <div class="d-cover" style="height:118px;background:linear-gradient(135deg,#1A2433,#16A085);position:relative;flex-shrink:0">
+          <div style="position:absolute;left:18px;bottom:16px;display:flex;align-items:center;gap:13px">
+            <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.22);color:#fff;font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;flex:none">{{ initials(selPartner.name) }}</div>
+            <div style="min-width:0">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <span style="font-size:18px;font-weight:800;color:#fff">{{ selPartner.name }}</span>
+                <span class="badge" :class="badge(selPartner.status)">{{ selPartner.status }}</span>
+              </div>
+              <div style="font-size:12.5px;color:rgba(255,255,255,.88);font-weight:600;margin-top:3px">{{ selPartner.id }} · {{ selPartner.trade || '—' }}</div>
+            </div>
+          </div>
+          <button @click="partnerOpen = false" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:15px">
+          <div v-if="partnerLoading" class="c-sub" style="text-align:center;padding:18px">Loading profile…</div>
+          <template v-else>
+            <!-- stat strip -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+              <div class="pstat"><span class="pstat-v">⭐ {{ selPartner.rating || 0 }}</span><span class="pstat-l">rating</span></div>
+              <div class="pstat"><span class="pstat-v">{{ selPartner.jobs || 0 }}</span><span class="pstat-l">jobs · {{ selPartner.open_jobs || 0 }} open</span></div>
+              <div class="pstat"><span class="pstat-v">{{ money(selPartner.paid_total || 0) }}</span><span class="pstat-l">paid</span></div>
+              <div class="pstat"><span class="pstat-v">★ {{ selPartner.avg_rating || 0 }}</span><span class="pstat-l">{{ selPartner.rating_count || 0 }} reviews</span></div>
+              <div class="pstat"><span class="pstat-v">{{ money(selPartner.approved_total || 0) }}</span><span class="pstat-l">approved inv.</span></div>
+              <div class="pstat"><span class="pstat-v">{{ selPartner.hourly_rate ? money(selPartner.hourly_rate) + '/hr' : '—' }}</span><span class="pstat-l">rate</span></div>
+            </div>
+
+            <!-- contact -->
+            <div class="drawer-sec">
+              <div class="ds-h">📇 Contact</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px 14px;font-size:12.5px">
+                <div v-if="selPartner.phone">📞 {{ selPartner.phone }}</div>
+                <div v-if="selPartner.email">✉️ {{ selPartner.email }}</div>
+                <div v-if="selPartner.sub_email">🔐 {{ selPartner.sub_email }}</div>
+                <div v-if="selPartner.city || selPartner.address">📍 {{ [selPartner.address, selPartner.city].filter(Boolean).join(', ') }}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <span class="badge b-blue">{{ selPartner.cat }}</span>
+              <span v-if="selPartner.specialties" class="badge b-gray">🧩 {{ selPartner.specialties }}</span>
+            </div>
+            <div v-if="selPartner.notes" class="drawer-sec">
+              <div class="ds-h">📌 Notes</div>
+              <div style="font-size:12.5px;color:var(--text-mute);white-space:pre-wrap">{{ selPartner.notes }}</div>
+            </div>
+
+            <!-- service work orders -->
+            <div class="drawer-sec">
+              <div class="ds-h">📋 Service work orders ({{ pSvc.length }})</div>
+              <div v-if="!pSvc.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No work orders yet.</div>
+              <div v-for="s in pSvc.slice(0, 8)" :key="s.id" class="p-row" @click="openSvcFromPartner(s)">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <b style="font-size:13px">{{ s.id }}</b>
+                    <span v-if="s.wo_no" class="badge" style="background:#16A085;color:#fff">{{ s.wo_no }}</span>
+                    <span class="badge" :style="{ background: STATUS_META[s.status]?.color, color: '#fff' }">{{ STATUS_META[s.status]?.l || s.status }}</span>
+                  </div>
+                  <div style="font-size:12.5px;margin-top:4px">{{ s.title }}</div>
+                  <div class="c-sub" style="font-size:11px;margin-top:2px">{{ s.cat }}<template v-if="s.awarded_amount"> · {{ money(s.awarded_amount) }}</template><template v-if="s.deadline"> · ⏰ {{ s.deadline }}</template></div>
+                </div>
+                <span style="font-size:12px;color:var(--text-mute)">👁</span>
+              </div>
+            </div>
+
+            <!-- maintenance jobs -->
+            <div class="drawer-sec">
+              <div class="ds-h">🔧 Maintenance jobs ({{ pJobs.length }})</div>
+              <div v-if="!pJobs.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No maintenance jobs.</div>
+              <div v-for="j in pJobs.slice(0, 8)" :key="j.id" class="p-row">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <b style="font-size:13px">{{ j.id }}</b>
+                    <span class="badge" :class="badge(j.status)">{{ j.status }}</span>
+                    <span v-if="j.priority === 'urgent'" class="badge b-red">urgent</span>
+                  </div>
+                  <div style="font-size:12.5px;margin-top:3px">{{ j.title || '—' }}</div>
+                  <div class="c-sub" style="font-size:11px;margin-top:2px">{{ j.unit_name || j.unit || '—' }}<template v-if="j.property_name"> · {{ j.property_name }}</template><template v-if="j.actual_cost"> · {{ money(j.actual_cost) }}</template></div>
+                </div>
+                <span class="c-sub" style="font-size:10.5px">{{ fmtTs(j.ts) }}</span>
+              </div>
+            </div>
+
+            <!-- offer activity -->
+            <div class="drawer-sec">
+              <div class="ds-h">💬 Quotation activity ({{ pOffers.length }})</div>
+              <div v-if="!pOffers.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No offers made yet.</div>
+              <div v-for="o in pOffers.slice(0, 8)" :key="o.id" class="p-row">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <b style="font-size:13px">{{ o.job }}</b>
+                    <span class="badge" :class="o.kind === 'accept' ? 'b-green' : 'b-orange'">{{ o.kind === 'accept' ? '✓ Accept' : '⇄ Counter' }}</span>
+                    <span class="badge" :class="badge(o.status)">{{ o.status }}</span>
+                  </div>
+                  <div style="font-size:12px;margin-top:3px;font-weight:700;color:var(--primary)">{{ o.amount ? money(o.amount) : 'Budget rate' }}</div>
+                  <div v-if="o.job_title" class="c-sub" style="font-size:11px;margin-top:2px">{{ o.job_title }}</div>
+                </div>
+                <span class="c-sub" style="font-size:10.5px">{{ fmtTs(o.created_at) }}</span>
+              </div>
+            </div>
+
+            <!-- invoices -->
+            <div class="drawer-sec">
+              <div class="ds-h">🧾 Invoices ({{ pInvoices.length }})</div>
+              <div v-if="!pInvoices.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No invoices.</div>
+              <div v-for="i in pInvoices.slice(0, 8)" :key="i.id" class="p-row">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <b style="font-size:13px">{{ i.id }}</b>
+                    <span class="badge" :class="badge(i.status)">{{ i.status }}</span>
+                  </div>
+                  <div class="c-sub" style="font-size:11px;margin-top:3px">{{ i.job || '—' }}<template v-if="i.job_title"> · {{ i.job_title }}</template></div>
+                </div>
+                <span style="font-size:13px;font-weight:800;color:var(--primary)">{{ money(i.amount) }}</span>
+              </div>
+            </div>
+
+            <!-- payouts -->
+            <div class="drawer-sec">
+              <div class="ds-h">💵 Payouts ({{ pPayouts.length }})</div>
+              <div v-if="!pPayouts.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No payouts.</div>
+              <div v-for="x in pPayouts.slice(0, 8)" :key="x.id" class="p-row">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <b style="font-size:13px">{{ monthLabel(x.month) }}</b>
+                    <span class="badge" :class="badge(x.status)">{{ x.status }}</span>
+                  </div>
+                  <div class="c-sub" style="font-size:11px;margin-top:3px">{{ x.method || '—' }}<template v-if="x.ref"> · {{ x.ref }}</template></div>
+                </div>
+                <span style="font-size:13px;font-weight:800">{{ money(x.amount) }}</span>
+              </div>
+            </div>
           </template>
         </div>
       </div>
@@ -1028,4 +1220,14 @@ function exportCsv(kind) {
 .approve-box { background:rgba(230,126,34,.08); border:1px solid rgba(230,126,34,.4); border-radius:12px; padding:12px 14px; font-size:13px }
 .lbl { font-size:11px; font-weight:800; color:var(--text-mute); text-transform:uppercase; letter-spacing:.3px; display:block; margin-bottom:5px }
 .fld { width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:10px; background:var(--bg-alt); font-family:inherit; font-size:13px; color:var(--text); outline:none }
+
+/* partner grid cards + detail drawer */
+.p-card { cursor:pointer; transition:transform .15s, box-shadow .15s }
+.p-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(16,24,40,.1) }
+.p-open-hint { font-size:10.5px; font-weight:700; color:var(--primary); text-align:center; padding-top:7px; border-top:1px dashed var(--border); margin-top:2px }
+.pstat { background:var(--bg-alt); border:1px solid var(--border); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:2px }
+.pstat-v { font-size:15px; font-weight:800; color:var(--text) }
+.pstat-l { font-size:10.5px; color:var(--text-mute) }
+.p-row { display:flex; gap:10px; align-items:flex-start; border:1px solid var(--border); border-radius:11px; padding:9px 12px; background:var(--card); margin-bottom:7px; cursor:pointer; transition:border-color .12s }
+.p-row:hover { border-color:var(--primary) }
 </style>

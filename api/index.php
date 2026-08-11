@@ -14837,6 +14837,55 @@ case 'app-vendors': {
         if ($isPartner) $rows = array_values(array_filter($rows, fn($r) => $r['id'] === ($me['id'] ?? '')));
         json_out(['ok' => true, 'partners' => $rows]);
     }
+    if ($action === 'partner-get') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM partners WHERE id=?'); $st->execute([$id]);
+        $p = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$p) json_out(['ok' => false, 'error' => 'Partner not found.'], 404);
+        if ($isPartner && ($me['id'] ?? '') !== $id) json_out(['ok' => false, 'error' => 'Not your partner record.'], 403);
+        $st = $pdo->prepare("SELECT m.*, t.name AS tenant_name, u.name AS unit_name, p.name AS property_name
+                FROM maintenance_requests m LEFT JOIN tenants t ON t.id=m.tenant
+                LEFT JOIN units u ON u.id=m.unit LEFT JOIN properties p ON p.id=m.prop
+                WHERE m.vendor=? ORDER BY m.ts DESC");
+        $st->execute([$p['name']]);
+        $jobs = $st->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($jobs as &$r) { $r['cost_estimate']=(int)$r['cost_estimate']; $r['actual_cost']=(int)$r['actual_cost']; }
+        $st = $pdo->prepare("SELECT i.*, m.title AS job_title FROM partner_invoices i
+                LEFT JOIN maintenance_requests m ON m.id=i.job WHERE i.partner=? ORDER BY i.ts DESC");
+        $st->execute([$id]);
+        $invoices = $st->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($invoices as &$r) $r['amount'] = (int)$r['amount'];
+        $st = $pdo->prepare('SELECT * FROM vendor_payouts WHERE partner=? ORDER BY month DESC');
+        $st->execute([$id]);
+        $payouts = $st->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($payouts as &$r) $r['amount'] = (int)$r['amount'];
+        $st = $pdo->prepare("SELECT s.*, u.name AS unit_name, p.name AS property_name
+                FROM service_jobs s LEFT JOIN units u ON u.id=s.unit LEFT JOIN properties p ON p.id=s.prop
+                WHERE s.awarded_partner=? ORDER BY s.created_at DESC");
+        $st->execute([$p['name']]);
+        $svc = $st->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($svc as &$r) { $r['budget_amount']=(int)$r['budget_amount']; $r['awarded_amount']=(int)$r['awarded_amount']; }
+        $st = $pdo->prepare("SELECT o.*, s.title AS job_title FROM job_offers o
+                LEFT JOIN service_jobs s ON s.id=o.job WHERE o.partner_name=? ORDER BY o.created_at DESC");
+        $st->execute([$p['name']]);
+        $offers = $st->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($offers as &$r) $r['amount'] = (int)$r['amount'];
+        $st = $pdo->prepare("SELECT COUNT(*) FROM maintenance_requests WHERE vendor=? AND status!='Closed'");
+        $st->execute([$p['name']]);
+        $open = (int)$st->fetchColumn();
+        $st = $pdo->prepare('SELECT COALESCE(AVG(rating),0), COUNT(*) FROM vendor_ratings WHERE partner=?');
+        $st->execute([$id]);
+        $vr = $st->fetch(PDO::FETCH_NUM);
+        $partner = [
+            'id' => $p['id'], 'name' => $p['name'], 'trade' => $p['trade'], 'cat' => $p['cat'] ?: vendor_cat_for_trade($p['trade']),
+            'phone' => $p['phone'] ?? '', 'email' => $p['email'] ?? '', 'address' => $p['address'] ?? '', 'city' => $p['city'] ?? '',
+            'hourly_rate' => (int)($p['hourly_rate'] ?? 0), 'specialties' => $p['specialties'] ?? '', 'notes' => $p['notes'] ?? '',
+            'rating' => (float)$p['rating'], 'jobs' => (int)$p['jobs'], 'status' => $p['status'], 'sub_email' => $p['sub_email'] ?? '',
+            'open_jobs' => $open, 'avg_rating' => round((float)$vr[0], 1), 'rating_count' => (int)$vr[1],
+        ];
+        json_out(['ok' => true, 'partner' => $partner, 'jobs' => $jobs, 'invoices' => $invoices, 'payouts' => $payouts, 'svc' => $svc, 'offers' => $offers]);
+    }
     if ($action === 'jobs') {
         $sql = "SELECT m.*, t.name AS tenant_name, u.name AS unit_name, p.name AS property_name,
                 (SELECT COUNT(*) FROM job_media jm WHERE jm.job=m.id AND jm.kind='before') AS ev_before,
@@ -15298,7 +15347,7 @@ case 'app-vendors': {
         audit($u['name'], 'Quote requested from ' . $vendor, 'maintenance', $rid, $title . ' [' . $cat . ']');
         json_out(['ok' => true, 'id' => $rid]);
     }
-    json_out(['ok' => false, 'error' => 'action must be list|jobs|job-status|job-qc|invoice-submit|invoice-list|invoice-decide|invoice-pay|payout-list|payout-record|rate|market|request-quote|rfq-list|rfq-get|rfq-create|rfq-edit|rfq-approve|rfq-cancel|rfq-from-mt|rfq-status|offer-create|offer-list|offer-withdraw|offer-decide.'], 400);
+    json_out(['ok' => false, 'error' => 'action must be list|partner-get|jobs|job-status|job-qc|invoice-submit|invoice-list|invoice-decide|invoice-pay|payout-list|payout-record|rate|market|request-quote|rfq-list|rfq-get|rfq-create|rfq-edit|rfq-approve|rfq-cancel|rfq-from-mt|rfq-status|offer-create|offer-list|offer-withdraw|offer-decide.'], 400);
 }
 
 case 'app-job-media': {
