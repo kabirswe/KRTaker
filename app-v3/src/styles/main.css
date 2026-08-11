@@ -229,3 +229,15 @@ table.kr.compact td{padding:8px 10px;font-size:12.5px}
   .toast-wrap{width:92vw}
   .toast{font-size:12.5px}
 }
+
+/* Samity printable report (body class toggled by SamityView Report tab) */
+@media print {
+  body.print-samity .sidebar,
+  body.print-samity .topbar,
+  body.print-samity .page-head,
+  body.print-samity .stats,
+  body.print-samity .tabs,
+  body.print-samity .report-toolbar { display: none !important; }
+  body.print-samity .content { max-width: none !important; padding: 0 !important; }
+  body.print-samity .report-area { box-shadow: none !important; border: none !important; }
+}
