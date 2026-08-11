@@ -93,6 +93,33 @@ const filtered = computed(() => {
 })
 const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
 
+// ── Committee writes ──
+const memberModal = ref(false)
+const memberForm = ref({ id: '', name: '', role: 'Member', phone: '', since_date: today(), status: 'active', notes: '', prop: '' })
+function openMemberModal(m) {
+  memberForm.value = m
+    ? { id: m.id, name: m.name || '', role: m.role || 'Member', phone: m.phone || '', since_date: m.since_date || today(), status: m.status || 'active', notes: m.notes || '', prop: m.prop || propFilter.value || propsList.value[0]?.id || '' }
+    : { id: '', name: '', role: 'Member', phone: '', since_date: today(), status: 'active', notes: '', prop: propFilter.value || propsList.value[0]?.id || '' }
+  memberModal.value = true
+}
+async function saveMember() {
+  const f = memberForm.value
+  if (!f.name.trim()) { window.__krToast?.('❌ Name is required'); return }
+  const r = await apiCall('app-samity', { action: f.id ? 'member-save' : 'member-create', id: f.id, name: f.name.trim(), role: f.role, phone: f.phone.trim(), since_date: f.since_date || today(), status: f.status, notes: f.notes.trim(), prop: f.prop })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  memberModal.value = false
+  window.__krToast?.('✅ Member saved')
+  await data.bootstrap()
+}
+async function delMember(m) {
+  if (!window.confirm('Delete member ' + m.name + '?')) return
+  const r = await apiCall('app-samity', { action: 'member-delete', id: m.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  closeDetail()
+  await data.bootstrap()
+}
+
 function exportCsv(rows, name) {
   if (!rows.length) return
   const esc = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
@@ -330,6 +357,7 @@ function detailFields(row) {
             <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
           </div>
           <button v-if="filtered.length" @click="exportCsv(filtered, 'samity-members')" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+          <button v-if="canManage" @click="openMemberModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add member</button>
         </template>
         <template v-else-if="tab === 'bills'">
           <input v-model="bq" placeholder="Search bill, unit…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
@@ -706,6 +734,63 @@ function detailFields(row) {
       </div>
     </template>
 
+    <!-- member modal -->
+    <template v-if="memberModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="memberModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">{{ memberForm.id ? '✏️ Edit member' : '👥 Add member' }}</div>
+          <button @click="memberModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Name *</div>
+            <input v-model="memberForm.name" placeholder="Full name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Role</div>
+              <select v-model="memberForm.role" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+                <option v-for="(meta, r) in ROLE_META" :key="r" :value="r">{{ meta.ico }} {{ r }}</option>
+              </select>
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Status</div>
+              <select v-model="memberForm.status" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+                <option value="active">✅ Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Phone</div>
+              <input v-model="memberForm.phone" placeholder="01XXXXXXXXX" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Member since</div>
+              <input v-model="memberForm.since_date" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Property</div>
+            <select v-model="memberForm.prop" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+              <option value="">—</option>
+              <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
+            </select>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Notes</div>
+            <input v-model="memberForm.notes" placeholder="e.g. Flat 4B — owner" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="memberModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="saveMember" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save member</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- bill modal -->
     <template v-if="billModal">
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="billModal = false"></div>
@@ -865,6 +950,10 @@ function detailFields(row) {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px">
             <span class="badge" :class="roleMeta(sel.role).cls" style="font-size:13px;padding:6px 12px">{{ roleMeta(sel.role).ico }} {{ sel.role || '—' }}</span>
             <span v-if="sel.phone" class="badge b-blue" style="font-size:13px;padding:6px 12px">📞 {{ sel.phone }}</span>
+          </div>
+          <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;font-weight:700" @click="openMemberModal(sel)">✏️ Edit member</button>
+            <button style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="delMember(sel)">🗑 Delete</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px;margin-top:16px">
             <div style="font-size:13px">

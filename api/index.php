@@ -17465,8 +17465,8 @@ case 'app-samity': {
         if (!in_array($role, ['Chairman', 'Secretary', 'Treasurer', 'Member'], true)) $role = $m['role'];
         $status = trim($body['status'] ?? $m['status']);
         if (!in_array($status, ['active', 'inactive'], true)) $status = $m['status'];
-        $st = $pdo->prepare('UPDATE samity_members SET name=?, role=?, phone=?, since_date=?, status=?, notes=? WHERE id=?');
-        $st->execute([trim($body['name'] ?? $m['name']), $role, trim($body['phone'] ?? $m['phone']), trim($body['since_date'] ?? $m['since_date']), $status, trim($body['notes'] ?? $m['notes']), $id]);
+        $st = $pdo->prepare('UPDATE samity_members SET name=?, role=?, phone=?, since_date=?, status=?, notes=?, prop=? WHERE id=?');
+        $st->execute([trim($body['name'] ?? $m['name']), $role, trim($body['phone'] ?? $m['phone']), trim($body['since_date'] ?? $m['since_date']), $status, trim($body['notes'] ?? $m['notes']), trim($body['prop'] ?? $m['prop'] ?? ''), $id]);
         audit($u['name'], 'member-save', 'samity', $id);
         json_out(['ok' => true]);
     }
