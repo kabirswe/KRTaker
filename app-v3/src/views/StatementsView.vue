@@ -25,6 +25,7 @@ function shiftMonth(d) {
   const [y, mo] = month.value.split('-').map(Number)
   const dt = new Date(y, mo - 1 + d, 1)
   month.value = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0')
+  jumped.value = false
   loadList()
 }
 const isCurrentMonth = computed(() => month.value === now.toISOString().slice(0, 7))
@@ -32,6 +33,8 @@ const isCurrentMonth = computed(() => month.value === now.toISOString().slice(0,
 const loading = ref(false)
 const err = ref('')
 const toast = ref('')
+const jumped = ref(false)   // true when we auto-landed on the latest month with data
+const MAX_BACK = 12
 const netColor = (n) => (n || 0) >= 0 ? '#12a150' : 'var(--danger)'
 const netStyle = (n) => 'color:' + netColor(n)
 
@@ -53,6 +56,25 @@ const totals = computed(() => {
 })
 const collectRate = computed(() => totals.value.gross > 0 ? Math.round((totals.value.collected / totals.value.gross) * 100) : 0)
 const barPct = (s) => (s.gross > 0 ? Math.min(100, Math.round(((s.collected || 0) / s.gross) * 100)) : 0)
+// Walk to the nearest month that has statements — back first (typical case:
+// current month empty → latest past month), then forward (old empty month).
+async function openLatestWithData() {
+  const [y, mo] = month.value.split('-').map(Number)
+  const probe = async (off) => {
+    const dt = new Date(y, mo - 1 + off, 1)
+    const m = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0')
+    const r = await apiCall('app-statements', { action: 'list', month: m })
+    return r.ok && (r.statements || []).length ? { m, s: r.statements } : null
+  }
+  for (let i = 1; i <= MAX_BACK; i++) {
+    const hit = await probe(-i)
+    if (hit) { month.value = hit.m; list.value = hit.s; jumped.value = true; return }
+  }
+  for (let i = 1; i <= MAX_BACK; i++) {
+    const hit = await probe(i)
+    if (hit) { month.value = hit.m; list.value = hit.s; jumped.value = true; return }
+  }
+}
 const shortName = (s) => (s.name || s.prop || 'P').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 const propTint = (s) => {
   const tints = ['#3b82f6', '#8b5cf6', '#0ea5e9', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#14b8a6']
@@ -180,7 +202,11 @@ const avgEsc = computed(() => {
   return n ? Math.round((rentCfg.value.reduce((a, p) => a + (+(p.config?.escalation_pct) || 0), 0) / n) * 10) / 10 : 0
 })
 
-onMounted(loadList)
+onMounted(async () => {
+  await loadList()
+  // Open on a month with no data? Auto-jump to the latest one that has statements.
+  if (!list.value.length) await openLatestWithData()
+})
 </script>
 
 <template>
@@ -204,6 +230,10 @@ onMounted(loadList)
 
     <div v-if="toast" style="padding:10px 14px;border-radius:10px;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);margin-bottom:14px;font-weight:700;font-size:13.5px">{{ toast }}</div>
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
+    <div v-if="jumped" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:10px;background:rgba(47,128,237,.08);border:1px solid rgba(47,128,237,.28);margin-bottom:14px;font-size:12.5px;font-weight:600;color:var(--text)">
+      <span>↩ {{ monthLabel }} has no statements yet — showing the latest month with data instead.</span>
+      <button class="btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:11.5px;flex-shrink:0" @click="month = now.toISOString().slice(0, 7); jumped = false; loadList()">Go to current month</button>
+    </div>
 
     <!-- Tabs -->
     <div style="display:flex;gap:8px;margin-bottom:16px">
@@ -250,11 +280,16 @@ onMounted(loadList)
       <!-- Statements table -->
       <div class="panel">
         <div class="panel-h">
-          <div class="t"><span class="pi">🏢</span>Statements · {{ monthLabel }}</div>
-          <span class="badge b-gray" style="font-size:11px">{{ list.length }} propert{{ list.length === 1 ? 'y' : 'ies' }}</span>
+          <div class="t"><span class="pi">🏢</span>Statements <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px">📅 {{ monthLabel }}</span></div>
+          <span class="badge" :class="list.length ? 'b-blue' : 'b-gray'" style="font-size:11px">{{ list.length ? list.length + ' propert' + (list.length === 1 ? 'y' : 'ies') + ' · ' + money(totals.gross) + ' gross' : 'No statements' }}</span>
         </div>
         <div v-if="loading" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
-        <div v-else-if="!list.length" style="padding:44px;text-align:center;color:var(--text-mute)">No statements for {{ monthLabel }}. Pick another month.</div>
+        <div v-else-if="!list.length" style="padding:42px 20px;text-align:center">
+          <div style="font-size:34px;margin-bottom:10px">🗓️</div>
+          <div style="font-weight:800;font-size:14.5px;margin-bottom:4px">No statements for {{ monthLabel }}</div>
+          <div style="color:var(--text-mute);font-size:12.5px;margin-bottom:16px">No rent invoices were generated for this period.</div>
+          <button class="btn-ghost" style="font-size:12px" @click="openLatestWithData()">↩ Jump to nearest month with data</button>
+        </div>
         <div v-else class="tbl-wrap">
           <table>
             <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Expenses</th><th>Net</th><th>Payout</th><th></th></tr></thead>
@@ -309,8 +344,8 @@ onMounted(loadList)
       <!-- Payout ledger -->
       <div class="panel" style="margin-top:14px">
         <div class="panel-h">
-          <div class="t"><span class="pi">💸</span>Payout ledger · {{ monthLabel }}</div>
-          <span v-if="payouts.length" class="badge b-gray" style="font-size:11px">{{ paidCount }}/{{ payouts.length }} paid · {{ money(payoutTotal) }}</span>
+          <div class="t"><span class="pi">💸</span>Payout ledger <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px">📅 {{ monthLabel }}</span></div>
+          <span class="badge" :class="payouts.length ? (paidCount === payouts.length ? 'b-green' : 'b-orange') : 'b-gray'" style="font-size:11px">{{ payouts.length ? paidCount + '/' + payouts.length + ' paid · ' + money(payoutTotal) : 'No payouts yet' }}</span>
         </div>
         <div class="tbl-wrap">
           <table>
@@ -324,7 +359,7 @@ onMounted(loadList)
                 <td>{{ p.method || '—' }}</td>
                 <td style="font-family:monospace;font-size:12px">{{ p.ref || '—' }}</td>
               </tr>
-              <tr v-if="!payouts.length"><td colspan="6" class="m">No payouts recorded for this month.</td></tr>
+              <tr v-if="!payouts.length"><td colspan="6" style="padding:26px 12px;text-align:center;color:var(--text-mute);font-size:12.5px">💸 No payouts recorded for {{ monthLabel }} yet.</td></tr>
             </tbody>
           </table>
         </div>
