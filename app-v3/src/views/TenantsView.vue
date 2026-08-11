@@ -71,6 +71,24 @@ function collectionRateT(t) {
 const nidVerifiedOf = (t) => nidVerifs.value.some(v => v.tenant === t.id && String(v.status).toLowerCase() === 'verified')
 const thanaVerifiedOf = (t) => thanaForms.value.some(f => f.tenant === t.id && String(f.status).toLowerCase() === 'verified')
 
+// ── trust tier badges (bharakhata parity: Bronze → Platinum) ──
+const TIER = {
+  Platinum: { ico: '💎', color: '#2f80ed' },
+  Gold:     { ico: '🥇', color: '#d4a017' },
+  Silver:   { ico: '🥈', color: '#8f9aa5' },
+  Bronze:   { ico: '🥉', color: '#b87333' },
+}
+function trustTier(t) {
+  const nid = nidVerifiedOf(t), thana = thanaVerifiedOf(t)
+  const rate = collectionRateT(t)
+  if (nid && thana && rate !== null && rate >= 90) return 'Platinum'
+  if (nid && thana) return 'Gold'
+  if (nid || thana || (rate !== null && rate >= 75)) return 'Silver'
+  return null
+}
+const tierStyle = (name) => { const x = TIER[name] || TIER.Bronze; return { background: x.color + '22', color: x.color, border: '1px solid ' + x.color + '55', fontWeight: 800 } }
+const tierLabel = (name) => { const x = TIER[name] || TIER.Bronze; return (x.ico + ' ' + name).trim() }
+
 // ── payment (partial) ──
 const receiptsOfInv = (invId) => receiptsAll.value.filter(r => r.inv === invId)
 const paidOfInvoice = (i) => receiptsOfInv(i.id).reduce((s, r) => s + (r.amount || 0), 0)
@@ -774,6 +792,7 @@ async function delTenant(t) {
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
             <span class="badge">{{ t.kind }}</span>
             <span v-if="String(t.nrb) === '1'" class="badge b-blue">🌍 NRB</span>
+            <span v-if="trustTier(t)" class="badge" :style="tierStyle(trustTier(t))">{{ tierLabel(trustTier(t)) }}</span>
             <span v-if="nidVerifiedOf(t)" class="badge b-green">🪪 NID ✓</span>
             <span v-if="thanaVerifiedOf(t)" class="badge b-green">🏛 Thana ✓</span>
           </div>
@@ -919,7 +938,7 @@ async function delTenant(t) {
                 </div>
                 <div style="min-width:0;flex:1">
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-                    <div style="font-weight:800;font-size:15px">Tenant score — <span :style="`color:${scoreData?.band_color || 'var(--text)'}`">{{ scoreData?.band || '…' }}</span></div>
+                    <div style="font-weight:800;font-size:15px">Tenant score — <span :style="`color:${scoreData?.band_color || 'var(--text)'}`">{{ scoreData?.band || '…' }}</span><span v-if="trustTier(sel)" class="badge" :style="tierStyle(trustTier(sel))" style="margin-left:8px;font-size:10.5px">{{ tierLabel(trustTier(sel)) }}</span></div>
                     <button v-if="scoreData && !scoreLoading" class="btn-ghost" style="padding:6px 12px;font-size:11.5px" @click="scoreModal = true">📊 Key indicators</button>
                   </div>
                   <div v-if="scoreLoading" class="c-sub" style="margin-top:4px">Calculating…</div>
