@@ -138,6 +138,82 @@ const cByMethod = computed(() => {
   return Object.entries(map)
 })
 
+// ── Bills tab writes ──
+const billModal = ref(false)
+const billForm = ref({ unit: '', month: today().slice(0, 7), amount: '', due_date: today().slice(0, 7) + '-05', note: '' })
+const unitsForProp = computed(() => {
+  let out = data.list('units')
+  if (propFilter.value) out = out.filter(u => u.p === propFilter.value)
+  return out
+})
+function openBillModal() {
+  billForm.value = { unit: unitsForProp.value[0]?.id || '', month: today().slice(0, 7), amount: '', due_date: today().slice(0, 7) + '-05', note: '' }
+  billModal.value = true
+}
+async function addBill() {
+  const f = billForm.value
+  if (!f.unit) { window.__krToast?.('❌ Select a unit'); return }
+  if (!(parseInt(f.amount) > 0)) { window.__krToast?.('❌ Amount is required'); return }
+  const r = await apiCall('app-samity', { action: 'bill-create', unit: f.unit, month: f.month || today().slice(0, 7), amount: parseInt(f.amount), due_date: f.due_date || today().slice(0, 7) + '-05', note: f.note.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  billModal.value = false
+  window.__krToast?.('✅ Bill issued')
+  await data.bootstrap()
+}
+async function delBill(b) {
+  if (!window.confirm('Delete bill ' + b.id + '?')) return
+  const r = await apiCall('app-samity', { action: 'bill-delete', id: b.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  await data.bootstrap()
+}
+
+// ── Collection tab writes ──
+const collModal = ref(false)
+const collForm = ref({ bill: '', amount: '', method: 'Cash', collected_at: today(), note: '' })
+const collBills = computed(() => billsAll.value.filter(inProp).filter(b => (b.status || '') !== 'Paid'))
+const remainingOf = (bid) => {
+  const b = billsAll.value.find(x => x.id === bid); if (!b) return 0
+  const got = colsAll.value.filter(c => c.bill === bid).reduce((s, c) => s + (c.amount || 0), 0)
+  return Math.max(0, (b.amount || 0) - got)
+}
+function openCollModal() {
+  collForm.value = { bill: collBills.value[0]?.id || '', amount: '', method: 'Cash', collected_at: today(), note: '' }
+  collModal.value = true
+}
+async function addCollection() {
+  const f = collForm.value
+  if (!f.bill) { window.__krToast?.('❌ Select a bill'); return }
+  if (!(parseInt(f.amount) > 0)) { window.__krToast?.('❌ Amount is required'); return }
+  const r = await apiCall('app-samity', { action: 'collection-create', bill: f.bill, amount: parseInt(f.amount), method: f.method, collected_at: f.collected_at || today(), note: f.note.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  collModal.value = false
+  window.__krToast?.('✅ Collection recorded')
+  await data.bootstrap()
+}
+async function delCollection(c) {
+  if (!window.confirm('Delete collection ' + c.id + '?')) return
+  const r = await apiCall('app-samity', { action: 'collection-delete', id: c.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  await data.bootstrap()
+}
+
+// ── Settings config (live from API) ──
+const samityCfg = ref({ alert_days: 7, default_charge: 3000 })
+const cfgLoaded = ref(false)
+async function loadCfg() {
+  const r = await apiCall('app-samity', { action: 'config-get' })
+  if (r && r.config) samityCfg.value = { ...samityCfg.value, ...r.config }
+  cfgLoaded.value = true
+}
+async function saveCfg() {
+  const r = await apiCall('app-samity', { action: 'config-save', alert_days: Math.max(1, Math.min(120, samityCfg.value.alert_days || 7)), default_charge: Math.max(1, Math.min(100000, samityCfg.value.default_charge || 3000)) })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('✅ Settings saved')
+}
+watch(tab, (t) => { if (t === 'settings' && !cfgLoaded.value) loadCfg() })
+
 // ── Expenses tab ──
 const eq = ref('')
 const eCat = ref('')
@@ -266,6 +342,7 @@ function detailFields(row) {
             <option v-for="s in bStatusOptions" :key="s" :value="s">{{ s }}</option>
           </select>
           <button v-if="billsFiltered.length" @click="exportCsv(billsFiltered, 'samity-bills')" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+          <button v-if="canManage" @click="openBillModal" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add bill</button>
         </template>
         <template v-else-if="tab === 'collection'">
           <input v-model="cq" placeholder="Search receipt, bill…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
@@ -274,6 +351,7 @@ function detailFields(row) {
             <option v-for="m in cMethodOptions" :key="m" :value="m">{{ m }}</option>
           </select>
           <button v-if="colsFiltered.length" @click="exportCsv(colsFiltered, 'samity-collections')" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+          <button v-if="canManage" @click="openCollModal" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Record collection</button>
         </template>
         <template v-else-if="tab === 'expenses'">
           <input v-model="eq" placeholder="Search title, note…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
@@ -380,7 +458,7 @@ function detailFields(row) {
       <div v-if="billsFiltered.length" class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>Unit</th><th>Month</th><th>Amount</th><th>Due date</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID</th><th>Unit</th><th>Month</th><th>Amount</th><th>Due date</th><th>Status</th><th></th></tr></thead>
             <tbody>
               <tr v-for="b in billsFiltered" :key="b.id">
                 <td style="font-weight:700;white-space:nowrap">{{ b.id }}</td>
@@ -389,6 +467,9 @@ function detailFields(row) {
                 <td style="white-space:nowrap;font-weight:700">{{ money(b.amount) }}</td>
                 <td style="white-space:nowrap" class="c-sub">{{ b.due_date || '—' }}</td>
                 <td style="white-space:nowrap"><span class="badge" :class="bStCls(b.status)">{{ b.status || '—' }}</span></td>
+                <td style="white-space:nowrap">
+                  <button v-if="canManage" @click.stop="delBill(b)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -421,7 +502,7 @@ function detailFields(row) {
       <div v-if="colsFiltered.length" class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>Bill</th><th>Amount</th><th>Method</th><th>Receipt</th><th>Collected</th><th>Note</th></tr></thead>
+            <thead><tr><th>ID</th><th>Bill</th><th>Amount</th><th>Method</th><th>Receipt</th><th>Collected</th><th>Note</th><th></th></tr></thead>
             <tbody>
               <tr v-for="c in colsFiltered" :key="c.id">
                 <td style="font-weight:700;white-space:nowrap">{{ c.id }}</td>
@@ -431,6 +512,9 @@ function detailFields(row) {
                 <td style="white-space:nowrap" class="c-sub">{{ c.receipt_no || '—' }}</td>
                 <td style="white-space:nowrap" class="c-sub">{{ fmtTs(c.collected_at) }}</td>
                 <td style="white-space:nowrap" class="c-sub">{{ c.note || '—' }}</td>
+                <td style="white-space:nowrap">
+                  <button v-if="canManage" @click.stop="delCollection(c)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -577,23 +661,19 @@ function detailFields(row) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
         <div class="panel" style="overflow:hidden">
           <div style="padding:14px 16px;font-weight:800;font-size:14px;border-bottom:1px solid var(--border)">⚙️ Billing defaults</div>
-          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
-            <div style="display:flex;justify-content:space-between;gap:10px">
-              <span class="c-sub" style="font-size:12.5px">Monthly service charge</span>
-              <span style="font-weight:800">{{ money(settings.defCharge) }}<span class="c-sub" style="font-size:11px">/unit</span></span>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:13px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Monthly service charge (৳/unit)</div>
+              <input v-model.number="samityCfg.default_charge" type="number" min="1" :disabled="!canManage" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:14px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
-            <div style="display:flex;justify-content:space-between;gap:10px">
-              <span class="c-sub" style="font-size:12.5px">Due day of month</span>
-              <span style="font-weight:700">{{ settings.dueDay }}</span>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Due alert days</div>
+              <input v-model.number="samityCfg.alert_days" type="number" min="1" max="120" :disabled="!canManage" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:14px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
-            <div style="display:flex;justify-content:space-between;gap:10px">
-              <span class="c-sub" style="font-size:12.5px">Billing months covered</span>
-              <span style="font-weight:700">{{ settings.months.map(monthLabel).join(', ') || '—' }}</span>
+            <div v-if="canManage" style="display:flex;gap:8px;margin-top:2px">
+              <button @click="saveCfg" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save settings</button>
             </div>
-            <div style="display:flex;justify-content:space-between;gap:10px">
-              <span class="c-sub" style="font-size:12.5px">Bills / Collections / Expenses</span>
-              <span style="font-weight:700">{{ settings.bills }} / {{ settings.collections }} / {{ settings.expenses }}</span>
-            </div>
+            <div style="font-size:11.5px;color:var(--text-mute);line-height:1.6">Derived from live data: due day {{ settings.dueDay }} · months {{ settings.months.map(monthLabel).join(', ') || '—' }} · {{ settings.bills }} bills / {{ settings.collections }} collections / {{ settings.expenses }} expenses</div>
           </div>
         </div>
         <div class="panel" style="overflow:hidden">
@@ -621,6 +701,92 @@ function detailFields(row) {
               <span style="font-weight:700">{{ propFilter.value ? propName(propFilter.value) : 'All properties' }}</span>
             </div>
             <div style="font-size:12px;color:var(--text-mute);line-height:1.6;margin-top:4px">Values are derived from live society data. Billing, collections, expenses and member edits are managed through the platform API.</div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- bill modal -->
+    <template v-if="billModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="billModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">🧾 Issue society bill</div>
+          <button @click="billModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Unit *</div>
+            <select v-model="billForm.unit" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+              <option v-for="u in unitsForProp" :key="u.id" :value="u.id">{{ u.id }} · {{ u.name }}<template v-if="u.p"> ({{ propName(u.p) }})</template></option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Month *</div>
+              <input v-model="billForm.month" type="month" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Amount (৳) *</div>
+              <input v-model="billForm.amount" type="number" min="1" placeholder="e.g. 3000" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Due date</div>
+            <input v-model="billForm.due_date" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Note</div>
+            <input v-model="billForm.note" placeholder="Optional…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="billModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="addBill" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Issue bill</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- collection modal -->
+    <template v-if="collModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="collModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">💳 Record collection</div>
+          <button @click="collModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Bill *</div>
+            <select v-model="collForm.bill" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none" @change="collForm.amount = remainingOf(collForm.bill) || ''">
+              <option v-for="b in collBills" :key="b.id" :value="b.id">{{ b.id }} · {{ b.unit }} · {{ monthLabel(b.month) }} · ৳{{ (b.amount || 0).toLocaleString('en-IN') }} <template v-if="remainingOf(b.id) < (b.amount || 0)">(remaining ৳{{ remainingOf(b.id).toLocaleString('en-IN') }})</template></option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Amount (৳) *</div>
+              <input v-model="collForm.amount" type="number" min="1" placeholder="Remaining auto-fills" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Method</div>
+              <select v-model="collForm.method" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+                <option v-for="m in ['Cash', 'bKash', 'Nagad', 'Bank']" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Date</div>
+              <input v-model="collForm.collected_at" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Note</div>
+              <input v-model="collForm.note" placeholder="Optional…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="collModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="addCollection" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Record payment</button>
           </div>
         </div>
       </div>
