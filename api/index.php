@@ -17691,6 +17691,18 @@ case 'app-build': {
         json_out(['ok' => true]);
     }
 
+    if ($action === 'milestone-delete') {
+        $mid = trim($body['id'] ?? '');
+        $mst = $pdo->prepare('SELECT * FROM build_milestones WHERE id=?'); $mst->execute([$mid]);
+        $m = $mst->fetch(PDO::FETCH_ASSOC);
+        if (!$m) json_out(['ok' => false, 'error' => 'Milestone not found.'], 404);
+        $row = $fetchP($m['project']);
+        if (!$ownerOk($row['owner_email'])) json_out(['ok' => false, 'error' => 'Not your project.'], 403);
+        $pdo->prepare('DELETE FROM build_milestones WHERE id=?')->execute([$mid]);
+        audit($u['name'], 'build-milestone-delete', 'build', $mid);
+        json_out(['ok' => true]);
+    }
+
     if ($action === 'expense-list') {
         $id = trim($body['project'] ?? $_GET['project'] ?? '');
         $row = $fetchP($id);
@@ -17713,6 +17725,20 @@ case 'app-build': {
             ->execute([$xid, $id, $label, $amount, in_array(trim($body['category'] ?? ''), $cats, true) ? trim($body['category']) : 'other', (string)($body['spent_on'] ?? ''), (int)($body['paid'] ?? 0) ? 1 : 0, (string)($body['notes'] ?? '')]);
         audit($u['name'], 'build-expense-add', 'build', $xid . ' ৳' . $amount);
         json_out(['ok' => true, 'id' => $xid]);
+    }
+
+    if ($action === 'expense-save') {
+        $xid = trim($body['id'] ?? '');
+        $xst = $pdo->prepare('SELECT * FROM build_expenses WHERE id=?'); $xst->execute([$xid]);
+        $x = $xst->fetch(PDO::FETCH_ASSOC);
+        if (!$x) json_out(['ok' => false, 'error' => 'Expense not found.'], 404);
+        $row = $fetchP($x['project']);
+        if (!$ownerOk($row['owner_email'])) json_out(['ok' => false, 'error' => 'Not your project.'], 403);
+        $cats = ['material', 'labour', 'permit', 'design', 'other'];
+        $pdo->prepare('UPDATE build_expenses SET label=?, amount=?, category=?, spent_on=?, paid=?, notes=? WHERE id=?')
+            ->execute([(string)($body['label'] ?? $x['label']), max(0, (int)($body['amount'] ?? $x['amount'])), in_array(trim($body['category'] ?? ''), $cats, true) ? trim($body['category']) : $x['category'], (string)($body['spent_on'] ?? $x['spent_on']), (int)($body['paid'] ?? $x['paid']) ? 1 : (int)$x['paid'], (string)($body['notes'] ?? $x['notes']), $xid]);
+        audit($u['name'], 'build-expense-save', 'build', $xid);
+        json_out(['ok' => true]);
     }
 
     if ($action === 'expense-delete') {
