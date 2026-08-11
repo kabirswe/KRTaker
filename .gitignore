@@ -4,3 +4,4 @@ __pycache__/
 .env-landing
 landing.db
 api/index.php.presplit
+api/data.db

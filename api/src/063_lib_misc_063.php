@@ -195,19 +195,70 @@ function board_report_md($pdo, $month) {
     $ag = analytics_aging($pdo);
     $vc = analytics_vacancy($pdo);
     $fc = analytics_forecast($pdo);
+    $cf = analytics_cashflow($pdo, 12);
+    $co = analytics_collections($pdo, 12);
+    $oc = analytics_occupancy($pdo);
+    $mt = analytics_maintenance($pdo);
+    $sc = analytics_scores($pdo);
+    $t = $pnl['totals'];
     $l = [];
     $l[] = '# KRTaker Portfolio Board Report — ' . $month;
     $l[] = '';
+    $l[] = '## Executive summary';
+    $l[] = '';
+    $l[] = '- Gross rent: ৳' . number_format($t['gross']) . ' · Collected: ৳' . number_format($t['collected']) . ' · Net: ৳' . number_format($t['net']);
+    $l[] = '- Collection rate: ' . ($fc['collection_rate'] ?? $co['on_time_rate']) . '% · On-time payments: ' . $co['on_time_rate'] . '% (' . $co['on_time'] . '/' . ($co['payments'] ?: 0) . ')';
+    $l[] = '- Occupancy: ' . $oc['occupancy'] . '% (' . $oc['leased'] . '/' . $oc['units'] . ' units) · Arrears: ৳' . number_format($ag['total']);
+    $l[] = '- Vacancy loss: ৳' . number_format($vc['monthly_loss']) . '/mo · 12-mo net flow: ৳' . number_format($cf['total_net']);
+    $l[] = '- Top risk: ' . $fc['top_risk'];
+    $l[] = '';
     $l[] = '## P&L (' . $month . ')';
     $l[] = '';
-    $l[] = '| Property | Collected | TDS | Service | Expenses | Net |';
-    $l[] = '|---|---|---|---|---|---|';
-    foreach ($pnl['properties'] as $r) $l[] = '| ' . $r['name'] . ' | ৳' . number_format($r['collected']) . ' | ৳' . number_format($r['tds']) . ' | ৳' . number_format($r['service']) . ' | ৳' . number_format($r['expenses']) . ' | ৳' . number_format($r['net']) . ' |';
-    $t = $pnl['totals'];
-    $l[] = '| **Total** | **৳' . number_format($t['collected']) . '** | **৳' . number_format($t['tds']) . '** | **৳' . number_format($t['service']) . '** | **৳' . number_format($t['expenses']) . '** | **৳' . number_format($t['net']) . '** |';
+    $l[] = '| Property | Gross | Collected | TDS | Service | Expenses | Net |';
+    $l[] = '|---|---|---|---|---|---|---|';
+    foreach ($pnl['properties'] as $r) $l[] = '| ' . $r['name'] . ' | ৳' . number_format($r['gross']) . ' | ৳' . number_format($r['collected']) . ' | ৳' . number_format($r['tds']) . ' | ৳' . number_format($r['service']) . ' | ৳' . number_format($r['expenses']) . ' | ৳' . number_format($r['net']) . ' |';
+    $l[] = '| **Total** | **৳' . number_format($t['gross']) . '** | **৳' . number_format($t['collected']) . '** | **৳' . number_format($t['tds']) . '** | **৳' . number_format($t['service']) . '** | **৳' . number_format($t['expenses']) . '** | **৳' . number_format($t['net']) . '** |';
     $l[] = '';
-    $l[] = '## Trends (6 months)';
-    foreach ($tr['months'] as $m) $l[] = '- ' . $m['month'] . ': issued ৳' . number_format($m['issued']) . ' / collected ৳' . number_format($m['collected']);
+    $l[] = '## Cashflow · 12 months';
+    $l[] = '';
+    $l[] = '- Income: ৳' . number_format($cf['total_income']) . ' · Expenses: ৳' . number_format($cf['total_expenses']) . ' · Net: ৳' . number_format($cf['total_net']) . ' · Expense ratio: ' . $cf['expense_ratio'] . '%';
+    $l[] = '- Best month: ' . array_reduce($cf['months'], fn($a, $m) => ($m['net'] > ($a['net'] ?? -INF)) ? $m : $a)['month'] . ' (৳' . number_format(array_reduce($cf['months'], fn($a, $m) => ($m['net'] > ($a['net'] ?? -INF)) ? $m : $a)['net']) . ')';
+    $l[] = '- Worst month: ' . array_reduce($cf['months'], fn($a, $m) => ($m['net'] < ($a['net'] ?? INF)) ? $m : $a)['month'] . ' (৳' . number_format(array_reduce($cf['months'], fn($a, $m) => ($m['net'] < ($a['net'] ?? INF)) ? $m : $a)['net']) . ')';
+    $l[] = '';
+    $l[] = '## Collections';
+    $l[] = '';
+    $l[] = '- Payments: ' . $co['payments'] . ' · On-time: ' . $co['on_time'] . ' (' . $co['on_time_rate'] . '%) · Late: ' . $co['late'] . ' (avg ' . $co['avg_days_late'] . 'd) · Late amount: ৳' . number_format($co['late_amount']);
+    if (!empty($co['by_method'])) {
+        $l[] = '- Top method: ' . $co['by_method'][0]['method'] . ' ৳' . number_format($co['by_method'][0]['amount']) . ' (' . $co['by_method'][0]['n'] . ' payments)';
+    }
+    $l[] = '';
+    $l[] = '## Occupancy & renewals';
+    $l[] = '';
+    $l[] = '| Property | Leased | Vacant | Occupancy | Rent roll | Vacancy loss |';
+    $l[] = '|---|---|---|---|---|---|';
+    foreach ($oc['properties'] as $p) $l[] = '| ' . $p['name'] . ' | ' . $p['leased'] . '/' . $p['units'] . ' | ' . $p['vacant'] . ' | ' . $p['occupancy'] . '% | ৳' . number_format($p['rent_roll']) . ' | ৳' . number_format($p['vacancy_loss']) . ' |';
+    if (!empty($oc['expiries'])) {
+        $l[] = '';
+        $l[] = '**Leases expiring within 90 days (' . count($oc['expiries']) . '):**';
+        foreach ($oc['expiries'] as $e) $l[] = '- ' . $e['prop'] . ' · ' . $e['unit'] . ' · ' . $e['tenant'] . ' · ends ' . $e['end'];
+    }
+    $l[] = '';
+    $l[] = '## Maintenance';
+    $l[] = '';
+    $l[] = '- Open tickets: ' . $mt['open_count'] . ' · Resolved: ' . $mt['done_count'] . ' · Avg resolve: ' . $mt['avg_resolve_days'] . 'd · Total cost: ৳' . number_format($mt['total_cost']);
+    if (!empty($mt['aging'])) {
+        $l[] = '- Oldest open: ' . implode(' · ', array_slice(array_map(fn($a) => $a['id'] . ' (' . $a['days'] . 'd)', $mt['aging']), 0, 3));
+    }
+    $l[] = '';
+    $l[] = '## At-risk tenants (' . count($sc['at_risk']) . ')';
+    $l[] = '';
+    if (!empty($sc['at_risk'])) {
+        $l[] = '| Tenant | Band | Score | Overdue | On-time | Tickets |';
+        $l[] = '|---|---|---|---|---|---|';
+        foreach ($sc['at_risk'] as $rt) $l[] = '| ' . $rt['name'] . ' | ' . $rt['band'] . ' | ' . $rt['score'] . ' | ৳' . number_format($rt['overdue']) . ' | ' . $rt['on_time'] . '% | ' . $rt['tickets_open'] . ' |';
+    } else {
+        $l[] = '- No tenants at risk 🎉';
+    }
     $l[] = '';
     $l[] = '## Aging — outstanding ৳' . number_format($ag['total']);
     $l[] = '- Current: ৳' . number_format($ag['current']) . ' · 30d: ৳' . number_format($ag['d30']) . ' · 60d: ৳' . number_format($ag['d60']) . ' · 90d+: ৳' . number_format($ag['d90']);
@@ -219,6 +270,9 @@ function board_report_md($pdo, $month) {
     $l[] = '- Collection rate: ' . $fc['collection_rate'] . '% · avg monthly collected ৳' . number_format($fc['avg_collected']);
     $l[] = '- 12-month total: ৳' . number_format($fc['total_forecast']);
     $l[] = '- Top risk: ' . $fc['top_risk'];
+    $l[] = '';
+    $l[] = '---';
+    $l[] = 'Generated ' . date('d M Y H:i') . ' · KRTaker Portfolio Intelligence';
     $l[] = '';
     return implode("\n", $l);
 }

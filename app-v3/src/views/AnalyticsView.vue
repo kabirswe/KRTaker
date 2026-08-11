@@ -210,6 +210,49 @@ function csvOccupancy() {
 
 // KPI card row helper (value can be colored)
 const kpiStyle = (c) => c ? { color: c } : {}
+
+// ── Markdown → HTML (board report) ──
+function mdToHtml(md) {
+  const lines = String(md || '').split('\n')
+  let html = '', inUl = false, inTable = false
+  const closeUl = () => { if (inUl) { html += '</ul>\n'; inUl = false } }
+  const closeTable = () => { if (inTable) { html += '</tbody></table>\n'; inTable = false } }
+  const inline = (s) => s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>')
+  for (const raw of lines) {
+    const line = raw.trimEnd()
+    if (!line.trim()) { closeUl(); closeTable(); continue }
+    if (/^\|.*\|$/.test(line.trim())) {
+      closeUl()
+      const cells = line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim())
+      if (!inTable) {
+        inTable = true
+        html += '<table class="kr"><thead><tr>' + cells.map((c) => '<th>' + inline(c.replace(/^:+|:+$/g, '')) + '</th>').join('') + '</tr></thead><tbody>\n'
+      } else if (cells.every((c) => /^:?-+:?$/.test(c))) {
+        // separator row — skip
+      } else {
+        html += '<tr>' + cells.map((c) => '<td>' + inline(c) + '</td>').join('') + '</tr>\n'
+      }
+      continue
+    }
+    closeTable()
+    if (/^### /.test(line)) { closeUl(); html += '<h4>' + inline(line.slice(4)) + '</h4>\n'; continue }
+    if (/^## /.test(line)) { closeUl(); html += '<h3>' + inline(line.slice(3)) + '</h3>\n'; continue }
+    if (/^# /.test(line)) { closeUl(); html += '<h2>' + inline(line.slice(2)) + '</h2>\n'; continue }
+    if (/^---$/.test(line.trim())) { closeUl(); html += '<hr>\n'; continue }
+    if (/^- /.test(line)) { if (!inUl) { html += '<ul>\n'; inUl = true } html += '<li>' + inline(line.slice(2)) + '</li>\n'; continue }
+    closeUl()
+    html += '<p>' + inline(line) + '</p>\n'
+  }
+  closeUl(); closeTable()
+  return html
+}
+
+// ── Print current report ──
+function printReport() {
+  document.body.classList.add('print-analytics')
+  window.print()
+  document.body.classList.remove('print-analytics')
+}
 </script>
 
 <template>
@@ -222,6 +265,7 @@ const kpiStyle = (c) => c ? { color: c } : {}
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input v-model="month" type="month" style="padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none" @change="switchTab(tab)">
         <button class="btn-ghost" @click="switchTab(tab)" :disabled="loading">{{ loading ? '⏳…' : '🔄 Refresh' }}</button>
+        <button class="btn-ghost" @click="printReport" title="Print this report">🖨 Print</button>
       </div>
     </div>
 
@@ -604,10 +648,13 @@ const kpiStyle = (c) => c ? { color: c } : {}
     <template v-if="tab === 'board'">
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">📋</span>Board report · {{ boardMonth || month }}</div>
-          <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" :disabled="loading" @click="genBoard">＋ Generate</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" :disabled="!boardMd" @click="printReport">🖨 Print</button>
+            <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" :disabled="loading" @click="genBoard">＋ Generate</button>
+          </div>
         </div>
-        <div class="panel-b" style="max-height:420px;overflow:auto">
-          <pre v-if="boardMd" style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;line-height:1.6;color:var(--text);margin:0">{{ boardMd }}</pre>
+        <div class="panel-b" style="max-height:560px;overflow:auto" id="boardReport">
+          <div v-if="boardMd" class="board-report" v-html="mdToHtml(boardMd)"></div>
           <div v-else class="c-sub">Generate a board report — an executive summary of this month's portfolio (P&amp;L, collections, arrears, renewals, risks).</div>
         </div>
       </div>

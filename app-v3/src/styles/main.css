@@ -257,3 +257,40 @@ table.kr.compact td{padding:8px 10px;font-size:12.5px}
   body.print-samity .content { max-width: none !important; padding: 0 !important; }
   body.print-samity .report-area { box-shadow: none !important; border: none !important; }
 }
+
+/* Analytics printable reports (body class toggled by AnalyticsView 🖨 Print) */
+@media print {
+  body.print-analytics .sidebar,
+  body.print-analytics .topbar,
+  body.print-analytics .page-head,
+  body.print-analytics .head-actions,
+  body.print-analytics .btn-ghost,
+  body.print-analytics .btn-primary,
+  body.print-analytics #toastWrap,
+  body.print-analytics .toast-wrap { display: none !important; }
+  body.print-analytics .main { padding: 0 !important; }
+  body.print-analytics .content { max-width: none !important; padding: 0 !important; }
+  body.print-analytics .stats { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  body.print-analytics .stat { break-inside: avoid; padding: 10px 12px; }
+  body.print-analytics .panel { box-shadow: none !important; break-inside: avoid; margin-bottom: 12px; }
+  body.print-analytics .panel-b { overflow: visible !important; max-height: none !important; }
+  body.print-analytics .tbl-wrap { overflow: visible !important; max-height: none !important; }
+  body.print-analytics .board-report { font-size: 12px; }
+  body.print-analytics .board-report h2 { font-size: 18px; margin: 14px 0 6px; }
+  body.print-analytics .board-report h3 { font-size: 14px; margin: 12px 0 5px; }
+  body.print-analytics .board-report ul { margin: 4px 0 8px; padding-left: 18px; }
+  body.print-analytics .board-report p { margin: 4px 0; }
+  body.print-analytics .board-report hr { border: none; border-top: 1px solid #ccc; margin: 12px 0; }
+}
+
+/* Board report rendered markdown */
+.board-report h2 { font-size: 20px; font-weight: 800; margin: 4px 0 10px; letter-spacing: -.3px; }
+.board-report h3 { font-size: 15px; font-weight: 800; margin: 18px 0 8px; color: var(--text); }
+.board-report h4 { font-size: 13.5px; font-weight: 800; margin: 14px 0 6px; }
+.board-report p { font-size: 13px; line-height: 1.6; margin: 5px 0; color: var(--text); }
+.board-report ul { margin: 6px 0 10px; padding-left: 20px; }
+.board-report li { font-size: 13px; line-height: 1.65; margin: 3px 0; }
+.board-report strong { color: var(--text); }
+.board-report table { margin: 8px 0 14px; }
+.board-report hr { border: none; border-top: 1px dashed var(--border); margin: 16px 0; }
+.board-report code { background: var(--bg-alt); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
