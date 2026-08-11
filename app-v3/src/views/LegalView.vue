@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import RichEditor from '../components/RichEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -273,7 +274,7 @@ function detailFields(row) {
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Reason</div>
-            <textarea v-model="nForm.reason" rows="3" placeholder="e.g. Rent unpaid for 3 consecutive months" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+            <RichEditor v-model="nForm.reason" placeholder="e.g. Rent unpaid for 3 consecutive months" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <div class="c-sub" style="font-size:11.5px;line-height:1.6">The body is auto-generated from the legal config (statutory notice period for the selected type) with tenant/unit/rent details. Served separately.</div>
           <button @click="submitNotice" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">📢 Issue notice (Draft)</button>
@@ -317,7 +318,7 @@ function detailFields(row) {
             </div>
             <div v-if="sel.reason" style="font-size:13px">
               <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Reason</div>
-              <div style="font-weight:700;margin-top:1px">{{ sel.reason }}</div>
+              <div style="font-weight:700;margin-top:1px" v-html="sel.reason"></div>
             </div>
           </div>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0">

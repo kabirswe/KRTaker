@@ -21,6 +21,7 @@ const TAB_ORDER = [
   ['land', '🛰️', 'Land Guard'],
   ['build', '🏗️', 'Build Watch'],
   ['firesafety', '🧯', 'Fire Safety'],
+  ['inspections', '🔍', 'Inspections'],
 ]
 
 const VIEWS = {
@@ -28,6 +29,7 @@ const VIEWS = {
   land: defineAsyncComponent(() => import('./LandView.vue')),
   build: defineAsyncComponent(() => import('./BuildView.vue')),
   firesafety: defineAsyncComponent(() => import('./FireSafetyView.vue')),
+  inspections: defineAsyncComponent(() => import('./InspectionsView.vue')),
 }
 
 const tab = ref('overview')
@@ -106,6 +108,7 @@ const goTab = (t) => { tab.value = t }
         <button @click="goTab('land')" class="btn-ghost">🛰️ Land Guard</button>
         <button @click="goTab('build')" class="btn-ghost">🏗️ Build Watch</button>
         <button @click="goTab('firesafety')" class="btn-ghost">🧯 Fire Safety</button>
+        <button @click="goTab('inspections')" class="btn-ghost">🔍 Inspections</button>
       </div>
 
       <!-- lists -->

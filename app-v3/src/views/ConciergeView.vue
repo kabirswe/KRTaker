@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { useViewMode, usePager, money, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import RichEditor from '../components/RichEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -458,7 +459,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
               </div>
             </div>
           </div>
-          <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
+          <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65" v-html="sel.notes"></div>
           <div v-if="parseTimeline(sel).length" style="margin:14px 0">
             <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Activity · {{ parseTimeline(sel).length }} events</div>
             <div style="display:flex;flex-direction:column;gap:0">
@@ -540,7 +541,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
           </div>
           <div>
             <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Notes</label>
-            <textarea v-model="form.notes" rows="3" placeholder="e.g. mutation after inheritance" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea>
+            <RichEditor v-model="form.notes" placeholder="e.g. mutation after inheritance" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <button @click="createRequest" class="btn-primary" style="margin-top:4px">🛎️ Submit request</button>
         </div>
@@ -558,7 +559,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
             <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Note *</label>
-            <textarea v-model="eventNote" rows="4" placeholder="e.g. documents submitted to AC land office" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea>
+            <RichEditor v-model="eventNote" placeholder="e.g. documents submitted to AC land office" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <button @click="addEvent" class="btn-primary" style="margin-top:4px">💾 Add to timeline</button>
         </div>

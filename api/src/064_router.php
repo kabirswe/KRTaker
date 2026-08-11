@@ -189,7 +189,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -2220,6 +2220,174 @@ case 'app-security': {
         json_out(['ok' => true, 'saved' => array_keys($in)]);
     }
     json_out(['ok' => false, 'error' => 'action must be config-get|config-save.'], 400);
+}
+
+/* ── Safety/Service/Maintenance Inspections + Scheduler (V2.9.0) ──
+   inspections: one-off or schedule-materialized checks (safety/service/maintenance)
+   with a pass/fail checklist + rich-text findings. inspection_schedules: recurring
+   templates; the scheduler lazily materializes an inspection when next_due <= today
+   (idempotent — one open inspection per schedule until completed). */
+case 'app-inspections': {
+    $u = require_user();
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? 'summary');
+    $canManage = in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr'], true);
+    $staff = in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr', 'hr', 'accountant', 'crm', 'legal'], true);
+    if (!$staff) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+
+    function inspections_sched_materialize($pdo) {
+        $today = date('Y-m-d');
+        $sch = $pdo->prepare('SELECT * FROM inspection_schedules WHERE active=1 AND next_due<>"" AND next_due<=?');
+        $sch->execute([$today]);
+        foreach ($sch->fetchAll(PDO::FETCH_ASSOC) as $s) {
+            $open = $pdo->prepare('SELECT COUNT(*) FROM inspections WHERE schedule_id=? AND status IN (?,?)');
+            $open->execute([(int)$s['id'], 'scheduled', 'in_progress']);
+            if ((int)$open->fetchColumn() > 0) continue;
+            $st = $pdo->prepare('INSERT INTO inspections (code, itype, property_id, title, assignee, status, scheduled_at, checklist, next_due, schedule_id) VALUES (?,?,?,?,?,?,?,?,?,?)');
+            $st->execute(['', $s['itype'], (int)$s['property_id'], $s['title'] . ' (scheduled)', $s['assignee'], 'scheduled', $s['next_due'], $s['checklist'], $s['next_due'], (int)$s['id']]);
+            $id = (int)$pdo->lastInsertId();
+            $pdo->prepare('UPDATE inspections SET code=? WHERE id=?')->execute(['INS-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT), $id]);
+        }
+    }
+    function inspections_next_due($pdo, $id) {
+        $s = $pdo->prepare('SELECT * FROM inspection_schedules WHERE id=?');
+        $s->execute([(int)$id]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        if (!$row) return '';
+        $days = max(1, (int)$row['interval_days']);
+        $base = ($row['last_run'] !== '') ? $row['last_run'] : date('Y-m-d');
+        $nd = date('Y-m-d', strtotime($base . ' +' . $days . ' days'));
+        $pdo->prepare('UPDATE inspection_schedules SET next_due=? WHERE id=?')->execute([$nd, (int)$id]);
+        return $nd;
+    }
+
+    if ($action === 'summary' || $action === 'list' || $action === 'due') {
+        inspections_sched_materialize($pdo);
+        if ($action === 'summary') {
+            $rows = $pdo->query('SELECT itype, status, COUNT(*) c FROM inspections GROUP BY itype, status')->fetchAll(PDO::FETCH_ASSOC);
+            $byType = ['safety' => 0, 'service' => 0, 'maintenance' => 0];
+            $byStatus = ['scheduled' => 0, 'in_progress' => 0, 'passed' => 0, 'failed' => 0, 'overdue' => 0];
+            $total = 0;
+            foreach ($rows as $r) { $byType[$r['itype']] = ($byType[$r['itype']] ?? 0) + (int)$r['c']; $byStatus[$r['status']] = ($byStatus[$r['status']] ?? 0) + (int)$r['c']; $total += (int)$r['c']; }
+            $overdue = $pdo->query("SELECT COUNT(*) FROM inspections WHERE status IN ('scheduled','in_progress') AND scheduled_at<>'' AND scheduled_at < date('now')")->fetchColumn();
+            $dueSoon = $pdo->query("SELECT COUNT(*) FROM inspections WHERE status IN ('scheduled','in_progress') AND scheduled_at<>'' AND scheduled_at >= date('now') AND scheduled_at <= date('now','+7 day')")->fetchColumn();
+            $scheds = $pdo->query('SELECT COUNT(*) FROM inspection_schedules WHERE active=1')->fetchColumn();
+            json_out(['ok' => true, 'by_type' => $byType, 'by_status' => $byStatus, 'total' => $total, 'overdue' => (int)$overdue, 'due_soon' => (int)$dueSoon, 'schedules_active' => (int)$scheds]);
+        }
+        if ($action === 'list') {
+            $sql = 'SELECT * FROM inspections WHERE 1=1';
+            $args = [];
+            if (!empty($body['itype']) && in_array($body['itype'], ['safety', 'service', 'maintenance'], true)) { $sql .= ' AND itype=?'; $args[] = $body['itype']; }
+            if (!empty($body['status'])) { $sql .= ' AND status=?'; $args[] = $body['status']; }
+            $sql .= ' ORDER BY (status IN (\'scheduled\',\'in_progress\')) DESC, scheduled_at DESC, id DESC LIMIT 300';
+            $st = $pdo->prepare($sql); $st->execute($args);
+            json_out(['ok' => true, 'list' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+        }
+        if ($action === 'due') {
+            $rows = $pdo->query("SELECT * FROM inspections WHERE status IN ('scheduled','in_progress') ORDER BY scheduled_at ASC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+            $today = date('Y-m-d');
+            $due = array_values(array_filter($rows, fn($r) => $r['scheduled_at'] !== '' && $r['scheduled_at'] <= $today));
+            $upcoming = array_values(array_filter($rows, fn($r) => $r['scheduled_at'] === '' || $r['scheduled_at'] > $today));
+            json_out(['ok' => true, 'due' => $due, 'upcoming' => $upcoming]);
+        }
+        exit;
+    }
+    if ($action === 'get') {
+        $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM inspections WHERE id=?'); $st->execute([$id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) json_out(['ok' => false, 'error' => 'Inspection not found.'], 404);
+        $row['checklist'] = json_decode((string)$row['checklist'], true) ?: [];
+        json_out(['ok' => true, 'inspection' => $row]);
+    }
+    if ($action === 'create' || $action === 'update') {
+        if (!$canManage) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $itype = in_array($body['itype'] ?? '', ['safety', 'service', 'maintenance'], true) ? $body['itype'] : 'safety';
+        $title = trim((string)($body['title'] ?? ''));
+        $assignee = trim((string)($body['assignee'] ?? ''));
+        $prop = (int)($body['property_id'] ?? 0);
+        $scheduled = trim((string)($body['scheduled_at'] ?? ''));
+        $cl = $body['checklist'] ?? null;
+        $checklist = is_array($cl) ? json_encode(array_values(array_filter($cl, fn($i) => is_array($i)))) : (is_string($cl) ? $cl : '[]');
+        $findings = trim((string)($body['findings'] ?? ''));
+        $next_due = trim((string)($body['next_due'] ?? ''));
+        $schedule_id = (int)($body['schedule_id'] ?? 0);
+        if ($title === '') json_out(['ok' => false, 'error' => 'Title is required.'], 400);
+        if ($action === 'create') {
+            $st = $pdo->prepare('INSERT INTO inspections (code, itype, property_id, title, assignee, status, scheduled_at, checklist, findings, next_due, schedule_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+            $st->execute(['', $itype, $prop, $title, $assignee, 'scheduled', $scheduled, $checklist, $findings, $next_due, $schedule_id]);
+            $id = (int)$pdo->lastInsertId();
+            $pdo->prepare('UPDATE inspections SET code=? WHERE id=?')->execute(['INS-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT), $id]);
+            audit($u['name'], 'Inspection created ' . $title, 'inspections', 'insp', 'INS-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT));
+            json_out(['ok' => true, 'id' => $id, 'code' => 'INS-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT)]);
+        } else {
+            if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+            $st = $pdo->prepare("UPDATE inspections SET itype=?, property_id=?, title=?, assignee=?, scheduled_at=?, checklist=?, findings=?, next_due=?, schedule_id=?, updated_at=datetime('now') WHERE id=?");
+            $st->execute([$itype, $prop, $title, $assignee, $scheduled, $checklist, $findings, $next_due, $schedule_id, $id]);
+            json_out(['ok' => true, 'id' => $id]);
+        }
+    }
+    if ($action === 'complete') {
+        if (!$canManage) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $status = ($body['status'] ?? 'passed') === 'failed' ? 'failed' : 'passed';
+        $results = is_array($body['checklist'] ?? null) ? json_encode(array_values(array_filter($body['checklist'], fn($i) => is_array($i)))) : null;
+        $findings = trim((string)($body['findings'] ?? ''));
+        $chk = $pdo->prepare('SELECT * FROM inspections WHERE id=?'); $chk->execute([$id]);
+        $row = $chk->fetch(PDO::FETCH_ASSOC);
+        if (!$row) json_out(['ok' => false, 'error' => 'Inspection not found.'], 404);
+        $upd = "UPDATE inspections SET status=?, completed_at=datetime('now'), completed_by=?, findings=?, updated_at=datetime('now')";
+        $args = [$status, $u['name'], $findings];
+        if ($results !== null) { $upd .= ', checklist=?'; $args[] = $results; }
+        $upd .= ' WHERE id=?'; $args[] = $id;
+        $pdo->prepare($upd)->execute($args);
+        if ((int)$row['schedule_id'] > 0) {
+            $pdo->prepare('UPDATE inspection_schedules SET last_run=? WHERE id=?')->execute([date('Y-m-d'), (int)$row['schedule_id']]);
+            inspections_next_due($pdo, (int)$row['schedule_id']);
+        }
+        audit($u['name'], 'Inspection completed ' . $row['code'] . ' → ' . $status, 'inspections', 'insp', (string)$id);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'delete') {
+        if (!$canManage) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $pdo->prepare('DELETE FROM inspections WHERE id=?')->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'schedule-list') {
+        json_out(['ok' => true, 'list' => $pdo->query('SELECT * FROM inspection_schedules ORDER BY active DESC, next_due ASC, id DESC')->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+    if ($action === 'schedule-save') {
+        if (!$canManage) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $itype = in_array($body['itype'] ?? '', ['safety', 'service', 'maintenance'], true) ? $body['itype'] : 'safety';
+        $title = trim((string)($body['title'] ?? ''));
+        $assignee = trim((string)($body['assignee'] ?? ''));
+        $prop = (int)($body['property_id'] ?? 0);
+        $days = max(1, min(3650, (int)($body['interval_days'] ?? 30)));
+        $active = isset($body['active']) ? ($body['active'] ? 1 : 0) : 1;
+        $cl = $body['checklist'] ?? null;
+        $checklist = is_array($cl) ? json_encode(array_values(array_filter($cl, fn($i) => is_array($i)))) : (is_string($cl) ? $cl : '[]');
+        $first_due = trim((string)($body['next_due'] ?? date('Y-m-d', strtotime('+' . $days . ' days'))));
+        if ($title === '') json_out(['ok' => false, 'error' => 'Title is required.'], 400);
+        if ($id) {
+            $pdo->prepare('UPDATE inspection_schedules SET itype=?, property_id=?, title=?, assignee=?, interval_days=?, checklist=?, active=?, next_due=? WHERE id=?')
+                ->execute([$itype, $prop, $title, $assignee, $days, $checklist, $active, $first_due, $id]);
+        } else {
+            $st = $pdo->prepare('INSERT INTO inspection_schedules (itype, property_id, title, assignee, interval_days, checklist, active, next_due) VALUES (?,?,?,?,?,?,?,?)');
+            $st->execute([$itype, $prop, $title, $assignee, $days, $checklist, $active, $first_due]);
+            $id = (int)$pdo->lastInsertId();
+        }
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($action === 'schedule-delete') {
+        if (!$canManage) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $pdo->prepare('UPDATE inspection_schedules SET active=0 WHERE id=?')->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    json_out(['ok' => false, 'error' => 'action must be summary|list|get|create|update|complete|delete|due|schedule-list|schedule-save|schedule-delete.'], 400);
 }
 
 /* ── Gateway IPN (server-to-server callback, 2026-08-09) ──

@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import RichEditor from '../components/RichEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -406,7 +407,7 @@ async function toggleFeatured(p) {
             </div>
           </div>
 
-          <p v-if="sel.description" style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 16px">{{ sel.description }}</p>
+          <p v-if="sel.description" style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 16px" v-html="sel.description"></p>
 
           <!-- tabs -->
           <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
@@ -559,7 +560,7 @@ async function toggleFeatured(p) {
           </div>
           <div style="grid-column:1/-1">
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Description</label>
-            <textarea v-model="form.description" rows="3" placeholder="Short description" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
+            <RichEditor v-model="form.description" placeholder="Short description" :min-height="'120px'" style="margin-top:5px" />
           </div>
           <div style="grid-column:1/-1;display:flex;gap:18px">
             <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" v-model="form.published" style="accent-color:var(--primary)"> Published on listing</label>

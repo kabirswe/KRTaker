@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import RichEditor from '../components/RichEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -280,7 +281,7 @@ function refreshSel() {
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
-            <textarea v-model="caseForm.notes" rows="2" placeholder="Optional" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+            <RichEditor v-model="caseForm.notes" placeholder="Optional" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <button @click="submitCase" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">⚖️ Open case</button>
         </div>
@@ -324,7 +325,7 @@ function refreshSel() {
               <div style="font-weight:700;margin-top:1px">{{ fmtTs(sel.updated_at) }}</div>
             </div>
           </div>
-          <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
+          <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65" v-html="sel.notes"></div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
             <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
@@ -348,7 +349,7 @@ function refreshSel() {
                 <input v-model="updForm.lawyer" placeholder="Lawyer" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
                 <input v-model="updForm.next_hearing" type="date" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
               </div>
-              <textarea v-model="updForm.notes" rows="2" placeholder="Notes" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;resize:vertical;margin-top:8px"></textarea>
+              <RichEditor v-model="updForm.notes" placeholder="Notes" :min-height="'100px'" style="margin-top:8px" />
               <input v-model="updForm.note" placeholder="Note for the timeline (optional)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;margin-top:8px">
               <button @click="saveUpdate" style="margin-top:10px;width:100%;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save update</button>
             </div>

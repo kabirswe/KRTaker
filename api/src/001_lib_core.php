@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260822) {
+        if ($__sv < 20260823) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -960,7 +960,27 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_account ON account_transactions(account, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_type ON account_transactions(type, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_recon ON account_transactions(reconciled, tx_date)");
-        try { $pdo->exec('PRAGMA user_version=20260822'); } catch (Exception $e) {}
+        /* ── V2.9.0: Safety/Service/Maintenance Inspections + Scheduler ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS inspections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT DEFAULT '',
+            itype TEXT DEFAULT 'safety', property_id INTEGER DEFAULT 0,
+            title TEXT DEFAULT '', assignee TEXT DEFAULT '',
+            status TEXT DEFAULT 'scheduled',
+            scheduled_at TEXT DEFAULT '', completed_at TEXT DEFAULT '', completed_by TEXT DEFAULT '',
+            checklist TEXT DEFAULT '[]', findings TEXT DEFAULT '',
+            next_due TEXT DEFAULT '', schedule_id INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_insp_type_status ON inspections(itype, status)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_insp_prop ON inspections(property_id)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_insp_due ON inspections(status, scheduled_at)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS inspection_schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, itype TEXT DEFAULT 'safety',
+            property_id INTEGER DEFAULT 0, title TEXT DEFAULT '', assignee TEXT DEFAULT '',
+            interval_days INTEGER DEFAULT 30, checklist TEXT DEFAULT '[]',
+            active INTEGER DEFAULT 1, last_run TEXT DEFAULT '', next_due TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_insched_due ON inspection_schedules(active, next_due)");
+        try { $pdo->exec('PRAGMA user_version=20260823'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

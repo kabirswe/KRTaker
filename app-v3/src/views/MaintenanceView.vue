@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import RichEditor from '../components/RichEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -179,7 +180,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
         <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
           <div>
             <div style="font-weight:800;font-size:14.5px;letter-spacing:-.2px">{{ r.title || '—' }} <span class="c-sub" style="font-weight:500">· {{ unitName(r.unit) }}</span></div>
-            <div class="c-sub" style="margin-top:3px;font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ r.desc || '—' }}</div>
+            <div class="c-sub" style="margin-top:3px;font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" v-html="r.desc || '—'"></div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <span class="badge" :class="catMeta(r.category).cls">{{ catMeta(r.category).ico }} {{ catMeta(r.category).label }}</span>
@@ -256,7 +257,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Description</div>
-            <textarea v-model="raiseForm.desc" rows="3" placeholder="What's the issue?" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+            <RichEditor v-model="raiseForm.desc" placeholder="What's the issue?" :min-height="'120px'" style="margin-top:5px" />
           </div>
           <button @click="submitRaise" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">＋ Raise request</button>
         </div>
@@ -308,7 +309,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
 
           <div v-if="sel.desc" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px">📝 Issue</div>
-            <div style="font-size:13.5px;line-height:1.6">{{ sel.desc }}</div>
+            <div style="font-size:13.5px;line-height:1.6" v-html="sel.desc"></div>
           </div>
 
           <template v-if="canManage">

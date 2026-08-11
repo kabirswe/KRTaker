@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import RichEditor from '../components/RichEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -137,7 +138,7 @@ async function deleteNotice(n) {
         <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
           <div>
             <div style="font-weight:800;font-size:15px;letter-spacing:-.2px;line-height:1.35">{{ n.title }}</div>
-            <div class="c-sub" style="margin-top:4px;font-size:12px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ n.body || '—' }}</div>
+            <div class="c-sub" style="margin-top:4px;font-size:12px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" v-html="n.body || '—'"></div>
           </div>
           <div style="display:flex;gap:13px;font-size:12px;flex-wrap:wrap;margin-top:auto">
             <span class="c-sub">👤 {{ n.author || '—' }}</span>
@@ -184,7 +185,7 @@ async function deleteNotice(n) {
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
           <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.35">{{ sel.title }}</h2>
           <div class="c-sub" style="margin-top:5px">👤 {{ sel.author || '—' }} · 🕒 {{ fmtTs(sel.ts) }} <template v-if="sel.pinned">· 📌 pinned to tenant boards</template></div>
-          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:16px 0;font-size:13.5px;line-height:1.75;white-space:pre-wrap">{{ sel.body || '—' }}</div>
+          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:16px 0;font-size:13.5px;line-height:1.75" v-html="sel.body || '—'"></div>
           <div v-if="canPost" style="display:flex;gap:8px;margin-bottom:14px">
             <button class="btn-ghost" style="padding:8px 15px;font-size:12.5px;color:var(--danger)" :disabled="delBusy === sel.id" @click="deleteNotice(sel)">🗑️ Delete notice</button>
           </div>
@@ -208,7 +209,7 @@ async function deleteNotice(n) {
           </div>
           <div>
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Body</label>
-            <textarea v-model="newBody" rows="6" placeholder="Write the notice… visible to tenants and staff" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical;line-height:1.55"></textarea>
+            <RichEditor v-model="newBody" placeholder="Write the notice… visible to tenants and staff" :min-height="'160px'" style="margin-top:5px" />
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
