@@ -135,7 +135,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260816) {
+        if ($__sv < 20260820) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -522,6 +522,25 @@ function db() {
             ts TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_mr_unit ON maintenance_requests(unit, status)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_mr_prop ON maintenance_requests(prop, status)");
+        /* Phase 17: service ecosystem — vendor categories + RFQ board (service_jobs + job_offers) */
+        $pcols = array_column($pdo->query('PRAGMA table_info(partners)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('cat', $pcols, true)) $pdo->exec("ALTER TABLE partners ADD COLUMN cat TEXT DEFAULT ''");
+        if (!in_array('phone', $pcols, true)) $pdo->exec("ALTER TABLE partners ADD COLUMN phone TEXT DEFAULT ''");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS service_jobs (
+            id TEXT PRIMARY KEY, title TEXT NOT NULL, desc TEXT DEFAULT '', cat TEXT DEFAULT 'General / Other',
+            unit TEXT DEFAULT '', prop TEXT DEFAULT '', requester TEXT DEFAULT '', requester_role TEXT DEFAULT 'manager',
+            status TEXT DEFAULT 'pending', budget_type TEXT DEFAULT 'quote', budget_amount INTEGER DEFAULT 0,
+            deadline TEXT DEFAULT '', created_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')),
+            approved_by TEXT DEFAULT '', approved_at TEXT DEFAULT '',
+            awarded_partner TEXT DEFAULT '', awarded_amount INTEGER DEFAULT 0, wo_no TEXT DEFAULT '', wo_at TEXT DEFAULT '',
+            mt_id TEXT DEFAULT '', notes TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sj_status ON service_jobs(status, created_at)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sj_cat ON service_jobs(cat)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS job_offers (
+            id TEXT PRIMARY KEY, job TEXT NOT NULL, partner TEXT DEFAULT '', partner_name TEXT DEFAULT '',
+            amount INTEGER DEFAULT 0, kind TEXT DEFAULT 'accept', note TEXT DEFAULT '',
+            status TEXT DEFAULT 'pending', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_jo_job ON job_offers(job, status)");
         /* ── Phase 31: leasing pipeline (leads) ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS leads (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT DEFAULT '', email TEXT DEFAULT '',
@@ -952,6 +971,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $etCols = array_column($pdo->query('PRAGMA table_info(email_templates)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('lang', $etCols, true)) $pdo->exec("ALTER TABLE email_templates ADD COLUMN lang TEXT DEFAULT 'en'");
         seed_templates($pdo);
+        seed_vendor_flow($pdo);
         /* ── Phase 5: KR AI — legal knowledge base + FTS ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS legal_docs (
             id INTEGER PRIMARY KEY AUTOINCREMENT, cat TEXT, title TEXT, body TEXT, kw TEXT)");
@@ -994,7 +1014,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_account ON account_transactions(account, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_type ON account_transactions(type, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_recon ON account_transactions(reconciled, tx_date)");
-        try { $pdo->exec('PRAGMA user_version=20260816'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260820'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -7283,6 +7303,88 @@ function partner_by_email($pdo, $email) {
 function vendor_pi_next_id($pdo) {
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'PI-','') AS INTEGER)) FROM partner_invoices")->fetchColumn();
     return 'PI-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+}
+function VEN_CATS() {
+    return ['Electrical', 'Plumbing', 'Carpentry', 'Masonry', 'Painting', 'Roofing', 'HVAC / AC', 'Pest Control', 'Cleaning', 'Security', 'Landscaping', 'IT / Networking', 'General / Other'];
+}
+function vendor_cat_for_trade($trade) {
+    $t = strtolower((string)$trade);
+    $map = [
+        'elect' => 'Electrical', 'plumb' => 'Plumbing', 'carpent' => 'Carpentry', 'wood' => 'Carpentry',
+        'mason' => 'Masonry', 'concrete' => 'Masonry', 'paint' => 'Painting', 'roof' => 'Roofing',
+        'ac ' => 'HVAC / AC', 'hvac' => 'HVAC / AC', 'pest' => 'Pest Control', 'clean' => 'Cleaning',
+        'security' => 'Security', 'landscap' => 'Landscaping', 'it ' => 'IT / Networking', 'network' => 'IT / Networking', 'tech' => 'IT / Networking',
+        'steel' => 'Masonry', 'fabricat' => 'Masonry', 'welding' => 'Masonry', 'repair' => 'General / Other', 'mainten' => 'General / Other',
+    ];
+    foreach ($map as $k => $v) if (strpos($t, $k) !== false) return $v;
+    return 'General / Other';
+}
+function sj_next_id($pdo) {
+    $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'SJ-','') AS INTEGER)) FROM service_jobs")->fetchColumn();
+    return 'SJ-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+}
+function of_next_id($pdo) {
+    $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'OF-','') AS INTEGER)) FROM job_offers")->fetchColumn();
+    return 'OF-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+}
+function wo_next_no($pdo) {
+    $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(wo_no,'WO-','') AS INTEGER)) FROM service_jobs WHERE wo_no LIKE 'WO-%'")->fetchColumn();
+    return 'WO-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+}
+function seed_vendor_flow($pdo) {
+    /* Phase 17: backfill partner categories from trade keywords + demo RFQ ecosystem (idempotent). */
+    foreach ($pdo->query("SELECT id, trade FROM partners WHERE cat='' OR cat IS NULL") as $p) {
+        $pdo->prepare('UPDATE partners SET cat=? WHERE id=?')->execute([vendor_cat_for_trade($p['trade']), $p['id']]);
+    }
+    $flag = (int)$pdo->query("SELECT COUNT(*) FROM platform_meta WHERE k='svc_flow_seed_v1'")->fetchColumn();
+    if ($flag) return;
+    $units = [];
+    foreach ($pdo->query("SELECT u.id AS uid, u.name AS uname, u.p AS pid, p.name AS pname FROM units u LEFT JOIN properties p ON p.id=u.p LIMIT 8") as $r)
+        $units[] = $r;
+    $u1 = $units[0] ?? ['uid' => 'U-001', 'uname' => 'Flat 3B', 'pid' => 'P-001', 'pname' => 'Green View Residency'];
+    $u2 = $units[1] ?? $u1;
+    $u3 = $units[2] ?? $u1;
+    $partners = $pdo->query("SELECT id, name FROM partners ORDER BY jobs DESC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
+    $pa = $partners[0] ?? ['id' => 'SP-001', 'name' => 'Rahim Steel Works'];
+    $pb = $partners[1] ?? ['id' => 'SP-002', 'name' => 'Ahmed Electricals'];
+    $pc = $partners[2] ?? ['id' => 'SP-003', 'name' => 'GreenCare Pest Control'];
+    $seedJobs = [
+        ['id' => 'SJ-101', 'title' => 'Roof slab waterproofing — Shed A', 'desc' => 'Seepage reported on Shed A roof after monsoon. Need waterproofing coating + drainage check.', 'cat' => 'Roofing', 'unit' => $u1['uid'], 'prop' => $u1['pid'], 'requester' => 'Tanvir Hossain', 'role' => 'tenant', 'status' => 'open', 'bt' => 'tentative', 'amt' => 85000, 'dl' => '2026-08-25', 'by' => '', 'awarded' => ''],
+        ['id' => 'SJ-102', 'title' => 'Annual AC servicing — 12 units', 'desc' => 'Full preventive maintenance of split AC units (gas top-up, filter clean, coil wash) across Block A & B.', 'cat' => 'HVAC / AC', 'unit' => $u2['uid'], 'prop' => $u2['pid'], 'requester' => 'Rofiqul Islam', 'role' => 'owner', 'status' => 'open', 'bt' => 'quote', 'amt' => 0, 'dl' => '2026-08-20', 'by' => '', 'awarded' => ''],
+        ['id' => 'SJ-103', 'title' => 'Fire hydrant pump overhaul', 'desc' => 'Pump vibration + pressure drop. Overhaul or replacement quote with parts breakdown.', 'cat' => 'Masonry', 'unit' => $u3['uid'], 'prop' => $u3['pid'], 'requester' => 'Nadia Karim', 'role' => 'manager', 'status' => 'pending', 'bt' => 'fixed', 'amt' => 120000, 'dl' => '2026-08-30', 'by' => '', 'awarded' => ''],
+        ['id' => 'SJ-104', 'title' => 'Perimeter wall repainting (north side)', 'desc' => 'North boundary wall needs repainting — approx 4500 sqft, two coats exterior paint.', 'cat' => 'Painting', 'unit' => $u1['uid'], 'prop' => $u1['pid'], 'requester' => 'Rofiqul Islam', 'role' => 'owner', 'status' => 'offers', 'bt' => 'tentative', 'amt' => 180000, 'dl' => '2026-09-05', 'by' => '', 'awarded' => ''],
+        ['id' => 'SJ-105', 'title' => 'CCTV camera upgrade — Block C', 'desc' => 'Replace 6 legacy analog cameras with IP cameras + NVR expansion.', 'cat' => 'Security', 'unit' => $u2['uid'], 'prop' => $u2['pid'], 'requester' => 'Nadia Karim', 'role' => 'manager', 'status' => 'awarded', 'bt' => 'fixed', 'amt' => 95000, 'dl' => '2026-08-18', 'by' => '', 'awarded' => $pa['name']],
+        ['id' => 'SJ-106', 'title' => 'Lift cabin refurbishment', 'desc' => 'Cabin wall cladding, LED lighting, and call-panel replacement.', 'cat' => 'General / Other', 'unit' => $u3['uid'], 'prop' => $u3['pid'], 'requester' => 'Rofiqul Islam', 'role' => 'owner', 'status' => 'in_progress', 'bt' => 'fixed', 'amt' => 210000, 'dl' => '2026-08-28', 'by' => '', 'awarded' => $pb['name']],
+        ['id' => 'SJ-107', 'title' => 'Pest control — monthly contract', 'desc' => 'Quarterly pest control service for common areas + parking.', 'cat' => 'Pest Control', 'unit' => $u1['uid'], 'prop' => $u1['pid'], 'requester' => 'Tanvir Hossain', 'role' => 'tenant', 'status' => 'closed', 'bt' => 'quote', 'amt' => 0, 'dl' => '2026-08-10', 'by' => '', 'awarded' => $pc['name']],
+    ];
+    foreach ($seedJobs as $s) {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM service_jobs WHERE id=?'); $st->execute([$s['id']]);
+        if ((int)$st->fetchColumn()) continue;
+        $awarded = $s['awarded'];
+        $mtId = '';
+        if ($awarded) {
+            $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'MT-','') AS INTEGER)) FROM maintenance_requests")->fetchColumn();
+            $mtId = 'MT-' . str_pad((string)($mx + 1), 3, '0', STR_PAD_LEFT);
+            $pdo->prepare('INSERT INTO maintenance_requests (id, tenant, unit, prop, category, priority, title, desc, status, assigned_to, vendor, created_by, charge_to, cost_estimate, actual_cost) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$mtId, $s['unit'], $s['unit'], $s['prop'], strtolower(str_replace([' ', '/'], '_', $s['cat'])), 'medium', $s['title'], $s['desc'], $s['status'] === 'closed' ? 'Closed' : 'In Progress', $awarded, $awarded, $s['requester'], 'owner', $s['amt'], $s['amt']]);
+        }
+        $wo = $awarded ? wo_next_no($pdo) : '';
+        $pdo->prepare('INSERT INTO service_jobs (id,title,desc,cat,unit,prop,requester,requester_role,status,budget_type,budget_amount,deadline,created_by,approved_by,approved_at,awarded_partner,awarded_amount,wo_no,wo_at,mt_id,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$s['id'], $s['title'], $s['desc'], $s['cat'], $s['unit'], $s['prop'], $s['requester'], $s['role'], $s['status'], $s['bt'], $s['amt'], $s['dl'], $s['by'], $s['status'] === 'pending' ? '' : 'Rofiqul Islam', $s['status'] === 'pending' ? '' : date('Y-m-d H:i:s'), $awarded, $s['amt'], $wo, $awarded ? date('Y-m-d H:i:s') : '', $mtId, '']);
+    }
+    $offers = [
+        ['id' => 'OF-101', 'job' => 'SJ-104', 'pid' => $pa['id'], 'pname' => $pa['name'], 'amt' => 175000, 'kind' => 'counter', 'note' => 'Can complete with premium exterior paint, 5-year warranty.'],
+        ['id' => 'OF-102', 'job' => 'SJ-104', 'pid' => $pb['id'], 'pname' => $pb['name'], 'amt' => 180000, 'kind' => 'accept', 'note' => 'Happy to match the budget — schedule within 2 weeks.'],
+        ['id' => 'OF-103', 'job' => 'SJ-102', 'pid' => $pb['id'], 'pname' => $pb['name'], 'amt' => 0, 'kind' => 'accept', 'note' => 'We service all major brands. 12-unit package, 3-day turnaround.'],
+        ['id' => 'OF-104', 'job' => 'SJ-105', 'pid' => $pa['id'], 'pname' => $pa['name'], 'amt' => 95000, 'kind' => 'accept', 'note' => 'IP cameras + NVR included, installation within 5 days.'],
+    ];
+    foreach ($offers as $o) {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM job_offers WHERE id=?'); $st->execute([$o['id']]);
+        if ((int)$st->fetchColumn()) continue;
+        $pdo->prepare('INSERT INTO job_offers (id,job,partner,partner_name,amount,kind,note,status) VALUES (?,?,?,?,?,?,?,?)')
+            ->execute([$o['id'], $o['job'], $o['pid'], $o['pname'], $o['amt'], $o['kind'], $o['note'], $o['id'] === 'OF-104' ? 'accepted' : 'pending']);
+    }
+    $pdo->prepare('INSERT OR REPLACE INTO platform_meta (k,v) VALUES (?,?)')->execute(['svc_flow_seed_v1', '1']);
 }
 function vendor_vp_next_id($pdo) {
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'VP-','') AS INTEGER)) FROM vendor_payouts")->fetchColumn();
@@ -14703,7 +14805,7 @@ case 'app-vendors': {
     $isStaff = in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr', 'accountant'], true);
     $isPartner = ($u['role'] === 'partner');
     if (!$isStaff && !$isPartner) {
-        if ($u['role'] !== 'tenant' || !in_array($action, ['market', 'request-quote'], true))
+        if ($u['role'] !== 'tenant' || !in_array($action, ['market', 'request-quote', 'rfq-create', 'rfq-list', 'rfq-get'], true))
             json_out(['ok' => false, 'error' => 'Your role cannot access vendor management.'], 403);
     }
     $me = $isPartner ? partner_by_email($pdo, $u['email']) : null;
@@ -14724,7 +14826,8 @@ case 'app-vendors': {
             $vst->execute([$p['id']]);
             $vr = $vst->fetch(PDO::FETCH_NUM);
             $rows[] = [
-                'id' => $p['id'], 'name' => $p['name'], 'trade' => $p['trade'],
+                'id' => $p['id'], 'name' => $p['name'], 'trade' => $p['trade'], 'cat' => $p['cat'] ?: vendor_cat_for_trade($p['trade']),
+                'phone' => $p['phone'] ?? '',
                 'rating' => (float)$p['rating'], 'jobs' => (int)$p['jobs'],
                 'status' => $p['status'], 'sub_email' => $p['sub_email'],
                 'open_jobs' => $open, 'approved_total' => $approved, 'paid_total' => $paid,
@@ -14913,6 +15016,236 @@ case 'app-vendors': {
         audit($u['name'], 'Vendor rated', 'partners', $partner, '★' . $rating . ($job ? ' · ' . $job : ''));
         json_out(['ok' => true, 'id' => $vid]);
     }
+    if ($action === 'rfq-list') {
+        $sql = "SELECT s.*, u.name AS unit_name, p.name AS property_name,
+                (SELECT COUNT(*) FROM job_offers o WHERE o.job=s.id AND o.status='pending') AS offer_count,
+                (SELECT MIN(CASE WHEN o.amount>0 THEN o.amount ELSE NULL END) FROM job_offers o WHERE o.job=s.id AND o.status='pending') AS best_offer,
+                (SELECT COUNT(*) FROM job_offers o WHERE o.job=s.id AND o.status='accepted') AS accepted_count
+                FROM service_jobs s LEFT JOIN units u ON u.id=s.unit LEFT JOIN properties p ON p.id=s.prop";
+        $args = [];
+        $where = [];
+        if ($isPartner) {
+            $where[] = "(s.status IN ('open','offers') OR s.awarded_partner=?)";
+            $args[] = $me['name'] ?? '';
+        } elseif ($u['role'] === 'tenant') {
+            $where[] = 's.created_by=?';
+            $args[] = $u['email'];
+        }
+        if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
+        $sql .= " ORDER BY CASE s.status WHEN 'pending' THEN 0 WHEN 'open' THEN 1 WHEN 'offers' THEN 2 WHEN 'awarded' THEN 3 WHEN 'in_progress' THEN 4 WHEN 'resolved' THEN 5 ELSE 6 END, s.created_at DESC";
+        $st = $pdo->prepare($sql); $st->execute($args);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) { $r['budget_amount'] = (int)$r['budget_amount']; $r['awarded_amount'] = (int)$r['awarded_amount']; $r['offer_count'] = (int)$r['offer_count']; $r['best_offer'] = $r['best_offer'] !== null ? (int)$r['best_offer'] : 0; }
+        json_out(['ok' => true, 'jobs' => $rows, 'cats' => VEN_CATS()]);
+    }
+    if ($action === 'rfq-get') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT s.*, u.name AS unit_name, p.name AS property_name FROM service_jobs s LEFT JOIN units u ON u.id=s.unit LEFT JOIN properties p ON p.id=s.prop WHERE s.id=?');
+        $st->execute([$id]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Job not found.'], 404);
+        if ($u['role'] === 'tenant' && $j['created_by'] !== $u['email']) json_out(['ok' => false, 'error' => 'Not your request.'], 403);
+        $j['budget_amount'] = (int)$j['budget_amount']; $j['awarded_amount'] = (int)$j['awarded_amount'];
+        $os = $pdo->prepare('SELECT * FROM job_offers WHERE job=? ORDER BY CASE status WHEN \'pending\' THEN 0 WHEN \'accepted\' THEN 1 ELSE 2 END, amount ASC, created_at ASC');
+        $os->execute([$id]);
+        $offers = $os->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($offers as &$o) $o['amount'] = (int)$o['amount'];
+        $mt = null;
+        if ($j['mt_id']) { $mst = $pdo->prepare('SELECT id, status, vendor FROM maintenance_requests WHERE id=?'); $mst->execute([$j['mt_id']]); $mt = $mst->fetch(PDO::FETCH_ASSOC); }
+        json_out(['ok' => true, 'job' => $j, 'offers' => $offers, 'mt' => $mt, 'cats' => VEN_CATS()]);
+    }
+    if ($action === 'rfq-create') {
+        if (!$isStaff && $u['role'] !== 'tenant') json_out(['ok' => false, 'error' => 'Only staff can create service tasks.'], 403);
+        $title = trim($body['title'] ?? '');
+        if (!$title) json_out(['ok' => false, 'error' => 'title required.'], 400);
+        $cat = trim($body['cat'] ?? '');
+        if (!in_array($cat, VEN_CATS(), true)) $cat = 'General / Other';
+        $bt = trim($body['budget_type'] ?? 'quote');
+        if (!in_array($bt, ['fixed', 'tentative', 'quote'], true)) $bt = 'quote';
+        $amt = (int)($body['budget_amount'] ?? 0);
+        if ($bt !== 'quote' && $amt <= 0) json_out(['ok' => false, 'error' => 'Budget amount required for fixed/tentative budget.'], 400);
+        $isOwner = in_array($u['role'], ['superadmin', 'owner'], true);
+        $status = $isOwner ? 'open' : 'pending';
+        $requester = trim($body['requester'] ?? ($u['name'] ?? ''));
+        $role = $u['role'] === 'tenant' ? 'tenant' : ($isOwner ? 'owner' : 'manager');
+        $unit = trim($body['unit'] ?? ''); $prop = trim($body['prop'] ?? '');
+        if ($unit) { $st = $pdo->prepare('SELECT p FROM units WHERE id=?'); $st->execute([$unit]); if (!$prop) $prop = (string)$st->fetchColumn(); }
+        $fromMt = trim($body['from_mt'] ?? '');
+        $mtId = '';
+        if ($fromMt) {
+            $mst = $pdo->prepare('SELECT * FROM maintenance_requests WHERE id=?'); $mst->execute([$fromMt]);
+            $m = $mst->fetch(PDO::FETCH_ASSOC);
+            if (!$m) json_out(['ok' => false, 'error' => 'Maintenance job not found.'], 404);
+            $lst = $pdo->prepare('SELECT COUNT(*) FROM service_jobs WHERE mt_id=?'); $lst->execute([$fromMt]);
+            if ((int)$lst->fetchColumn()) json_out(['ok' => false, 'error' => 'This maintenance job is already posted as an RFQ.'], 409);
+            if ($title === $body['title'] ?? '') $title = $m['title'];
+            if (!trim($body['desc'] ?? '')) $desc = $m['desc']; else $desc = trim($body['desc']);
+            if ($cat === 'General / Other') $cat = vendor_cat_for_trade($m['category']);
+            if (!$unit) $unit = $m['unit'];
+            if (!$prop) $prop = $m['prop'];
+            $requester = $requester ?: ($m['created_by'] ?? '');
+            $mtId = $fromMt;
+        } else {
+            $desc = trim($body['desc'] ?? '');
+        }
+        $deadline = trim($body['deadline'] ?? '');
+        $id = sj_next_id($pdo);
+        $pdo->prepare('INSERT INTO service_jobs (id,title,desc,cat,unit,prop,requester,requester_role,status,budget_type,budget_amount,deadline,created_by,mt_id,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$id, $title, $desc, $cat, $unit, $prop, $requester, $role, $status, $bt, $amt, $deadline, $u['email'], $mtId, trim($body['notes'] ?? '')]);
+        audit($u['name'], 'Service task created', 'partners', $id, $cat . ($status === 'pending' ? ' (pending approval)' : ' (posted)'));
+        json_out(['ok' => true, 'id' => $id, 'status' => $status]);
+    }
+    if ($action === 'rfq-edit') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owner/manager can edit service tasks.'], 403);
+        $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare('SELECT * FROM service_jobs WHERE id=?'); $st->execute([$id]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Job not found.'], 404);
+        if (!in_array($j['status'], ['pending', 'open'], true)) json_out(['ok' => false, 'error' => 'Only pending/open jobs can be edited.'], 400);
+        $title = trim($body['title'] ?? $j['title']);
+        $cat = trim($body['cat'] ?? $j['cat']); if (!in_array($cat, VEN_CATS(), true)) $cat = $j['cat'];
+        $bt = trim($body['budget_type'] ?? $j['budget_type']); if (!in_array($bt, ['fixed', 'tentative', 'quote'], true)) $bt = 'quote';
+        $amt = (int)($body['budget_amount'] ?? $j['budget_amount']);
+        if ($bt !== 'quote' && $amt <= 0) json_out(['ok' => false, 'error' => 'Budget amount required for fixed/tentative budget.'], 400);
+        $pdo->prepare('UPDATE service_jobs SET title=?, desc=?, cat=?, budget_type=?, budget_amount=?, deadline=?, notes=?, unit=?, prop=?, updated_at=datetime(\'now\') WHERE id=?')
+            ->execute([$title, trim($body['desc'] ?? $j['desc']), $cat, $bt, $amt, trim($body['deadline'] ?? $j['deadline']), trim($body['notes'] ?? $j['notes']), trim($body['unit'] ?? $j['unit']), trim($body['prop'] ?? $j['prop']), $id]);
+        audit($u['name'], 'Service task edited', 'partners', $id, $cat);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'rfq-approve') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only the owner can approve quotation posts.'], 403);
+        $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare('SELECT status FROM service_jobs WHERE id=?'); $st->execute([$id]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Job not found.'], 404);
+        if ($j['status'] !== 'pending') json_out(['ok' => false, 'error' => 'Only pending jobs can be approved.'], 400);
+        $pdo->prepare("UPDATE service_jobs SET status='open', approved_by=?, approved_at=datetime('now'), updated_at=datetime('now') WHERE id=?")->execute([$u['name'], $id]);
+        audit($u['name'], 'Quotation post approved', 'partners', $id);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'rfq-cancel') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only the owner can cancel service tasks.'], 403);
+        $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare('SELECT status FROM service_jobs WHERE id=?'); $st->execute([$id]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Job not found.'], 404);
+        if (!in_array($j['status'], ['pending', 'open', 'offers'], true)) json_out(['ok' => false, 'error' => 'Only pending/open/offers jobs can be cancelled.'], 400);
+        $pdo->prepare("UPDATE service_jobs SET status='cancelled', updated_at=datetime('now') WHERE id=?")->execute([$id]);
+        audit($u['name'], 'Service task cancelled', 'partners', $id);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'rfq-from-mt') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only the owner can post maintenance jobs for quotation.'], 403);
+        $mst = $pdo->prepare('SELECT * FROM maintenance_requests WHERE id=?'); $mst->execute([trim($body['from_mt'] ?? '')]);
+        $m = $mst->fetch(PDO::FETCH_ASSOC);
+        if (!$m) json_out(['ok' => false, 'error' => 'Maintenance job not found.'], 404);
+        $lst = $pdo->prepare('SELECT COUNT(*) FROM service_jobs WHERE mt_id=?'); $lst->execute([$m['id']]);
+        if ((int)$lst->fetchColumn()) json_out(['ok' => false, 'error' => 'This maintenance job is already posted as an RFQ.'], 409);
+        $cat = vendor_cat_for_trade($m['category']);
+        $requester = $m['created_by'] ?: ($m['tenant'] ?: '');
+        $id = sj_next_id($pdo);
+        $pdo->prepare('INSERT INTO service_jobs (id,title,desc,cat,unit,prop,requester,requester_role,status,budget_type,budget_amount,deadline,created_by,mt_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$id, $m['title'], $m['desc'], $cat, $m['unit'], $m['prop'], $requester, 'tenant', 'open', $m['cost_estimate'] > 0 ? 'tentative' : 'quote', (int)$m['cost_estimate'], '', $u['email'], $m['id']]);
+        audit($u['name'], 'Maintenance job posted as RFQ', 'partners', $id, 'from ' . $m['id']);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($action === 'offer-create') {
+        if (!$isPartner) json_out(['ok' => false, 'error' => 'Only service partners can make offers.'], 403);
+        $job = trim($body['job'] ?? '');
+        $kind = trim($body['kind'] ?? 'accept');
+        if (!in_array($kind, ['accept', 'counter'], true)) $kind = 'accept';
+        $st = $pdo->prepare('SELECT * FROM service_jobs WHERE id=?'); $st->execute([$job]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Service task not found.'], 404);
+        if (!in_array($j['status'], ['open', 'offers'], true)) json_out(['ok' => false, 'error' => 'This task is not accepting offers.'], 409);
+        $amt = (int)($body['amount'] ?? 0);
+        if ($kind === 'accept') { if ($amt <= 0) $amt = (int)$j['budget_amount']; if ($amt <= 0 && $j['budget_type'] !== 'quote') $amt = (int)$j['budget_amount']; }
+        if ($amt <= 0) json_out(['ok' => false, 'error' => 'amount required (or accept the stated budget).'], 400);
+        $pid = $me['id'] ?? ''; $pname = $me['name'] ?? $u['name'];
+        $pdo->prepare("DELETE FROM job_offers WHERE job=? AND partner=? AND status='pending'")->execute([$job, $pid]);
+        $oid = of_next_id($pdo);
+        $pdo->prepare('INSERT INTO job_offers (id,job,partner,partner_name,amount,kind,note,status) VALUES (?,?,?,?,?,?,?,?)')
+            ->execute([$oid, $job, $pid, $pname, $amt, $kind, trim($body['note'] ?? ''), 'pending']);
+        if ($j['status'] === 'open') $pdo->prepare("UPDATE service_jobs SET status='offers', updated_at=datetime('now') WHERE id=?")->execute([$job]);
+        audit($u['name'], 'Offer made', 'partners', $oid, $job . ' ৳' . $amt . ' (' . $kind . ')');
+        json_out(['ok' => true, 'id' => $oid, 'amount' => $amt]);
+    }
+    if ($action === 'offer-list') {
+        $job = trim($body['job'] ?? '');
+        if (!$job) json_out(['ok' => false, 'error' => 'job required.'], 400);
+        $os = $pdo->prepare('SELECT * FROM job_offers WHERE job=? ORDER BY status=\'accepted\' DESC, amount ASC');
+        $os->execute([$job]);
+        $offers = $os->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($offers as &$o) $o['amount'] = (int)$o['amount'];
+        json_out(['ok' => true, 'offers' => $offers]);
+    }
+    if ($action === 'offer-withdraw') {
+        if (!$isPartner) json_out(['ok' => false, 'error' => 'Only partners can withdraw offers.'], 403);
+        $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare('SELECT * FROM job_offers WHERE id=?'); $st->execute([$id]);
+        $o = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$o) json_out(['ok' => false, 'error' => 'Offer not found.'], 404);
+        if ($o['partner'] !== ($me['id'] ?? '')) json_out(['ok' => false, 'error' => 'Not your offer.'], 403);
+        if ($o['status'] !== 'pending') json_out(['ok' => false, 'error' => 'Only pending offers can be withdrawn.'], 400);
+        $pdo->prepare("UPDATE job_offers SET status='withdrawn' WHERE id=?")->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'offer-decide') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only the owner can accept/reject offers.'], 403);
+        $id = trim($body['id'] ?? '');
+        $verdict = trim($body['verdict'] ?? '');
+        if (!in_array($verdict, ['accept', 'reject'], true)) json_out(['ok' => false, 'error' => 'verdict must be accept|reject.'], 400);
+        $st = $pdo->prepare('SELECT * FROM job_offers WHERE id=?'); $st->execute([$id]);
+        $o = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$o) json_out(['ok' => false, 'error' => 'Offer not found.'], 404);
+        if ($o['status'] !== 'pending') json_out(['ok' => false, 'error' => 'Offer already decided.'], 409);
+        if ($verdict === 'reject') {
+            $pdo->prepare("UPDATE job_offers SET status='rejected' WHERE id=?")->execute([$id]);
+            audit($u['name'], 'Offer rejected', 'partners', $id, $o['job']);
+            json_out(['ok' => true]);
+        }
+        $jst = $pdo->prepare('SELECT * FROM service_jobs WHERE id=?'); $jst->execute([$o['job']]);
+        $j = $jst->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Service task not found.'], 404);
+        if (!in_array($j['status'], ['open', 'offers'], true)) json_out(['ok' => false, 'error' => 'This task is no longer accepting offers.'], 409);
+        $amt = (int)$o['amount'] > 0 ? (int)$o['amount'] : (int)$j['budget_amount'];
+        $wo = wo_next_no($pdo);
+        $pdo->prepare("UPDATE service_jobs SET status='awarded', awarded_partner=?, awarded_amount=?, wo_no=?, wo_at=datetime('now'), updated_at=datetime('now') WHERE id=?")
+            ->execute([$o['partner_name'], $amt, $wo, $o['job']]);
+        $pdo->prepare("UPDATE job_offers SET status='accepted' WHERE id=?")->execute([$id]);
+        $pdo->prepare("UPDATE job_offers SET status='rejected' WHERE job=? AND status='pending'")->execute([$o['job']]);
+        if ($j['mt_id']) {
+            $pdo->prepare("UPDATE maintenance_requests SET vendor=?, assigned_to=?, cost_estimate=?, status='Assigned', updated_at=datetime('now') WHERE id=?")
+                ->execute([$o['partner_name'], $o['partner_name'], $amt, $j['mt_id']]);
+        } else {
+            $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'MT-','') AS INTEGER)) FROM maintenance_requests")->fetchColumn();
+            $mtId = 'MT-' . str_pad((string)($mx + 1), 3, '0', STR_PAD_LEFT);
+            $pdo->prepare('INSERT INTO maintenance_requests (id, tenant, unit, prop, category, priority, title, desc, status, assigned_to, vendor, created_by, charge_to, cost_estimate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$mtId, $j['unit'], $j['unit'], $j['prop'], strtolower(str_replace([' ', '/'], '_', $j['cat'])), 'medium', $j['title'], $j['desc'], 'Assigned', $o['partner_name'], $o['partner_name'], $j['requester'], 'owner', $amt]);
+            $pdo->prepare("UPDATE service_jobs SET mt_id=? WHERE id=?")->execute([$mtId, $o['job']]);
+        }
+        audit($u['name'], 'Offer accepted → work order', 'partners', $wo, $o['job'] . ' → ' . $o['partner_name'] . ' ৳' . $amt);
+        json_out(['ok' => true, 'wo_no' => $wo, 'amount' => $amt]);
+    }
+    if ($action === 'rfq-status') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only the owner can advance service tasks.'], 403);
+        $id = trim($body['id'] ?? '');
+        $status = trim($body['status'] ?? '');
+        if (!in_array($status, ['in_progress', 'resolved', 'closed'], true)) json_out(['ok' => false, 'error' => 'status must be in_progress|resolved|closed.'], 400);
+        $st = $pdo->prepare('SELECT * FROM service_jobs WHERE id=?'); $st->execute([$id]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Job not found.'], 404);
+        $allowed = ['awarded' => ['in_progress'], 'in_progress' => ['resolved'], 'resolved' => ['closed']];
+        if (!in_array($status, $allowed[$j['status']] ?? [], true)) json_out(['ok' => false, 'error' => 'Invalid transition ' . $j['status'] . ' → ' . $status . '.'], 409);
+        $pdo->prepare('UPDATE service_jobs SET status=?, updated_at=datetime(\'now\') WHERE id=?')->execute([$status, $id]);
+        if ($j['mt_id']) {
+            $mtStatus = $status === 'in_progress' ? 'In Progress' : ($status === 'resolved' ? 'Resolved' : 'Closed');
+            $pdo->prepare('UPDATE maintenance_requests SET status=?, updated_at=datetime(\'now\') WHERE id=?')->execute([$mtStatus, $j['mt_id']]);
+        }
+        audit($u['name'], 'Service task → ' . $status, 'partners', $id, ($j['mt_id'] ?: ''));
+        json_out(['ok' => true]);
+    }
     if ($action === 'market') {
         /* Vetted contractor marketplace — staff + tenants browse vetted pros */
         if (!$isStaff && $u['role'] !== 'tenant') json_out(['ok' => false, 'error' => 'Your role cannot view the marketplace.'], 403);
@@ -14965,7 +15298,7 @@ case 'app-vendors': {
         audit($u['name'], 'Quote requested from ' . $vendor, 'maintenance', $rid, $title . ' [' . $cat . ']');
         json_out(['ok' => true, 'id' => $rid]);
     }
-    json_out(['ok' => false, 'error' => 'action must be list|jobs|job-status|job-qc|invoice-submit|invoice-list|invoice-decide|invoice-pay|payout-list|payout-record|rate|market|request-quote.'], 400);
+    json_out(['ok' => false, 'error' => 'action must be list|jobs|job-status|job-qc|invoice-submit|invoice-list|invoice-decide|invoice-pay|payout-list|payout-record|rate|market|request-quote|rfq-list|rfq-get|rfq-create|rfq-edit|rfq-approve|rfq-cancel|rfq-from-mt|rfq-status|offer-create|offer-list|offer-withdraw|offer-decide.'], 400);
 }
 
 case 'app-job-media': {
