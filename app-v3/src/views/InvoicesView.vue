@@ -193,7 +193,7 @@ async function runAuto() {
     <div class="page-head">
       <div>
         <h1>🧾 Invoices</h1>
-        <div class="sub">{{ invoicesAll.length }} invoices · {{ money(kpis[2]?.value || 0) }} collected · live from API</div>
+        <div class="sub">{{ invoicesAll.length }} invoices · {{ kpis[2]?.value || '৳0' }} collected · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input v-model="query" placeholder="Search invoice, tenant, unit…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">

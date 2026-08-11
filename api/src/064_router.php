@@ -189,7 +189,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -2068,6 +2068,64 @@ case 'app-payment-cancel': {
     $pdo->prepare("UPDATE gateway_tx SET status='failed', updated_at=datetime('now') WHERE id=? AND status='pending'")->execute([$sid]);
     audit($u['name'], 'Gateway checkout cancelled', 'payments', $sid);
     json_out(['ok' => true]);
+}
+
+/* ── Payment proof (bharakhata parity): attach/view/remove evidence (screenshot/PDF)
+   for a recorded payment — the "photo-proof payments" flow. Owner/manager attaches a
+   bKash/Nagad/bank/cash receipt screenshot; tenant can view their own proof. ── */
+case 'app-payment-proof': {
+    $u = require_user();
+    require_module($u, 'payments');
+    $pdo = db();
+    $sub = trim($_GET['action'] ?? $body['action'] ?? 'view');
+    $pid = trim($_POST['payment_id'] ?? $_GET['id'] ?? $body['payment_id'] ?? '');
+    if (!$pid) json_out(['ok' => false, 'error' => 'payment_id required.'], 400);
+    $st = $pdo->prepare('SELECT * FROM payments WHERE id=?'); $st->execute([$pid]);
+    $p = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
+    if (!invoice_owner_check($u, $p['inv'])) json_out(['ok' => false, 'error' => 'Not your payment.'], 403);
+
+    if ($sub === 'upload') {
+        if (empty($_FILES['file']) || ($_FILES['file']['error'] ?? 1) !== UPLOAD_ERR_OK)
+            json_out(['ok' => false, 'error' => 'A proof file (image or PDF) is required.'], 400);
+        $f = $_FILES['file'];
+        $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'], true))
+            json_out(['ok' => false, 'error' => 'Images or PDF only.'], 400);
+        if ((int)$f['size'] > 8 * 1024 * 1024)
+            json_out(['ok' => false, 'error' => 'Proof file too large (max 8MB).'], 400);
+        if ($p['proof']) { $old = DATA_DIR() . '/' . $p['proof']; if (is_file($old)) @unlink($old); }
+        $fname = 'ppv_' . preg_replace('/[^A-Za-z0-9_-]/', '', $pid) . '_' . date('Ymd_His') . '.' . $ext;
+        if (!move_uploaded_file($f['tmp_name'], DATA_DIR() . '/' . $fname))
+            json_out(['ok' => false, 'error' => 'Could not store proof.'], 500);
+        $note = trim((string)($_POST['note'] ?? ''));
+        $pdo->prepare("UPDATE payments SET proof=?, proof_note=?, proof_at=datetime('now') WHERE id=?")
+            ->execute([$fname, $note, $pid]);
+        audit($u['name'], 'Payment proof attached', 'payments', $pid, $fname . ($note !== '' ? ' (' . $note . ')' : ''));
+        json_out(['ok' => true, 'proof' => $fname]);
+    }
+
+    if ($sub === 'view') {
+        if (!$p['proof']) json_out(['ok' => false, 'error' => 'No proof attached.'], 404);
+        $f = DATA_DIR() . '/' . $p['proof'];
+        if (!is_file($f)) json_out(['ok' => false, 'error' => 'Proof file missing.'], 404);
+        $x = strtolower(pathinfo($p['proof'], PATHINFO_EXTENSION));
+        $ct = ($x === 'pdf') ? 'application/pdf' : (($x === 'jpg') ? 'image/jpeg' : 'image/' . $x);
+        header('Content-Type: ' . $ct);
+        header('Content-Disposition: inline; filename="' . $p['proof'] . '"');
+        header('Content-Length: ' . filesize($f));
+        readfile($f);
+        exit;
+    }
+
+    if ($sub === 'remove') {
+        if ($p['proof']) { $old = DATA_DIR() . '/' . $p['proof']; if (is_file($old)) @unlink($old); }
+        $pdo->prepare("UPDATE payments SET proof='', proof_note='', proof_at='' WHERE id=?")->execute([$pid]);
+        audit($u['name'], 'Payment proof removed', 'payments', $pid);
+        json_out(['ok' => true]);
+    }
+
+    json_out(['ok' => false, 'error' => 'action must be upload|view|remove.'], 400);
 }
 
 /* ── Gateway IPN (server-to-server callback, 2026-08-09) ──

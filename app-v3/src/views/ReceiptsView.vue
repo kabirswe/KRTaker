@@ -96,7 +96,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
     <div class="page-head">
       <div>
         <h1>📎 Receipts</h1>
-        <div class="sub">{{ receiptsAll.length }} receipts · {{ money(kpis[1]?.value || 0) }} collected · live from API</div>
+        <div class="sub">{{ receiptsAll.length }} receipts · {{ kpis[1]?.value || '৳0' }} collected · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input v-model="query" placeholder="Search receipt, invoice, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">

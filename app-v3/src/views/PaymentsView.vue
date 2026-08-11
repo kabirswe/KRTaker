@@ -1,7 +1,8 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
@@ -93,6 +94,49 @@ watch(() => route.query.open, (id) => {
 }, { immediate: true })
 const selInv = computed(() => sel.value ? invOf(sel.value) : null)
 const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.value)) : null; return l ? tenantsAll.value.find(t => t.id === l.t) : null })
+
+// ── payment proof (bharakhata parity) ──
+const proofFile = ref(null)
+const proofNote = ref('')
+const proofBusy = ref(false)
+const proofUrlMap = reactive({})
+const proofExt = (p) => (p.proof || '').split('.').pop().toLowerCase()
+const isProofImage = (p) => ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(proofExt(p))
+async function loadProof(p) {
+  if (!p || !p.proof || proofUrlMap[p.id] !== undefined) return
+  proofUrlMap[p.id] = null
+  proofUrlMap[p.id] = await apiBlob('app-payment-proof?action=view&id=' + encodeURIComponent(p.id))
+}
+watch(() => sel.value, (p) => { if (p) loadProof(p) })
+function pickProof(e) { proofFile.value = e.target.files?.[0] || null }
+function openProof(p) { const url = proofUrlMap[p.id]; if (url) window.open(url, '_blank') }
+async function uploadProof(p) {
+  if (!proofFile.value) { window.__krToast?.('❌ Choose a proof file first'); return }
+  proofBusy.value = true
+  try {
+    const fd = new FormData()
+    fd.append('payment_id', p.id)
+    fd.append('note', proofNote.value.trim())
+    fd.append('file', proofFile.value)
+    const r = await apiUpload('app-payment-proof?action=upload', fd)
+    if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Upload failed')); return }
+    const row = paymentsAll.value.find(x => x.id === p.id)
+    if (row) { row.proof = r.proof; row.proof_note = proofNote.value.trim(); row.proof_at = new Date().toISOString().slice(0, 19).replace('T', ' ') }
+    proofUrlMap[p.id] = await apiBlob('app-payment-proof?action=view&id=' + encodeURIComponent(p.id))
+    proofFile.value = null
+    proofNote.value = ''
+    window.__krToast?.('✅ Proof attached to ' + p.id, 'ok')
+  } finally { proofBusy.value = false }
+}
+async function removeProof(p) {
+  if (!confirm('Remove the attached proof for ' + p.id + '?')) return
+  const r = await apiCall('app-payment-proof', { action: 'remove', payment_id: p.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  const row = paymentsAll.value.find(x => x.id === p.id)
+  if (row) { row.proof = ''; row.proof_note = ''; row.proof_at = '' }
+  delete proofUrlMap[p.id]
+  window.__krToast?.('🗑 Proof removed')
+}
 </script>
 
 <template>
@@ -100,7 +144,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
     <div class="page-head">
       <div>
         <h1>💳 Payments</h1>
-        <div class="sub">{{ paymentsAll.length }} payments · {{ money(kpis[1]?.value || 0) }} total · live from API</div>
+        <div class="sub">{{ paymentsAll.length }} payments · {{ kpis[1]?.value || '৳0' }} total · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input v-model="query" placeholder="Search payment, invoice, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
@@ -146,6 +190,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">💳</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
             <span class="badge" :class="badge(p.status)">{{ p.status }}</span>
+            <span v-if="p.proof" class="badge" style="background:rgba(255,255,255,.92);color:#1f6feb" title="Proof attached">🖼</span>
           </div>
           <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ p.id }}</div>
         </div>
@@ -168,7 +213,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Payment</th><th>Invoice</th><th>Tenant</th><th>Unit</th><th>Amount</th><th>Method</th><th>Ref</th><th>Date</th><th>Status</th></tr></thead>
+          <thead><tr><th>Payment</th><th>Invoice</th><th>Tenant</th><th>Unit</th><th>Amount</th><th>Method</th><th>Ref</th><th>Date</th><th>Status</th><th>Proof</th></tr></thead>
           <tbody>
             <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="white-space:nowrap"><b>{{ p.id }}</b></td>
@@ -180,6 +225,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
               <td style="white-space:nowrap" class="c-sub">{{ p.ref || '—' }}</td>
               <td style="white-space:nowrap" class="c-sub">{{ p.date || '—' }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="badge(p.status)">{{ p.status }}</span></td>
+              <td style="white-space:nowrap"><span v-if="p.proof" title="Proof attached" style="cursor:default;font-size:15px">🖼</span><span v-else class="c-sub">—</span></td>
             </tr>
           </tbody>
         </table>
@@ -228,6 +274,33 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧾 Invoice</div>
             <div style="font-weight:800;font-size:14px;cursor:pointer" @click="go('/invoices', { open: selInv.id })">{{ selInv.id }} ↗</div>
             <div class="c-sub" style="font-size:11.5px;margin-top:3px">{{ selInv.m ? monthLabel(selInv.m) : '—' }} · {{ money(selInv.net) }} net · lease <a @click.stop="go('/leases', { open: selInv.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ selInv.l }}</a></div>
+          </div>
+
+          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📎 Payment proof</div>
+            <template v-if="sel.proof">
+              <div v-if="isProofImage(sel) && proofUrlMap[sel.id]" style="border-radius:10px;overflow:hidden;margin-bottom:8px;cursor:pointer" @click="openProof(sel)">
+                <img :src="proofUrlMap[sel.id]" style="width:100%;max-height:220px;object-fit:cover" alt="proof">
+              </div>
+              <div v-else-if="isProofImage(sel)" style="height:70px;background:#fff;border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text-mute);margin-bottom:8px">Loading preview…</div>
+              <div v-else style="height:70px;background:#fff;border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:8px;cursor:pointer" @click="openProof(sel)">📄</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <span class="badge" style="background:#1f6feb22;color:#1f6feb;border:1px solid #1f6feb44">🖼 {{ sel.proof }}</span>
+                <span v-if="sel.proof_at" class="c-sub" style="font-size:11px">attached {{ sel.proof_at }}</span>
+              </div>
+              <div v-if="sel.proof_note" class="c-sub" style="font-size:12px;margin-top:6px">📝 {{ sel.proof_note }}</div>
+              <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                <button @click="openProof(sel)" class="btn-ghost" style="padding:7px 12px;font-size:12px">🔍 View full</button>
+                <button @click="removeProof(sel)" class="btn-ghost" style="padding:7px 12px;font-size:12px;color:var(--danger)">🗑 Remove</button>
+              </div>
+            </template>
+            <div v-else class="c-sub" style="font-size:12px">No proof attached. Upload a payment screenshot (bKash / Nagad / bank / cash) or PDF receipt.</div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+              <input type="file" accept="image/*,.pdf" style="display:none" :id="'pp-file-' + sel.id" @change="pickProof">
+              <button @click="document.getElementById('pp-file-' + sel.id)?.click()" class="btn" style="padding:8px 13px;font-size:12.5px" :disabled="proofBusy">{{ proofBusy ? '⏳ Uploading…' : (sel.proof ? '📤 Replace' : '📤 Attach proof') }}</button>
+              <input v-model="proofNote" placeholder="Note (e.g. bKash txn ID)" style="flex:1;min-width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--card);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+              <button v-if="proofFile" @click="uploadProof(sel)" class="btn" style="padding:8px 13px;font-size:12.5px">⬆ Upload</button>
+            </div>
           </div>
 
           <div v-if="selTenantObj" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
