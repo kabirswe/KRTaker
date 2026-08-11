@@ -199,8 +199,8 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button v-for="[k, l] in [['transactions','💱 Transactions'],['receive','📥 Receive'],['expense','📤 Expense'],['withdraw','🏧 Withdraw'],['deposit','🏦 Deposit'],['reconcile','🔁 Reconcile']]" :key="k" @click="tab = k" :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">{{ l }}</button>
+    <div class="kr-tabs">
+      <button v-for="[k, l] in [['transactions','💱 Transactions'],['receive','📥 Receive'],['expense','📤 Expense'],['withdraw','🏧 Withdraw'],['deposit','🏦 Deposit'],['reconcile','🔁 Reconcile']]" :key="k" @click="tab = k" :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">{{ l }}</button>
     </div>
 
     <!-- ══ TRANSACTIONS ══ -->

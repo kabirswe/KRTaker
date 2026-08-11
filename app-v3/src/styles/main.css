@@ -245,6 +245,24 @@ table.kr.compact td{padding:8px 10px;font-size:12.5px}
   .auth-card{padding:26px 20px}
   .toast-wrap{width:92vw}
   .toast{font-size:12.5px}
+  /* grid items must be allowed to shrink below min-content on phones (prevents tiny panel overflows) */
+  .grid > *{min-width:0}
+}
+/* ── Mobile topbar (≤640px) — the actions row must never push the page wide ── */
+@media (max-width:640px){
+  .topbar-in{gap:8px}
+  .topbar-in .tb-search{min-width:0 !important;max-width:none !important;flex:1 1 auto}
+  .tb-actions{gap:5px}
+  .tb-actions .icon-btn{padding:7px 8px;font-size:11.5px}
+  .tb-theme-txt{display:none}
+}
+/* ── Shared tab strip (finance hub + sub-views): wraps on desktop, scrolls on phones ── */
+.kr-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.kr-tabs button{padding:9px 15px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap}
+@media (max-width:640px){
+  .kr-tabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .kr-tabs::-webkit-scrollbar{display:none}
+  .kr-tabs button{flex-shrink:0;padding:8px 12px !important;font-size:12px !important}
 }
 
 /* Samity printable report (body class toggled by SamityView Report tab) */

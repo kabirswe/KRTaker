@@ -261,9 +261,9 @@ onMounted(async () => {
     </div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button @click="tab = 'statements'" :style="tab === 'statements' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">💰 Statements</button>
-      <button @click="tab = 'rentconfig'; loadRentConfig()" :style="tab === 'rentconfig' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">⚙️ Rent Config</button>
+    <div class="kr-tabs">
+      <button @click="tab = 'statements'" :style="tab === 'statements' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">💰 Statements</button>
+      <button @click="tab = 'rentconfig'; loadRentConfig()" :style="tab === 'rentconfig' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">⚙️ Rent Config</button>
     </div>
 
     <!-- ══ STATEMENTS TAB ══ -->

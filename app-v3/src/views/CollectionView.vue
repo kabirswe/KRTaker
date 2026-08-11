@@ -244,10 +244,10 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button @click="tab = 'collections'" :style="tab === 'collections' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">📨 Collections</button>
-      <button @click="tab = 'recon'" :style="tab === 'recon' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">🧾 Recon</button>
-      <button @click="tab = 'reminders'" :style="tab === 'reminders' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">🔔 Reminders</button>
+    <div class="kr-tabs">
+      <button @click="tab = 'collections'" :style="tab === 'collections' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">📨 Collections</button>
+      <button @click="tab = 'recon'" :style="tab === 'recon' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">🧾 Recon</button>
+      <button @click="tab = 'reminders'" :style="tab === 'reminders' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">🔔 Reminders</button>
     </div>
 
     <!-- ══ COLLECTIONS TAB ══ -->

@@ -220,7 +220,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         </div>
         <div class="tb-actions">
           <button class="icon-btn" @click="toggleLang()">বাংলা</button>
-          <button class="icon-btn" @click="toggleTheme()">{{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}</button>
+          <button class="icon-btn" @click="toggleTheme()">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
           <div style="position:relative;display:inline-block" class="tb-bell">
             <button class="icon-btn" @click.stop="toggleBell()" title="Notifications" style="position:relative">🔔<span v-if="alerts.length" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ alerts.length }}</span></button>
             <!-- bell dropdown -->
