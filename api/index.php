@@ -7118,19 +7118,19 @@ function tif_print_html($row) {
     $presentAddr = trim(implode(', ', array_filter([$p['present_flat'] ?? '', $p['present_road'] ?? '', $p['present_area'] ?? ''])));
     $permAddr = trim($p['permanent_address'] ?? '');
     $family = (int)($p['family_count'] ?? 0);
-    $famCount = $family > 0 ? $family : 4;
+    $famCount = max(2, min(4, $family ?: 4));
 
     /* one fill row */
     $line = function ($label, $val = '', $labelStyle = '') use ($e) {
         return '<tr><td class="lbl" style="' . $labelStyle . '">' . $e($label) . '</td><td class="fill">'
-            . ($val !== '' ? '<span class="v">' . $e($val) . '</span>' : '') . '</td></tr>';
+            . ($val !== '' ? '<span class="v">' . $e($val) . '</span>' : '<span class="ln"></span>') . '</td></tr>';
     };
     /* two fill columns in one row */
     $two = function ($l1, $v1, $l2, $v2) use ($e) {
         return '<tr><td class="lbl" style="width:32%">' . $e($l1) . '</td><td class="fill" style="width:18%">'
-            . ($v1 !== '' ? '<span class="v">' . $e($v1) . '</span>' : '')
+            . ($v1 !== '' ? '<span class="v">' . $e($v1) . '</span>' : '<span class="ln"></span>')
             . '</td><td class="lbl" style="width:32%">' . $e($l2) . '</td><td class="fill" style="width:18%">'
-            . ($v2 !== '' ? '<span class="v">' . $e($v2) . '</span>' : '') . '</td></tr>';
+            . ($v2 !== '' ? '<span class="v">' . $e($v2) . '</span>' : '<span class="ln"></span>') . '</td></tr>';
     };
 
     $rows = '';
@@ -7150,7 +7150,7 @@ function tif_print_html($row) {
     /* ১১ — family table */
     $famRows = '';
     for ($i = 1; $i <= $famCount; $i++) {
-        $famRows .= '<tr><td class="fill" style="text-align:center">' . $i . '</td><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr>';
+        $famRows .= '<tr><td style="text-align:center">' . $i . '</td><td></td><td></td><td></td><td></td></tr>';
     }
     $rows .= '<tr><td class="lbl" style="vertical-align:top">১১. পরিবার / মেসের সঙ্গীয় সদস্যদের বিবরণ</td><td class="fill" style="padding:0">'
         . '<table class="sub"><tr><th style="width:8%">ক্রঃনং</th><th style="width:32%">নাম</th><th style="width:14%">বয়স</th><th style="width:22%">পেশা</th><th style="width:24%">মোবাইল নম্বর</th></tr>'
@@ -7175,44 +7175,45 @@ function tif_print_html($row) {
     if (trim($p['ref1_name'] ?? '') !== '') $extra[] = '<b>রেফারেন্স ১:</b> ' . $e($p['ref1_name']) . ($p['ref1_phone'] ? ' — ' . $e($p['ref1_phone']) : '') . ($p['ref1_address'] ? ', ' . $e($p['ref1_address']) : '');
     if (trim($p['ref2_name'] ?? '') !== '') $extra[] = '<b>রেফারেন্স ২:</b> ' . $e($p['ref2_name']) . ($p['ref2_phone'] ? ' — ' . $e($p['ref2_phone']) : '') . ($p['ref2_address'] ? ', ' . $e($p['ref2_address']) : '');
     if (trim($p['remarks'] ?? '') !== '') $extra[] = '<b>মন্তব্য:</b> ' . $e($p['remarks']);
-    $extraHtml = $extra ? '<div class="extra"><div class="extra-t">অতিরিক্ত তথ্য / Additional information</div><div style="padding:4px 6px;font-size:11px;line-height:1.7">' . implode('<br>', $extra) . '</div></div>' : '';
+    $extraHtml = $extra ? '<div class="extra"><div class="extra-t">অতিরিক্ত তথ্য / Additional information</div><div class="extra-b">' . implode('<br>', $extra) . '</div></div>' : '';
 
     return '<style>
-        @page { size: A4 portrait; margin: 10mm 12mm; }
-        body { font-family: "Kalpurush","SolaimanLipi","Nikosh","Noto Sans Bengali","Arial",sans-serif; color:#111; font-size:12px; line-height:1.45; margin:0; padding:0; background:#fff; }
-        .wrap { width: 188mm; margin:0 auto; }
+        @page { size: A4 portrait; margin: 8mm 10mm; }
+        body { font-family: "Kalpurush","SolaimanLipi","Nikosh","Noto Sans Bengali","Arial",sans-serif; color:#111; font-size:10px; line-height:1.25; margin:0; padding:0; background:#fff; }
+        .wrap { width: 190mm; margin:0 auto; }
         table.grid { border-collapse: collapse; width:100%; }
-        table.grid td, table.grid th { border:1px solid #000; padding:4px 7px; vertical-align:middle; }
+        table.grid td, table.grid th { border:1px solid #000; padding:1px 5px; vertical-align:middle; }
         td.lbl { background:#F5F5F5; font-weight:700; width:42%; }
-        td.fill { min-height:26px; height:26px; }
+        td.fill { height:20px; }
         td.fill .v { font-weight:600; border-bottom:1px dotted #444; padding:0 2px; }
-        td.fill:empty::after { content:"\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0"; text-decoration:underline; text-decoration-style:dotted; color:transparent; }
+        td.fill .ln { display:block; width:100%; border-bottom:1px dotted #444; height:9px; }
         table.sub { border-collapse: collapse; width:100%; }
-        table.sub th, table.sub td { border:1px solid #000; padding:3px 5px; font-size:11px; }
+        table.sub th, table.sub td { border:1px solid #000; padding:0 4px; font-size:9px; height:12px; }
         table.sub th { background:#EDEDED; }
         .head { border:2px solid #000; border-collapse: collapse; width:100%; margin-bottom:0; }
-        .head td { border:1px solid #000; padding:5px 8px; }
-        .police { text-align:center; font-size:19px; font-weight:700; letter-spacing:1px; }
-        .police-sub { text-align:center; font-size:9px; letter-spacing:2.5px; color:#333; }
-        .copyline { font-size:10px; font-weight:700; text-align:center; }
-        .photobox { width:96px; height:112px; border:1.5px dashed #000; text-align:center; font-size:10px; color:#333; display:flex; align-items:center; justify-content:center; margin:0 auto; }
-        .title { text-align:center; font-size:21px; font-weight:800; letter-spacing:1px; padding:8px 0 6px; border-bottom:2px solid #000; }
-        .title-sub { text-align:center; font-size:9px; letter-spacing:2px; color:#333; }
-        .sigrow { display:flex; justify-content:space-between; margin-top:14px; font-size:12px; font-weight:700; }
-        .sigbox { border-bottom:1px solid #000; width:60mm; height:24px; }
-        .hdline { display:inline-block; min-width:70px; border-bottom:1px dotted #444; font-weight:600; }
-        .note { margin-top:12px; font-size:10.5px; border:1px solid #000; padding:4px 8px; }
-        .footer { margin-top:8px; font-size:9px; color:#555; text-align:center; }
-        .extra { margin-top:12px; border:1px solid #000; }
-        .extra-t { background:#EDEDED; font-weight:700; font-size:11px; padding:3px 6px; border-bottom:1px solid #000; }
+        .head td { border:1px solid #000; padding:2px 6px; }
+        .police { text-align:center; font-size:15px; font-weight:700; letter-spacing:1px; }
+        .police-sub { text-align:center; font-size:7.5px; letter-spacing:2px; color:#333; }
+        .copyline { font-size:9px; font-weight:700; text-align:center; }
+        .photobox { width:78px; height:92px; border:1.5px dashed #000; text-align:center; font-size:9px; color:#333; display:flex; align-items:center; justify-content:center; margin:0 auto; }
+        .title { text-align:center; font-size:16px; font-weight:800; letter-spacing:1px; padding:3px 0 2px; border-bottom:2px solid #000; }
+        .title-sub { text-align:center; font-size:7.5px; letter-spacing:2px; color:#333; }
+        .sigrow { display:flex; justify-content:space-between; margin-top:6px; font-size:10px; font-weight:700; }
+        .sigbox { border-bottom:1px solid #000; width:50mm; height:16px; }
+        .hdline { display:inline-block; min-width:52px; border-bottom:1px dotted #444; font-weight:600; }
+        .note { margin-top:6px; font-size:9px; border:1px solid #000; padding:2px 6px; }
+        .footer { margin-top:4px; font-size:8px; color:#555; text-align:center; }
+        .extra { margin-top:6px; border:1px solid #000; }
+        .extra-t { background:#EDEDED; font-weight:700; font-size:9.5px; padding:1px 5px; border-bottom:1px solid #000; }
+        .extra-b { padding:2px 5px; font-size:9px; line-height:1.4; }
     </style>
     <div class="wrap">
         <table class="head">
             <tr>
                 <td style="width:34%;text-align:center;border-right:1px solid #000">
                     <div class="copyline">ভাড়াটিয়ার এক কপি</div>
-                    <div style="font-size:9px;color:#333">(Tenant’s copy)</div>
-                    <div style="margin-top:6px;text-align:left;font-size:11px">
+                    <div style="font-size:8px;color:#333">(Tenant’s copy)</div>
+                    <div style="margin-top:3px;text-align:left;font-size:9.5px">
                         বিভাগ: <span class="hdline">' . $e($district) . '</span><br>
                         থানা: <span class="hdline">' . $e($thana) . '</span><br>
                         বাড়ী/হোল্ডিং: <span class="hdline">' . $e($house) . '</span><br>
@@ -7222,11 +7223,11 @@ function tif_print_html($row) {
                 <td style="width:32%;text-align:center">
                     <div class="police">ঢাকা মেট্রোপলিটন পুলিশ</div>
                     <div class="police-sub">DHAKA METROPOLITAN POLICE</div>
-                    <div style="margin-top:4px;font-size:10px;color:#333">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার</div>
-                    <div style="font-size:9px;color:#333">People’s Republic of Bangladesh</div>
+                    <div style="margin-top:2px;font-size:8.5px;color:#333">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার</div>
+                    <div style="font-size:7.5px;color:#333">People’s Republic of Bangladesh</div>
                 </td>
                 <td style="width:34%;text-align:center">
-                    <div class="photobox">পাসপোর্ট সাইজ ছবি<br><span style="font-size:8px">(Passport photo)</span></div>
+                    <div class="photobox">পাসপোর্ট সাইজ ছবি<br><span style="font-size:7px">(Passport photo)</span></div>
                 </td>
             </tr>
         </table>
