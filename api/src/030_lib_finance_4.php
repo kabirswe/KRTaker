@@ -73,9 +73,19 @@ function reminder_send_one($pdo, $r, $cfg) {
         'pay_url' => $pay_url,
     ]);
     $ok = send_mail($r['email'], $subj, $html, null, true);
+    $sms = ['ok' => false, 'reason' => 'no-phone'];
+    $via = 'email';
     if ($ok) {
         $pdo->prepare("INSERT OR REPLACE INTO invoice_reminders (invoice_id, tier, sent_at, via) VALUES (?,?,datetime('now'),'email')")
             ->execute([$r['inv'], $tier]);
     }
-    return ['inv' => $r['inv'], 'to' => $r['email'], 'tier' => $tier, 'days' => $r['days_overdue'], 'ok' => $ok];
+    /* SMS leg (bharakhata parity): tenant phone present + gateway enabled → short SMS */
+    if (!empty($r['phone'])) $sms = sms_send($pdo, $r['phone'], sms_reminder_text($r));
+    if ($sms['ok']) {
+        $via = $ok ? 'email+sms' : 'sms';
+        $pdo->prepare("UPDATE invoice_reminders SET via=?, sent_at=datetime('now') WHERE invoice_id=?")
+            ->execute([$via, $r['inv']]);
+    }
+    return ['inv' => $r['inv'], 'to' => $r['email'], 'sms_to' => $sms['to'] ?? '', 'sms_ref' => $sms['ref'] ?? '',
+            'sms' => $sms['ok'], 'tier' => $tier, 'days' => $r['days_overdue'], 'ok' => $ok || $sms['ok']];
 }

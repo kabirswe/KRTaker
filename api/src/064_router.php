@@ -189,7 +189,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -2126,6 +2126,48 @@ case 'app-payment-proof': {
     }
 
     json_out(['ok' => false, 'error' => 'action must be upload|view|remove.'], 400);
+}
+
+/* ── SMS gateway (bharakhata parity): config + test + log ── */
+case 'app-sms': {
+    $u = require_user();
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? 'config-get');
+    $isAdmin = in_array($u['role'], ['superadmin', 'owner'], true);
+    if ($action === 'config-get') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $c = sms_cfg($pdo);
+        if ($c['api_key'] !== '') $c['api_key'] = substr($c['api_key'], 0, 4) . '…' . substr($c['api_key'], -2);
+        $c['masked'] = 1;
+        json_out(['ok' => true] + $c);
+    }
+    if ($action === 'config-save') {
+        if (!$isAdmin) json_out(['ok' => false, 'error' => 'Only the owner can change SMS settings.'], 403);
+        $in = [];
+        if (isset($body['enabled'])) $in['sms_enabled'] = $body['enabled'] ? '1' : '0';
+        if (isset($body['provider']) && in_array($body['provider'], ['log', 'bulksmsbd'], true)) $in['sms_provider'] = $body['provider'];
+        if (isset($body['api_key'])) $in['sms_api_key'] = trim((string)$body['api_key']);
+        if (isset($body['sender_id'])) $in['sms_sender_id'] = trim((string)$body['sender_id']);
+        if (isset($body['api_url'])) $in['sms_api_url'] = trim((string)$body['api_url']);
+        foreach ($in as $k => $v) admin_cfg_save($pdo, $k, $v);
+        audit($u['name'], 'SMS config updated', 'sms', 'cfg', implode(',', array_keys($in)));
+        json_out(['ok' => true, 'saved' => array_keys($in)]);
+    }
+    if ($action === 'send-test') {
+        if (!$isAdmin) json_out(['ok' => false, 'error' => 'Only the owner can send a test SMS.'], 403);
+        $phone = trim($body['phone'] ?? '');
+        if (!$phone) json_out(['ok' => false, 'error' => 'phone required.'], 400);
+        $r = sms_send($pdo, $phone, 'KRTaker SMS test — gateway works ✔ (' . gmdate('His') . ')');
+        json_out(['ok' => true] + $r);
+    }
+    if ($action === 'log') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $rows = $pdo->query('SELECT * FROM sms_log ORDER BY id DESC LIMIT 50')->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'log' => $rows]);
+    }
+    json_out(['ok' => false, 'error' => 'action must be config-get|config-save|send-test|log.'], 400);
 }
 
 /* ── Gateway IPN (server-to-server callback, 2026-08-09) ──

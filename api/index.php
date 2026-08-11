@@ -135,7 +135,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260821) {
+        if ($__sv < 20260822) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -457,6 +457,10 @@ function db() {
         $pdo->exec("CREATE TABLE IF NOT EXISTS invoice_reminders (
             invoice_id TEXT PRIMARY KEY, tier INTEGER DEFAULT 0,
             sent_at TEXT DEFAULT (datetime('now')), via TEXT DEFAULT 'email')");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS sms_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, to_phone TEXT DEFAULT '', message TEXT DEFAULT '',
+            provider TEXT DEFAULT '', ref TEXT DEFAULT '', status TEXT DEFAULT 'sent',
+            ts TEXT DEFAULT (datetime('now')))");
         /* ── Phase 16: lease renewal requests + utility meter readings ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS renewal_requests (
             id TEXT PRIMARY KEY, lease TEXT NOT NULL, tenant TEXT NOT NULL,
@@ -1018,7 +1022,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_account ON account_transactions(account, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_type ON account_transactions(type, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_recon ON account_transactions(reconciled, tx_date)");
-        try { $pdo->exec('PRAGMA user_version=20260821'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260822'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -2606,11 +2610,21 @@ function reminder_send_one($pdo, $r, $cfg) {
         'pay_url' => $pay_url,
     ]);
     $ok = send_mail($r['email'], $subj, $html, null, true);
+    $sms = ['ok' => false, 'reason' => 'no-phone'];
+    $via = 'email';
     if ($ok) {
         $pdo->prepare("INSERT OR REPLACE INTO invoice_reminders (invoice_id, tier, sent_at, via) VALUES (?,?,datetime('now'),'email')")
             ->execute([$r['inv'], $tier]);
     }
-    return ['inv' => $r['inv'], 'to' => $r['email'], 'tier' => $tier, 'days' => $r['days_overdue'], 'ok' => $ok];
+    /* SMS leg (bharakhata parity): tenant phone present + gateway enabled → short SMS */
+    if (!empty($r['phone'])) $sms = sms_send($pdo, $r['phone'], sms_reminder_text($r));
+    if ($sms['ok']) {
+        $via = $ok ? 'email+sms' : 'sms';
+        $pdo->prepare("UPDATE invoice_reminders SET via=?, sent_at=datetime('now') WHERE invoice_id=?")
+            ->execute([$via, $r['inv']]);
+    }
+    return ['inv' => $r['inv'], 'to' => $r['email'], 'sms_to' => $sms['to'] ?? '', 'sms_ref' => $sms['ref'] ?? '',
+            'sms' => $sms['ok'], 'tier' => $tier, 'days' => $r['days_overdue'], 'ok' => $ok || $sms['ok']];
 }
 function referral_code_for($email) {
     $pdo = db();
@@ -5534,6 +5548,54 @@ function admin_cfg($pdo, $key, $def = '') {
 function admin_cfg_save($pdo, $key, $val) {
     $pdo->prepare("INSERT INTO admin_settings (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v")
         ->execute([$key, (string)$val]);
+}
+/* ── SMS gateway (bharakhata parity: SMS reminders + phone OTP) ──
+   Providers: 'log' (default — records to sms_log, no real send; safe on staging)
+              'bulksmsbd' (HTTP POST to sms_api_url with api_key + senderid).
+   Config keys live in admin_settings via admin_cfg. */
+function sms_cfg($pdo) {
+    return [
+        'enabled'   => (int)admin_cfg($pdo, 'sms_enabled', 0),
+        'provider'  => admin_cfg($pdo, 'sms_provider', 'log'),
+        'api_key'   => admin_cfg($pdo, 'sms_api_key', ''),
+        'sender_id' => admin_cfg($pdo, 'sms_sender_id', 'KRTaker'),
+        'api_url'   => admin_cfg($pdo, 'sms_api_url', 'https://api.bulksmsbd.com/smsapi'),
+    ];
+}
+function sms_normalize_phone($p) {
+    $d = preg_replace('/\D/', '', (string)$p);
+    if (strlen($d) === 11 && substr($d, 0, 2) === '01') $d = '88' . $d;
+    elseif (strlen($d) === 10 && substr($d, 0, 1) === '1') $d = '880' . $d;
+    return $d;
+}
+function sms_send($pdo, $phone, $message, $provider = null) {
+    $cfg = sms_cfg($pdo);
+    if (!$cfg['enabled']) return ['ok' => false, 'reason' => 'sms-disabled'];
+    $to = sms_normalize_phone($phone);
+    if (strlen($to) < 11) return ['ok' => false, 'reason' => 'bad-phone'];
+    $prov = $provider ?: $cfg['provider'];
+    $ref = 'SMS-' . strtoupper(bin2hex(random_bytes(3)));
+    $status = 'sent';
+    if ($prov === 'bulksmsbd' && $cfg['api_key'] !== '') {
+        $data = http_build_query([
+            'api_key' => $cfg['api_key'], 'type' => 'text', 'contacts' => $to,
+            'senderid' => $cfg['sender_id'], 'msg' => $message,
+        ]);
+        $resp = '';
+        if (function_exists('curl_init')) {
+            $ch = curl_init(rtrim($cfg['api_url'], '/'));
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $data, CURLOPT_TIMEOUT => 12]);
+            $resp = (string)curl_exec($ch); curl_close($ch);
+        }
+        $status = (strpos($resp, 'SUCCESS') !== false || strpos($resp, '"status":1') !== false) ? 'sent' : 'failed';
+    }
+    $pdo->prepare('INSERT INTO sms_log (to_phone, message, provider, ref, status) VALUES (?,?,?,?,?)')
+        ->execute([$to, mb_substr($message, 0, 480), $prov, $ref, $status]);
+    return ['ok' => $status === 'sent', 'to' => $to, 'ref' => $ref, 'provider' => $prov, 'status' => $status];
+}
+function sms_reminder_text($r) {
+    $amt = '৳' . number_format((int)$r['due']);
+    return 'KRTaker rent reminder: ' . $r['inv'] . ' ' . $amt . ' due (' . $r['m'] . '). Pay now: https://krtaker.com/app-v3/#/invoices?open=' . rawurlencode($r['inv']) . '&pay=1';
 }
 /* ── SA1-fullsite v8 (v3.62): outbound webhooks — event catalog + delivery engine ── */
 function WEBHOOK_EVENTS() {
@@ -10825,7 +10887,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-renewal-list', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -12762,6 +12824,48 @@ case 'app-payment-proof': {
     }
 
     json_out(['ok' => false, 'error' => 'action must be upload|view|remove.'], 400);
+}
+
+/* ── SMS gateway (bharakhata parity): config + test + log ── */
+case 'app-sms': {
+    $u = require_user();
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? 'config-get');
+    $isAdmin = in_array($u['role'], ['superadmin', 'owner'], true);
+    if ($action === 'config-get') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $c = sms_cfg($pdo);
+        if ($c['api_key'] !== '') $c['api_key'] = substr($c['api_key'], 0, 4) . '…' . substr($c['api_key'], -2);
+        $c['masked'] = 1;
+        json_out(['ok' => true] + $c);
+    }
+    if ($action === 'config-save') {
+        if (!$isAdmin) json_out(['ok' => false, 'error' => 'Only the owner can change SMS settings.'], 403);
+        $in = [];
+        if (isset($body['enabled'])) $in['sms_enabled'] = $body['enabled'] ? '1' : '0';
+        if (isset($body['provider']) && in_array($body['provider'], ['log', 'bulksmsbd'], true)) $in['sms_provider'] = $body['provider'];
+        if (isset($body['api_key'])) $in['sms_api_key'] = trim((string)$body['api_key']);
+        if (isset($body['sender_id'])) $in['sms_sender_id'] = trim((string)$body['sender_id']);
+        if (isset($body['api_url'])) $in['sms_api_url'] = trim((string)$body['api_url']);
+        foreach ($in as $k => $v) admin_cfg_save($pdo, $k, $v);
+        audit($u['name'], 'SMS config updated', 'sms', 'cfg', implode(',', array_keys($in)));
+        json_out(['ok' => true, 'saved' => array_keys($in)]);
+    }
+    if ($action === 'send-test') {
+        if (!$isAdmin) json_out(['ok' => false, 'error' => 'Only the owner can send a test SMS.'], 403);
+        $phone = trim($body['phone'] ?? '');
+        if (!$phone) json_out(['ok' => false, 'error' => 'phone required.'], 400);
+        $r = sms_send($pdo, $phone, 'KRTaker SMS test — gateway works ✔ (' . gmdate('His') . ')');
+        json_out(['ok' => true] + $r);
+    }
+    if ($action === 'log') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $rows = $pdo->query('SELECT * FROM sms_log ORDER BY id DESC LIMIT 50')->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'log' => $rows]);
+    }
+    json_out(['ok' => false, 'error' => 'action must be config-get|config-save|send-test|log.'], 400);
 }
 
 /* ── Gateway IPN (server-to-server callback, 2026-08-09) ──

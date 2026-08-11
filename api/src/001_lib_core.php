@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260821) {
+        if ($__sv < 20260822) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -420,6 +420,10 @@ function db() {
         $pdo->exec("CREATE TABLE IF NOT EXISTS invoice_reminders (
             invoice_id TEXT PRIMARY KEY, tier INTEGER DEFAULT 0,
             sent_at TEXT DEFAULT (datetime('now')), via TEXT DEFAULT 'email')");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS sms_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, to_phone TEXT DEFAULT '', message TEXT DEFAULT '',
+            provider TEXT DEFAULT '', ref TEXT DEFAULT '', status TEXT DEFAULT 'sent',
+            ts TEXT DEFAULT (datetime('now')))");
         /* ── Phase 16: lease renewal requests + utility meter readings ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS renewal_requests (
             id TEXT PRIMARY KEY, lease TEXT NOT NULL, tenant TEXT NOT NULL,
@@ -956,7 +960,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_account ON account_transactions(account, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_type ON account_transactions(type, tx_date)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_recon ON account_transactions(reconciled, tx_date)");
-        try { $pdo->exec('PRAGMA user_version=20260821'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260822'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

@@ -171,10 +171,61 @@ async function runReminders(send) {
 const tierBadge = (t) => t === 3 ? 'b-red' : (t === 2 ? 'b-orange' : (t === 1 ? 'b-blue' : 'b-gray'))
 const byTierEntries = computed(() => Object.entries(remPlan.value?.by_tier || {}).sort((a, b) => a[0] - b[0]))
 
+// ── SMS gateway (app-sms: config / test / log) ──
+const sms = ref(null)
+const smsLog = ref([])
+const smsLoading = ref(false)
+const smsSaving = ref(false)
+const smsForm = ref({ enabled: false, provider: 'log', api_key: '', sender_id: 'KRTaker', api_url: 'https://api.bulksmsbd.com/smsapi' })
+const smsTestPhone = ref('')
+const smsTesting = ref(false)
+const smsTestResult = ref(null)
+async function loadSms() {
+  smsLoading.value = true
+  try {
+    const [c, l] = await Promise.all([
+      apiCall('app-sms', { action: 'config-get' }),
+      apiCall('app-sms', { action: 'log' }),
+    ])
+    if (c.ok) {
+      sms.value = c
+      smsForm.value = {
+        enabled: !!c.enabled, provider: c.provider || 'log', api_key: c.api_key || '',
+        sender_id: c.sender_id || 'KRTaker', api_url: c.api_url || 'https://api.bulksmsbd.com/smsapi',
+      }
+    }
+    if (l.ok) smsLog.value = l.log || []
+  } catch (e) { /* non-fatal */ }
+  finally { smsLoading.value = false }
+}
+async function saveSms() {
+  smsSaving.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-sms', { action: 'config-save', ...smsForm.value })
+    if (!r.ok) { err.value = r.error || 'Failed to save SMS config.'; return }
+    toast.value = '✅ SMS config saved'
+    setTimeout(() => toast.value = '', 4000)
+    await loadSms()
+  } catch (e) { err.value = e.message }
+  finally { smsSaving.value = false }
+}
+async function sendTestSms() {
+  if (!smsTestPhone.value.trim()) { toast.value = '❌ Enter a phone number first'; setTimeout(() => toast.value = '', 4000); return }
+  smsTesting.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-sms', { action: 'send-test', phone: smsTestPhone.value.trim() })
+    smsTestResult.value = r
+    toast.value = r.ok ? `✅ Test SMS → ${r.to} (${r.provider})` : ('⚠️ ' + (r.reason || r.error || 'failed'))
+    setTimeout(() => toast.value = '', 5000)
+    await loadSms()
+  } catch (e) { err.value = e.message }
+  finally { smsTesting.value = false }
+}
+
 const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
 const wa = (phone) => phone ? `https://wa.me/${String(phone).replace(/[^0-9]/g, '')}` : '#'
 
-onMounted(() => { loadCollections(); loadRecon(); loadReminders() })
+onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 </script>
 
 <template>
@@ -427,6 +478,64 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders() })
           </div>
           <div style="display:flex;gap:8px;margin-top:14px">
             <button @click="saveReminders" :disabled="remSaving" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer">💾 Save config {{ remSaving ? '…' : '' }}</button>
+          </div>
+        </div>
+
+        <!-- SMS gateway -->
+        <div class="panel" style="padding:18px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            <div style="font-weight:800;font-size:14px">📱 SMS gateway <span v-if="sms" class="badge" :class="smsForm.enabled ? 'b-green' : 'b-gray'" style="margin-left:6px">{{ smsForm.enabled ? 'Enabled' : 'Disabled' }}</span></div>
+            <span class="c-sub" style="font-size:11.5px">Rent reminders get an SMS leg when a tenant has a phone · provider: <b>{{ smsForm.provider }}</b></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <input v-model="smsForm.enabled" type="checkbox" id="smsEnabled" style="width:17px;height:17px;accent-color:var(--primary)">
+            <label for="smsEnabled" style="font-weight:700;font-size:13.5px;cursor:pointer">Enable SMS sending</label>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+            <div class="form-field">
+              <label>Provider</label>
+              <select v-model="smsForm.provider" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+                <option value="log">Log only (no real send — safe)</option>
+                <option value="bulksmsbd">BulkSMSBD (live)</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>API key</label>
+              <input v-model="smsForm.api_key" type="password" placeholder="••••••" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+            <div class="form-field">
+              <label>Sender ID</label>
+              <input v-model="smsForm.sender_id" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+            <div class="form-field">
+              <label>API URL</label>
+              <input v-model="smsForm.api_url" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
+            <button @click="saveSms" :disabled="smsSaving" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer">💾 Save SMS config {{ smsSaving ? '…' : '' }}</button>
+            <input v-model="smsTestPhone" placeholder="Test phone (e.g. 01711…)" style="flex:1;min-width:150px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <button v-if="canManage" @click="sendTestSms" :disabled="smsTesting" style="padding:10px 16px;border:none;border-radius:10px;background:var(--bg-alt);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">📤 Send test {{ smsTesting ? '…' : '' }}</button>
+          </div>
+          <div v-if="smsTestResult" style="margin-top:10px;font-size:12.5px" :style="smsTestResult.ok ? 'color:var(--ok)' : 'color:var(--danger)'">
+            {{ smsTestResult.ok ? `✅ SMS ${smsTestResult.ref} → ${smsTestResult.to} (${smsTestResult.provider})` : ('⚠️ ' + (smsTestResult.reason || smsTestResult.error || 'failed')) }}
+          </div>
+          <div class="tbl-wrap" style="margin-top:14px;max-height:220px;overflow:auto">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>#</th><th>To</th><th>Message</th><th>Provider</th><th>Ref</th><th>Status</th><th>When</th></tr></thead>
+              <tbody>
+                <tr v-for="m in smsLog" :key="m.id">
+                  <td class="c-sub">{{ m.id }}</td>
+                  <td style="white-space:nowrap;font-weight:700">{{ m.to_phone }}</td>
+                  <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="m.message">{{ m.message }}</td>
+                  <td class="c-sub">{{ m.provider }}</td>
+                  <td class="c-sub">{{ m.ref }}</td>
+                  <td><span class="badge" :class="m.status === 'sent' ? 'b-green' : 'b-red'">{{ m.status }}</span></td>
+                  <td class="c-sub" style="white-space:nowrap">{{ m.ts }}</td>
+                </tr>
+                <tr v-if="!smsLog.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No SMS sent yet.</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
