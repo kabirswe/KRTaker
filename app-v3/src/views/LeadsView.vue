@@ -61,6 +61,28 @@ const filtered = computed(() => {
 })
 const { paged, page, pageCount, rangeLabel, setPage } = usePager(filtered, 12)
 
+// ── Kanban board ──
+const COL_COLORS = { New: '#2F80ED', Contacted: '#E67E22', Viewing: '#9B59B6', Applied: '#16A085', Leased: '#27AE60', Lost: '#E74C3C' }
+const kanbanCols = computed(() => STATUS_ORDER.map(s => ({
+  status: s,
+  leads: filtered.value.filter(l => (l.status || 'New') === s),
+  color: COL_COLORS[s] || '#2F80ED',
+})))
+const dragLead = ref(null)
+const dragOverCol = ref('')
+let suppressClick = false
+function onDragStart(l) { dragLead.value = l }
+function onDragEnd() {
+  dragLead.value = null; dragOverCol.value = ''
+  suppressClick = true; setTimeout(() => { suppressClick = false }, 80)
+}
+function onDrop(status) {
+  const l = dragLead.value
+  dragLead.value = null; dragOverCol.value = ''
+  if (l && l.status !== status) setStatus(l, status)
+}
+function kanbanClick(l) { if (!suppressClick) openDetail(l) }
+
 function exportCsv() {
   const rows = filtered.value; if (!rows.length) return
   const esc = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[\",\n]/.test(s) ? '\"' + s.replace(/\"/g, '\"\"') + '\"' : s }
@@ -124,6 +146,7 @@ function detailFields(row) {
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
+          <button @click="viewMode = 'kanban'" :style="viewMode === 'kanban' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">🗂 Kanban</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </div>
@@ -191,7 +214,35 @@ function detailFields(row) {
     </div>
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No leads found{{ query ? ' for “' + query + '”' : '' }}.</div>
 
-    <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
+    <!-- KANBAN -->
+    <div v-if="filtered.length && viewMode === 'kanban'" class="kb-board">
+      <div v-for="col in kanbanCols" :key="col.status" class="kb-col" :class="{ 'kb-over': dragOverCol === col.status }" @dragover.prevent="dragOverCol = col.status" @dragleave="dragOverCol = ''" @drop.prevent="onDrop(col.status)">
+        <div class="kb-col-h">
+          <span class="kb-dot" :style="{ background: col.color }"></span>
+          <span class="kb-name">{{ col.status }}</span>
+          <span class="kb-count" :style="{ background: col.color }">{{ col.leads.length }}</span>
+        </div>
+        <div class="kb-col-body">
+          <div v-for="l in col.leads" :key="l.id" class="kb-card" draggable="true" :class="{ 'kb-dragging': dragLead && dragLead.id === l.id }" @dragstart="onDragStart(l)" @dragend="onDragEnd" @click="kanbanClick(l)">
+            <div class="kb-card-top">
+              <span class="kb-src">{{ sourceIco(l.source) }}</span>
+              <span class="kb-id">{{ l.id }}</span>
+            </div>
+            <div class="kb-title">{{ l.name }}</div>
+            <div class="kb-sub">{{ l.phone || l.email || '—' }}</div>
+            <div class="kb-msg" v-if="l.message">{{ l.message }}</div>
+            <div class="kb-badges">
+              <span v-if="l.prop" class="badge b-blue">{{ propName(l.prop) }}</span>
+              <span v-if="l.assigned_to" class="badge b-orange">👤 {{ l.assigned_to }}</span>
+            </div>
+            <div class="kb-foot">{{ (l.ts || '').slice(0, 10) }}<span v-if="l.updated_at"> · ↻ {{ (l.updated_at || '').slice(0, 10) }}</span></div>
+          </div>
+          <div v-if="!col.leads.length" class="kb-empty">{{ dragOverCol === col.status ? 'Release to move' : 'Drop here' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <PagerBar v-if="viewMode !== 'kanban'" :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
     <!-- drawer -->
     <template v-if="sel">
@@ -263,4 +314,38 @@ function detailFields(row) {
 
 <style scoped>
 .d-cover .badge { background: #ffffff; }
+
+/* ── Kanban board ── */
+.kb-board { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 14px; align-items: flex-start; }
+.kb-col {
+  flex: 1 1 0; min-width: 250px; max-width: 300px; background: var(--bg-alt);
+  border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column;
+  max-height: calc(100vh - 300px); transition: border-color .15s ease, box-shadow .15s ease;
+}
+.kb-col.kb-over { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+.kb-col-h { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px; font-weight: 800; font-size: 13px; }
+.kb-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.kb-name { flex: 1; letter-spacing: -.1px; }
+.kb-count { min-width: 24px; height: 22px; border-radius: 99px; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 800; padding: 0 8px; }
+.kb-col-body { flex: 1; overflow-y: auto; padding: 4px 10px 12px; display: flex; flex-direction: column; gap: 9px; min-height: 80px; }
+.kb-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px;
+  cursor: grab; box-shadow: 0 2px 6px rgba(20,40,80,.05); transition: transform .13s ease, box-shadow .13s ease, opacity .13s ease;
+}
+.kb-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(47,128,237,.13); }
+.kb-card:active { cursor: grabbing; }
+.kb-card.kb-dragging { opacity: .45; }
+.kb-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.kb-src { font-size: 17px; }
+.kb-id { font-size: 10.5px; font-weight: 800; color: var(--text-mute); letter-spacing: .4px; }
+.kb-title { font-weight: 800; font-size: 13.5px; letter-spacing: -.1px; line-height: 1.3; }
+.kb-sub { font-size: 11.5px; color: var(--text-soft); margin-top: 2px; }
+.kb-msg {
+  font-size: 11.5px; color: var(--text-soft); margin-top: 7px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.kb-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+.kb-badges .badge { font-size: 10px; }
+.kb-foot { font-size: 10.5px; color: var(--text-mute); margin-top: 9px; }
+.kb-empty { text-align: center; color: var(--text-mute); font-size: 11.5px; padding: 18px 0; border: 1.5px dashed var(--border); border-radius: 10px; }
 </style>
