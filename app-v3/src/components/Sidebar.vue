@@ -14,11 +14,11 @@ const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
 
 // Same GROUPS as dashboard-v2 (v3 consolidation: legal cluster grouped, vendor finance merged into Vendors workspace)
+// V2.0.6: Finance + Accounts groups merged into ONE Finance hub (/finance with tabs) — fewer menu entries.
 const GROUPS = [
   { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
   { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['insurance', '🛡️', 'Insurance'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
-  { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['recon', '📮', 'Collections'], ['taxes', '🏛️', 'Holding Taxes'], ['remit', '🌍', 'Remittances'], ['statements', '💰', 'Statements'], ['subscriptions', '💎', 'Subscriptions']] },
-  { id: 'accounts', label: 'Accounts', items: [['accounts', '💱', 'Transactions'], ['receive', '📥', 'Receive'], ['expense', '📤', 'Expense'], ['withdraw', '🏧', 'Withdraw'], ['deposit', '🏦', 'Deposit'], ['reconcile', '🔁', 'Reconcile']] },
+  { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance']] },
   { id: 'bms', label: 'BMS', items: [['maintenance', '🔧', 'Maintenance'], ['gate', '🚪', 'Gate Visits'], ['staff', '👷', 'Staff'], ['attendance', '⏱️', 'Attendance'], ['payroll', '💵', 'Payroll'], ['meter', '⚡', 'Meter Readings'], ['utilities', '🔌', 'Utility Bills'], ['samity', '🏘️', 'Samity']] },
   { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'NID & Trust'], ['support', '🎧', 'Support']] },
   { id: 'legal', label: 'Legal', items: [['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine'], ['cases', '👨‍⚖️', 'Cases'], ['concierge', '🗂️', 'Legal Concierge']] },
@@ -28,7 +28,7 @@ const GROUPS = [
 ]
 
 const VIEW_ROUTES = {
-  dashboard: '/dashboard', analytics: '/analytics', ai: '/ai',
+  dashboard: '/dashboard', analytics: '/analytics', ai: '/ai', finance: '/finance',
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents', templates: '/templates',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
@@ -46,11 +46,15 @@ const VIEW_ROUTES = {
 }
 
 // Module gating follows the EFFECTIVE user (updates after a real role switch).
+// V2.0.6: 'finance' is a frontend alias — shows when the user has ANY finance module
+// (there is no server-side 'finance' module id; the hub re-unites them).
+const FINANCE_MODS = ['invoices', 'receipts', 'payments', 'recon', 'taxes', 'remit', 'statements', 'subscriptions', 'accounts', 'receive', 'expense', 'withdraw', 'deposit', 'reconcile']
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true
-  if (user.role_modules) return (user.role_modules[user.role] || user.modules || []).includes(mod)
-  return true
+  const mods = user.role_modules ? (user.role_modules[user.role] || user.modules || []) : []
+  if (mod === 'finance') return mods.some(m => FINANCE_MODS.includes(m))
+  return mods.includes(mod)
 }
 
 const groups = computed(() =>

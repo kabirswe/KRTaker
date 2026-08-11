@@ -49,6 +49,7 @@ const routes = [
   { path: '/fire-safety', name: 'fire-safety', component: () => import('../views/FireSafetyView.vue') },
   { path: '/building-systems', name: 'building-systems', component: () => import('../views/BuildingSystemsView.vue') },
   { path: '/analytics', name: 'analytics', component: () => import('../views/AnalyticsView.vue') },
+  { path: '/finance', name: 'finance', component: () => import('../views/FinanceView.vue') },
   { path: '/ai', name: 'ai', component: () => import('../views/AiView.vue') },
   { path: '/premium', name: 'premium', component: () => import('../views/PremiumView.vue') },
   { path: '/accounts', name: 'accounts', component: () => import('../views/AccountsView.vue') },
