@@ -484,7 +484,7 @@ function exportCsv(kind) {
         </select>
       </div>
       <div v-if="filteredPartners.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
-        <div v-for="p in filteredPartners" :key="p.id" class="panel chip p-card" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openPartner(p)">
+        <div v-for="p in filteredPartners" :key="p.id" class="panel p-card" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openPartner(p)">
           <div class="p-cover" :style="`height:82px;position:relative;background:linear-gradient(135deg,${avatarColor(p.id)},#16A085)`">
             <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
               <span class="badge" :class="badge(p.status)">{{ p.status }}</span>

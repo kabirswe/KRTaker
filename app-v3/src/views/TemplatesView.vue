@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { apiCall } from '../api/client'
+import RichEditor from '../components/RichEditor.vue'
 
 const tab = ref('docs')
 const loading = ref(false)
@@ -48,7 +49,10 @@ const filtered = computed(() => {
 const filteredEmails = computed(() =>
   langFilter.value ? emails.value.filter(e => (e.lang || 'en') === langFilter.value) : emails.value)
 
-const previewOf = (body) => (body || '').replace(/\s+/g, ' ').trim().slice(0, 150)
+const previewOf = (body) => (body || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150)
+// rich editor refs (token insertion targets the focused editor)
+const docEditor = ref(null)
+const emailEditor = ref(null)
 // ── live preview (frontend token substitution) ──
 const SAMPLE = {
   tenant_name: 'Tahmina Akter', tenant_phone: '01712-345678', tenant_nid: '1234567890', tenant_email: 'tahmina@example.com',
@@ -85,6 +89,8 @@ const previewTokens = computed(() => {
   const m = previewRaw.value.match(/\{\{(\w+)\}\}/g)
   return m ? [...new Set(m.map(t => t.replace(/[{}]/g, '')))] : []
 })
+const looksHtml = (s) => /<[a-z][\s\S]*>/i.test(s || '')
+const previewHtml = computed(() => looksHtml(previewBody.value) ? previewBody.value : null)
 const tokTag = (t) => '{{' + t + '}}'
 async function previewTpl(t) {
   let body = t.body
@@ -147,13 +153,8 @@ const paletteFor = computed(() => palettes.value[edit.value?.kind] || [])
 const tplTag = (tok) => '{{' + tok + '}}'
 function insertTok(tok) {
   if (!edit.value) return
-  const ta = document.getElementById('tplBody')
-  if (ta) {
-    const s = ta.selectionStart ?? edit.value.body.length
-    const e = ta.selectionEnd ?? edit.value.body.length
-    edit.value.body = edit.value.body.slice(0, s) + '{{' + tok + '}}' + edit.value.body.slice(e)
-    requestAnimationFrame(() => { ta.focus(); const p = s + tok.length + 4; ta.setSelectionRange(p, p) })
-  } else edit.value.body += '{{' + tok + '}}'
+  if (docEditor.value) docEditor.value.insertAtCaret(tplTag(tok))
+  else edit.value.body += tplTag(tok)
 }
 async function saveTpl() {
   if (!edit.value) return
@@ -369,8 +370,8 @@ onMounted(() => {
               <span v-if="!paletteFor.length" class="c-sub">Choose a kind to see placeholders.</span>
             </div>
           </div>
-          <div class="form-field"><label>Body <span class="c-sub" style="font-weight:400">— {{ edit.body.length }} chars</span></label>
-            <textarea id="tplBody" v-model="edit.body" rows="14" placeholder="Use {{placeholders}} — e.g. এই চুক্তি {{tenant_name}} এবং {{org_name}} এর মধ্যে…" class="tpl-ta"></textarea>
+          <div class="form-field"><label>Body <span class="c-sub" style="font-weight:400">— {{ edit.body.replace(/<[^>]*>/g, ' ').length }} chars · rich text</span></label>
+            <RichEditor ref="docEditor" v-model="edit.body" :min-height="'280px'" placeholder="Write your document — use {{placeholders}}…" />
           </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
@@ -393,8 +394,8 @@ onMounted(() => {
             </div>
           </div>
           <div class="form-field"><label>Subject <span class="c-sub" style="font-weight:400">— {{ emEdit.subject.length }} chars</span></label><input v-model="emEdit.subject" class="tpl-input"></div>
-          <div class="form-field"><label>Body <span class="c-sub" style="font-weight:400">— {{ emEdit.body.length }} chars</span></label>
-            <textarea v-model="emEdit.body" rows="12" class="tpl-ta"></textarea>
+          <div class="form-field"><label>Body <span class="c-sub" style="font-weight:400">— {{ emEdit.body.replace(/<[^>]*>/g, ' ').length }} chars · rich text</span></label>
+            <RichEditor ref="emailEditor" v-model="emEdit.body" :min-height="'280px'" placeholder="Email body — use {{placeholders}}…" />
           </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
@@ -421,8 +422,10 @@ onMounted(() => {
             <template v-if="previewKind === 'doc'">
               <div class="prev-org">{{ SAMPLE.org_name }}<template v-if="SAMPLE.org_address"> · {{ SAMPLE.org_address }}</template><template v-if="SAMPLE.org_phone"> · {{ SAMPLE.org_phone }}</template></div>
               <div v-if="previewTitle" class="prev-doc-title">{{ previewTitle }}</div>
-              <div class="prev-body">{{ previewBody }}</div>
+              <div v-if="previewHtml" class="prev-body" v-html="previewHtml"></div>
+              <div v-else class="prev-body">{{ previewBody }}</div>
             </template>
+            <div v-if="previewHtml" class="prev-body" v-html="previewHtml"></div>
             <div v-else class="prev-body">{{ previewBody }}</div>
           </div>
           <!-- placeholder legend -->
