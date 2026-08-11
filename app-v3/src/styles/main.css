@@ -121,6 +121,7 @@ img{max-width:100%}
 .panel-b{padding:18px}
 .link{color:var(--primary);font-size:12.5px;font-weight:700;cursor:pointer}
 .c-sub{font-size:12px;color:var(--text-mute)}
+.c-name{font-weight:800;color:var(--text);font-size:13px}
 
 /* ── Table ── */
 .tbl-wrap{overflow:auto;max-height:calc(100vh - 300px);min-height:0;border-radius:0 0 var(--radius) var(--radius)}

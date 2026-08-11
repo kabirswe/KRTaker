@@ -268,11 +268,11 @@ const kpiStyle = (c) => c ? { color: c } : {}
       </div>
       <div class="panel">
         <div class="panel-h">
-          <div class="t"><span class="pi">🏢</span>Profit &amp; loss · {{ pnl?.month || month }}</div>
+          <div class="t"><span class="pi">🏢</span>Profit &amp; loss · {{ pnl?.month ? shortMonth(pnl.month) : shortMonth(month) }}</div>
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvOverview">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Expenses</th><th>Net</th></tr></thead>
             <tbody>
               <tr v-for="p in pnlRows" :key="p.prop">
@@ -283,6 +283,13 @@ const kpiStyle = (c) => c ? { color: c } : {}
               </tr>
               <tr v-if="!pnlRows.length"><td colspan="7" class="m">No data for this month.</td></tr>
             </tbody>
+            <tfoot v-if="pnlRows.length">
+              <tr style="background:var(--bg-alt);font-weight:800">
+                <td>Total</td><td>{{ money(pnlTotals.gross) }}</td><td>{{ money(pnlTotals.collected) }}</td>
+                <td>{{ money(pnlTotals.tds) }}</td><td>{{ money(pnlTotals.service) }}</td><td>{{ money(pnlTotals.expenses) }}</td>
+                <td :style="{ color: (pnlTotals.net || 0) >= 0 ? C.green : C.red }">{{ money(pnlTotals.net) }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -317,7 +324,7 @@ const kpiStyle = (c) => c ? { color: c } : {}
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">📅</span>Monthly detail</div></div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Net</th><th>Cumulative</th></tr></thead>
             <tbody>
               <tr v-for="m in cfMonths" :key="m.month">
@@ -395,11 +402,11 @@ const kpiStyle = (c) => c ? { color: c } : {}
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">🏢</span>By property</div></div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>Property</th><th>Jobs</th><th>Open</th><th>Cost</th></tr></thead>
             <tbody>
               <tr v-for="p in expenses?.by_property || []" :key="p.prop">
-                <td><span class="c-name">{{ p.prop }}</span></td><td>{{ p.n }}</td>
+                <td><span class="c-name">{{ p.name || p.prop }}</span></td><td>{{ p.n }}</td>
                 <td><span :style="{ color: p.open ? C.orange : C.green, fontWeight: 700 }">{{ p.open }}</span></td>
                 <td>{{ money(p.cost) }}</td>
               </tr>
@@ -432,7 +439,7 @@ const kpiStyle = (c) => c ? { color: c } : {}
         <div class="panel">
           <div class="panel-h"><div class="t"><span class="pi">🧾</span>Charge to</div></div>
           <div class="panel-b">
-            <table>
+            <table class="kr compact">
               <thead><tr><th>Party</th><th>Jobs</th><th>Cost</th></tr></thead>
               <tbody>
                 <tr v-for="c in maintenance?.by_charge || []" :key="c.charge_to">
@@ -450,13 +457,14 @@ const kpiStyle = (c) => c ? { color: c } : {}
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvMaintenance">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Open days</th></tr></thead>
             <tbody>
               <tr v-for="a in maintenance?.aging || []" :key="a.id">
                 <td><span class="c-name">{{ a.id }}</span></td>
-                <td>{{ a.title }}</td><td>{{ a.status }}</td>
-                <td><span :style="{ color: a.priority === 'urgent' ? C.red : a.priority === 'high' ? C.orange : 'var(--text-mute)', fontWeight: 700 }">{{ a.priority }}</span></td>
+                <td>{{ a.title }}</td>
+                <td><span class="badge" :class="(a.status === 'Open' || a.status === 'In Progress') ? 'b-orange' : a.status === 'Pending' ? 'b-blue' : 'b-gray'">{{ a.status }}</span></td>
+                <td><span class="badge" :class="a.priority === 'urgent' ? 'b-red' : a.priority === 'high' ? 'b-orange' : a.priority === 'medium' ? 'b-blue' : 'b-gray'">{{ a.priority }}</span></td>
                 <td :style="{ fontWeight: 800, color: a.days > 14 ? C.red : a.days > 7 ? C.orange : 'var(--text)' }">{{ a.days }}d</td>
               </tr>
               <tr v-if="!(maintenance?.aging || []).length"><td colspan="5" class="m">All caught up 🎉</td></tr>
@@ -495,14 +503,14 @@ const kpiStyle = (c) => c ? { color: c } : {}
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvTenants">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>Tenant</th><th>Band</th><th>Score</th><th>Overdue</th><th>On-time</th><th>Tenure</th><th>Tickets</th></tr></thead>
             <tbody>
               <tr v-for="t in scores?.at_risk || []" :key="t.id">
                 <td><span class="c-name">{{ t.name }}</span><div class="c-sub">{{ t.id }} · {{ t.kind }}</div></td>
-                <td><span :style="{ color: BAND_COLORS[t.band], fontWeight: 800 }">{{ t.band }}</span></td>
+                <td><span class="badge" :class="t.band === 'Risky' ? 'b-red' : t.band === 'Fair' ? 'b-orange' : t.band === 'Good' ? 'b-blue' : 'b-green'">{{ t.band }}</span></td>
                 <td style="font-weight:800" :style="{ color: BAND_COLORS[t.band] }">{{ t.score }}</td>
-                <td>{{ t.overdue }}</td><td>{{ t.on_time }}%</td><td>{{ t.tenure }} mo</td>
+                <td :style="{ color: t.overdue ? C.red : 'var(--text)', fontWeight: 600 }">{{ t.overdue || '—' }}</td><td>{{ t.on_time }}%</td><td>{{ t.tenure }} mo</td>
                 <td :style="{ color: t.tickets_open ? C.orange : 'var(--text-mute)' }">{{ t.tickets_open }}</td>
               </tr>
               <tr v-if="!(scores?.at_risk || []).length"><td colspan="7" class="m">No at-risk tenants 🎉</td></tr>
@@ -543,7 +551,7 @@ const kpiStyle = (c) => c ? { color: c } : {}
         <div class="panel">
           <div class="panel-h"><div class="t"><span class="pi">⏳</span>Leases expiring · 90 days</div></div>
           <div class="tbl-wrap">
-            <table>
+            <table class="kr compact">
               <thead><tr><th>Lease</th><th>Unit</th><th>Tenant</th><th>Expires</th></tr></thead>
               <tbody>
                 <tr v-for="e in occupancy?.expiries || []" :key="e.id">
@@ -559,7 +567,7 @@ const kpiStyle = (c) => c ? { color: c } : {}
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">🏚️</span>Vacant units</div></div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>Unit</th><th>Property</th><th>Rent</th></tr></thead>
             <tbody>
               <tr v-for="u in vacancy?.units || []" :key="u.id">
@@ -606,7 +614,7 @@ const kpiStyle = (c) => c ? { color: c } : {}
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">🗂️</span>Past reports</div></div>
         <div class="tbl-wrap">
-          <table>
+          <table class="kr">
             <thead><tr><th>ID</th><th>Month</th><th>Created by</th><th>When</th><th></th></tr></thead>
             <tbody>
               <tr v-for="b in boards" :key="b.id">

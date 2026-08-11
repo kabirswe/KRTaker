@@ -8922,7 +8922,7 @@ function analytics_expenses($pdo, $months = 12) {
     $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
     $byCategory = $pdo->query("SELECT COALESCE(NULLIF(category,''),'other') category, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests GROUP BY category ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
     $byVendor = $pdo->query("SELECT COALESCE(NULLIF(vendor,''),'Unassigned') vendor, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests WHERE vendor<>'' GROUP BY vendor ORDER BY cost DESC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC);
-    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(prop,''),'—') prop, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost, SUM(CASE WHEN status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests GROUP BY prop ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(m.prop,''),'—') prop, COALESCE(p.name, COALESCE(NULLIF(m.prop,''),'—')) name, COUNT(*) n, COALESCE(SUM(m.actual_cost),0) cost, SUM(CASE WHEN m.status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests m LEFT JOIN properties p ON p.id=m.prop GROUP BY m.prop ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
     $trSt = $pdo->prepare("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1 AND substr(pay_paid_at,1,7)=?");
     $trend = []; $cur = new DateTime(date('Y-m-01'));
     for ($i = $months - 1; $i >= 0; $i--) {
@@ -8975,7 +8975,7 @@ function analytics_maintenance($pdo) {
     $byStatus = $pdo->query('SELECT status, COUNT(*) n FROM maintenance_requests GROUP BY status ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
     $byPriority = $pdo->query('SELECT priority, COUNT(*) n FROM maintenance_requests GROUP BY priority ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
     $byCharge = $pdo->query("SELECT charge_to, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests GROUP BY charge_to ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
-    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(prop,''),'—') prop, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost, SUM(CASE WHEN status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests GROUP BY prop ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(m.prop,''),'—') prop, COALESCE(p.name, COALESCE(NULLIF(m.prop,''),'—')) name, COUNT(*) n, COALESCE(SUM(m.actual_cost),0) cost, SUM(CASE WHEN m.status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests m LEFT JOIN properties p ON p.id=m.prop GROUP BY m.prop ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC);
     $totalCost = (int)$pdo->query('SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests')->fetchColumn();
     $estOpen = (int)$pdo->query("SELECT COALESCE(SUM(cost_estimate),0) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
     $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
