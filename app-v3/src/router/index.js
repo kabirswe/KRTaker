@@ -49,7 +49,13 @@ const routes = [
   { path: '/fire-safety', name: 'fire-safety', component: () => import('../views/FireSafetyView.vue') },
   { path: '/building-systems', name: 'building-systems', component: () => import('../views/BuildingSystemsView.vue') },
   { path: '/analytics', name: 'analytics', component: () => import('../views/AnalyticsView.vue') },
+  // ── Hub dashboards (V2.0.7) — old routes above stay for deep links ──
   { path: '/finance', name: 'finance', component: () => import('../views/FinanceView.vue') },
+  { path: '/portfolio', name: 'portfolio', component: () => import('../views/PortfolioView.vue') },
+  { path: '/bms', name: 'bms', component: () => import('../views/BmsView.vue') },
+  { path: '/community', name: 'community', component: () => import('../views/CommunityView.vue') },
+  { path: '/legal-hub', name: 'legal-hub', component: () => import('../views/LegalHubView.vue') },
+  { path: '/secure', name: 'secure', component: () => import('../views/SecureView.vue') },
   { path: '/ai', name: 'ai', component: () => import('../views/AiView.vue') },
   { path: '/premium', name: 'premium', component: () => import('../views/PremiumView.vue') },
   { path: '/accounts', name: 'accounts', component: () => import('../views/AccountsView.vue') },

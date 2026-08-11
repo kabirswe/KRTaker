@@ -15,20 +15,22 @@ const emit = defineEmits(['close'])
 
 // Same GROUPS as dashboard-v2 (v3 consolidation: legal cluster grouped, vendor finance merged into Vendors workspace)
 // V2.0.6: Finance + Accounts groups merged into ONE Finance hub (/finance with tabs) — fewer menu entries.
+// V2.0.7: Portfolio, BMS, Community, Legal, Safety&Security all merged into hub dashboards with tabs.
 const GROUPS = [
   { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
-  { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['insurance', '🛡️', 'Insurance'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
+  { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio']] },
   { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance']] },
-  { id: 'bms', label: 'BMS', items: [['maintenance', '🔧', 'Maintenance'], ['gate', '🚪', 'Gate Visits'], ['staff', '👷', 'Staff'], ['attendance', '⏱️', 'Attendance'], ['payroll', '💵', 'Payroll'], ['meter', '⚡', 'Meter Readings'], ['utilities', '🔌', 'Utility Bills'], ['samity', '🏘️', 'Samity']] },
-  { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'NID & Trust'], ['support', '🎧', 'Support']] },
-  { id: 'legal', label: 'Legal', items: [['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine'], ['cases', '👨‍⚖️', 'Cases'], ['concierge', '🗂️', 'Legal Concierge']] },
+  { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS']] },
+  { id: 'community', label: 'Community', items: [['community', '📢', 'Community']] },
+  { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal']] },
   { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors']] },
-  { id: 'secure', label: 'Safety & Security', items: [['smarthome', '🏠', 'Building Systems'], ['land', '🛰️', 'Land Guard'], ['build', '🏗️', 'Build Watch'], ['firesafety', '🧯', 'Fire Safety']] },
+  { id: 'secure', label: 'Safety & Security', items: [['secure', '🏠', 'Safety & Security']] },
   { id: 'admin', label: 'Admin', items: [['caretaker', '👑', 'Caretaker']] },
 ]
 
 const VIEW_ROUTES = {
   dashboard: '/dashboard', analytics: '/analytics', ai: '/ai', finance: '/finance',
+  portfolio: '/portfolio', bms: '/bms', community: '/community', legalhub: '/legal-hub', secure: '/secure',
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents', templates: '/templates',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
@@ -46,14 +48,20 @@ const VIEW_ROUTES = {
 }
 
 // Module gating follows the EFFECTIVE user (updates after a real role switch).
-// V2.0.6: 'finance' is a frontend alias — shows when the user has ANY finance module
-// (there is no server-side 'finance' module id; the hub re-unites them).
+// V2.0.6: 'finance' is a frontend alias — shows when the user has ANY finance module.
+// V2.0.7: hub aliases show when the user has ANY module inside that hub.
 const FINANCE_MODS = ['invoices', 'receipts', 'payments', 'recon', 'taxes', 'remit', 'statements', 'subscriptions', 'accounts', 'receive', 'expense', 'withdraw', 'deposit', 'reconcile']
+const PORTFOLIO_MODS = ['properties', 'units', 'tenants', 'leases', 'insurance', 'onboarding', 'leads', 'documents', 'templates']
+const BMS_MODS = ['maintenance', 'gate', 'staff', 'attendance', 'payroll', 'meter', 'utilities', 'samity']
+const COMMUNITY_MODS = ['notices', 'referrals', 'trust', 'support']
+const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
+const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety']
+const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS }
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true
   const mods = user.role_modules ? (user.role_modules[user.role] || user.modules || []) : []
-  if (mod === 'finance') return mods.some(m => FINANCE_MODS.includes(m))
+  if (HUB_MODS[mod]) return mods.some(m => HUB_MODS[mod].includes(m))
   return mods.includes(mod)
 }
 
