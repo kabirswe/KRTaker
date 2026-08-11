@@ -149,6 +149,7 @@ function GATEWAYS() {
             'store_id' => 'krtakerTEST',           // ← live Store ID
             'store_pass' => 'REPLACE_ME',          // ← live Store Password
             'checkout' => 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php',
+            'kyc' => true,                         // V2.10.0: card payments require verified tenant KYC
         ],
         'nagad' => [
             'name' => 'Nagad', 'sandbox' => true,

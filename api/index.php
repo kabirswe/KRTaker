@@ -135,7 +135,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260823) {
+        if ($__sv < 20260824) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1042,7 +1042,17 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             active INTEGER DEFAULT 1, last_run TEXT DEFAULT '', next_due TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_insched_due ON inspection_schedules(active, next_due)");
-        try { $pdo->exec('PRAGMA user_version=20260823'); } catch (Exception $e) {}
+        /* ── V2.10.0: Tenant KYC (Know Your Customer) — payment-compliance records ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tenant_kyc (
+            tenant_id TEXT PRIMARY KEY,
+            full_name TEXT DEFAULT '', nid TEXT DEFAULT '', tin TEXT DEFAULT '',
+            dob TEXT DEFAULT '', address TEXT DEFAULT '',
+            doc_front TEXT DEFAULT '', doc_back TEXT DEFAULT '',
+            status TEXT DEFAULT 'unverified', notes TEXT DEFAULT '',
+            submitted_at TEXT, reviewed_at TEXT, reviewed_by TEXT DEFAULT '',
+            updated_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_kyc_status ON tenant_kyc(status)");
+        try { $pdo->exec('PRAGMA user_version=20260824'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -1800,6 +1810,7 @@ function GATEWAYS() {
             'store_id' => 'krtakerTEST',           // ← live Store ID
             'store_pass' => 'REPLACE_ME',          // ← live Store Password
             'checkout' => 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php',
+            'kyc' => true,                         // V2.10.0: card payments require verified tenant KYC
         ],
         'nagad' => [
             'name' => 'Nagad', 'sandbox' => true,
@@ -10907,7 +10918,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -12701,6 +12712,21 @@ case 'app-payment-init': {
     if (!$due) json_out(['ok' => false, 'error' => 'Invoice not found.'], 404);
     if (!invoice_owner_check($u, $inv)) json_out(['ok' => false, 'error' => 'You can only pay your own invoices.'], 403);
     if ($due['due'] <= 0) json_out(['ok' => false, 'error' => 'Invoice already fully paid.'], 400);
+    /* V2.10.0: payment-compliance gate — card gateways (SSLCommerz) require a verified tenant KYC */
+    if (!empty(GATEWAYS()[$method]['kyc'])) {
+        $kst = $pdo->prepare('SELECT t FROM leases WHERE id IN (SELECT l FROM invoices WHERE id=?) LIMIT 1');
+        $kst->execute([$inv]);
+        $ktid = $kst->fetchColumn();
+        if ($ktid) {
+            $kst = $pdo->prepare('SELECT status FROM tenant_kyc WHERE tenant_id=?'); $kst->execute([$ktid]);
+            $kstatus = (string)$kst->fetchColumn();
+            if ($kstatus !== 'verified') {
+                json_out(['ok' => false, 'code' => 'KYC_REQUIRED',
+                    'error' => 'Card payments require a verified tenant KYC profile. Please submit your KYC (NID/TIN + ID document) and wait for approval.',
+                    'kyc_status' => $kstatus !== '' ? $kstatus : 'unverified'], 400);
+            }
+        }
+    }
     $sid = 'GW-' . bin2hex(random_bytes(4));
     $pdo->prepare('INSERT INTO gateway_tx (id, invoice_id, method, amount, status, ref) VALUES (?,?,?,?,?,?)')
         ->execute([$sid, $inv, GATEWAYS()[$method]['name'], $due['due'], 'pending', 'GW-' . strtoupper(substr($method, 0, 2)) . '-' . bin2hex(random_bytes(2))]);
@@ -13106,6 +13132,146 @@ case 'app-inspections': {
         json_out(['ok' => true]);
     }
     json_out(['ok' => false, 'error' => 'action must be summary|list|get|create|update|complete|delete|due|schedule-list|schedule-save|schedule-delete.'], 400);
+}
+
+/* ── V2.10.0: Tenant KYC — submission, review queue, document handling ── */
+case 'app-kyc': {
+    $u = require_user();
+    $pdo = db();
+    $sub = trim($_GET['action'] ?? $body['action'] ?? $_POST['action'] ?? 'list');
+    $isStaff = $u['role'] !== 'tenant';
+    $staffMod = false;
+    if ($isStaff) {
+        $allowed = effective_modules($u);
+        $staffMod = in_array('payments', $allowed, true) || in_array('trust', $allowed, true);
+    }
+    /* tenant role → own record only */
+    $myTid = '';
+    if (!$isStaff) {
+        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
+        $myTid = (string)$st->fetchColumn();
+    }
+
+    if ($sub === 'list') {
+        if ($isStaff) {
+            if (!$staffMod) json_out(['ok' => false, 'error' => 'Access denied — KYC review requires the payments module.'], 403);
+            $rows = $pdo->query("SELECT k.*, t.name AS tenant_name, t.phone AS tenant_phone, t.email AS tenant_email, t.kind AS tenant_kind
+                FROM tenant_kyc k LEFT JOIN tenants t ON t.id = k.tenant_id
+                ORDER BY CASE k.status WHEN 'pending' THEN 0 WHEN 'verified' THEN 1 WHEN 'rejected' THEN 2 ELSE 3 END, k.updated_at DESC")
+                ->fetchAll(PDO::FETCH_ASSOC);
+            $sum = [];
+            foreach ($pdo->query("SELECT status, COUNT(*) AS n FROM tenant_kyc GROUP BY status")->fetchAll(PDO::FETCH_ASSOC) as $r) $sum[$r['status']] = (int)$r['n'];
+            $total = (int)$pdo->query('SELECT COUNT(*) FROM tenants')->fetchColumn();
+            json_out(['ok' => true, 'records' => $rows, 'summary' => [
+                'unverified' => $sum['unverified'] ?? 0, 'pending' => $sum['pending'] ?? 0,
+                'verified' => $sum['verified'] ?? 0, 'rejected' => $sum['rejected'] ?? 0,
+                'tenants' => $total]]);
+        }
+        $rec = null;
+        if ($myTid) {
+            $st = $pdo->prepare('SELECT * FROM tenant_kyc WHERE tenant_id=?'); $st->execute([$myTid]);
+            $rec = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+        json_out(['ok' => true, 'record' => $rec, 'tenant_id' => $myTid]);
+    }
+
+    if ($sub === 'submit') {
+        $tid = $isStaff ? trim((string)($body['tenant_id'] ?? $_POST['tenant_id'] ?? '')) : $myTid;
+        if ($tid === '') json_out(['ok' => false, 'error' => 'tenant_id required.'], 400);
+        if (!$isStaff && $tid !== $myTid) json_out(['ok' => false, 'error' => 'You can only submit your own KYC.'], 403);
+        $full_name = trim((string)($body['full_name'] ?? $_POST['full_name'] ?? ''));
+        $nid = trim((string)($body['nid'] ?? $_POST['nid'] ?? ''));
+        $tin = trim((string)($body['tin'] ?? $_POST['tin'] ?? ''));
+        $dob = trim((string)($body['dob'] ?? $_POST['dob'] ?? ''));
+        $address = trim((string)($body['address'] ?? $_POST['address'] ?? ''));
+        if ($full_name === '' || $nid === '') json_out(['ok' => false, 'error' => 'Full name and NID are required.'], 400);
+        $now = gmdate('Y-m-d H:i:s');
+        $st = $pdo->prepare('SELECT tenant_id FROM tenant_kyc WHERE tenant_id=?'); $st->execute([$tid]);
+        if ($st->fetchColumn()) {
+            $pdo->prepare("UPDATE tenant_kyc SET full_name=?, nid=?, tin=?, dob=?, address=?, status='pending', notes='', reviewed_at=NULL, reviewed_by='', submitted_at=?, updated_at=datetime('now') WHERE tenant_id=?")
+                ->execute([$full_name, $nid, $tin, $dob, $address, $now, $tid]);
+        } else {
+            $pdo->prepare("INSERT INTO tenant_kyc (tenant_id, full_name, nid, tin, dob, address, status, submitted_at) VALUES (?,?,?,?,?,?,'pending',?)")
+                ->execute([$tid, $full_name, $nid, $tin, $dob, $address, $now]);
+        }
+        /* sync NID onto the tenant row when empty */
+        $pdo->prepare("UPDATE tenants SET nid = CASE WHEN nid='' THEN ? ELSE nid END WHERE id=?")->execute([$nid, $tid]);
+        audit($u['name'], 'KYC submitted', 'tenants', $tid, $full_name . ' NID ' . $nid);
+        json_out(['ok' => true, 'status' => 'pending']);
+    }
+
+    if ($sub === 'review') {
+        if (!$isStaff || !$staffMod) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $tid = trim((string)($body['tenant_id'] ?? ''));
+        $decision = trim((string)($body['decision'] ?? ''));
+        $notes = trim((string)($body['notes'] ?? ''));
+        if ($tid === '' || !in_array($decision, ['approve', 'reject'], true)) json_out(['ok' => false, 'error' => 'tenant_id + decision (approve|reject) required.'], 400);
+        $st = $pdo->prepare('SELECT tenant_id FROM tenant_kyc WHERE tenant_id=?'); $st->execute([$tid]);
+        if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'No KYC record for this tenant.'], 404);
+        $status = $decision === 'approve' ? 'verified' : 'rejected';
+        $pdo->prepare("UPDATE tenant_kyc SET status=?, notes=?, reviewed_at=datetime('now'), reviewed_by=?, updated_at=datetime('now') WHERE tenant_id=?")
+            ->execute([$status, $notes, $u['name'], $tid]);
+        audit($u['name'], 'KYC ' . $status, 'tenants', $tid, $notes !== '' ? $notes : '');
+        json_out(['ok' => true, 'status' => $status]);
+    }
+
+    if ($sub === 'upload') {
+        $tid = $isStaff ? trim((string)($_POST['tenant_id'] ?? '')) : $myTid;
+        $field = trim((string)($_POST['field'] ?? ''));
+        if ($tid === '' || !in_array($field, ['doc_front', 'doc_back'], true)) json_out(['ok' => false, 'error' => 'tenant_id + field (doc_front|doc_back) required.'], 400);
+        if (!$isStaff && $tid !== $myTid) json_out(['ok' => false, 'error' => 'You can only upload your own KYC documents.'], 403);
+        if (empty($_FILES['file']) || ($_FILES['file']['error'] ?? 1) !== UPLOAD_ERR_OK)
+            json_out(['ok' => false, 'error' => 'A document file (image or PDF) is required.'], 400);
+        $f = $_FILES['file'];
+        $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'], true)) json_out(['ok' => false, 'error' => 'Images or PDF only.'], 400);
+        if ((int)$f['size'] > 8 * 1024 * 1024) json_out(['ok' => false, 'error' => 'Document too large (max 8MB).'], 400);
+        $safe = preg_replace('/[^A-Za-z0-9_-]/', '', $tid);
+        $fname = 'kyc_' . $safe . '_' . ($field === 'doc_front' ? 'front' : 'back') . '_' . date('Ymd_His') . '.' . $ext;
+        if (!move_uploaded_file($f['tmp_name'], DATA_DIR() . '/' . $fname)) json_out(['ok' => false, 'error' => 'Could not store document.'], 500);
+        $st = $pdo->prepare('SELECT tenant_id FROM tenant_kyc WHERE tenant_id=?'); $st->execute([$tid]);
+        if (!$st->fetchColumn()) {
+            $pdo->prepare("INSERT INTO tenant_kyc (tenant_id, status, submitted_at) VALUES (?,'pending',datetime('now'))")->execute([$tid]);
+        }
+        $pdo->prepare("UPDATE tenant_kyc SET $field=?, status='pending', reviewed_at=NULL, reviewed_by='', updated_at=datetime('now') WHERE tenant_id=?")->execute([$fname, $tid]);
+        audit($u['name'], 'KYC document uploaded', 'tenants', $tid, $field . ' ' . $fname);
+        json_out(['ok' => true, 'file' => $fname]);
+    }
+
+    if ($sub === 'view') {
+        $tid = $isStaff ? trim((string)($_GET['tenant_id'] ?? '')) : $myTid;
+        $field = trim((string)($_GET['field'] ?? 'doc_front'));
+        if ($tid === '' || !in_array($field, ['doc_front', 'doc_back'], true)) json_out(['ok' => false, 'error' => 'tenant_id + field required.'], 400);
+        if (!$isStaff && $tid !== $myTid) json_out(['ok' => false, 'error' => 'Not your document.'], 403);
+        $st = $pdo->prepare("SELECT $field FROM tenant_kyc WHERE tenant_id=?"); $st->execute([$tid]);
+        $fn = $st->fetchColumn();
+        if (!$fn) json_out(['ok' => false, 'error' => 'No document attached.'], 404);
+        $f = DATA_DIR() . '/' . $fn;
+        if (!is_file($f)) json_out(['ok' => false, 'error' => 'Document file missing.'], 404);
+        $x = strtolower(pathinfo($fn, PATHINFO_EXTENSION));
+        $ct = ($x === 'pdf') ? 'application/pdf' : (($x === 'jpg') ? 'image/jpeg' : 'image/' . $x);
+        header('Content-Type: ' . $ct);
+        header('Content-Disposition: inline; filename="' . $fn . '"');
+        header('Content-Length: ' . filesize($f));
+        readfile($f);
+        exit;
+    }
+
+    if ($sub === 'remove') {
+        if (!$isStaff || !$staffMod) json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $tid = trim((string)($body['tenant_id'] ?? ''));
+        if ($tid === '') json_out(['ok' => false, 'error' => 'tenant_id required.'], 400);
+        $st = $pdo->prepare('SELECT doc_front, doc_back FROM tenant_kyc WHERE tenant_id=?'); $st->execute([$tid]);
+        $rec = $st->fetch(PDO::FETCH_ASSOC);
+        foreach (['doc_front', 'doc_back'] as $c) {
+            if ($rec && !empty($rec[$c])) { $old = DATA_DIR() . '/' . $rec[$c]; if (is_file($old)) @unlink($old); }
+        }
+        $pdo->prepare('DELETE FROM tenant_kyc WHERE tenant_id=?')->execute([$tid]);
+        audit($u['name'], 'KYC reset', 'tenants', $tid);
+        json_out(['ok' => true]);
+    }
+
+    json_out(['ok' => false, 'error' => 'action must be list|submit|review|upload|view|remove.'], 400);
 }
 
 /* ── Gateway IPN (server-to-server callback, 2026-08-09) ──

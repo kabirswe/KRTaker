@@ -48,6 +48,7 @@ const routes = [
   { path: '/samity', name: 'samity', component: () => import('../views/SamityView.vue') },
   { path: '/fire-safety', name: 'fire-safety', component: () => import('../views/FireSafetyView.vue') },
   { path: '/inspections', name: 'inspections', component: () => import('../views/InspectionsView.vue') },
+  { path: '/kyc', name: 'kyc', component: () => import('../views/KycView.vue') },
   { path: '/building-systems', name: 'building-systems', component: () => import('../views/BuildingSystemsView.vue') },
   { path: '/analytics', name: 'analytics', component: () => import('../views/AnalyticsView.vue') },
   // ── Hub dashboards (V2.0.7) — old routes above stay for deep links ──

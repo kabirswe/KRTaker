@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260823) {
+        if ($__sv < 20260824) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -980,7 +980,17 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             active INTEGER DEFAULT 1, last_run TEXT DEFAULT '', next_due TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_insched_due ON inspection_schedules(active, next_due)");
-        try { $pdo->exec('PRAGMA user_version=20260823'); } catch (Exception $e) {}
+        /* ── V2.10.0: Tenant KYC (Know Your Customer) — payment-compliance records ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tenant_kyc (
+            tenant_id TEXT PRIMARY KEY,
+            full_name TEXT DEFAULT '', nid TEXT DEFAULT '', tin TEXT DEFAULT '',
+            dob TEXT DEFAULT '', address TEXT DEFAULT '',
+            doc_front TEXT DEFAULT '', doc_back TEXT DEFAULT '',
+            status TEXT DEFAULT 'unverified', notes TEXT DEFAULT '',
+            submitted_at TEXT, reviewed_at TEXT, reviewed_by TEXT DEFAULT '',
+            updated_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_kyc_status ON tenant_kyc(status)");
+        try { $pdo->exec('PRAGMA user_version=20260824'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

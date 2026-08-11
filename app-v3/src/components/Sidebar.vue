@@ -55,7 +55,7 @@ const PORTFOLIO_MODS = ['properties', 'units', 'tenants', 'leases', 'insurance',
 const BMS_MODS = ['maintenance', 'gate', 'staff', 'attendance', 'payroll', 'meter', 'utilities', 'samity']
 const COMMUNITY_MODS = ['notices', 'referrals', 'trust', 'support']
 const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
-const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety']
+const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS }
 const can = (mod) => {
   const user = auth.user || data.user
