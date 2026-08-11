@@ -1,11 +1,12 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, money, fmtTs, monthLabel } from '../lib/ui'
 
 const router = useRouter()
+const route = useRoute()
 const go = (path, q) => router.push({ path, query: q })
 
 const auth = useAuthStore()
@@ -71,6 +72,8 @@ const kpis = computed(() => {
 const q = ref('')
 const tradeFilter = ref('')
 const statusFilter = ref('')
+// Deep-link from global search: /vendors?q=<term> pre-fills the partners filter
+watch(() => route.query.q, (v) => { if (v) q.value = String(v) }, { immediate: true })
 const tradeOptions = computed(() => [...new Set(partners.value.map(p => p.trade).filter(Boolean))].sort())
 const statusOptions = computed(() => [...new Set(partners.value.map(p => p.status).filter(Boolean))].sort())
 const filteredPartners = computed(() => {

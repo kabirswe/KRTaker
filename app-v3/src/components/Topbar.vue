@@ -1,10 +1,11 @@
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
+import { globalSearch, searchTarget, SEARCH_HINT } from '../lib/globalsearch'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -98,6 +99,7 @@ const initials = computed(() => {
 function onDocClick(e) {
   if (!e.target.closest('.tb-user') && !e.target.closest('.user-menu')) menuOpen.value = false
   if (!e.target.closest('.tb-bell') && !e.target.closest('.bell-menu')) bellOpen.value = false
+  if (!e.target.closest('.tb-search') && !e.target.closest('.search-menu')) searchOpen.value = false
 }
 
 // ── Notification bell (app-kr-alert) ──
@@ -129,6 +131,44 @@ async function dismissAllAlerts() {
   } finally { bellBusy.value = false }
 }
 const sevIco = (s) => s === 'critical' ? '🚨' : (s === 'warning' ? '⚠️' : (s === 'success' ? '✅' : '🔔'))
+
+// ── Global search (client-side index over data.db) ──
+const searchQ = ref('')
+const searchOpen = ref(false)
+const searchBusy = ref(false)
+const results = ref([])
+const searchFocus = ref(0)   // keyboard navigation index
+let searchTimer = null
+
+function runSearch() {
+  clearTimeout(searchTimer)
+  const q = searchQ.value
+  if (q.trim().length < 2) { results.value = []; searchFocus.value = 0; return }
+  searchBusy.value = true
+  searchTimer = setTimeout(() => {
+    results.value = globalSearch(data.db, q)
+    searchFocus.value = 0
+    searchBusy.value = false
+  }, 180)
+}
+function openSearch() { searchOpen.value = true; searchFocus.value = 0 }
+function closeSearch() { searchOpen.value = false; searchQ.value = ''; results.value = [] }
+function flatItems() { return results.value.flatMap((g, gi) => g.items.map((it, ii) => ({ gi, ii }))) }
+function goSearch(item) {
+  const grp = results.value[item.gi]
+  const target = searchTarget(grp, grp.items[item.ii])
+  closeSearch()
+  router.push(target)
+}
+function onSearchKey(e) {
+  const items = flatItems()
+  if (e.key === 'ArrowDown' && items.length) { e.preventDefault(); searchFocus.value = (searchFocus.value + 1) % items.length }
+  else if (e.key === 'ArrowUp' && items.length) { e.preventDefault(); searchFocus.value = (searchFocus.value - 1 + items.length) % items.length }
+  else if (e.key === 'Enter' && items.length) { e.preventDefault(); goSearch(items[searchFocus.value]) }
+  else if (e.key === 'Escape') closeSearch()
+}
+watch(searchOpen, (o) => { if (!o) { clearTimeout(searchTimer); searchQ.value = ''; results.value = [] } })
+
 onMounted(() => document.addEventListener('click', onDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
@@ -144,6 +184,40 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
     <header class="topbar">
       <div class="topbar-in">
         <button class="menu-toggle" @click="emit('toggle-sidebar')">☰</button>
+        <!-- Global search -->
+        <div class="tb-search" style="position:relative;flex:1;max-width:420px;min-width:140px">
+          <div class="gs-box" @click="openSearch">
+            <span class="gs-ic">🔍</span>
+            <input v-model="searchQ" @input="runSearch" @focus="openSearch" @keydown="onSearchKey"
+                   :placeholder="SEARCH_HINT" class="gs-input" aria-label="Global search" />
+            <button v-if="searchQ" class="gs-clear" @click.stop="searchQ = ''; runSearch()">✕</button>
+          </div>
+          <!-- dropdown -->
+          <div v-if="searchOpen" class="search-menu" style="position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16);z-index:95;overflow:hidden">
+            <template v-if="searchQ.trim().length >= 2">
+              <div v-if="searchBusy" style="padding:20px;text-align:center;color:var(--text-mute);font-size:13px">Searching…</div>
+              <div v-else-if="!results.length" style="padding:26px 16px;text-align:center;color:var(--text-mute);font-size:13px">No matches for <b>{{ searchQ }}</b></div>
+              <div v-else style="max-height:min(480px,62vh);overflow-y:auto;padding:6px 0">
+                <template v-for="(g, gi) in results" :key="g.group">
+                  <div class="gs-group" style="padding:8px 14px 4px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ g.ic }} {{ g.group }} <span style="font-weight:600;opacity:.7">· {{ g.items.length }}</span></div>
+                  <div v-for="(it, ii) in g.items" :key="g.group + '-' + it.id"
+                       class="gs-item" :class="{ active: searchFocus === flatItems().findIndex(x => x.gi === gi && x.ii === ii) }"
+                       @mousedown.prevent="goSearch({ gi, ii })"
+                       @mouseenter="searchFocus = flatItems().findIndex(x => x.gi === gi && x.ii === ii)"
+                       style="display:flex;gap:10px;align-items:center;padding:8px 14px;cursor:pointer">
+                    <div style="font-size:15px;flex-shrink:0;width:22px;text-align:center">{{ g.ic }}</div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.title }}</div>
+                      <div class="c-sub" style="font-size:11.5px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.sub }}</div>
+                    </div>
+                    <span class="gs-go" style="color:var(--text-mute);font-size:11px;flex-shrink:0">↗</span>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <div v-else style="padding:20px 16px;text-align:center;color:var(--text-mute);font-size:12.5px">Type at least 2 characters to search across tenants, units, invoices, maintenance, notices and more.</div>
+          </div>
+        </div>
         <div class="tb-actions">
           <button class="icon-btn" @click="toggleLang()">বাংলা</button>
           <button class="icon-btn" @click="toggleTheme()">{{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}</button>
