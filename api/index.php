@@ -11557,6 +11557,91 @@ case 'app-invoice-email': {
     audit($u['name'], 'Invoice emailed', 'invoices', $invId, $r['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
     json_out(['ok' => true, 'emailed' => $ok, 'to' => $r['temail'], 'subject' => $subj]);
 }
+
+/* ── Auto-invoice generator (2026-08-12) ──
+   Service-key gated (monthly cron) or superadmin/owner/manager/accountant via UI.
+   Creates one Unpaid rent invoice per Active lease for the given month (idempotent —
+   leases already billed for that month are skipped). Dry-run by default; commit=1
+   writes; send=1 also queues a tenant invoice email through the mail queue (docs
+   master switch + notify_docs opt-out respected, same gates as app-invoice-email). */
+case 'app-invoice-auto': {
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        require_module($u, 'invoices');
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Your role cannot generate invoices.'], 403);
+    } else {
+        $u = ['name' => 'system', 'role' => 'service', 'email' => ''];
+    }
+    $pdo = db();
+    $month = trim($body['month'] ?? '');
+    if ($month !== '' && !preg_match('/^\d{4}-\d{2}$/', $month))
+        json_out(['ok' => false, 'error' => 'month must be YYYY-MM.'], 400);
+    if ($month === '') $month = gmdate('Y-m');
+    $commit = !empty($body['commit']);
+    $send = !empty($body['send']);
+    $sub = trim($body['sub_email'] ?? '');
+    $dry = !$commit && !$send;
+
+    $sql = "SELECT l.*, t.name AS tname, t.email AS temail, u.p AS pid
+            FROM leases l JOIN tenants t ON t.id=l.t LEFT JOIN units u ON u.id=l.u
+            WHERE l.status='Active'";
+    $args = [];
+    if ($sub !== '') { $sql .= " AND u.p IN (SELECT id FROM properties WHERE sub_email=?)"; $args[] = $sub; }
+    $sql .= " ORDER BY l.id";
+    $st = $pdo->prepare($sql); $st->execute($args);
+    $leases = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    $existing = [];
+    $chk = $pdo->prepare('SELECT l FROM invoices WHERE m=?'); $chk->execute([$month]);
+    foreach ($chk->fetchAll(PDO::FETCH_COLUMN) as $lid) $existing[$lid] = true;
+
+    $created = []; $skipped = 0; $notInMonth = 0; $noEmail = 0; $queued = 0;
+    $suppressedDocs = 0; $suppressedOpt = 0; $errors = []; $totalRent = 0;
+    foreach ($leases as $l) {
+        $ls = substr($l['start'], 0, 7); $le = substr($l['end'], 0, 7);
+        if ($month < $ls || ($le !== '' && $month > $le)) { $notInMonth++; continue; }
+        if (isset($existing[$l['id']])) { $skipped++; continue; }
+        $rent = (int)$l['rent'];
+        $row = ['lease' => $l['id'], 'tenant' => $l['tname'], 'rent' => $rent, 'email' => $l['temail'] ?: ''];
+        $created[] = $row; $totalRent += $rent;
+        if ($dry) continue;
+        $iid = invoice_next_id($pdo);
+        $pdo->prepare('INSERT INTO invoices (id, l, m, gross, tds, net, status) VALUES (?,?,?,?,0,?,?)')
+            ->execute([$iid, $l['id'], $month, $rent, $rent, 'Unpaid']);
+        $created[count($created) - 1]['id'] = $iid;
+        if (!$send) continue;
+        if (!$l['temail']) { $noEmail++; continue; }
+        if (!mail_switch($pdo, 'docs')) { $suppressedDocs++; continue; }
+        if (!notify_ok($pdo, $l['temail'], 'notify_docs')) { $suppressedOpt++; continue; }
+        $r = inv_context($pdo, $iid);
+        list($subj, $html) = email_render('invoice', [
+            'tenant_name' => $r['tname'], 'invoice_id' => $iid, 'month' => $r['m'],
+            'property' => $r['pname'], 'unit' => $r['uname'], 'amount' => number_format((int)$r['net']),
+            'due' => number_format((int)$r['net']), 'due_color' => '#B91C1C',
+            'pay_url' => 'https://krtaker.com/app-v3/#/invoices?open=' . rawurlencode($iid) . '&pay=1',
+        ]);
+        if (send_mail($l['temail'], $subj, $html, null, true)) $queued++;
+        else $errors[] = 'mail:' . $iid;
+    }
+    if (!$dry && ($created || $errors)) {
+        $pdo->prepare("INSERT OR REPLACE INTO platform_meta (k, v) VALUES ('last_invoice_auto', ?)")
+            ->execute([gmdate('Y-m-d H:i:s') . ' month=' . $month . ' created=' . count($created) . ' queued=' . $queued . ' skipped=' . $skipped]);
+        audit($u['name'], 'Auto-invoice run', 'invoices', 'bulk',
+            'month=' . $month . ' created=' . count($created) . ' queued=' . $queued . ' skipped=' . $skipped);
+    }
+    $st = $pdo->query("SELECT v FROM platform_meta WHERE k='last_invoice_auto'");
+    json_out([
+        'ok' => true, 'dry_run' => $dry, 'month' => $month,
+        'eligible' => count($leases), 'created' => count($created),
+        'skipped' => $skipped, 'not_in_month' => $notInMonth,
+        'total_rent' => $totalRent, 'queued' => $queued,
+        'no_email' => $noEmail, 'suppressed_docs' => $suppressedDocs, 'suppressed_optout' => $suppressedOpt,
+        'invoices' => $created, 'errors' => $errors, 'last_run' => $st->fetchColumn() ?: '',
+    ]);
+}
+
 case 'app-receipt-email': {
     $u = require_user();
     require_module($u, 'payments');

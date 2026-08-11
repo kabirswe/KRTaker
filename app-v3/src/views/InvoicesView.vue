@@ -144,6 +144,48 @@ async function printInv(i) {
   } catch (e) { window.__krToast?.('Network error printing invoice', 'error') }
   finally { printBusy.value = '' }
 }
+
+// ── auto-generate modal (2026-08-12) ──
+const autoModal = ref(null)     // { month, email }
+const autoPreview = ref(null)   // dry-run result from app-invoice-auto
+const autoBusy = ref(false)
+const autoRunBusy = ref(false)
+const thisMonth = () => new Date().toISOString().slice(0, 7)
+function openAuto() {
+  autoModal.value = { month: thisMonth(), email: true }
+  autoPreview.value = null
+  refreshAutoPreview()
+}
+function closeAuto() { autoModal.value = null; autoPreview.value = null }
+async function refreshAutoPreview() {
+  const m = autoModal.value
+  if (!m) return
+  autoBusy.value = true
+  try {
+    const r = await apiCall('app-invoice-auto', { month: m.month })
+    if (r.ok) autoPreview.value = r
+    else window.__krToast?.(r.error || 'Preview failed', 'error')
+  } finally { autoBusy.value = false }
+}
+async function runAuto() {
+  const m = autoModal.value
+  if (!m) return
+  autoRunBusy.value = true
+  try {
+    const r = await apiCall('app-invoice-auto', { month: m.month, commit: 1, send: m.email ? 1 : 0 })
+    if (r.ok) {
+      const parts = [`⚡ Created ${r.created} invoice(s) for ${monthLabel(r.month)}`]
+      if (r.skipped) parts.push(`${r.skipped} already billed`)
+      if (r.queued) parts.push(`📧 ${r.queued} emailed`)
+      if (r.no_email) parts.push(`${r.no_email} no email`)
+      if (r.suppressed_docs) parts.push(`${r.suppressed_docs} docs off`)
+      if (r.suppressed_optout) parts.push(`${r.suppressed_optout} opted out`)
+      window.__krToast?.(parts.join(' · '), r.created ? 'ok' : 'info')
+      closeAuto()
+      await data.bootstrap()
+    } else window.__krToast?.(r.error || 'Generate failed', 'error')
+  } finally { autoRunBusy.value = false }
+}
 </script>
 
 <template>
@@ -177,6 +219,7 @@ async function printInv(i) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="canManage" @click="openAuto" class="btn-primary" style="padding:9px 16px;font-size:12.5px" title="Generate rent invoices for a month from active leases">⚡ Auto-generate</button>
       </div>
     </div>
 
@@ -363,6 +406,48 @@ async function printInv(i) {
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
           <button class="btn-ghost" @click="payModal = null">Cancel</button>
           <button class="btn-primary" :disabled="paySaving" @click="submitPay" style="padding:9px 18px">{{ paySaving ? 'Recording…' : '💳 Record payment' }}</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- auto-generate modal -->
+    <template v-if="autoModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="closeAuto"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h3 style="font-size:15px;font-weight:800">⚡ Auto-generate invoices</h3>
+          <button @click="closeAuto" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Billing month</label>
+            <input v-model="autoModal.month" type="month" @change="refreshAutoPreview" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <div class="c-sub" style="font-size:11px;margin-top:4px">One Unpaid invoice per Active lease for this month — leases already billed are skipped.</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer">
+            <input v-model="autoModal.email" type="checkbox" style="width:16px;height:16px;accent-color:var(--primary)">
+            <span><b>Email tenants</b> <span class="c-sub">— queue invoice email (respects docs switch + opt-outs)</span></span>
+          </label>
+          <div v-if="autoPreview" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:12px 14px;font-size:12.5px;line-height:1.7">
+            <div v-if="autoBusy" class="c-sub">Refreshing…</div>
+            <template v-else>
+              <div><b>{{ monthLabel(autoPreview.month) }}</b> — <b>{{ autoPreview.created }}</b> new · <b>{{ autoPreview.skipped }}</b> already billed · {{ autoPreview.not_in_month }} outside lease term · total rent <b>৳{{ (autoPreview.total_rent || 0).toLocaleString('en-IN') }}</b></div>
+              <div v-if="autoPreview.invoices?.length" style="max-height:150px;overflow-y:auto;margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+                <div v-for="inv in autoPreview.invoices" :key="inv.lease" style="display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px dashed var(--border);font-size:12px">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ inv.tenant }}</span>
+                  <span class="c-sub" style="white-space:nowrap">{{ inv.lease }}</span>
+                  <b style="white-space:nowrap">{{ money(inv.rent) }}</b>
+                </div>
+              </div>
+              <div v-else-if="!autoPreview.created" class="c-sub" style="margin-top:4px">Nothing new for this month — all active leases already billed 🎉</div>
+            </template>
+          </div>
+          <div v-else class="c-sub" style="font-size:12px">{{ autoBusy ? 'Loading preview…' : 'Enter a month to preview.' }}</div>
+        </div>
+        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn-ghost" @click="refreshAutoPreview" :disabled="autoBusy" style="font-size:12px">↻ Preview</button>
+          <button class="btn-ghost" @click="closeAuto">Cancel</button>
+          <button class="btn-primary" :disabled="autoRunBusy || !autoPreview?.created" @click="runAuto" style="padding:9px 18px">{{ autoRunBusy ? 'Generating…' : (autoModal.email ? '⚡ Generate + email' : '⚡ Generate only') }}</button>
         </div>
       </div>
     </template>
