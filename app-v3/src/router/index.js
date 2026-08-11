@@ -51,6 +51,7 @@ const routes = [
   { path: '/analytics', name: 'analytics', component: () => import('../views/AnalyticsView.vue') },
   { path: '/ai', name: 'ai', component: () => import('../views/AiView.vue') },
   { path: '/premium', name: 'premium', component: () => import('../views/PremiumView.vue') },
+  { path: '/accounts', name: 'accounts', component: () => import('../views/AccountsView.vue') },
   // ── Module views (custom) ──
   { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

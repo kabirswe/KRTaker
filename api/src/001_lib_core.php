@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260811) {
+        if ($__sv < 20260812) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -856,15 +856,15 @@ function db() {
             exp_date TEXT DEFAULT '', note TEXT DEFAULT '', created_by TEXT DEFAULT '',
             ts TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_se_prop ON samity_expenses(prop, exp_date)");
-        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_members)')->fetchAll(PDO::FETCH_COLUMN), true)) {
+        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_members)')->fetchAll(PDO::FETCH_COLUMN, 1), true)) {
             $pdo->exec("ALTER TABLE samity_members ADD COLUMN prop TEXT DEFAULT ''");
             $pdo->exec("UPDATE samity_members SET prop='P-001' WHERE prop=''");  /* society flats live at Green View Residency */
         }
-        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_bills)')->fetchAll(PDO::FETCH_COLUMN), true)) {
+        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_bills)')->fetchAll(PDO::FETCH_COLUMN, 1), true)) {
             $pdo->exec("ALTER TABLE samity_bills ADD COLUMN prop TEXT DEFAULT ''");
             $pdo->exec("UPDATE samity_bills SET prop=(SELECT p FROM units WHERE units.id=samity_bills.unit) WHERE unit IN (SELECT id FROM units)");
         }
-        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_collections)')->fetchAll(PDO::FETCH_COLUMN), true)) {
+        if (!in_array('prop', $pdo->query('PRAGMA table_info(samity_collections)')->fetchAll(PDO::FETCH_COLUMN, 1), true)) {
             $pdo->exec("ALTER TABLE samity_collections ADD COLUMN prop TEXT DEFAULT ''");
             $pdo->exec("UPDATE samity_collections SET prop=(SELECT prop FROM samity_bills WHERE samity_bills.id=samity_collections.bill)");
         }
@@ -936,7 +936,23 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
-        try { $pdo->exec('PRAGMA user_version=20260811'); } catch (Exception $e) {}
+        /* ── Accounts module (20260812): bank/cash accounts + transaction ledger ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS accounts (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT DEFAULT 'bank',
+            opening_balance INTEGER DEFAULT 0, notes TEXT DEFAULT '', status TEXT DEFAULT 'active',
+            created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS account_transactions (
+            id TEXT PRIMARY KEY, account TEXT DEFAULT '', type TEXT NOT NULL,
+            cat TEXT DEFAULT 'other', label TEXT NOT NULL, amount INTEGER NOT NULL DEFAULT 0,
+            method TEXT DEFAULT '', ref TEXT DEFAULT '', payee TEXT DEFAULT '',
+            note TEXT DEFAULT '', tx_date TEXT DEFAULT (datetime('now')),
+            status TEXT DEFAULT 'cleared', reconciled INTEGER DEFAULT 0,
+            reconciled_at TEXT DEFAULT '', reconciled_ref TEXT DEFAULT '',
+            created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_account ON account_transactions(account, tx_date)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_type ON account_transactions(type, tx_date)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_atx_recon ON account_transactions(reconciled, tx_date)");
+        try { $pdo->exec('PRAGMA user_version=20260812'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

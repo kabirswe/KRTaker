@@ -18,6 +18,7 @@ const GROUPS = [
   { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
   { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['insurance', '🛡️', 'Insurance'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
   { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['recon', '📮', 'Collections'], ['taxes', '🏛️', 'Holding Taxes'], ['remit', '🌍', 'Remittances'], ['statements', '💰', 'Statements'], ['subscriptions', '💎', 'Subscriptions']] },
+  { id: 'accounts', label: 'Accounts', items: [['accounts', '💱', 'Transactions'], ['receive', '📥', 'Receive'], ['expense', '📤', 'Expense'], ['withdraw', '🏧', 'Withdraw'], ['deposit', '🏦', 'Deposit'], ['reconcile', '🔁', 'Reconcile']] },
   { id: 'bms', label: 'BMS', items: [['maintenance', '🔧', 'Maintenance'], ['gate', '🚪', 'Gate Visits'], ['staff', '👷', 'Staff'], ['attendance', '⏱️', 'Attendance'], ['payroll', '💵', 'Payroll'], ['meter', '⚡', 'Meter Readings'], ['utilities', '🔌', 'Utility Bills'], ['samity', '🏘️', 'Samity']] },
   { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'NID & Trust'], ['support', '🎧', 'Support']] },
   { id: 'legal', label: 'Legal', items: [['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine'], ['cases', '👨‍⚖️', 'Cases'], ['concierge', '🗂️', 'Legal Concierge']] },
@@ -32,6 +33,9 @@ const VIEW_ROUTES = {
   onboarding: '/onboarding', leads: '/leads', documents: '/documents', templates: '/templates',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
   taxes: '/holding-taxes', remit: '/remittances', recon: '/collections', statements: '/statements', subscriptions: '/premium',
+  accounts: '/accounts', receive: { path: '/accounts', query: { tab: 'receive' } }, expense: { path: '/accounts', query: { tab: 'expense' } },
+  withdraw: { path: '/accounts', query: { tab: 'withdraw' } }, deposit: { path: '/accounts', query: { tab: 'deposit' } },
+  reconcile: { path: '/accounts', query: { tab: 'reconcile' } },
   notices: '/notices', referrals: '/referrals', trust: '/nid', support: '/support',
   maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
   staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',
@@ -70,11 +74,18 @@ const roleName = computed(() => roleLabel((data.user || auth.user)?.role))
 const openRoles = ref(false)
 const switching = ref(false)
 
-function go(view) {
+const go = (view) => {
   const r = VIEW_ROUTES[view]
   if (r) router.push(r)
   else router.push({ path: '/dashboard', query: { stub: view } })
   emit('close')
+}
+// Active highlight: string routes compare path; query-tab routes (Accounts submenu) also require the tab
+const activeFor = (view) => {
+  const r = VIEW_ROUTES[view]
+  if (typeof r === 'string') return route.path === r
+  if (!r) return false
+  return route.path === r.path && (r.query?.tab ? route.query.tab === r.query.tab : !route.query.tab)
 }
 async function pick(r) {
   if (switching.value) return
@@ -116,7 +127,7 @@ async function backToMe() {
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
         <div class="sb-group">{{ g.label }}</div>
-        <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: route.path === (VIEW_ROUTES[i[0]] || '') }" @click="go(i[0])">
+        <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])">
           <span class="ic">{{ i[1] }}</span>{{ i[2] }}
         </div>
       </template>

@@ -4919,6 +4919,142 @@ case 'app-legal': {
     json_out(['ok' => false, 'error' => 'action must be summary|config-get|config-save|notices-list|notice-create|notice-get|notice-serve|notice-void|notice-print|audit|audit-all|tds-due|cases-list|case-create|case-get|case-update|case-event.'], 400);
 }
 
+/* ── Accounts module (20260812): bank/cash ledger — receive / expense / withdraw / deposit / reconcile ── */
+case 'app-accounts': {
+    $u = require_user();
+    require_module($u, 'accounts');
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? '');
+    if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'summary' : '';
+    $canWrite = in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true);
+
+    $acctRows = function () use ($pdo) {
+        $rows = $pdo->query('SELECT * FROM accounts ORDER BY (status=\'active\') DESC, name')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$a) {
+            $st = $pdo->prepare("SELECT
+                COALESCE(SUM(CASE WHEN type IN ('receive','deposit') THEN amount ELSE 0 END),0) inflow,
+                COALESCE(SUM(CASE WHEN type IN ('expense','withdraw') THEN amount ELSE 0 END),0) outflow
+                FROM account_transactions WHERE account=?");
+            $st->execute([$a['id']]);
+            $m = $st->fetch(PDO::FETCH_ASSOC);
+            $a['inflow'] = (int)$m['inflow']; $a['outflow'] = (int)$m['outflow'];
+            $a['balance'] = (int)$a['opening_balance'] + $a['inflow'] - $a['outflow'];
+            $st = $pdo->prepare('SELECT COUNT(*) FROM account_transactions WHERE account=?'); $st->execute([$a['id']]);
+            $a['tx_count'] = (int)$st->fetchColumn();
+        }
+        return $rows;
+    };
+
+    if ($action === 'summary') {
+        $tx = $pdo->query('SELECT t.*, a.name AS account_name FROM account_transactions t LEFT JOIN accounts a ON a.id=t.account ORDER BY t.tx_date DESC, t.id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
+        $tot = $pdo->query("SELECT
+            COALESCE(SUM(CASE WHEN type IN ('receive','deposit') THEN amount ELSE 0 END),0) inflow,
+            COALESCE(SUM(CASE WHEN type IN ('expense','withdraw') THEN amount ELSE 0 END),0) outflow,
+            COUNT(*) n FROM account_transactions")->fetch(PDO::FETCH_ASSOC);
+        $byType = $pdo->query('SELECT type, COUNT(*) n, COALESCE(SUM(amount),0) total FROM account_transactions GROUP BY type')->fetchAll(PDO::FETCH_ASSOC);
+        $unrecon = (int)$pdo->query('SELECT COUNT(*) FROM account_transactions WHERE reconciled=0')->fetchColumn();
+        json_out(['ok' => true, 'accounts' => $acctRows(), 'transactions' => $tx,
+            'totals' => ['inflow' => (int)$tot['inflow'], 'outflow' => (int)$tot['outflow'],
+                'balance' => (int)$tot['inflow'] - (int)$tot['outflow'], 'count' => (int)$tot['n']],
+            'by_type' => $byType, 'unreconciled' => $unrecon]);
+    }
+
+    if ($action === 'list') {
+        $where = []; $args = [];
+        $acct = trim($body['account'] ?? ''); if ($acct !== '') { $where[] = 't.account=?'; $args[] = $acct; }
+        $type = trim($body['type'] ?? ''); if ($type !== '') { $where[] = 't.type=?'; $args[] = $type; }
+        $q = trim($body['q'] ?? '');
+        if ($q !== '') { $where[] = '(t.label LIKE ? OR t.ref LIKE ? OR t.payee LIKE ? OR t.note LIKE ?)'; $like = '%' . $q . '%'; array_push($args, $like, $like, $like, $like); }
+        $stt = trim($body['status'] ?? ''); if ($stt !== '') { $where[] = 't.status=?'; $args[] = $stt; }
+        $limit = min(500, max(1, (int)($body['limit'] ?? 200)));
+        $sql = 'SELECT t.*, a.name AS account_name FROM account_transactions t LEFT JOIN accounts a ON a.id=t.account';
+        if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
+        $sql .= ' ORDER BY t.tx_date DESC, t.id DESC LIMIT ' . $limit;
+        $st = $pdo->prepare($sql); $st->execute($args);
+        json_out(['ok' => true, 'transactions' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    if (in_array($action, ['receive', 'expense', 'withdraw', 'deposit'], true)) {
+        if (!$canWrite) json_out(['ok' => false, 'error' => 'Your role cannot post transactions.'], 403);
+        $acct = trim($body['account'] ?? '');
+        $label = trim($body['label'] ?? '');
+        $amount = (int)($body['amount'] ?? 0);
+        if (!$acct || !$label || $amount <= 0) json_out(['ok' => false, 'error' => 'account, label and positive amount required.'], 400);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM accounts WHERE id=?'); $st->execute([$acct]);
+        if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Unknown account.'], 404);
+        $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'TX-','') AS INTEGER)) FROM account_transactions")->fetchColumn();
+        $id = 'TX-' . str_pad((string)max(1001, $mx + 1), 4, '0', STR_PAD_LEFT);
+        $pdo->prepare("INSERT INTO account_transactions (id, account, type, cat, label, amount, method, ref, payee, note, tx_date, status, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            ->execute([$id, $acct, $action, trim($body['cat'] ?? 'other'), $label, $amount,
+                trim($body['method'] ?? ''), trim($body['ref'] ?? ''), trim($body['payee'] ?? ''),
+                trim($body['note'] ?? ''), trim($body['date'] ?? gmdate('Y-m-d H:i:s')), 'cleared', $u['name']]);
+        audit($u['name'], 'Accounts ' . $action, 'accounts', $id, $label . ' ' . $amount . ' ' . $acct);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+
+    if ($action === 'reconcile-list') {
+        $pending = $pdo->query("SELECT t.*, a.name AS account_name FROM account_transactions t LEFT JOIN accounts a ON a.id=t.account WHERE t.reconciled=0 ORDER BY t.tx_date DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        $done = $pdo->query("SELECT t.*, a.name AS account_name FROM account_transactions t LEFT JOIN accounts a ON a.id=t.account WHERE t.reconciled=1 ORDER BY t.reconciled_at DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'pending' => $pending, 'done' => $done]);
+    }
+    if ($action === 'reconcile') {
+        if (!$canWrite) json_out(['ok' => false, 'error' => 'Your role cannot reconcile.'], 403);
+        $id = trim($body['id'] ?? ''); if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM account_transactions WHERE id=?'); $st->execute([$id]);
+        if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Transaction not found.'], 404);
+        $pdo->prepare("UPDATE account_transactions SET reconciled=1, reconciled_at=datetime('now'), reconciled_ref=? WHERE id=?")
+            ->execute([trim($body['ref'] ?? ''), $id]);
+        audit($u['name'], 'Accounts reconcile', 'accounts', $id, trim($body['ref'] ?? ''));
+        json_out(['ok' => true]);
+    }
+    if ($action === 'unreconcile') {
+        if (!$canWrite) json_out(['ok' => false, 'error' => 'Your role cannot reconcile.'], 403);
+        $id = trim($body['id'] ?? ''); if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare("UPDATE account_transactions SET reconciled=0, reconciled_at='', reconciled_ref='' WHERE id=?")->execute([$id]);
+        json_out(['ok' => true]);
+    }
+
+    if ($action === 'account-create') {
+        if (!$canWrite) json_out(['ok' => false, 'error' => 'Your role cannot create accounts.'], 403);
+        $name = trim($body['name'] ?? ''); if (!$name) json_out(['ok' => false, 'error' => 'Account name required.'], 400);
+        $type = trim($body['type'] ?? 'bank'); if (!in_array($type, ['cash', 'bank', 'mobile'], true)) $type = 'bank';
+        $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'ACC-','') AS INTEGER)) FROM accounts")->fetchColumn();
+        $id = 'ACC-' . str_pad((string)max(1, $mx + 1), 3, '0', STR_PAD_LEFT);
+        $pdo->prepare("INSERT INTO accounts (id, name, type, opening_balance, notes, status, created_by) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$id, $name, $type, max(0, (int)($body['opening_balance'] ?? 0)), trim($body['notes'] ?? ''), 'active', $u['name']]);
+        audit($u['name'], 'Account created', 'accounts', $id, $name);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($action === 'account-toggle') {
+        if (!$canWrite) json_out(['ok' => false, 'error' => 'Your role cannot manage accounts.'], 403);
+        $id = trim($body['id'] ?? ''); if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT status FROM accounts WHERE id=?'); $st->execute([$id]);
+        $cur = $st->fetchColumn(); if ($cur === false) json_out(['ok' => false, 'error' => 'Account not found.'], 404);
+        $new = $cur === 'active' ? 'inactive' : 'active';
+        $pdo->prepare('UPDATE accounts SET status=? WHERE id=?')->execute([$new, $id]);
+        json_out(['ok' => true, 'status' => $new]);
+    }
+    if ($action === 'account-delete') {
+        if (!$canWrite) json_out(['ok' => false, 'error' => 'Your role cannot delete accounts.'], 403);
+        $id = trim($body['id'] ?? ''); if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM accounts WHERE id=?'); $st->execute([$id]);
+        if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Account not found.'], 404);
+        $pdo->prepare('DELETE FROM account_transactions WHERE account=?')->execute([$id]);
+        $pdo->prepare('DELETE FROM accounts WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Account deleted', 'accounts', $id);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'delete') {
+        if (!$canWrite) json_out(['ok' => false, 'error' => 'Your role cannot delete transactions.'], 403);
+        $id = trim($body['id'] ?? ''); if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM account_transactions WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Accounts delete', 'accounts', $id);
+        json_out(['ok' => true]);
+    }
+
+    json_out(['ok' => false, 'error' => 'action must be summary|list|receive|expense|withdraw|deposit|reconcile-list|reconcile|unreconcile|account-create|account-toggle|account-delete|delete.'], 400);
+}
+
 case 'app-trust': {
     $u = require_user();
     $pdo = db();
