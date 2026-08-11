@@ -5234,14 +5234,60 @@ case 'app-trust': {
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
         if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
         $row['payload'] = json_decode($row['payload'], true) ?: [];
-        $html = tif_print_html($row);
+        $cfg = tif_print_cfg_effective($pdo, $row['payload']);
+        $html = tif_print_html($row, $cfg);
         audit($u['name'], 'Thana form printed', 'trust', $id, $row['tenant']);
         header('Content-Type: text/html; charset=utf-8');
         echo '<!DOCTYPE html><html lang="bn"><head><meta charset="utf-8"><title>' . htmlspecialchars($id) . ' — ভাড়াটিয়া নিবন্ধন ফরম</title></head><body>' . $html . '</body></html>';
         exit;
     }
 
-    json_out(['ok' => false, 'error' => 'action must be summary|nid-validate|nid-list|nid-save|nid-status|tif-list|tif-create|tif-get|tif-save|tif-submit|tif-verify|tif-print.'], 400);
+    /* tif-print-cfg-get — effective config for a form (global default merged with per-form override) */
+    if ($action === 'tif-print-cfg-get') {
+        $id = trim($body['id'] ?? $_GET['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM thana_forms WHERE id=?'); $st->execute([$id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
+        if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        $payload = json_decode($row['payload'], true) ?: [];
+        $local = isset($payload['_print']) && is_array($payload['_print']) ? $payload['_print'] : [];
+        json_out(['ok' => true, 'cfg' => tif_print_cfg_effective($pdo, $payload), 'override' => $local, 'defaults' => tif_print_cfg_defaults(), 'global' => tif_print_cfg_global($pdo)]);
+    }
+
+    /* tif-print-cfg-save — per-form override (stored in payload._print) */
+    if ($action === 'tif-print-cfg-save') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM thana_forms WHERE id=?'); $st->execute([$id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
+        if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        $payload = json_decode($row['payload'], true) ?: [];
+        $cfg = tif_print_cfg_sanitize($body['cfg'] ?? []);
+        if ($cfg) $payload['_print'] = $cfg; else unset($payload['_print']);
+        $pdo->prepare('UPDATE thana_forms SET payload=? WHERE id=?')
+            ->execute([json_encode($payload, JSON_UNESCAPED_UNICODE), $id]);
+        audit($u['name'], 'Thana print settings saved', 'trust', $id, $row['tenant']);
+        json_out(['ok' => true, 'cfg' => $cfg]);
+    }
+
+    /* tif-print-cfg-global — staff: get/save the global default (platform_meta tif_print_cfg) */
+    if ($action === 'tif-print-cfg-global') {
+        if (!$isStaff) json_out(['ok' => false, 'error' => 'Only staff can edit global print settings.'], 403);
+        if (($body['mode'] ?? '') === 'save') {
+            $cfg = tif_print_cfg_sanitize($body['cfg'] ?? []);
+            if ($cfg) {
+                $pdo->prepare("INSERT OR REPLACE INTO platform_meta (k, v) VALUES ('tif_print_cfg', ?)")
+                    ->execute([json_encode($cfg, JSON_UNESCAPED_UNICODE)]);
+            }
+            audit($u['name'], 'Thana print settings global saved', 'trust', '-', json_encode($cfg));
+            json_out(['ok' => true, 'cfg' => $cfg]);
+        }
+        json_out(['ok' => true, 'global' => tif_print_cfg_global($pdo), 'defaults' => tif_print_cfg_defaults()]);
+    }
+
+    json_out(['ok' => false, 'error' => 'action must be summary|nid-validate|nid-list|nid-save|nid-status|tif-list|tif-create|tif-get|tif-save|tif-submit|tif-verify|tif-print|tif-print-cfg-get|tif-print-cfg-save|tif-print-cfg-global.'], 400);
 }
 
 case 'app-land': {

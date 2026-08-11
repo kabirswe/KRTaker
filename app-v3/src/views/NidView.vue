@@ -172,6 +172,60 @@ async function printTf(f) {
     setTimeout(() => { try { w.print() } catch (e) {} }, 600)
   } catch (e) { tfErr.value = e.message }
 }
+
+// ══ Print settings (font size / gap / letter-spacing / padding / margin / position nudge) ══
+const PRINT_CFG_FIELDS = [
+  ['fs', 'Font size (px)', 6, 40, 0.5],
+  ['lh', 'Line gap (line-height)', 0.5, 4, 0.05],
+  ['ls', 'Letter spacing (px)', -5, 20, 0.25],
+  ['pd', 'Padding (px)', 0, 30, 0.5],
+  ['mg', 'Page margin (mm)', 0, 40, 0.5],
+  ['px', 'Position X (%)', -50, 50, 0.5],
+  ['py', 'Position Y (%)', -50, 50, 0.5],
+]
+const tfCfg = ref(null)          // { id, formLabel }
+const tfCfgForm = ref({})
+const tfCfgSaving = ref(false)
+const tfCfgErr = ref('')
+const tfCfgGlobal = ref(null)    // staff: global defaults
+const tfCfgDirty = ref(false)
+
+async function openPrintCfg(f) {
+  tfCfgErr.value = ''
+  tfCfg.value = { id: f.id, formLabel: `${f.id} · ${f.tenant_name || f.tenant || ''}` }
+  tfCfgForm.value = {}
+  try {
+    const r = await apiCall('app-trust', { action: 'tif-print-cfg-get', id: f.id })
+    if (!r.ok) { tfCfgErr.value = r.error || 'Failed to load print settings.'; return }
+    tfCfgForm.value = { ...(r.cfg || {}) }
+    if (isStaff.value) tfCfgGlobal.value = r.global || r.defaults || null
+    tfCfgDirty.value = false
+  } catch (e) { tfCfgErr.value = e.message }
+}
+const cfgSliderStyle = 'flex:1;accent-color:var(--primary)'
+async function savePrintCfg(asDefault = false) {
+  if (!tfCfg.value) return
+  tfCfgSaving.value = true; tfCfgErr.value = ''
+  try {
+    if (asDefault && isStaff.value) {
+      const r = await apiCall('app-trust', { action: 'tif-print-cfg-global', mode: 'save', cfg: tfCfgForm.value })
+      if (!r.ok) { tfCfgErr.value = r.error || 'Failed to save default.'; return }
+      tfCfgGlobal.value = r.cfg || tfCfgGlobal.value
+    }
+    const r = await apiCall('app-trust', { action: 'tif-print-cfg-save', id: tfCfg.value.id, cfg: tfCfgForm.value })
+    if (!r.ok) { tfCfgErr.value = r.error || 'Failed to save settings.'; return }
+    tfCfgDirty.value = false
+    tfCfg.value = null
+    toast?.('Print settings saved')
+  } catch (e) { tfCfgErr.value = e.message }
+  finally { tfCfgSaving.value = false }
+}
+async function resetPrintCfg() {
+  if (!tfCfg.value) return
+  const r = await apiCall('app-trust', { action: 'tif-print-cfg-get', id: tfCfg.value.id })
+  tfCfgForm.value = { ...(r.ok ? (r.defaults || {}) : {}) }
+  tfCfgDirty.value = true
+}
 </script>
 
 <template>
@@ -369,6 +423,7 @@ async function printTf(f) {
                   <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--ok,#12a150)" @click="verifyTf(f, 'approve')">✅ Approve</button>
                   <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" @click="verifyTf(f, 'reject')">❌ Reject</button>
                   <button v-if="f.payload?.name || f.tenant_name" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="printTf(f)">🖨 Print</button>
+                  <button class="btn-ghost" style="padding:4px 9px;font-size:11.5px" title="Print settings (font, gap, margin, position)" @click="openPrintCfg(f)">⚙️</button>
                 </td>
               </tr>
             </tbody>
@@ -395,6 +450,32 @@ async function printTf(f) {
           <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
             <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="tfEdit = null">Cancel</button>
             <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="tfSaving" @click="saveTf">💾 Save form {{ tfSaving ? '…' : '' }}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- print settings modal -->
+      <div v-if="tfCfg" class="overlay" @click.self="tfCfg = null">
+        <div class="drawer" style="max-width:520px">
+          <div class="modal-h"><span class="t">⚙️ Print settings · {{ tfCfg.formLabel }}</span><button class="close" @click="tfCfg = null">✕</button></div>
+          <div style="padding:16px 20px 0;overflow-y:auto;flex:1">
+            <div v-if="tfCfgErr" style="padding:8px 12px;border-radius:9px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:12px;font-weight:600;font-size:12.5px">⚠️ {{ tfCfgErr }}</div>
+            <div class="c-sub" style="margin-bottom:10px;font-size:12px">These apply to the print of this form (template is the official DMP file — adjust how the filled values sit on it).</div>
+            <div v-for="[k, label, mn, mx, st] in PRINT_CFG_FIELDS" :key="k" style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                <label style="font-size:12.5px;font-weight:700">{{ label }}</label>
+                <input v-model.number="tfCfgForm[k]" type="number" :step="st" :min="mn" :max="mx" style="width:78px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none;text-align:center" @input="tfCfgDirty = true">
+              </div>
+              <input :value="tfCfgForm[k]" type="range" :min="mn" :max="mx" :step="st" :style="cfgSliderStyle" @input="tfCfgForm[k] = parseFloat($event.target.value); tfCfgDirty = true">
+            </div>
+            <div v-if="isStaff && tfCfgGlobal" class="c-sub" style="font-size:11.5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:4px">🌐 Global default (used by new forms): fs {{ tfCfgGlobal.fs }} · gap {{ tfCfgGlobal.lh }} · margin {{ tfCfgGlobal.mg }}mm — “Save as default” overwrites it.</div>
+            <div style="height:8px"></div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0">
+            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="resetPrintCfg">↺ Reset</button>
+            <div style="flex:1"></div>
+            <button v-if="isStaff" class="btn-ghost" style="padding:9px 14px;font-size:12.5px" :disabled="tfCfgSaving" @click="savePrintCfg(true)">🌐 Save as default</button>
+            <button class="btn-primary" style="padding:9px 16px;font-size:12.5px" :disabled="tfCfgSaving" @click="savePrintCfg(false)">💾 Save {{ tfCfgSaving ? '…' : '' }}</button>
           </div>
         </div>
       </div>
