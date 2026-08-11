@@ -3,7 +3,7 @@ import { computed, ref, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
-import { apiCall } from '../api/client'
+import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { useViewMode, usePager, money, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
@@ -34,6 +34,24 @@ const SERVICES = [
   { v: 'holding_tax', l: 'Holding Tax', ico: '🏛️' },
   { v: 'registration', l: 'Registration', ico: '📝' },
 ]
+const DOC_KINDS = [
+  { v: 'application', l: 'Application', ico: '📄' },
+  { v: 'porcha', l: 'Porcha', ico: '🗺️' },
+  { v: 'khatian', l: 'Khatian', ico: '🧾' },
+  { v: 'mutation_cert', l: 'Mutation cert', ico: '📜' },
+  { v: 'holding_bill', l: 'Holding bill', ico: '🏛️' },
+  { v: 'nid', l: 'NID', ico: '🪪' },
+  { v: 'other', l: 'Other', ico: '📎' },
+]
+const docKind = (k) => DOC_KINDS.find(x => x.v === k) || { v: k, l: k || 'Other', ico: '📎' }
+// Fee/est-days preview from concierge config (keys: namjari_fee, e_porcha_fee, khatian_fee, holding_tax_fee, registration_fee + *_days)
+const feePreview = computed(() => {
+  const f = form.value.service
+  const fee = cfg.value[f + '_fee']
+  const days = cfg.value[f + '_days']
+  if (fee === undefined && days === undefined) return null
+  return { fee: fee !== undefined ? money(fee) : null, days: days !== undefined ? days + ' days' : null }
+})
 const svc = (s) => SERVICES.find(x => x.v === s) || { v: s, l: s || 'Service', ico: '🛎️' }
 const svcBadgeCls = (s) => ({ namjari: 'b-blue', e_porcha: 'b-orange', khatian: 'b-gray', holding_tax: 'b-blue', registration: 'b-purple' }[s] || 'b-gray')
 
@@ -118,7 +136,6 @@ async function createRequest() {
 // ── drawer actions ──
 const sel = ref(null)
 const busy = ref('')
-function openDetail(r) { sel.value = r }
 function closeDetail() { sel.value = null }
 watch(() => route.query.open, (id) => {
   if (id) { const r = reqAll.value.find(x => x.id === id); if (r) openDetail(r) }
@@ -158,6 +175,50 @@ async function addEvent() {
   showEventForm.value = false
   await load()
 }
+
+// ── documents (concierge_docs via app-concierge doc-*) ──
+const docs = ref([])
+const docsLoading = ref(false)
+const showDocForm = ref(false)
+const docKindVal = ref('other')
+const docFile = ref(null)
+async function loadDocs(id) {
+  if (!id) return
+  docsLoading.value = true
+  try {
+    const r = await apiCall('app-concierge', { action: 'doc-list', id })
+    if (r.ok) docs.value = r.docs || []
+    else docs.value = []
+  } finally { docsLoading.value = false }
+}
+async function openDetail(r) { sel.value = r; await loadDocs(r.id) }
+function openDocForm() { docKindVal.value = 'other'; docFile.value = null; showDocForm.value = true }
+async function uploadDoc() {
+  if (!docFile.value) { alert('Choose a file first.'); return }
+  const fd = new FormData()
+  fd.append('request', sel.value.id)
+  fd.append('kind', docKindVal.value)
+  fd.append('file', docFile.value)
+  const r = await apiUpload('app-concierge?action=doc-upload', fd)
+  if (!r.ok) { alert(r.error || 'Upload failed'); return }
+  showDocForm.value = false
+  await loadDocs(sel.value.id)
+}
+async function removeDoc(d) {
+  if (!confirm(`Remove ${d.id} (${d.name})?`)) return
+  const r = await apiCall('app-concierge', { action: 'doc-remove', id: d.id })
+  if (!r.ok) { alert(r.error || 'Remove failed'); return }
+  await loadDocs(sel.value.id)
+}
+function downloadDoc(d) {
+  apiBlob('app-concierge?action=doc-download&id=' + d.id).then(url => {
+    if (!url) { alert('Download failed.'); return }
+    const a = document.createElement('a')
+    a.href = url; a.download = d.name || d.id; a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 4000)
+  })
+}
+const docFileChange = (e) => { docFile.value = e.target.files?.[0] || null }
 
 // ── holding tax ──
 const showHtForm = ref(false)
@@ -376,6 +437,27 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
               <button @click="openEventForm" class="btn-ghost" style="padding:7px 12px;font-size:12px">📝 Add event</button>
             </div>
           </div>
+          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">📎 Documents</span>
+              <span class="c-sub" style="font-size:11px">{{ docs.length }}</span>
+              <span style="margin-left:auto">
+                <button v-if="canManage && !['Completed', 'Rejected', 'Cancelled'].includes(sel.status)" @click="openDocForm" class="btn-ghost" style="padding:5px 10px;font-size:11.5px">＋ Upload</button>
+              </span>
+            </div>
+            <div v-if="docsLoading" class="c-sub" style="font-size:12px;padding:6px 0">Loading…</div>
+            <div v-else-if="!docs.length" class="c-sub" style="font-size:12px;padding:6px 0">No documents attached.</div>
+            <div v-else style="display:flex;flex-direction:column;gap:6px">
+              <div v-for="d in docs" :key="d.id" style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--border)">
+                <span style="font-size:14px">{{ docKind(d.kind).ico }}</span>
+                <span style="font-weight:700;white-space:nowrap">{{ d.id }}</span>
+                <span class="c-sub" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</span>
+                <span class="c-sub" style="font-size:10.5px">{{ Math.max(1, Math.round((d.size || 0) / 1024)) }} KB</span>
+                <button @click="downloadDoc(d)" class="btn-ghost" style="padding:3px 8px;font-size:11px" title="Download">⬇</button>
+                <button v-if="canManage" @click="removeDoc(d)" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger,#e74c3c)" title="Remove">🗑</button>
+              </div>
+            </div>
+          </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-if="parseTimeline(sel).length" style="margin:14px 0">
             <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Activity · {{ parseTimeline(sel).length }} events</div>
@@ -412,6 +494,10 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
             <select v-model="form.service" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option v-for="s in SERVICES" :key="s.v" :value="s.v">{{ s.l }}</option>
             </select>
+            <div v-if="feePreview" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+              <span class="badge b-green" style="font-size:12px">💰 Fee {{ feePreview.fee }}</span>
+              <span class="badge b-blue" style="font-size:12px">⏱ Est. {{ feePreview.days }}</span>
+            </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
@@ -475,6 +561,30 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
             <textarea v-model="eventNote" rows="4" placeholder="e.g. documents submitted to AC land office" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea>
           </div>
           <button @click="addEvent" class="btn-primary" style="margin-top:4px">💾 Add to timeline</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- doc upload modal -->
+    <template v-if="showDocForm">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="showDocForm = false"></div>
+      <div style="position:fixed;top:0;right:0;bottom:0;width:min(480px,94vw);background:var(--card);z-index:71;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column">
+        <div class="d-cover" style="height:90px;background:var(--grad);position:relative;flex-shrink:0">
+          <div style="position:absolute;left:18px;bottom:14px;font-size:17px;font-weight:800;color:#fff">📎 Upload document — {{ sel?.id }}</div>
+          <button @click="showDocForm = false" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Kind</label>
+            <select v-model="docKindVal" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
+              <option v-for="k in DOC_KINDS" :key="k.v" :value="k.v">{{ k.ico }} {{ k.l }}</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">File (image / PDF, ≤8 MB)</label>
+            <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" @change="docFileChange" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
+          </div>
+          <button @click="uploadDoc" class="btn-primary" style="margin-top:4px">⬆ Upload document</button>
         </div>
       </div>
     </template>

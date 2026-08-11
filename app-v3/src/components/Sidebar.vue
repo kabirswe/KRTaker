@@ -16,13 +16,13 @@ const emit = defineEmits(['close'])
 // Same GROUPS as dashboard-v2 (v3 consolidation: legal cluster grouped, vendor finance merged into Vendors workspace)
 const GROUPS = [
   { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
-  { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['insurance', '🛡️', 'Insurance'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents'], ['templates', '🗂️', 'Templates']] },
-  { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['recon', '📮', 'Collections'], ['taxes', '🏛️', 'Holding Taxes'], ['statements', '💰', 'Statements'], ['remit', '🌍', 'Remittances'], ['nrb', '🌐', 'NRB Hub'], ['subscriptions', '💠', 'Subscriptions']] },
+  { id: 'portfolio', label: 'Portfolio', items: [['properties', '🏢', 'Properties'], ['units', '🚪', 'Units'], ['tenants', '👤', 'Tenants'], ['leases', '📄', 'Leases'], ['insurance', '🛡️', 'Insurance'], ['onboarding', '📋', 'Onboarding'], ['leads', '📥', 'Leads'], ['documents', '📁', 'Documents']] },
+  { id: 'finance', label: 'Finance', items: [['invoices', '🧾', 'Invoices'], ['receipts', '📎', 'Receipts'], ['payments', '💳', 'Payments'], ['recon', '📮', 'Collections'], ['taxes', '🏛️', 'Holding Taxes'], ['remit', '🌍', 'Remittances']] },
   { id: 'bms', label: 'BMS', items: [['maintenance', '🔧', 'Maintenance'], ['gate', '🚪', 'Gate Visits'], ['staff', '👷', 'Staff'], ['attendance', '⏱️', 'Attendance'], ['payroll', '💵', 'Payroll'], ['meter', '⚡', 'Meter Readings'], ['utilities', '🔌', 'Utility Bills'], ['samity', '🏘️', 'Samity']] },
-  { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'Trust Engine'], ['support', '🎧', 'Support']] },
+  { id: 'community', label: 'Community', items: [['notices', '📢', 'Notice Board'], ['referrals', '🤝', 'Referrals'], ['trust', '🪪', 'NID & Trust'], ['support', '🎧', 'Support']] },
   { id: 'legal', label: 'Legal', items: [['compliance', '⚖️', 'Compliance'], ['legal', '📜', 'Legal Engine'], ['cases', '👨‍⚖️', 'Cases'], ['concierge', '🗂️', 'Legal Concierge']] },
   { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors']] },
-  { id: 'secure', label: 'Safety & Security', items: [['smarthome', '🔐', 'Smart Home'], ['land', '🛰️', 'Land Guard'], ['build', '🏗️', 'Build Watch'], ['firesafety', '🧯', 'Fire Safety'], ['systems', '⚙️', 'Systems Watch'], ['health', '🌦️', 'Health Check']] },
+  { id: 'secure', label: 'Safety & Security', items: [['smarthome', '🏠', 'Building Systems'], ['land', '🛰️', 'Land Guard'], ['build', '🏗️', 'Build Watch'], ['firesafety', '🧯', 'Fire Safety']] },
   { id: 'admin', label: 'Admin', items: [['caretaker', '👑', 'Caretaker']] },
 ]
 
@@ -31,14 +31,14 @@ const VIEW_ROUTES = {
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
-  taxes: '/holding-taxes', remit: '/remittances', nrb: '/nid', subscriptions: '/vendors', recon: '/collections',
+  taxes: '/holding-taxes', remit: '/remittances', recon: '/collections',
   notices: '/notices', referrals: '/referrals', trust: '/nid', support: '/support',
   maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
   staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',
   compliance: '/compliance', legal: '/legal', cases: '/cases', concierge: '/concierge',
-  smarthome: '/units', land: '/land', build: '/build', gate: '/gate-visits',
-  firesafety: '/fire-safety', systems: '/units', staffwatch: '/staff-attendance',
-  health: '/meter-readings', samity: '/samity', caretaker: '/dashboard',
+  smart: '/building-systems', smarthome: '/building-systems', land: '/land', build: '/build', gate: '/gate-visits',
+  firesafety: '/fire-safety', staffwatch: '/staff-attendance',
+  samity: '/samity', caretaker: '/dashboard',
 }
 
 // Module gating follows the EFFECTIVE user (updates after a real role switch).
