@@ -2,7 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
-import { useViewMode, usePager } from '../lib/ui'
+import { apiCall } from '../api/client'
+import { useViewMode, usePager, today } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
@@ -29,6 +30,37 @@ function hoursWorked(a) {
   let m = (ho * 60 + mo) - (hi * 60 + mi)
   if (m < 0) m += 1440
   return (m / 60).toFixed(1) + 'h'
+}
+const role = computed(() => (data.user || {}).role || '')
+const canManage = computed(() => ['superadmin', 'owner', 'manager', 'svc_mgr', 'hr'].includes(role.value))
+const staffList = computed(() => data.list('building_staff'))
+
+// ── attendance writes ──
+const attModal = ref(false)
+const attForm = ref({ id: '', staff: '', work_date: today(), status: 'present', check_in: '', check_out: '', notes: '' })
+function openAttModal(a) {
+  attForm.value = a
+    ? { id: a.id, staff: a.staff || '', work_date: (a.work_date || today()).slice(0, 10), status: a.status || 'present', check_in: a.check_in || '', check_out: a.check_out || '', notes: a.notes || '' }
+    : { id: '', staff: staffList.value[0]?.id || '', work_date: today(), status: 'present', check_in: '', check_out: '', notes: '' }
+  attModal.value = true
+}
+async function saveAttendance() {
+  const f = attForm.value
+  if (!f.staff) { window.__krToast?.('❌ Select staff'); return }
+  if (!f.work_date) { window.__krToast?.('❌ Date is required'); return }
+  const r = await apiCall('app-staffwatch', { action: 'attendance-mark', staff: f.staff, work_date: f.work_date, status: f.status, check_in: f.check_in, check_out: f.check_out, notes: f.notes.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  attModal.value = false
+  window.__krToast?.('✅ Attendance marked')
+  await data.bootstrap()
+}
+async function delAttendance(a) {
+  if (!window.confirm('Delete attendance entry ' + a.id + '?')) return
+  const r = await apiCall('app-staffwatch', { action: 'attendance-delete', id: a.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  closeDetail()
+  await data.bootstrap()
 }
 
 // ── KPIs ──
@@ -110,6 +142,7 @@ function detailFields(row) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="canManage" @click="openAttModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Mark attendance</button>
       </div>
     </div>
 
@@ -147,7 +180,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Staff</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Status</th></tr></thead>
+          <thead><tr><th>ID</th><th>Staff</th><th>Date</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Status</th><th></th></tr></thead>
           <tbody>
             <tr v-for="a in paged" :key="a.id" style="cursor:pointer" @click="openDetail(a)">
               <td style="font-weight:700;white-space:nowrap">{{ a.id }}</td>
@@ -157,6 +190,10 @@ function detailFields(row) {
               <td style="white-space:nowrap">{{ a.check_out || '—' }}</td>
               <td style="white-space:nowrap" class="c-sub">{{ hoursWorked(a) || '—' }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="stCls(a.status)">{{ stLabel(a.status) }}</span></td>
+              <td style="white-space:nowrap">
+                <button v-if="canManage" @click.stop="openAttModal(a)" title="Edit" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
+                <button v-if="canManage" @click.stop="delAttendance(a)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -165,6 +202,58 @@ function detailFields(row) {
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No attendance records found{{ query ? ' for “' + query + '”' : '' }}.</div>
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
+
+    <!-- attendance modal -->
+    <template v-if="attModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="attModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">{{ attForm.id ? '✏️ Edit attendance' : '👷 Mark attendance' }}</div>
+          <button @click="attModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Staff *</div>
+            <select v-model="attForm.staff" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+              <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.id }} · {{ s.name }}<template v-if="s.role"> ({{ s.role }})</template></option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Date *</div>
+              <input v-model="attForm.work_date" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Status</div>
+              <select v-model="attForm.status" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+                <option value="present">✅ Present</option>
+                <option value="late">⏰ Late</option>
+                <option value="absent">❌ Absent</option>
+                <option value="leave">🏖 Leave</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Check-in</div>
+              <input v-model="attForm.check_in" type="time" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Check-out</div>
+              <input v-model="attForm.check_out" type="time" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Notes</div>
+            <input v-model="attForm.notes" placeholder="Optional…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="attModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="saveAttendance" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save entry</button>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- drawer -->
     <template v-if="sel">
@@ -181,6 +270,10 @@ function detailFields(row) {
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
           <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ staffName(sel.staff) }}</h2>
           <div class="c-sub" style="margin-top:4px;font-size:12.5px">📅 {{ fmtDate(sel.work_date) }}</div>
+          <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;font-weight:700" @click="openAttModal(sel)">✏️ Edit entry</button>
+            <button style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="delAttendance(sel)">🗑 Delete</button>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px 18px;margin-top:14px">
             <div style="font-size:13px">
               <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Check-in</div>

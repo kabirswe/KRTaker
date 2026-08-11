@@ -2,7 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
-import { useViewMode, usePager, money, monthLabel } from '../lib/ui'
+import { apiCall } from '../api/client'
+import { useViewMode, usePager, money, monthLabel, today } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 
 const router = useRouter()
@@ -22,6 +23,44 @@ const staffName = (id) => {
 const stCls = (s) => s === 'Paid' ? 'b-green' : (s === 'Draft' ? 'b-orange' : (s === 'Processing' ? 'b-blue' : 'b-gray'))
 const netOf = (p) => (p.salary || 0) + (p.overtime || 0) + (p.bonus || 0) - (p.advance_deduction || 0)
 const fmtDate = (d) => { if (!d) return '—'; const t = new Date(String(d).slice(0, 10) + 'T00:00:00'); return isNaN(t) ? String(d).slice(0, 10) : t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }
+const role = computed(() => (data.user || {}).role || '')
+const canManage = computed(() => ['superadmin', 'owner', 'manager', 'svc_mgr', 'hr'].includes(role.value))
+const staffList = computed(() => data.list('building_staff'))
+
+// ── payroll writes ──
+const pyModal = ref(false)
+const pyForm = ref({ staff: '', month: today().slice(0, 7), overtime: '', bonus: '', advance_deduction: '' })
+function openPyModal(p) {
+  pyForm.value = p
+    ? { staff: p.staff || '', month: p.month || today().slice(0, 7), overtime: p.overtime || '', bonus: p.bonus || '', advance_deduction: p.advance_deduction || '' }
+    : { staff: staffList.value[0]?.id || '', month: today().slice(0, 7), overtime: '', bonus: '', advance_deduction: '' }
+  pyModal.value = true
+}
+async function generatePayroll() {
+  const f = pyForm.value
+  if (!f.staff) { window.__krToast?.('❌ Select staff'); return }
+  if (!f.month) { window.__krToast?.('❌ Month is required'); return }
+  const r = await apiCall('app-staffwatch', { action: 'payroll-create', staff: f.staff, month: f.month, overtime: parseInt(f.overtime) || 0, bonus: parseInt(f.bonus) || 0, advance_deduction: parseInt(f.advance_deduction) || 0 })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  pyModal.value = false
+  window.__krToast?.('✅ Payslip ' + (r.id || '') + ' · net ' + money(r.net ?? 0) + (r.absent_days ? ' · ' + r.absent_days + ' absent' : ''))
+  await data.bootstrap()
+}
+async function payPayroll(p) {
+  if (!window.confirm('Mark ' + p.id + ' as paid for ' + staffName(p.staff) + '?')) return
+  const r = await apiCall('app-staffwatch', { action: 'payroll-pay', id: p.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('✅ Marked paid')
+  await data.bootstrap()
+}
+async function delPayroll(p) {
+  if (!window.confirm('Delete payslip ' + p.id + '?')) return
+  const r = await apiCall('app-staffwatch', { action: 'payroll-delete', id: p.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  closeDetail()
+  await data.bootstrap()
+}
 
 // ── KPIs ──
 const kpis = computed(() => {
@@ -101,6 +140,7 @@ function detailFields(row) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="canManage" @click="openPyModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Generate payslip</button>
       </div>
     </div>
 
@@ -143,7 +183,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Staff</th><th>Month</th><th>Salary</th><th>OT</th><th>Bonus</th><th>Deduction</th><th>Net</th><th>Status</th></tr></thead>
+          <thead><tr><th>ID</th><th>Staff</th><th>Month</th><th>Salary</th><th>OT</th><th>Bonus</th><th>Deduction</th><th>Net</th><th>Status</th><th></th></tr></thead>
           <tbody>
             <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="font-weight:700;white-space:nowrap">{{ p.id }}</td>
@@ -155,6 +195,11 @@ function detailFields(row) {
               <td style="white-space:nowrap" class="c-sub">{{ p.advance_deduction ? '−' + money(p.advance_deduction) : '—' }}</td>
               <td style="white-space:nowrap;font-weight:700">{{ money(p.net ?? netOf(p)) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="stCls(p.status)">{{ p.status || '—' }}</span></td>
+              <td style="white-space:nowrap">
+                <button v-if="canManage && p.status !== 'Paid'" @click.stop="payPayroll(p)" title="Mark paid" style="background:none;border:none;font-size:14px;cursor:pointer">💰</button>
+                <button v-if="canManage" @click.stop="openPyModal(p)" title="Recompute" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
+                <button v-if="canManage" @click.stop="delPayroll(p)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -163,6 +208,48 @@ function detailFields(row) {
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No payslips found{{ query ? ' for “' + query + '”' : '' }}.</div>
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
+
+    <!-- payroll modal -->
+    <template v-if="pyModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="pyModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">{{ pyForm.staff && staffList.find(s => s.id === pyForm.staff) ? '✏️ Recompute payslip' : '💰 Generate payslip' }}</div>
+          <button @click="pyModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Staff *</div>
+            <select v-model="pyForm.staff" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+              <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.id }} · {{ s.name }}<template v-if="s.monthly_salary"> · {{ money(s.monthly_salary) }}/mo</template></option>
+            </select>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Month *</div>
+            <input v-model="pyForm.month" type="month" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Overtime</div>
+              <input v-model="pyForm.overtime" type="number" min="0" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Bonus</div>
+              <input v-model="pyForm.bonus" type="number" min="0" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Advance</div>
+              <input v-model="pyForm.advance_deduction" type="number" min="0" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text-mute);line-height:1.6">Net = salary + overtime + bonus − advance − absent-day deductions. Absent days and daily rate are computed automatically from attendance.</div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="pyModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="generatePayroll" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Generate</button>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- drawer -->
     <template v-if="sel">
@@ -184,6 +271,11 @@ function detailFields(row) {
           <div class="c-sub" style="margin-top:4px;font-size:12.5px">{{ sel.id }} · {{ monthLabel(sel.month) }} <template v-if="sel.paid_at">· ✅ paid {{ fmtDate(sel.paid_at) }}</template></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0">
             <span class="badge" :class="stCls(sel.status)">{{ sel.status || '—' }}</span>
+          </div>
+          <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">
+            <button v-if="sel.status !== 'Paid'" style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:var(--ok);color:#fff;cursor:pointer" @click="payPayroll(sel)">💰 Mark paid</button>
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;font-weight:700" @click="openPyModal(sel)">✏️ Recompute</button>
+            <button style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="delPayroll(sel)">🗑 Delete</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px;border-top:1px solid var(--border);padding-top:14px">
             <div style="font-size:13px">
