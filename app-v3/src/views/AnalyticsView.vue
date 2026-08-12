@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { apiCall } from '../api/client'
+import { track } from '../lib/analytics'
 import LineChart from '../components/charts/LineChart.vue'
 import Donut from '../components/charts/Donut.vue'
 import HBars from '../components/charts/HBars.vue'
@@ -32,6 +33,7 @@ function exportCsv(name, headers, rows) {
   a.href = URL.createObjectURL(blob); a.download = name + '.csv'
   document.body.appendChild(a); a.click(); a.remove()
   setTimeout(() => URL.revokeObjectURL(a.href), 500)
+  track('report_exported', { report: name })
 }
 const flash = (m) => { toast.value = m; setTimeout(() => toast.value = '', 4000) }
 

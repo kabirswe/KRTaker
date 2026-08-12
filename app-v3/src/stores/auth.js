@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { apiCall, botFields, attachHumanTokens } from '../api/client'
 import { HIERARCHY, canViewAs } from '../lib/roles'
+import { track } from '../lib/analytics'
 
 const TOKEN_KEY = 'krtaker' + '_dash_' + 'token'  // same key as dashboard-v2
 const ORIG_KEY = 'krtaker_orig_token'  // real token while viewing-as a subordinate
@@ -46,11 +47,13 @@ export const useAuthStore = defineStore('auth', {
           this.validated = true
           try { localStorage.setItem(TOKEN_KEY, r.token) } catch (e) {}
           try { localStorage.removeItem(ORIG_KEY) } catch (e) {}
+          track('login_success', { role: r.user?.role || '', method: twofaCode ? '2fa' : 'password' })
           return { ok: true }
         }
-        if (r.need_2fa) { this.need2fa = true; return { ok: false, need2fa: true, method: r.method || 'totp', email_hint: r.email_hint || '' } }
+        if (r.need_2fa) { this.need2fa = true; track('login_2fa_required', { method: r.method || 'totp' }); return { ok: false, need2fa: true, method: r.method || 'totp', email_hint: r.email_hint || '' } }
         this.error = r.error || 'Invalid email or password.'
         this.validated = true
+        track('login_failed', { reason: (r.error || 'invalid').slice(0, 60) })
         return { ok: false, error: this.error }
       } finally { this.loading = false }
     },
@@ -66,6 +69,7 @@ export const useAuthStore = defineStore('auth', {
       try { localStorage.setItem(TOKEN_KEY, r.token) } catch (e) {}
       this.impersonator = r.impersonator || ''
       this.impExpires = r.expires_at || ''
+      track('role_switched', { to: email, via: 'view_as' })
       const me = await this.fetchMe()
       if (!me) { this.user = r.user }
       return { ok: true, expires_at: r.expires_at, user: r.user }
@@ -95,6 +99,7 @@ export const useAuthStore = defineStore('auth', {
     },
     async logout() {
       try { await apiCall('app-logout', {}) } catch (e) {}
+      track('logout', {})
       this.clear()
     },
     clear() {

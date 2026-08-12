@@ -2,6 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../api/client'
+import { track } from '../lib/analytics'
 import { notifMeta, notifTarget } from '../lib/ui'
 
 const router = useRouter()
@@ -83,6 +84,7 @@ async function dismissAll() {
 function openAlert(a) {
   markRead(a)
   const t = notifTarget(a)
+  track('notification_opened', { type: a.type || '', severity: a.severity || '' })
   router.push({ path: t.path, query: t.query })
 }
 

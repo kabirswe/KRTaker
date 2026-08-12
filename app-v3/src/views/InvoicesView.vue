@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
+import { track } from '../lib/analytics'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import CompactFilters from '../components/CompactFilters.vue'
@@ -116,7 +117,7 @@ async function submitPay() {
   paySaving.value = true
   try {
     const r = await apiCall('app-invoice-pay', { invoice_id: m.inv.id, amount: Math.round(m.amount), date: m.date, method: m.method, sig: m.sig })
-    if (r.ok) { window.__krToast?.(`💳 ${m.inv.id} → ${r.status} (paid ৳${(r.paid || 0).toLocaleString('en-IN')})`, 'ok'); payModal.value = null; await data.bootstrap() }
+    if (r.ok) { window.__krToast?.(`💳 ${m.inv.id} → ${r.status} (paid ৳${(r.paid || 0).toLocaleString('en-IN')})`, 'ok'); payModal.value = null; await data.bootstrap(); track('invoice_paid', { invoice_id: m.inv.id, amount: Math.round(m.amount), method: m.method }) }
     else window.__krToast?.(r.error || 'Payment failed', 'error')
   } finally { paySaving.value = false }
 }
@@ -181,6 +182,7 @@ async function runAuto() {
       if (r.no_email) parts.push(`${r.no_email} no email`)
       if (r.suppressed_docs) parts.push(`${r.suppressed_docs} docs off`)
       if (r.suppressed_optout) parts.push(`${r.suppressed_optout} opted out`)
+      track('invoices_generated', { month: m.month, created: r.created || 0, emailed: r.queued || 0 })
       window.__krToast?.(parts.join(' · '), r.created ? 'ok' : 'info')
       closeAuto()
       await data.bootstrap()

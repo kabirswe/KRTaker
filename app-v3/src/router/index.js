@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { pageView } from '../lib/analytics'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 
@@ -94,6 +95,13 @@ router.beforeEach(async (to) => {
     }
   }
   return true
+})
+
+// V2.18: GA4 page-view tracking for the hash router (fires after every
+// navigation — full loads, hash changes, and guard redirects alike).
+router.afterEach((to) => {
+  const title = (typeof to.name === 'string' ? to.name.replace(/-/g, ' ') : 'page')
+  pageView(title.charAt(0).toUpperCase() + title.slice(1), to.fullPath)
 })
 
 export default router

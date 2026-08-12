@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
+import { track } from '../lib/analytics'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import RichEditor from '../components/RichEditor.vue'
@@ -82,6 +83,7 @@ async function submitRaise() {
   raiseModal.value = false
   window.__krToast?.('✅ ' + (r.id || 'Request') + ' raised')
   await data.bootstrap()
+  track('maintenance_ticket_created', { category: f.category, priority: f.priority })
 }
 
 // ── drawer ──

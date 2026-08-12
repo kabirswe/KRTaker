@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
+import { track } from '../lib/analytics'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
 import { globalSearch, searchTarget, SEARCH_HINT } from '../lib/globalsearch'
 import { notifTarget } from '../lib/ui'
@@ -144,6 +145,7 @@ function openAlert(a) {
   if (!a.read_at) apiCall('app-kr-alert', { action: 'read', id: a.id }).catch(() => {})
   bellOpen.value = false
   const t = notifTarget(a)
+  track('notification_opened', { type: a.type || '', severity: a.severity || '' })
   router.push({ path: t.path, query: t.query })
 }
 const sevIco = (s) => s === 'critical' ? '🚨' : (s === 'warning' ? '⚠️' : (s === 'success' ? '✅' : '🔔'))
