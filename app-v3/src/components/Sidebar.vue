@@ -50,7 +50,7 @@ const GROUPS = [
   { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio']] },
   { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance']] },
   { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS']] },
-  { id: 'community', label: 'Community', items: [['community', '📢', 'Community']] },
+  { id: 'community', label: 'Community', items: [['community', '📢', 'Community'], ['society', '🏘️', 'Society']] },
   { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal']] },
   { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors']] },
   { id: 'secure', label: 'Safety & Security', items: [['secure', '🏠', 'Safety & Security']] },
@@ -58,7 +58,7 @@ const GROUPS = [
 
 const VIEW_ROUTES = {
   dashboard: '/dashboard', analytics: '/analytics', ai: '/ai', finance: '/finance', portal: '/portal',
-  portfolio: '/portfolio', bms: '/bms', community: '/community', legalhub: '/legal-hub', secure: '/secure',
+  portfolio: '/portfolio', bms: '/bms', community: '/community', society: '/society', legalhub: '/legal-hub', secure: '/secure',
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents', templates: '/templates',
   invoices: '/invoices', receipts: '/receipts', payments: '/payments',
@@ -84,7 +84,8 @@ const BMS_MODS = ['maintenance', 'gate', 'staff', 'attendance', 'payroll', 'mete
 const COMMUNITY_MODS = ['notices', 'referrals', 'trust', 'support']
 const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
 const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
-const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS }
+const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events']
+const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS, society: SOCIETY_MODS }
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true

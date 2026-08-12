@@ -189,7 +189,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-inspections', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-inspections', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -10973,5 +10973,212 @@ case 'app-tenant-remind': {
 
 default:
     json_out(['ok' => false, 'error' => 'Unknown endpoint.'], 404);
+case 'app-community': {
+    $u = require_user();
+    $pdo = db();
+    $mod = trim($_GET['mod'] ?? $body['mod'] ?? '');
+    require_module($u, $mod);
+    $action = trim($_GET['action'] ?? $body['action'] ?? '');
+    if ($action === '') $action = 'list';
+    $actor = ['email' => $u['email'], 'name' => $u['name']];
+    $gen = function ($table, $idPrefix) use ($pdo) {
+        $st = $pdo->prepare("SELECT id FROM $table ORDER BY id DESC LIMIT 1");
+        $last = $st->fetchColumn();
+        $n = $last ? ((int)substr($last, strlen($idPrefix) + 1)) + 1 : 100;
+        return $idPrefix . '-' . str_pad((string)$n, 3, '0', STR_PAD_LEFT);
+    };
+    $t = [
+        'parking'  => 'community_parking',
+        'bookings' => 'community_bookings',
+        'voting'   => 'community_votes',
+        'forums'   => 'community_threads',
+        'events'   => 'community_events',
+    ];
+    if (!isset($t[$mod])) json_out(['ok' => false, 'error' => 'Unknown community module.'], 400);
+    $table = $t[$mod];
+
+    /* ── voting: ballots are separate; forums: posts are separate ── */
+    if ($mod === 'voting') {
+        if ($action === 'list') {
+            $rows = $pdo->query('SELECT * FROM community_votes ORDER BY open DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+            $st = $pdo->prepare('SELECT vote, option, voter FROM community_ballots WHERE voter=?');
+            $st->execute([$u['email']]);
+            $mine = [];
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $b) $mine[$b['vote']] = (int)$b['option'];
+            $out = [];
+            foreach ($rows as &$r) {
+                $r['options'] = json_decode($r['options'], true) ?: [];
+                $r['my_vote'] = $mine[$r['id']] ?? null;
+                $r['ballots'] = [];
+                $bs = $pdo->prepare('SELECT option FROM community_ballots WHERE vote=?');
+                $bs->execute([$r['id']]);
+                foreach ($bs->fetchAll(PDO::FETCH_ASSOC) as $b) $r['ballots'][] = (int)$b['option'];
+                $r['tally'] = array_fill(0, count($r['options']), 0);
+                foreach ($r['ballots'] as $o) $r['tally'][$o] = ($r['tally'][$o] ?? 0) + 1;
+                $r['total_votes'] = count($r['ballots']);
+                $out[] = $r;
+            }
+            json_out(['ok' => true, 'rows' => $out]);
+        }
+        if ($action === 'create') {
+            $q = trim($body['question'] ?? '');
+            $opts = array_values(array_filter(array_map('trim', (array)($body['options'] ?? []))));
+            if ($q === '' || count($opts) < 2) json_out(['ok' => false, 'error' => 'Question and at least 2 options are required.'], 400);
+            $id = $gen('community_votes', 'VOT');
+            $pdo->prepare('INSERT INTO community_votes (id, question, options, created_by, created_name) VALUES (?,?,?,?,?)')
+                ->execute([$id, $q, json_encode($opts), $actor['email'], $actor['name']]);
+            audit($u['name'], 'Community poll created', 'voting', $id, $q);
+            json_out(['ok' => true, 'id' => $id]);
+        }
+        if ($action === 'vote') {
+            $id = trim($body['id'] ?? '');
+            $opt = (int)($body['option'] ?? -1);
+            $st = $pdo->prepare('SELECT * FROM community_votes WHERE id=?'); $st->execute([$id]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$row) json_out(['ok' => false, 'error' => 'Poll not found.'], 404);
+            if ((int)$row['open'] !== 1) json_out(['ok' => false, 'error' => 'Poll closed.'], 400);
+            $opts = json_decode($row['options'], true) ?: [];
+            if ($opt < 0 || $opt >= count($opts)) json_out(['ok' => false, 'error' => 'Invalid option.'], 400);
+            $st = $pdo->prepare('SELECT COUNT(*) FROM community_ballots WHERE vote=? AND voter=?');
+            $st->execute([$id, $u['email']]);
+            if ((int)$st->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'Already voted.'], 400);
+            $pdo->prepare('INSERT INTO community_ballots (id, vote, voter, option) VALUES (?,?,?,?)')
+                ->execute([$gen('community_ballots', 'BAL'), $id, $u['email'], $opt]);
+            audit($u['name'], 'Voted in poll', 'voting', $id);
+            json_out(['ok' => true]);
+        }
+        if ($action === 'toggle') {
+            if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can open/close polls.'], 403);
+            $id = trim($body['id'] ?? '');
+            $open = (int)($body['open'] ?? 0);
+            $pdo->prepare('UPDATE community_votes SET open=? WHERE id=?')->execute([$open, $id]);
+            json_out(['ok' => true]);
+        }
+        json_out(['ok' => false, 'error' => 'Unknown voting action.'], 400);
+    }
+
+    if ($mod === 'forums') {
+        if ($action === 'list') {
+            $rows = $pdo->query('SELECT * FROM community_threads ORDER BY pinned DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+            $out = [];
+            foreach ($rows as $r) {
+                $st = $pdo->prepare('SELECT COUNT(*) FROM community_posts WHERE thread=?'); $st->execute([$r['id']]);
+                $r['posts'] = (int)$st->fetchColumn();
+                $out[] = $r;
+            }
+            json_out(['ok' => true, 'rows' => $out]);
+        }
+        if ($action === 'thread') {
+            $id = trim($_GET['id'] ?? $body['id'] ?? '');
+            $st = $pdo->prepare('SELECT * FROM community_threads WHERE id=?'); $st->execute([$id]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$row) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
+            $ps = $pdo->prepare('SELECT * FROM community_posts WHERE thread=? ORDER BY ts');
+            $ps->execute([$id]);
+            json_out(['ok' => true, 'thread' => $row, 'posts' => $ps->fetchAll(PDO::FETCH_ASSOC)]);
+        }
+        if ($action === 'create') {
+            $title = trim($body['title'] ?? '');
+            $bodyTxt = trim($body['body'] ?? '');
+            if ($title === '') json_out(['ok' => false, 'error' => 'Title required.'], 400);
+            $id = $gen('community_threads', 'THR');
+            $pdo->prepare('INSERT INTO community_threads (id, title, body, cat, author, author_name) VALUES (?,?,?,?,?,?)')
+                ->execute([$id, $title, $bodyTxt, trim($body['cat'] ?? 'General'), $actor['email'], $actor['name']]);
+            audit($u['name'], 'Forum thread created', 'forums', $id, $title);
+            json_out(['ok' => true, 'id' => $id]);
+        }
+        if ($action === 'post') {
+            $thread = trim($body['id'] ?? '');
+            $bodyTxt = trim($body['body'] ?? '');
+            if ($bodyTxt === '') json_out(['ok' => false, 'error' => 'Reply body required.'], 400);
+            $st = $pdo->prepare('SELECT COUNT(*) FROM community_threads WHERE id=?'); $st->execute([$thread]);
+            if (!(int)$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
+            $pdo->prepare('INSERT INTO community_posts (id, thread, author, author_name, body) VALUES (?,?,?,?,?)')
+                ->execute([$gen('community_posts', 'PST'), $thread, $actor['email'], $actor['name'], $bodyTxt]);
+            json_out(['ok' => true]);
+        }
+        if ($action === 'pin') {
+            if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can pin.'], 403);
+            $id = trim($body['id'] ?? '');
+            $pin = (int)($body['pin'] ?? 0);
+            $pdo->prepare('UPDATE community_threads SET pinned=? WHERE id=?')->execute([$pin, $id]);
+            json_out(['ok' => true]);
+        }
+        json_out(['ok' => false, 'error' => 'Unknown forums action.'], 400);
+    }
+
+    /* ── parking / bookings / events: generic CRUD ── */
+    $schema = [
+        'parking'  => ['id', 'spot', 'type', 'vehicle_no', 'tenant', 'name', 'phone', 'prop', 'status', 'note'],
+        'bookings' => ['id', 'facility', 'date', 'slot', 'tenant', 'name', 'phone', 'note', 'status', 'created_by'],
+        'events'   => ['id', 'title', 'desc', 'date', 'time', 'location', 'capacity', 'created_by', 'created_name'],
+    ][$mod];
+
+    if ($action === 'list') {
+        $order = $mod === 'events' ? 'ORDER BY date, time' : ($mod === 'bookings' ? 'ORDER BY date DESC, ts DESC' : 'ORDER BY ts DESC');
+        $rows = $pdo->query("SELECT * FROM $table $order")->fetchAll(PDO::FETCH_ASSOC);
+        if ($mod === 'events') {
+            foreach ($rows as &$r) {
+                $st = $pdo->prepare('SELECT COUNT(*) FROM community_rsvps WHERE event=?'); $st->execute([$r['id']]);
+                $r['rsvps'] = (int)$st->fetchColumn();
+            }
+        }
+        json_out(['ok' => true, 'rows' => $rows]);
+    }
+    if ($action === 'create') {
+        $fields = array_slice($schema, 1); // drop id
+        $vals = [];
+        foreach ($fields as $f) $vals[$f] = trim((string)($body[$f] ?? ''));
+        $required = $mod === 'parking' ? ['spot', 'vehicle_no'] : ($mod === 'bookings' ? ['facility', 'date'] : ['title']);
+        foreach ($required as $f) if ($vals[$f] === '') json_out(['ok' => false, 'error' => ucfirst($f) . ' required.'], 400);
+        if ($mod === 'bookings') $vals['status'] = $vals['status'] !== '' ? $vals['status'] : 'Pending';
+        if ($mod === 'parking') $vals['status'] = $vals['status'] !== '' ? $vals['status'] : 'Active';
+        if ($mod === 'events') { $vals['created_by'] = $actor['email']; $vals['created_name'] = $actor['name']; }
+        elseif ($mod === 'bookings') { $vals['created_by'] = $actor['email']; }
+        $id = $gen($table, $mod === 'parking' ? 'PRK' : ($mod === 'bookings' ? 'BKG' : 'EVT'));
+        $cols = array_merge(['id'], array_keys($vals));
+        $ph = implode(',', array_fill(0, count($cols), '?'));
+        $pdo->prepare("INSERT INTO $table (" . implode(',', $cols) . ") VALUES ($ph)")
+            ->execute(array_merge([$id], array_values($vals)));
+        audit($u['name'], ucfirst($mod) . ' created', $mod, $id);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($action === 'update') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can edit.'], 403);
+        $id = trim($body['id'] ?? '');
+        $fields = array_slice($schema, 1);
+        $sets = []; $vals = [];
+        foreach ($fields as $f) {
+            if (array_key_exists($f, $body)) { $sets[] = "$f=?"; $vals[] = trim((string)$body[$f]); }
+        }
+        if (!$sets) json_out(['ok' => false, 'error' => 'Nothing to update.'], 400);
+        $vals[] = $id;
+        $pdo->prepare("UPDATE $table SET " . implode(',', $sets) . " WHERE id=?")->execute($vals);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'delete') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can delete.'], 403);
+        $id = trim($body['id'] ?? '');
+        $pdo->prepare("DELETE FROM $table WHERE id=?")->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($mod === 'events' && $action === 'rsvp') {
+        $id = trim($body['id'] ?? '');
+        $name = trim($body['name'] ?? $actor['name']);
+        $guests = max(0, (int)($body['guests'] ?? 0));
+        $st = $pdo->prepare('SELECT COUNT(*) FROM community_events WHERE id=?'); $st->execute([$id]);
+        if (!(int)$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Event not found.'], 404);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM community_rsvps WHERE event=? AND name=?');
+        $st->execute([$id, $name]);
+        if ((int)$st->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'Already RSVPed.'], 400);
+        $pdo->prepare('INSERT INTO community_rsvps (id, event, name, phone, guests) VALUES (?,?,?,?,?)')
+            ->execute([$gen('community_rsvps', 'RSV'), $id, $name, trim($body['phone'] ?? ''), $guests]);
+        audit($u['name'], 'RSVP to event', 'events', $id, $name);
+        json_out(['ok' => true]);
+    }
+    json_out(['ok' => false, 'error' => 'Unknown community action.'], 400);
 }
 
+default:
+    json_out(['ok' => false, 'error' => 'Unknown endpoint.'], 404);
+}

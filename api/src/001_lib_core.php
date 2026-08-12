@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260919) {
+        if ($__sv < 20260920) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1028,7 +1028,46 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260919'); } catch (Exception $e) {}
+        /* V2.31.0: community suite — parking, amenity bookings, voting, forums, events */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_parking (
+            id TEXT PRIMARY KEY, spot TEXT NOT NULL, type TEXT DEFAULT 'car',
+            vehicle_no TEXT NOT NULL, tenant TEXT DEFAULT '', name TEXT DEFAULT '', phone TEXT DEFAULT '',
+            prop TEXT DEFAULT '', status TEXT DEFAULT 'Active', note TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_cp_spot ON community_parking(spot, status)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_bookings (
+            id TEXT PRIMARY KEY, facility TEXT NOT NULL, date TEXT NOT NULL,
+            slot TEXT DEFAULT '', tenant TEXT DEFAULT '', name TEXT DEFAULT '', phone TEXT DEFAULT '',
+            note TEXT DEFAULT '', status TEXT DEFAULT 'Pending', created_by TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_cb_date ON community_bookings(date, facility, status)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_votes (
+            id TEXT PRIMARY KEY, question TEXT NOT NULL, options TEXT NOT NULL DEFAULT '[]',
+            open INTEGER DEFAULT 1, created_by TEXT DEFAULT '', created_name TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_cv_open ON community_votes(open, ts)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_ballots (
+            id TEXT PRIMARY KEY, vote TEXT NOT NULL, voter TEXT NOT NULL, option INTEGER NOT NULL,
+            ts TEXT DEFAULT (datetime('now')), UNIQUE(vote, voter))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_threads (
+            id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT DEFAULT '', cat TEXT DEFAULT 'General',
+            author TEXT DEFAULT '', author_name TEXT DEFAULT '', pinned INTEGER DEFAULT 0,
+            ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ct_cat ON community_threads(cat, pinned, ts)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_posts (
+            id TEXT PRIMARY KEY, thread TEXT NOT NULL, author TEXT DEFAULT '', author_name TEXT DEFAULT '',
+            body TEXT NOT NULL, ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_cp_thread ON community_posts(thread, ts)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_events (
+            id TEXT PRIMARY KEY, title TEXT NOT NULL, desc TEXT DEFAULT '', date TEXT DEFAULT '',
+            time TEXT DEFAULT '', location TEXT DEFAULT '', capacity INTEGER DEFAULT 0,
+            created_by TEXT DEFAULT '', created_name TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ce_date ON community_events(date, ts)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS community_rsvps (
+            id TEXT PRIMARY KEY, event TEXT NOT NULL, name TEXT NOT NULL, phone TEXT DEFAULT '',
+            guests INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')), UNIQUE(event, name))");
+        try { $pdo->exec('PRAGMA user_version=20260920'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

@@ -247,6 +247,24 @@ const BN = {
   Balance: 'ব্যালান্স', Refund: 'রিফান্ড', 'No-dues certificate': 'নো-ডিউজ সার্টিফিকেট',
   Usage: 'ব্যবহার', Reading: 'রিডিং', 'Pay rent': 'ভাড়া পরিশোধ',
   'everything about your tenancy in one place': 'আপনার ভাড়া, লিজ ও টিকেট এক জায়গায়',
+  // ── Society / community suite (V2.31) ──
+  Society: 'সোসাইটি', Parking: 'পার্কিং', Bookings: 'বুকিং', Voting: 'ভোটিং', Forums: 'ফোরাম', Events: 'ইভেন্ট',
+  'Register vehicle': 'গাড়ি নিবন্ধন করুন', 'Parking spot': 'পার্কিং স্পট', 'Vehicle number': 'গাড়ির নম্বর',
+  'Vehicle': 'গাড়ি', 'Owner name': 'মালিকের নাম', Release: 'মুক্ত করুন', 'No vehicles registered': 'কোনো গাড়ি নিবন্ধিত নেই',
+  Car: 'গাড়ি', Bike: 'বাইক', Van: 'ভ্যান',
+  'New booking': 'নতুন বুকিং', Facility: 'সুবিধা', 'Time slot': 'সময় স্লট', 'No bookings yet': 'এখনো কোনো বুকিং নেই',
+  'Community Hall': 'কমিউনিটি হল', Rooftop: 'ছাদের উঠান', Gym: 'জিম', 'Party Room': 'পার্টি রুম', 'Guest Room': 'গেস্ট রুম', Lawn: 'লন',
+  Confirmed: 'নিশ্চিত', Cancelled: 'বাতিল',
+  'New poll': 'নতুন পোল', 'Poll question': 'পোল প্রশ্ন', Option: 'অপশন', 'Add option': 'অপশন যোগ করুন',
+  'Create poll': 'পোল তৈরি করুন', 'Poll created': 'পোল তৈরি হয়েছে', 'Vote recorded': 'ভোট রেকর্ড হয়েছে',
+  'Created by': 'তৈরি করেছেন', votes: 'ভোট', 'Close poll': 'পোল বন্ধ করুন', Reopen: 'আবার খুলুন',
+  'No polls yet': 'এখনো কোনো পোল নেই', Open: 'খোলা', Closed: 'বন্ধ',
+  'New thread': 'নতুন থ্রেড', 'Post thread': 'থ্রেড পোস্ট করুন', 'Thread created': 'থ্রেড তৈরি হয়েছে',
+  'Description': 'বিবরণ', 'Help & Advice': 'সাহায্য ও পরামর্শ', 'Buy & Sell': 'কেনা-বেচা', 'Lost & Found': 'হারানো-পাওয়া',
+  replies: 'জবাব', 'No threads yet': 'এখনো কোনো থ্রেড নেই',
+  'New event': 'নতুন ইভেন্ট', 'Event title': 'ইভেন্টের শিরোনাম', 'Event created': 'ইভেন্ট তৈরি হয়েছে',
+  'Create event': 'ইভেন্ট তৈরি করুন', Location: 'অবস্থান', Capacity: 'ধারণক্ষমতা', going: 'আসছেন',
+  'No events yet': 'এখনো কোনো ইভেন্ট নেই', 'RSVP confirmed': 'আরএসভিপি নিশ্চিত', 'RSVP': 'আরএসভিপি',
 }
 
 // t(key) — dictionary lookup with English fallback.
