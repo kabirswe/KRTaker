@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useDataStore } from './stores/data'
@@ -11,6 +11,9 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const data = useDataStore()
+
+// V2.27: full-screen routes (guided setup wizard) hide the shell chrome
+const isSetup = computed(() => !!route.meta.setup)
 
 const sidebarOpen = ref(false)
 const toasts = ref([])
@@ -100,10 +103,12 @@ document.documentElement.setAttribute('data-theme', savedTheme)
 
     <!-- App shell -->
     <div v-else class="app">
-      <div class="sb-backdrop" :class="{ show: sidebarOpen }" @click="closeSidebar"></div>
-      <Sidebar :open="sidebarOpen" @close="closeSidebar" />
+      <template v-if="!isSetup">
+        <div class="sb-backdrop" :class="{ show: sidebarOpen }" @click="closeSidebar"></div>
+        <Sidebar :open="sidebarOpen" @close="closeSidebar" />
+      </template>
       <div class="main">
-        <Topbar @toggle-sidebar="toggleSidebar" />
+        <Topbar v-if="!isSetup" @toggle-sidebar="toggleSidebar" />
         <div v-if="data.offline" class="offline-banner">📡 You are offline — showing last-loaded data (read-only)</div>
         <main class="content">
           <router-view v-slot="{ Component }">

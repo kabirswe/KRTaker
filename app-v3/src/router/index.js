@@ -67,6 +67,8 @@ const routes = [
   { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') },
   { path: '/reminders', name: 'reminders', component: () => import('../views/RemindersView.vue') },
   { path: '/wiki', name: 'wiki', component: () => import('../views/WikiView.vue') },
+  // V2.27: guided first-login setup for new subscribers (full-screen, no shell chrome)
+  { path: '/setup', name: 'setup', component: () => import('../views/SetupView.vue'), meta: { setup: true } },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
 ]
 
@@ -96,8 +98,31 @@ router.beforeEach(async (to) => {
       return { name: 'login', query: { redirect: to.fullPath } }
     }
   }
+  // V2.27: guided setup for new subscribers — an owner workspace with zero
+  // properties and no done/skip marker is routed through the /setup wizard
+  // on first arrival at the dashboard.
+  if (to.name === 'dashboard' && needsSetup(auth, data)) return { name: 'setup' }
   return true
 })
+
+// True when the signed-in account is a subscriber owner that has not completed
+// (or skipped) the guided setup yet. Backed by the server-side `setup_at`
+// marker on the subscriber row (V2.27) — new accounts get an empty marker,
+// existing active accounts were backfilled at migration, and completing the
+// wizard sets it. `krtaker_onboard_skip` is a per-browser convenience so
+// "skip for now" doesn't nag again on the same device.
+function needsSetup(auth, data) {
+  const u = auth.user || {}
+  if ((u.kind || '') !== 'sub') return false
+  if (u.role !== 'owner' && u.role !== 'property_owner') return false
+  if (auth.isImpersonating) return false
+  if (u.setup_at) return false
+  try {
+    if (localStorage.getItem('krtaker_onboard_done')) return false
+    if (localStorage.getItem('krtaker_onboard_skip')) return false
+  } catch (e) { return false }
+  return true
+}
 
 // V2.18: GA4 page-view tracking for the hash router (fires after every
 // navigation — full loads, hash changes, and guard redirects alike).

@@ -1,0 +1,425 @@
+<script setup>
+// SetupView — V2.27 guided setup for new subscribers (first-time login).
+// A 6-step full-screen wizard that creates real data through the existing API:
+//   profile (app-profile) → first property (app-crud) → notification prefs
+//   (app-settings-save) → optional 2FA (app-2fa-*) + web push (app-push).
+// Completion sets localStorage krtaker_onboard_done; skipping sets
+// krtaker_onboard_skip (both respected by the router guard /setup redirect).
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useDataStore } from '../stores/data'
+import { apiCall } from '../api/client'
+import { track } from '../lib/analytics'
+
+const router = useRouter()
+const auth = useAuthStore()
+const data = useDataStore()
+
+const STEPS = [
+  { id: 'welcome', ico: '👋', label: 'Welcome' },
+  { id: 'profile', ico: '🧑‍💼', label: 'Profile' },
+  { id: 'property', ico: '🏢', label: 'Property' },
+  { id: 'notify', ico: '🔔', label: 'Notifications' },
+  { id: 'security', ico: '🛡️', label: 'Security' },
+  { id: 'done', ico: '🎉', label: 'Done' },
+]
+const step = ref(0)
+const busy = ref(false)
+const err = ref('')
+const saved = ref('')
+
+// ── Step 1: profile ──
+const name = ref(auth.user?.name || '')
+const org = ref(auth.user?.org || '')
+
+// ── Step 2: first property ──
+const PROP_TYPES = ['Flat', 'Apartment', 'Building', 'Villa', 'Commercial', 'Office', 'Shop', 'Warehouse', 'Land', 'Other']
+const JURS = ['Dhaka North', 'Dhaka South', 'Chittagong', 'Gazipur', 'Narayanganj', 'Other']
+const prop = ref({ name: '', type: 'Flat', jur: 'Dhaka North', address: '' })
+const createdProp = ref(null)
+
+// ── Step 3: notifications (server-side SETTINGS_DEFAULTS keys) ──
+const prefs = ref({
+  notify_rent: true,
+  notify_collections: true,
+  notify_renewal: true,
+  notify_docs: true,
+  wa_reminders: true,
+  email_digest: true,
+  notify_premium: true,
+})
+const NOTIFY_ROWS = [
+  { k: 'notify_rent', ico: '💸', t: 'Rent reminders', d: 'Emails before/at rent due dates' },
+  { k: 'notify_collections', ico: '🧾', t: 'Collections digest', d: 'Money-collected summaries' },
+  { k: 'notify_renewal', ico: '📅', t: 'Lease renewals', d: 'Leases about to end or renew' },
+  { k: 'notify_docs', ico: '📎', t: 'Document emails', d: 'Invoices, receipts, lease docs' },
+  { k: 'wa_reminders', ico: '💬', t: 'WhatsApp reminders', d: 'Rent reminders via WhatsApp (if your phone is set)' },
+  { k: 'email_digest', ico: '📬', t: 'Weekly email digest', d: 'One summary email per week' },
+  { k: 'notify_premium', ico: '✨', t: 'Product announcements', d: 'New features & premium offers' },
+]
+
+// ── Step 4: security (2FA + web push) ──
+const want2fa = ref(false)
+const twofaState = ref({ sent: false, enabled: false })
+const twofaCode = ref('')
+const wantPush = ref(true)
+const pushState = ref({ enabled: false, vapid: '', notifPermission: 'unsupported' })
+
+const summary = computed(() => {
+  const items = []
+  if (name.value.trim()) items.push(`Profile saved as “${name.value.trim()}”`)
+  if (createdProp.value) items.push(`Property “${createdProp.value.name}” added`)
+  const on = NOTIFY_ROWS.filter(r => prefs.value[r.k]).length
+  if (on) items.push(`${on} notification channel${on > 1 ? 's' : ''} on`)
+  if (twofaState.value.enabled) items.push('Two-factor authentication enabled')
+  if (pushState.value.enabled) items.push('Browser push notifications on')
+  return items
+})
+
+async function saveProfile() {
+  const body = { name: name.value.trim() || (auth.user?.name || '') }
+  body.org = org.value || auth.user?.org || ''
+  const r = await apiCall('app-profile', body)
+  if (r.ok) { auth.user = r.user || auth.user; return true }
+  err.value = r.error || 'Failed to save profile.'
+  return false
+}
+
+async function createProperty() {
+  if (!prop.value.name.trim()) { err.value = 'Give your first property a name.'; return false }
+  const payload = {
+    name: prop.value.name.trim(),
+    type: prop.value.type,
+    jur: prop.value.jur,
+    address: prop.value.address.trim(),
+    status: 'Active',
+    published: 1,
+    featured: '0',
+    sqft: 0,
+    value: 0,
+    description: '',
+  }
+  const r = await apiCall('app-crud', { action: 'create', collection: 'properties', data: payload })
+  if (r.ok) {
+    createdProp.value = r.row || { name: payload.name }
+    await data.bootstrap()
+    track('setup_property_created', {})
+    return true
+  }
+  err.value = r.error || 'Failed to create property.'
+  return false
+}
+
+async function savePrefs() {
+  const r = await apiCall('app-settings-save', { settings: prefs.value })
+  if (r.ok) { track('setup_prefs_saved', {}); return true }
+  err.value = r.error || 'Failed to save preferences.'
+  return false
+}
+
+async function sendTwofa() {
+  busy.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-2fa-send', {})
+    if (r.ok) twofaState.value.sent = true
+    else err.value = r.error || 'Could not send the code.'
+  } finally { busy.value = false }
+}
+
+async function enableTwofa() {
+  if (!twofaCode.value.trim()) { err.value = 'Enter the 6-digit code from your email.'; return }
+  busy.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-2fa-enable', { method: 'email', code: twofaCode.value.trim() })
+    if (r.ok) { twofaState.value.enabled = true; track('setup_2fa_enabled', {}); }
+    else err.value = r.error || 'Code did not match — try again.'
+  } finally { busy.value = false }
+}
+
+async function enablePush() {
+  busy.value = true; err.value = ''
+  try {
+    if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
+      err.value = 'Push is not supported in this browser — you can enable it later from Settings.'
+      return
+    }
+    if (pushState.value.notifPermission !== 'granted') {
+      const perm = await Notification.requestPermission()
+      pushState.value.notifPermission = perm
+      if (perm !== 'granted') { err.value = 'Permission denied — you can enable push later from Settings.'; return }
+    }
+    const reg = await navigator.serviceWorker.ready
+    if (!pushState.value.vapid) {
+      const st = await apiCall('app-push?action=state', {})
+      if (st.ok) pushState.value.vapid = st.vapid_public || ''
+    }
+    if (!pushState.value.vapid) { err.value = 'Push is not configured on the server yet.'; return }
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushState.value.vapid })
+    const json = sub.toJSON()
+    const r = await apiCall('app-push', { action: 'save', endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, ua: navigator.userAgent.slice(0, 200) })
+    if (r.ok) { pushState.value.enabled = true; track('setup_push_enabled', {}); }
+    else err.value = r.error || 'Failed to save push subscription.'
+  } catch (e) {
+    err.value = 'Could not subscribe: ' + (e && e.message ? e.message : e)
+  } finally { busy.value = false }
+}
+
+async function next() {
+  err.value = ''; saved.value = ''
+  // Step actions run when LEAVING the step (except Done, which runs on enter).
+  if (step.value === 1) { busy.value = true; try { if (!await saveProfile()) return } finally { busy.value = false } }
+  if (step.value === 2) { busy.value = true; try { if (!await createProperty()) return } finally { busy.value = false } }
+  if (step.value === 3) { busy.value = true; try { if (!await savePrefs()) return } finally { busy.value = false } }
+  step.value++
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function back() { err.value = ''; saved.value = ''; if (step.value > 0) step.value-- }
+
+function skip() {
+  try { localStorage.setItem('krtaker_onboard_skip', '1') } catch (e) {}
+  track('setup_skipped', { at: STEPS[step.value].id })
+  router.push('/dashboard')
+}
+
+async function finish() {
+  busy.value = true; err.value = ''
+  try {
+    if (want2fa.value && !twofaState.value.enabled) want2fa.value = false // not completed — do it in Settings later
+    try { localStorage.setItem('krtaker_onboard_done', '1') } catch (e) {}
+    // Persist the server-side marker so the wizard never reappears on any device.
+    const r = await apiCall('app-setup-done', {})
+    if (r.ok && auth.user) auth.user.setup_at = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    track('setup_completed', {})
+    router.push('/dashboard')
+  } finally { busy.value = false }
+}
+
+// ── tiny UI helpers ──
+function tgl(k) { prefs.value[k] = !prefs.value[k] }
+</script>
+
+<template>
+  <div class="ob">
+    <div class="ob-card">
+      <!-- progress -->
+      <div class="ob-steps">
+        <div v-for="(s, i) in STEPS" :key="s.id" class="ob-step" :class="{ on: i <= step, cur: i === step }">
+          <div class="ob-dot">{{ i < step ? '✓' : s.ico }}</div>
+          <div class="ob-lab">{{ s.label }}</div>
+        </div>
+      </div>
+
+      <!-- step body -->
+      <div class="ob-body">
+
+        <!-- 0 · WELCOME -->
+        <div v-if="step === 0" class="ob-center">
+          <div class="ob-hero">◆</div>
+          <h1 class="ob-title">Welcome to KRTaker 👋</h1>
+          <p class="ob-sub">
+            Your property &amp; facility management command center is ready.
+            Let's set up your workspace — <b>about 2 minutes, 5 quick steps.</b>
+            You can skip any step and finish later.
+          </p>
+          <div class="ob-actions">
+            <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next">Get started →</button>
+            <button class="btn-ghost" style="padding:12px 22px;font-size:13.5px" @click="skip">Skip for now</button>
+          </div>
+          <div class="ob-hint">You can change everything later in ⚙️ Settings.</div>
+        </div>
+
+        <!-- 1 · PROFILE -->
+        <div v-else-if="step === 1" class="ob-step-body">
+          <h2 class="ob-h">🧑‍💼 Your profile</h2>
+          <p class="ob-sub l">Your name appears on owner statements, documents and support tickets.</p>
+          <label class="ob-lab2">Full name</label>
+          <input v-model="name" placeholder="e.g. Alamgir Kabir Roni" class="ob-inp" @keyup.enter="next" />
+          <label class="ob-lab2" style="margin-top:14px">Organisation / company <span class="ob-opt">(optional)</span></label>
+          <input v-model="org" placeholder="e.g. Kabir Holdings" class="ob-inp" @keyup.enter="next" />
+          <div class="ob-foot">
+            <button class="btn-ghost" @click="back">← Back</button>
+            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? 'Saving…' : 'Continue →' }}</button>
+          </div>
+        </div>
+
+        <!-- 2 · PROPERTY -->
+        <div v-else-if="step === 2" class="ob-step-body">
+          <h2 class="ob-h">🏢 Add your first property</h2>
+          <p class="ob-sub l">This is the building or land you manage. Units, tenants and leases hang off it — you can add more properties any time.</p>
+          <label class="ob-lab2">Property name *</label>
+          <input v-model="prop.name" placeholder="e.g. Green View Residency" class="ob-inp" @keyup.enter="next" />
+          <div class="ob-grid2">
+            <div>
+              <label class="ob-lab2">Type</label>
+              <select v-model="prop.type" class="ob-inp">
+                <option v-for="t in PROP_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="ob-lab2">Jurisdiction</label>
+              <select v-model="prop.jur" class="ob-inp">
+                <option v-for="j in JURS" :key="j" :value="j">{{ j }}</option>
+              </select>
+            </div>
+          </div>
+          <label class="ob-lab2" style="margin-top:14px">Address <span class="ob-opt">(optional)</span></label>
+          <input v-model="prop.address" placeholder="e.g. House 12, Road 5, Dhanmondi, Dhaka" class="ob-inp" @keyup.enter="next" />
+          <div class="ob-foot">
+            <button class="btn-ghost" @click="back">← Back</button>
+            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? 'Creating…' : 'Create & continue →' }}</button>
+          </div>
+        </div>
+
+        <!-- 3 · NOTIFICATIONS -->
+        <div v-else-if="step === 3" class="ob-step-body">
+          <h2 class="ob-h">🔔 Choose your notifications</h2>
+          <p class="ob-sub l">Pick what lands in <b>your</b> inbox. Every toggle can be changed later in Settings.</p>
+          <div class="ob-rows">
+            <div v-for="r in NOTIFY_ROWS" :key="r.k" class="ob-row" @click="tgl(r.k)">
+              <span class="ob-row-ico">{{ r.ico }}</span>
+              <div class="ob-row-txt">
+                <div class="ob-row-t">{{ r.t }}</div>
+                <div class="ob-row-d">{{ r.d }}</div>
+              </div>
+              <span class="ob-tgl" :class="{ on: prefs[r.k] }"></span>
+            </div>
+          </div>
+          <div class="ob-foot">
+            <button class="btn-ghost" @click="back">← Back</button>
+            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? 'Saving…' : 'Save & continue →' }}</button>
+          </div>
+        </div>
+
+        <!-- 4 · SECURITY -->
+        <div v-else-if="step === 4" class="ob-step-body">
+          <h2 class="ob-h">🛡️ Security &amp; on-device alerts</h2>
+          <p class="ob-sub l">Two optional steps that make your account much safer. Both can be done later from Settings.</p>
+
+          <div class="ob-sec-card" :class="{ active: want2fa || twofaState.enabled }">
+            <div class="ob-sec-head" @click="want2fa = !want2fa; twofaState.sent = false; twofaCode = ''">
+              <div>
+                <div class="ob-sec-t">🔐 Two-factor authentication</div>
+                <div class="ob-sec-d">Logins need a fresh 6-digit code from your email — protects you even if the password leaks.</div>
+              </div>
+              <span class="ob-tgl" :class="{ on: want2fa || twofaState.enabled }"></span>
+            </div>
+            <div v-if="twofaState.enabled" class="ob-sec-done">✅ 2FA is now enabled on your account.</div>
+            <div v-else-if="want2fa" class="ob-sec-flow">
+              <template v-if="!twofaState.sent">
+                <button class="btn-primary" :disabled="busy" @click="sendTwofa">{{ busy ? 'Sending…' : '📧 Send me a code' }}</button>
+              </template>
+              <template v-else>
+                <div class="ob-sec-d">Enter the 6-digit code we emailed you:</div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                  <input v-model="twofaCode" placeholder="000000" maxlength="6" class="ob-inp" style="width:150px;text-align:center;letter-spacing:3px;font-weight:800" @keyup.enter="enableTwofa" />
+                  <button class="btn-primary" :disabled="busy" @click="enableTwofa">Verify</button>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="ob-sec-card" :class="{ active: wantPush || pushState.enabled }">
+            <div class="ob-sec-head" @click="wantPush = !wantPush">
+              <div>
+                <div class="ob-sec-t">🔔 Browser push notifications</div>
+                <div class="ob-sec-d">Alerts arrive on this device even when the app tab is closed (works on desktop &amp; mobile).</div>
+              </div>
+              <span class="ob-tgl" :class="{ on: wantPush || pushState.enabled }"></span>
+            </div>
+            <div v-if="pushState.enabled" class="ob-sec-done">✅ Push is on for this device.</div>
+            <div v-else-if="wantPush" class="ob-sec-flow">
+              <button class="btn-primary" :disabled="busy" @click="enablePush">{{ busy ? 'Working…' : '🔔 Enable on this device' }}</button>
+            </div>
+          </div>
+
+          <div class="ob-foot">
+            <button class="btn-ghost" @click="back">← Back</button>
+            <button class="btn-primary" :disabled="busy" @click="next">Continue →</button>
+          </div>
+        </div>
+
+        <!-- 5 · DONE -->
+        <div v-else class="ob-center">
+          <div class="ob-hero ok">✓</div>
+          <h1 class="ob-title">You're all set! 🎉</h1>
+          <p class="ob-sub">Here's what your workspace looks like now:</p>
+          <div class="ob-sum">
+            <div v-for="(it, i) in summary" :key="i" class="ob-sum-row">✅ {{ it }}</div>
+            <div v-if="!summary.length" class="ob-sum-row">✅ Your workspace is ready — explore the sidebar to start.</div>
+          </div>
+          <div class="ob-actions">
+            <button class="btn-primary" style="padding:12px 26px;font-size:14px" :disabled="busy" @click="finish">Open my dashboard →</button>
+          </div>
+          <div class="ob-hint">📚 Tip: the <b>Wiki &amp; Help</b> page has visual guides for every screen.</div>
+        </div>
+
+        <!-- errors / success -->
+        <div v-if="err" class="ob-err">{{ err }}</div>
+        <div v-if="saved" class="ob-ok">{{ saved }}</div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.ob { min-height: calc(100vh - 60px); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px 60px; }
+.ob-card { width: 100%; max-width: 640px; }
+.ob-steps { display: flex; justify-content: space-between; margin-bottom: 26px; padding: 0 4px; }
+.ob-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; position: relative; }
+.ob-step::before { content: ''; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--border); z-index: 0; }
+.ob-step:first-child::before { display: none; }
+.ob-step.on::before { background: var(--primary); }
+.ob-dot { width: 32px; height: 32px; border-radius: 50%; background: var(--card); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 13px; z-index: 1; color: var(--text-mute); }
+.ob-step.on .ob-dot { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+.ob-step.cur .ob-dot { box-shadow: 0 0 0 4px var(--primary-light); }
+.ob-lab { font-size: 10px; color: var(--text-mute); font-weight: 600; }
+.ob-step.on .ob-lab { color: var(--primary); }
+.ob-body { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 30px 32px; box-shadow: var(--shadow); }
+.ob-center { text-align: center; padding: 18px 0 8px; }
+.ob-hero { width: 74px; height: 74px; margin: 0 auto 18px; border-radius: 22px; background: var(--grad); color: #fff; font-size: 34px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 14px 34px rgba(47,128,237,.35); }
+.ob-hero.ok { background: linear-gradient(135deg, #27AE60, #1E8E4E); box-shadow: 0 14px 34px rgba(39,174,96,.30); }
+.ob-title { font-size: 24px; font-weight: 800; color: var(--text); margin: 0 0 10px; }
+.ob-sub { color: var(--text-soft); font-size: 14px; line-height: 1.65; margin: 0 0 22px; }
+.ob-sub.l { text-align: left; }
+.ob-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+.ob-hint { font-size: 12px; color: var(--text-mute); margin-top: 18px; }
+.ob-step-body { padding: 4px 0 2px; }
+.ob-h { font-size: 20px; font-weight: 800; color: var(--text); margin: 0 0 6px; }
+.ob-lab2 { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-soft); margin-bottom: 6px; }
+.ob-opt { font-weight: 500; color: var(--text-mute); }
+.ob-inp { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; }
+.ob-inp:focus { border-color: var(--primary); }
+.ob-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.ob-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; gap: 10px; }
+.ob-rows { display: flex; flex-direction: column; gap: 2px; }
+.ob-row { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.ob-row:last-child { border-bottom: none; }
+.ob-row-ico { font-size: 16px; width: 24px; text-align: center; }
+.ob-row-txt { flex: 1; min-width: 0; }
+.ob-row-t { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.ob-row-d { font-size: 11.5px; color: var(--text-mute); margin-top: 1px; }
+.ob-tgl { width: 40px; height: 22px; border-radius: 12px; background: var(--border); position: relative; flex-shrink: 0; transition: background .15s; }
+.ob-tgl.on { background: var(--ok); }
+.ob-tgl::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.ob-tgl.on::after { left: 21px; }
+.ob-sec-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: var(--bg-alt); transition: border-color .15s; }
+.ob-sec-card.active { border-color: var(--primary); }
+.ob-sec-head { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+.ob-sec-t { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.ob-sec-d { font-size: 11.5px; color: var(--text-mute); margin-top: 3px; line-height: 1.5; }
+.ob-sec-flow { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.ob-sec-done { margin-top: 10px; font-size: 12.5px; font-weight: 700; color: var(--ok); }
+.ob-sum { text-align: left; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin: 4px 0 20px; }
+.ob-sum-row { font-size: 13.5px; color: var(--text); padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.ob-sum-row:last-child { border-bottom: none; }
+.ob-err { margin-top: 14px; background: rgba(231,76,60,.12); color: var(--danger); border: 1px solid rgba(231,76,60,.35); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; }
+.ob-ok { margin-top: 14px; background: rgba(39,174,96,.12); color: var(--ok); border: 1px solid rgba(39,174,96,.35); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; }
+@media (max-width: 640px) {
+  .ob { padding: 20px 12px 50px; }
+  .ob-body { padding: 22px 18px; }
+  .ob-grid2 { grid-template-columns: 1fr; }
+  .ob-lab { font-size: 9px; }
+}
+</style>

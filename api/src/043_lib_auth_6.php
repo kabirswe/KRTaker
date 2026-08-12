@@ -21,6 +21,7 @@ function user_payload($u) {
         $p['plan'] = $u['plan'] ?? 'Trial';
         $p['trial_end'] = $u['trial_end'] ?? '';
         $p['is_staff'] = false;
+        $p['setup_at'] = $u['setup_at'] ?? '';   /* V2.27: guided-setup completion marker */
     } else {
         $p['dept'] = $u['dept'] ?? '';
         $p['is_staff'] = true;

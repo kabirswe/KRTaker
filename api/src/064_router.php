@@ -653,6 +653,14 @@ case 'app-logout': {
     json_out(['ok' => true]);
 }
 
+/* V2.27: mark the guided-setup wizard complete for a subscriber account */
+case 'app-setup-done': {
+    $u = require_user();
+    if (($u['kind'] ?? '') !== 'sub') json_out(['ok' => false, 'error' => 'Only subscriber accounts can complete setup.'], 403);
+    db()->prepare("UPDATE subscribers SET setup_at = datetime('now'), last_login = COALESCE(last_login, datetime('now')) WHERE id=?")->execute([$u['id']]);
+    json_out(['ok' => true]);
+}
+
 /* ── V2.17: session registry — list active sessions, revoke one / others / all ── */
 case 'app-sessions': {
     $u = require_user();

@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260918) {
+        if ($__sv < 20260919) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -970,6 +970,13 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
+        /* V2.27: guided-setup completion marker — empty setup_at = needs onboarding.
+           Existing active subscribers (created before this release) are considered
+           set up so the wizard never nags live accounts. */
+        if (!in_array('setup_at', $cols)) {
+            $pdo->exec("ALTER TABLE subscribers ADD COLUMN setup_at TEXT DEFAULT ''");
+            $pdo->exec("UPDATE subscribers SET setup_at = COALESCE(created_at, datetime('now')) WHERE status='active' AND created_at < datetime('now','-2 hours')");
+        }
         /* ── Accounts module (20260812): bank/cash accounts + transaction ledger ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS accounts (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT DEFAULT 'bank',
@@ -1021,7 +1028,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260918'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260919'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
