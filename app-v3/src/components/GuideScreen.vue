@@ -157,6 +157,147 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
           </div>
         </div>
 
+        <!-- ── PORTFOLIO HUB ── -->
+        <div v-else-if="variant === 'portfolio'" class="gs-port">
+          <div class="gs-rail">
+            <div v-for="(n, i) in ['Properties','Units','Tenants','Leases','Onboarding','Leads','Documents','Insurance']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
+          </div>
+          <div class="gs-port-main">
+            <div class="gs-fh"><b>Portfolio</b><span class="gs-btn-sm prim">➕ New property</span></div>
+            <div class="gs-port-grid">
+              <div class="gs-pcard"><div class="gs-pc-t">🏢 Mirpur Heights</div><div class="gs-pc-s">12 units · 94% occupied</div><div class="gs-pc-s">৳8.3L/mo · 1 lease expiring</div></div>
+              <div class="gs-pcard"><div class="gs-pc-t">🏢 Gulshan View</div><div class="gs-pc-s">8 units · 88% occupied</div><div class="gs-pc-s">৳5.1L/mo</div></div>
+              <div class="gs-pcard"><div class="gs-pc-t">🏢 Dhanmondi Res</div><div class="gs-pc-s">6 units · 100% occupied</div><div class="gs-pc-s">৳3.9L/mo</div></div>
+            </div>
+            <div class="gs-port-hier"><span class="gs-hier">Properties → Units → Tenants → Leases</span></div>
+          </div>
+        </div>
+
+        <!-- ── BMS / MAINTENANCE ── -->
+        <div v-else-if="variant === 'bms'" class="gs-bms">
+          <div class="gs-rail">
+            <div v-for="(n, i) in ['Maintenance','Vendors','Staff','Meter readings','Utility bills','Gate visits','Samity']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
+          </div>
+          <div class="gs-bms-main">
+            <div class="gs-fh"><b>Maintenance</b><span class="gs-btn-sm prim">➕ Raise ticket</span></div>
+            <div class="gs-bms-list">
+              <div class="gs-brow"><span>💧 Leak in Unit 4B</span><span class="gs-st st-urg">SLA overdue</span><span class="gs-pill2 p-lt">Landlord</span></div>
+              <div class="gs-brow"><span>⚡ Switchboard 2A</span><span class="gs-st st-prog">2h left</span><span class="gs-pill2 p-tt">Tenant</span></div>
+              <div class="gs-brow"><span>🔧 AC service 3C</span><span class="gs-st st-sent">On track</span><span class="gs-pill2 p-sh">Shared</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── COMMUNITY HUB ── -->
+        <div v-else-if="variant === 'community'" class="gs-comm">
+          <div class="gs-rail">
+            <div v-for="(n, i) in ['Notices','Referrals','Trust (NID)','Support']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
+          </div>
+          <div class="gs-comm-main">
+            <div class="gs-fh"><b>Community</b><span class="gs-btn-sm prim">➕ New notice</span></div>
+            <div class="gs-ncard" style="background:var(--card)">
+              <div class="gs-nc-t">📢 Elevator maintenance</div>
+              <div class="gs-nc-b">14 Aug, 10:00–13:00 · Lift #2 out of service</div>
+              <div class="gs-email"><span class="gs-chk on"></span><span>Also email to tenants</span><span class="gs-cnt">9 recipients</span></div>
+            </div>
+            <div class="gs-ref"><span>🤝 Invite & earn ৳5,000</span><span class="gs-ref-code">KR-7F2X</span></div>
+            <div class="gs-trust">🪪 NID trust records · <b>3 verified</b> · 1 pending</div>
+          </div>
+        </div>
+
+        <!-- ── LEGAL HUB ── -->
+        <div v-else-if="variant === 'legal'" class="gs-legal">
+          <div class="gs-rail">
+            <div v-for="(n, i) in ['Compliance','Cases','Concierge']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
+          </div>
+          <div class="gs-legal-main">
+            <div class="gs-kpis2">
+              <div class="gs-kpi2">⚖️ Compliance <b>42</b><div class="gs-k2-s">3 expiring ≤30d</div></div>
+              <div class="gs-kpi2">👨‍⚖️ Cases <b>7</b><div class="gs-k2-s">2 open</div></div>
+              <div class="gs-kpi2">📜 Legal notices <b>12</b><div class="gs-k2-s">generated</div></div>
+            </div>
+            <div class="gs-table">
+              <div class="gs-tr gs-th"><span>Item</span><span>Expires</span><span>Status</span></div>
+              <div class="gs-tr"><span>Fire certificate</span><span>2026-09-12</span><span class="gs-st st-sent">Valid</span></div>
+              <div class="gs-tr"><span>Trade license</span><span>2026-07-30</span><span class="gs-st st-urg">Expiring</span></div>
+              <div class="gs-tr"><span>Building safety</span><span>2027-01-15</span><span class="gs-st st-sent">Valid</span></div>
+            </div>
+            <div class="gs-case">👨‍⚖️ Dispute · Unit 4B · <span class="gs-st st-open">Open</span></div>
+          </div>
+        </div>
+
+        <!-- ── SAFETY & SECURITY HUB ── -->
+        <div v-else-if="variant === 'safety'" class="gs-safety">
+          <div class="gs-rail">
+            <div v-for="(n, i) in ['Building systems','Smart home','Land','Build','Fire safety','KYC','Inspections']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
+          </div>
+          <div class="gs-safety-main">
+            <div class="gs-fh"><b>Building systems</b><span class="gs-btn-sm prim">➕ Add device</span></div>
+            <div class="gs-dev-grid">
+              <div class="gs-dev"><span>🌡️ Smart thermostat</span><span class="gs-st st-sent">Online</span></div>
+              <div class="gs-dev"><span>🚪 Access control</span><span class="gs-st st-sent">Online</span></div>
+              <div class="gs-dev"><span>💡 Lighting panel</span><span class="gs-st st-urg">Offline</span></div>
+            </div>
+            <div class="gs-fire">🔥 Fire certificate · valid till <b>2026-12-01</b> · <span class="gs-st st-sent">Valid</span></div>
+            <div class="gs-insp">📋 Inspections · 5 scheduled · 2 due this week</div>
+          </div>
+        </div>
+
+        <!-- ── FINANCE HUB (full) ── -->
+        <div v-else-if="variant === 'finhub'" class="gs-finhub">
+          <div class="gs-rail">
+            <div v-for="(n, i) in ['Invoices','Receipts','Collections','Payments','Taxes','Remittances','Statements','Accounts']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
+          </div>
+          <div class="gs-finhub-main">
+            <div class="gs-kpis2">
+              <div class="gs-kpi2">Gross <b>৳8.3L</b></div>
+              <div class="gs-kpi2">Collected <b>৳5.2L</b></div>
+              <div class="gs-kpi2">Outstanding <b>৳3.1L</b></div>
+            </div>
+            <div class="gs-table">
+              <div class="gs-tr gs-th"><span>Invoice</span><span>Tenant</span><span>Amount</span><span>Status</span></div>
+              <div class="gs-tr"><span>INV-1042</span><span>Tanvir A.</span><span>৳45,000</span><span class="gs-st st-sent">Sent</span></div>
+              <div class="gs-tr"><span>INV-1043</span><span>Rakib H.</span><span>৳32,000</span><span class="gs-st st-paid">Paid</span></div>
+              <div class="gs-tr"><span>INV-1044</span><span>Nadia S.</span><span>৳28,500</span><span class="gs-st st-draft">Draft</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── RECORD RECEIPT WORKFLOW ── -->
+        <div v-else-if="variant === 'receipt'" class="gs-receipt">
+          <div class="gs-receipt-l">
+            <div class="gs-fh"><b>Invoice INV-1042</b><span class="gs-st st-sent">Sent</span></div>
+            <div class="gs-rc-line">Tenant: <b>Tanvir A.</b> · Unit 4B</div>
+            <div class="gs-rc-line">Amount: <b>৳45,000</b> · Due 05 Aug</div>
+            <div class="gs-rc-line">Method: <span class="gs-st st-paid">bKash</span></div>
+            <div class="gs-btn-sm prim" style="margin-top:8px;display:inline-block">💳 Record payment</div>
+          </div>
+          <div class="gs-receipt-r">
+            <div class="gs-rc-t">🧾 Receipt issued</div>
+            <div class="gs-rc-line">RCPT-2208 · ৳45,000</div>
+            <div class="gs-rc-line">Status: <span class="gs-st st-paid">Paid</span></div>
+            <div class="gs-rc-note">Collections updated automatically</div>
+          </div>
+        </div>
+
+        <!-- ── MAINTENANCE TICKET WORKFLOW ── -->
+        <div v-else-if="variant === 'maint'" class="gs-maint">
+          <div class="gs-maint-l">
+            <div class="gs-fh"><b>Raise ticket</b></div>
+            <div class="gs-f" style="margin-bottom:5px"></div>
+            <div class="gs-f" style="margin-bottom:5px"></div>
+            <div class="gs-f" style="margin-bottom:5px"></div>
+            <div class="gs-btn" style="margin-top:4px"></div>
+            <div class="gs-link" style="margin-top:5px">Unit · Category · Priority · Title</div>
+          </div>
+          <div class="gs-maint-r">
+            <div class="gs-rc-t">Ticket created → MT-118</div>
+            <div class="gs-rc-line">SLA: <span class="gs-st st-prog">4h left</span> · <span class="gs-pill2 p-sh">Shared</span></div>
+            <div class="gs-rc-line">Timeline: Created → Assigned → Done</div>
+            <div class="gs-rc-note">Staff see it instantly; SLA breach alerts fire</div>
+          </div>
+        </div>
+
         <!-- highlight pins -->
         <template v-for="(h, i) in highlights" :key="'h' + i">
           <div class="gs-hl" :style="{ left: h.x + '%', top: h.y + '%', width: h.w + '%', height: h.h + '%', borderColor: PALETTE[i % PALETTE.length] }">
@@ -309,4 +450,67 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
 .gs-tc-d { font-size: 8.5px; color: var(--text-soft); margin-top: 2px; }
 .gs-trow2 { display: flex; align-items: center; gap: 8px; font-size: 9.5px; color: var(--text); }
 .gs-trow2 .gs-st { margin-left: auto; }
+
+/* module hubs: shared left rail */
+.gs-rail { width: 96px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 8px 6px; background: var(--bg-alt); display: flex; flex-direction: column; gap: 2px; }
+.gs-rail-i { font-size: 8px; color: var(--text-soft); padding: 4px 6px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gs-rail-i.on { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+.gs-k2-s { font-size: 7.5px; color: var(--text-mute); margin-top: 1px; }
+
+/* portfolio */
+.gs-port { height: 240px; display: flex; background: var(--bg); }
+.gs-port-main { flex: 1; padding: 8px 12px; min-width: 0; }
+.gs-port-grid { display: flex; flex-direction: column; gap: 6px; }
+.gs-pcard { border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; background: var(--card); }
+.gs-pc-t { font-size: 9.5px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+.gs-pc-s { font-size: 8px; color: var(--text-soft); }
+.gs-port-hier { margin-top: 8px; text-align: center; }
+.gs-hier { font-size: 8px; color: var(--primary); background: var(--primary-light); border-radius: 10px; padding: 3px 10px; font-weight: 700; }
+
+/* bms */
+.gs-bms { height: 230px; display: flex; background: var(--bg); }
+.gs-bms-main { flex: 1; padding: 8px 12px; min-width: 0; }
+.gs-bms-list { display: flex; flex-direction: column; gap: 6px; }
+.gs-brow { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; background: var(--card); font-size: 9px; color: var(--text); }
+.gs-brow .gs-st { margin-left: auto; }
+.p-lt { background: rgba(47,128,237,.14); color: var(--primary); }
+.p-tt { background: rgba(231,76,60,.14); color: var(--danger); }
+.p-sh { background: rgba(230,126,34,.14); color: var(--warn); }
+
+/* community */
+.gs-comm { height: 225px; display: flex; background: var(--bg); }
+.gs-comm-main { flex: 1; padding: 8px 12px; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.gs-ref { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--card); font-size: 9px; color: var(--text); }
+.gs-ref-code { font-size: 8.5px; font-weight: 800; color: var(--primary); background: var(--primary-light); border-radius: 6px; padding: 2px 8px; }
+.gs-trust { font-size: 8.5px; color: var(--text-soft); background: var(--bg-alt); border: 1px dashed var(--border); border-radius: 8px; padding: 6px 10px; }
+
+/* legal */
+.gs-legal { height: 240px; display: flex; background: var(--bg); }
+.gs-legal-main { flex: 1; padding: 8px 12px; min-width: 0; }
+.gs-case { font-size: 8.5px; color: var(--text-soft); border: 1px dashed var(--border); border-radius: 8px; padding: 6px 10px; margin-top: 7px; display: flex; align-items: center; gap: 6px; }
+
+/* safety */
+.gs-safety { height: 240px; display: flex; background: var(--bg); }
+.gs-safety-main { flex: 1; padding: 8px 12px; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.gs-dev-grid { display: flex; flex-direction: column; gap: 5px; }
+.gs-dev { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; background: var(--card); font-size: 9px; color: var(--text); }
+.gs-fire { font-size: 8.5px; color: var(--text); background: var(--bg-alt); border: 1px dashed var(--border); border-radius: 8px; padding: 6px 10px; }
+.gs-insp { font-size: 8.5px; color: var(--text-soft); }
+
+/* finance hub */
+.gs-finhub { height: 235px; display: flex; background: var(--bg); }
+.gs-finhub-main { flex: 1; padding: 8px 12px; min-width: 0; }
+
+/* receipt workflow */
+.gs-receipt { height: 200px; padding: 10px 14px; background: var(--card); display: flex; gap: 10px; }
+.gs-receipt-l { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--bg-alt); display: flex; flex-direction: column; gap: 6px; }
+.gs-receipt-r { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+.gs-rc-t { font-size: 10px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+.gs-rc-line { font-size: 9px; color: var(--text-soft); }
+.gs-rc-note { font-size: 8px; color: var(--ok); margin-top: auto; font-weight: 700; }
+
+/* maintenance ticket workflow */
+.gs-maint { height: 200px; padding: 10px 14px; background: var(--card); display: flex; gap: 10px; }
+.gs-maint-l { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--bg-alt); display: flex; flex-direction: column; }
+.gs-maint-r { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
 </style>
