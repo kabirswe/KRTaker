@@ -104,3 +104,36 @@ function totp_uri($email, $secret) {
     return "otpauth://totp/$iss:$acc?secret=$secret&issuer=$iss&period=30&digits=6";
 }
 
+/* ── V2.16: email-OTP 2FA helpers ── */
+function mask_email($e) {
+    $e = (string)$e;
+    $p = strpos($e, '@');
+    if ($p === false || $p < 2) return 'your account email';
+    return substr($e, 0, 2) . '••••' . substr($e, $p - 1);
+}
+function otp_code_new() {
+    return str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+}
+/* Send a 6-digit login code to the user's email; stores sha256 + 5-min expiry. */
+function otp_send($pdo, $u) {
+    $code = otp_code_new();
+    $pdo->prepare("UPDATE app_users SET otp_hash=?, otp_expires=datetime('now','+5 minutes'), otp_fails=0 WHERE id=?")
+        ->execute([hash('sha256', $code), $u['id']]);
+    try { send_mail($u['email'], 'Your KRTaker login code', otp_email_html($code, $u['name'])); } catch (Throwable $e) { /* mail failure must never break the auth flow */ }
+    audit($u['name'], 'OTP emailed', 'auth', (string)$u['id']);
+    return true;
+}
+function otp_verify($pdo, $u, $code) {
+    $code = trim((string)$code);
+    if ($code === '' || strlen($code) !== 6 || !ctype_digit($code)) return false;
+    if (empty($u['otp_hash']) || empty($u['otp_expires'])) return false;
+    if (strtotime($u['otp_expires']) < time()) return false;
+    if ((int)($u['otp_fails'] ?? 0) >= 5) return false;
+    if (!hash_equals($u['otp_hash'], hash('sha256', $code))) {
+        $pdo->prepare('UPDATE app_users SET otp_fails=otp_fails+1 WHERE id=?')->execute([$u['id']]);
+        return false;
+    }
+    $pdo->prepare("UPDATE app_users SET otp_hash='', otp_expires='', otp_fails=0 WHERE id=?")->execute([$u['id']]);
+    return true;
+}
+

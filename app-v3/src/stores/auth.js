@@ -48,7 +48,7 @@ export const useAuthStore = defineStore('auth', {
           try { localStorage.removeItem(ORIG_KEY) } catch (e) {}
           return { ok: true }
         }
-        if (r.need_2fa) { this.need2fa = true; return { ok: false, need2fa: true } }
+        if (r.need_2fa) { this.need2fa = true; return { ok: false, need2fa: true, method: r.method || 'totp', email_hint: r.email_hint || '' } }
         this.error = r.error || 'Invalid email or password.'
         this.validated = true
         return { ok: false, error: this.error }

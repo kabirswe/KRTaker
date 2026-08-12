@@ -99,7 +99,69 @@ onMounted(async () => {
   }
   loadSecurity()
   loadPushState()
+  loadTwofa()
 })
+
+// ── Two-factor authentication (superadmin) — V2.16 ──
+const isSuperAdmin = computed(() => auth.user?.role === 'superadmin')
+const twofaState = ref({ enabled: false, method: 'totp', email_hint: '' })
+const twofaBusy = ref(false)
+const twofaCode = ref('')
+const twofaPw = ref('')
+const twofaSetup = ref(null)   // { secret, uri } from app-2fa-setup
+const twofaStep = ref('')      // '' | 'email-code' | 'totp-code' | 'disable'
+const toast = (m, t) => { try { window.__krToast?.(m, t) } catch (e) {} }
+
+async function loadTwofa() {
+  if (!isSuperAdmin.value) return
+  try {
+    const r = await apiCall('app-2fa-status', {})
+    if (r.ok) twofaState.value = { enabled: !!r.enabled, method: r.method || 'totp', email_hint: r.email_hint || '' }
+  } catch (e) { /* silent */ }
+}
+async function sendTwofaCode() {
+  twofaBusy.value = true
+  try {
+    const r = await apiCall('app-2fa-send', {})
+    if (r.ok) { twofaState.value.email_hint = r.email_hint || twofaState.value.email_hint; toast('Code sent to ' + twofaState.value.email_hint, 'ok') }
+    else toast(r.error || 'Failed to send code.', 'error')
+  } finally { twofaBusy.value = false }
+}
+async function enableEmail2fa() {
+  if (!twofaCode.value) { toast('Enter the code from your email.', 'error'); return }
+  twofaBusy.value = true
+  try {
+    const r = await apiCall('app-2fa-enable', { method: 'email', code: twofaCode.value })
+    if (r.ok) { toast('2FA enabled with email codes ✅', 'ok'); twofaStep.value = ''; twofaCode.value = ''; await loadTwofa() }
+    else toast(r.error || 'Enable failed.', 'error')
+  } finally { twofaBusy.value = false }
+}
+async function setupTotp() {
+  twofaBusy.value = true
+  try {
+    const r = await apiCall('app-2fa-setup', {})
+    if (r.ok) { twofaSetup.value = { secret: r.secret, uri: r.uri }; twofaStep.value = 'totp-code' }
+    else toast(r.error || 'Setup failed.', 'error')
+  } finally { twofaBusy.value = false }
+}
+async function enableTotp2fa() {
+  if (!twofaCode.value) { toast('Enter the 6-digit code from your authenticator app.', 'error'); return }
+  twofaBusy.value = true
+  try {
+    const r = await apiCall('app-2fa-enable', { method: 'totp', code: twofaCode.value })
+    if (r.ok) { toast('2FA enabled with authenticator ✅', 'ok'); twofaStep.value = ''; twofaSetup.value = null; twofaCode.value = ''; await loadTwofa() }
+    else toast(r.error || 'Enable failed.', 'error')
+  } finally { twofaBusy.value = false }
+}
+async function disable2fa() {
+  if (!twofaCode.value || !twofaPw.value) { toast('Enter the verification code and your password.', 'error'); return }
+  twofaBusy.value = true
+  try {
+    const r = await apiCall('app-2fa-disable', { code: twofaCode.value, password: twofaPw.value })
+    if (r.ok) { toast('2FA disabled', 'ok'); twofaStep.value = ''; twofaCode.value = ''; twofaPw.value = ''; await loadTwofa() }
+    else toast(r.error || 'Disable failed.', 'error')
+  } finally { twofaBusy.value = false }
+}
 
 function setLang(lang) { prefs.value.lang = lang }
 function setTheme(t) { prefs.value.theme = t; document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : '') }
@@ -299,6 +361,60 @@ async function saveSecurity() {
         </div>
         <div class="c-sub" style="font-size:12px;margin-bottom:12px">Get keys from Google Cloud console (reCAPTCHA → v3) or the Cloudflare dashboard (Turnstile). Secrets are masked — an unchanged value is kept as-is; blank clears.</div>
         <button class="btn-primary" :disabled="secSaving" @click="saveSecurity">{{ secSaving ? 'Saving…' : '💾 Save security settings' }}</button>
+      </div>
+
+      <!-- Two-factor authentication (superadmin) -->
+      <div v-if="isSuperAdmin" class="panel" style="margin-top:18px">
+        <div class="panel-h"><div class="t"><span class="pi">🔐</span>Two-factor authentication <span v-if="twofaState.enabled" class="badge b-green" style="margin-left:8px">On · {{ twofaState.method === 'email' ? 'Email codes' : 'Authenticator' }}</span><span v-else class="badge b-gray" style="margin-left:8px">Off</span></div></div>
+        <div class="panel-b">
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:14px">Require a second verification step at login. Choose <b>email codes</b> (6-digit code sent to {{ twofaState.email_hint || 'your account email' }}) or an <b>authenticator app</b> (TOTP).</div>
+
+          <template v-if="!twofaState.enabled">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+              <button class="btn-primary" :disabled="twofaBusy" @click="twofaStep = 'email-code'">📧 Enable with email codes</button>
+              <button class="btn-ghost" :disabled="twofaBusy" @click="setupTotp">📱 Enable with authenticator</button>
+            </div>
+
+            <div v-if="twofaStep === 'email-code'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px">
+              <div style="font-size:13px;margin-bottom:10px">1. Tap <b>Send code</b> — we'll email a 6-digit code to {{ twofaState.email_hint || 'your account email' }}. 2. Enter it below and confirm.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">Send code</button>
+                <input v-model="twofaCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+                <button class="btn-primary" :disabled="twofaBusy" @click="enableEmail2fa">Enable 2FA</button>
+              </div>
+            </div>
+
+            <div v-if="twofaStep === 'totp-code' && twofaSetup" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px">
+              <div style="font-size:13px;margin-bottom:8px">1. Add the key to your authenticator app (Google Authenticator, Authy, 1Password…):</div>
+              <div style="font-size:12.5px;font-weight:800;font-family:monospace;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;word-break:break-all">{{ twofaSetup.secret }}</div>
+              <div style="font-size:11.5px;color:var(--text-mute);margin-bottom:10px;word-break:break-all">or scan-free manual entry with the URI:<br><span style="font-family:monospace">{{ twofaSetup.uri }}</span></div>
+              <div style="font-size:13px;margin-bottom:10px">2. Enter the 6-digit code the app shows and confirm:</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <input v-model="twofaCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+                <button class="btn-primary" :disabled="twofaBusy" @click="enableTotp2fa">Enable 2FA</button>
+              </div>
+            </div>
+          </template>
+
+          <template v-else>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+              <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">📧 Send test code</button>
+              <button class="btn-ghost" style="color:var(--danger)" :disabled="twofaBusy" @click="twofaStep = 'disable'">🚫 Disable 2FA</button>
+            </div>
+            <div v-if="twofaStep === 'disable'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px">
+              <div style="font-size:13px;margin-bottom:10px">Send a verification code to your email, then enter it with your password to confirm.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+                <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">Send code</button>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <input v-model="twofaCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+                <input v-model="twofaPw" type="password" placeholder="Password" style="width:160px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+                <button class="btn-primary" style="background:var(--danger)" :disabled="twofaBusy" @click="disable2fa">Disable 2FA</button>
+              </div>
+            </div>
+            <div class="c-sub" style="font-size:12px">Lost your authenticator app? On the login screen choose <b>“Use email code instead”</b> — we'll email you a one-time code.</div>
+          </template>
+        </div>
       </div>
 
       <!-- Notifications -->

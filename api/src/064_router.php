@@ -587,17 +587,31 @@ case 'app-login': {
         record_attempt($email, $ip, 'login', false);
         json_out(['ok' => false, 'error' => 'Invalid email or password.'], 401);
     }
-    /* SA1 v28: TOTP 2FA gate — superadmin staff only. First POST (no code) → need_2fa prompt;
-       second POST carries 2fa_code. Wrong code counts as a failed login attempt. */
+    /* V2.16: 2FA gate — TOTP (authenticator) or email OTP. First POST (no code)
+       → need_2fa with method; second POST carries 2fa_code. Wrong code counts as
+       a failed login attempt. TOTP users may request an emailed code instead
+       (2fa_alt=email) — the recovery path for a lost/stale authenticator secret. */
     if (($u['kind'] ?? '') === 'staff' && ($u['role'] ?? '') === 'superadmin'
-        && !empty($u['totp_enabled']) && !empty($u['totp_secret'])) {
+        && !empty($u['totp_enabled'])) {
         $twofa = trim((string)($body['2fa_code'] ?? ''));
-        if ($twofa === '') {
-            json_out(['ok' => false, 'error' => 'Two-factor authentication required.', 'need_2fa' => true], 401);
-        }
-        if (!totp_verify($u['totp_secret'], $twofa)) {
-            record_attempt($email, $ip, 'login', false);
-            json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 401);
+        $useEmail = (($u['twofa_method'] ?? '') === 'email') || !empty($body['2fa_alt']) || empty($u['totp_secret']);
+        if ($useEmail) {
+            if ($twofa === '') {
+                otp_send($pdo, $u);
+                json_out(['ok' => false, 'error' => 'Two-factor authentication required.', 'need_2fa' => true, 'method' => 'email', 'email_hint' => mask_email($u['email'])], 401);
+            }
+            if (!otp_verify($pdo, $u, $twofa)) {
+                record_attempt($email, $ip, 'login', false);
+                json_out(['ok' => false, 'error' => 'Invalid or expired two-factor code.'], 401);
+            }
+        } else {
+            if ($twofa === '') {
+                json_out(['ok' => false, 'error' => 'Two-factor authentication required.', 'need_2fa' => true, 'method' => 'totp'], 401);
+            }
+            if (!totp_verify($u['totp_secret'], $twofa)) {
+                record_attempt($email, $ip, 'login', false);
+                json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 401);
+            }
         }
     }
     record_attempt($email, $ip, 'login', true);
@@ -635,7 +649,16 @@ case 'app-logout': {
 case 'app-2fa-status': {
     $u = require_user();
     if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
-    json_out(['ok' => true, 'enabled' => !empty($u['totp_enabled']) && !empty($u['totp_secret'])]);
+    json_out(['ok' => true, 'enabled' => !empty($u['totp_enabled']),
+        'method' => (($u['twofa_method'] ?? '') === 'email' ? 'email' : 'totp'),
+        'email_hint' => mask_email($u['email'])]);
+}
+
+case 'app-2fa-send': {
+    $u = require_user();
+    if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    otp_send(db(), $u);
+    json_out(['ok' => true, 'email_hint' => mask_email($u['email'])]);
 }
 
 /* Git-triggered deploy verification (service-key gated, 2026-08-09):
@@ -713,13 +736,18 @@ case 'app-2fa-setup': {
 case 'app-2fa-enable': {
     $u = require_user();
     if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    $method = (($body['method'] ?? '') === 'email') ? 'email' : 'totp';
     $code = trim((string)($body['code'] ?? ''));
-    if ($code === '' || !totp_verify($u['totp_secret'], $code)) {
-        json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 400);
+    if ($method === 'email') {
+        if (!otp_verify(db(), $u, $code)) json_out(['ok' => false, 'error' => 'Invalid verification code.'], 400);
+    } else {
+        if ($code === '' || empty($u['totp_secret']) || !totp_verify($u['totp_secret'], $code)) {
+            json_out(['ok' => false, 'error' => 'Invalid verification code.'], 400);
+        }
     }
-    db()->prepare('UPDATE app_users SET totp_enabled=1 WHERE id=?')->execute([$u['id']]);
-    audit($u['name'], '2FA enabled', 'auth', (string)$u['id']);
-    json_out(['ok' => true]);
+    db()->prepare('UPDATE app_users SET totp_enabled=1, twofa_method=? WHERE id=?')->execute([$method, $u['id']]);
+    audit($u['name'], '2FA enabled (' . $method . ')', 'auth', (string)$u['id']);
+    json_out(['ok' => true, 'method' => $method]);
 }
 
 case 'app-2fa-disable': {
@@ -727,13 +755,13 @@ case 'app-2fa-disable': {
     if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
     $code = trim((string)($body['code'] ?? ''));
     $pass = (string)($body['password'] ?? '');
-    if ($code === '' || !totp_verify($u['totp_secret'], $code)) {
-        json_out(['ok' => false, 'error' => 'Invalid two-factor code.'], 400);
-    }
+    $okCode = ($code !== '' && !empty($u['totp_secret']) && totp_verify($u['totp_secret'], $code))
+        || otp_verify(db(), $u, $code);
+    if (!$okCode) json_out(['ok' => false, 'error' => 'Invalid verification code.'], 400);
     if ($pass === '' || !password_verify($pass, $u['password_hash'])) {
         json_out(['ok' => false, 'error' => 'Password required to disable two-factor auth.'], 400);
     }
-    db()->prepare('UPDATE app_users SET totp_enabled=0, totp_secret=\'\' WHERE id=?')->execute([$u['id']]);
+    db()->prepare("UPDATE app_users SET totp_enabled=0, totp_secret='', twofa_method='totp' WHERE id=?")->execute([$u['id']]);
     audit($u['name'], '2FA disabled', 'auth', (string)$u['id']);
     json_out(['ok' => true]);
 }

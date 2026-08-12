@@ -16,6 +16,9 @@ const email = ref('')
 const password = ref('')
 const twofa = ref('')
 const show2fa = ref(false)
+const twofaMethod = ref('totp')
+const emailHint = ref('')
+const twofaAlt = ref(false)
 const err = ref('')
 const turnstile = ref('')      // widget site key when configured
 const tsToken = ref('')        // latest Turnstile token (sent with login)
@@ -52,6 +55,7 @@ async function doLogin() {
   if (!email.value || !password.value) { err.value = 'Email and password are required.'; return }
   // Turnstile token rides along when the widget rendered (server ignores it otherwise)
   const extra = tsToken.value ? { 'cf-turnstile-response': tsToken.value } : {}
+  if (twofaAlt.value) { extra['2fa_alt'] = 'email'; twofaAlt.value = false }
   const r = await auth.login(email.value, password.value, twofa.value, extra)
   if (r.ok) {
     const ok = await data.bootstrap()
@@ -59,11 +63,18 @@ async function doLogin() {
     else { err.value = data.error || 'Login failed.'; auth.clear() }
   } else if (r.need2fa) {
     show2fa.value = true
+    twofaMethod.value = r.method || 'totp'
+    emailHint.value = r.email_hint || ''
+    twofa.value = ''
     err.value = ''
   } else {
     err.value = r.error || 'Invalid email or password.'
   }
 }
+// Email-OTP recovery: switch from authenticator codes to an emailed code.
+function useEmailOtp() { twofaAlt.value = true; twofa.value = ''; doLogin() }
+// Resend: re-submit without a code → server mints + emails a fresh code.
+function resendOtp() { twofa.value = ''; doLogin() }
 </script>
 
 <template>
@@ -86,8 +97,13 @@ async function doLogin() {
       <input type="password" v-model="password" placeholder="••••••••" autocomplete="current-password" @keyup.enter="doLogin">
     </div>
     <div v-if="show2fa" class="auth-field">
-      <label>Authenticator code</label>
+      <label v-if="twofaMethod === 'email'">Enter the 6-digit code we emailed to {{ emailHint }}</label>
+      <label v-else>Enter the 6-digit code from your authenticator app</label>
       <input type="text" v-model="twofa" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" @keyup.enter="doLogin">
+      <div style="margin-top:7px;font-size:12.5px">
+        <a v-if="twofaMethod === 'email'" href="#" @click.prevent="resendOtp" style="color:var(--primary);font-weight:700">Resend code</a>
+        <a v-else href="#" @click.prevent="useEmailOtp" style="color:var(--primary);font-weight:700">Use email code instead</a>
+      </div>
     </div>
     <button class="auth-btn" :disabled="auth.loading" @click="doLogin">{{ auth.loading ? 'Signing in…' : 'Log in' }}</button>
     <div v-if="turnstile" ref="tsEl" class="auth-ts" style="margin-top:12px;display:flex;justify-content:center"></div>

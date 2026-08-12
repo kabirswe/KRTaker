@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260901) {
+        if ($__sv < 20260908) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -126,6 +126,11 @@ function db() {
         $au_cols = array_column($pdo->query('PRAGMA table_info(app_users)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('totp_secret', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN totp_secret TEXT DEFAULT ''");
         if (!in_array('totp_enabled', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN totp_enabled INTEGER DEFAULT 0");
+        /* V2.16: email-OTP 2FA — method + one-time code store */
+        if (!in_array('twofa_method', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN twofa_method TEXT DEFAULT 'totp'");
+        if (!in_array('otp_hash', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN otp_hash TEXT DEFAULT ''");
+        if (!in_array('otp_expires', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN otp_expires TEXT DEFAULT ''");
+        if (!in_array('otp_fails', $au_cols, true)) $pdo->exec("ALTER TABLE app_users ADD COLUMN otp_fails INTEGER DEFAULT 0");
         $pdo->exec("CREATE TABLE IF NOT EXISTS app_tokens (
             token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT DEFAULT 'sub',
             created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)");
@@ -995,7 +1000,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260901'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260908'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
