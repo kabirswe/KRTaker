@@ -2,6 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../api/client'
+import { lang } from '../lib/i18n'
 import { track } from '../lib/analytics'
 import { notifMeta, notifTarget } from '../lib/ui'
 
@@ -37,9 +38,10 @@ const typeCounts = computed(() => {
   return m
 })
 const typePills = computed(() => {
-  const pills = [{ type: 'all', label: 'All', count: alerts.value.length }]
+  const pills = [{ type: 'all', label: lang.value === 'bn' ? 'সব' : 'All', count: alerts.value.length }]
   Object.keys(typeCounts.value).forEach(t => {
-    pills.push({ type: t, label: notifMeta(t).label, count: typeCounts.value[t] })
+    const meta = notifMeta(t)
+    pills.push({ type: t, label: lang.value === 'bn' ? (meta.bn || meta.label) : meta.label, count: typeCounts.value[t] })
   })
   return pills
 })
@@ -95,15 +97,15 @@ onMounted(load)
   <div>
     <div class="page-head">
       <div>
-        <h1>🔔 Notifications</h1>
+        <h1>🔔 {{ lang === 'bn' ? 'নোটিফিকেশন' : 'Notifications' }}</h1>
         <div class="sub">
           <template v-if="alerts.length">{{ alerts.length }} notification{{ alerts.length === 1 ? '' : 's' }} · <span :style="unread ? 'color:var(--danger);font-weight:800' : ''">{{ unread }} unread</span></template>
           <template v-else>Your inbox is quiet</template>
         </div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" :disabled="busy || !unread" @click="markAllRead" style="padding:9px 14px;font-size:12.5px">✓ Mark all read</button>
-        <button class="btn-ghost" :disabled="busy || !alerts.length" @click="dismissAll" style="padding:9px 14px;font-size:12.5px">🗑 Clear all</button>
+        <button class="btn-ghost" :disabled="busy || !unread" @click="markAllRead" style="padding:9px 14px;font-size:12.5px">✓ {{ lang === 'bn' ? 'সব পঠিত করুন' : 'Mark all read' }}</button>
+        <button class="btn-ghost" :disabled="busy || !alerts.length" @click="dismissAll" style="padding:9px 14px;font-size:12.5px">🗑 {{ lang === 'bn' ? 'সব মুছুন' : 'Clear all' }}</button>
       </div>
     </div>
 
@@ -119,7 +121,7 @@ onMounted(load)
 
     <div v-if="!alerts.length" style="padding:60px 20px;text-align:center;color:var(--text-mute);font-size:14px">
       <div style="font-size:44px;margin-bottom:12px">🎉</div>
-      All caught up — no open notifications.
+      {{ lang === 'bn' ? 'সব শান্ত — কোনো খোলা নোটিফিকেশন নেই।' : 'All caught up — no open notifications.' }}
     </div>
 
     <div v-else class="panel" style="padding:0;overflow:hidden">

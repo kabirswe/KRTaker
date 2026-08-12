@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import GuideScreen from '../components/GuideScreen.vue'
+import { lang } from '../lib/i18n'
 
 const router = useRouter()
 const q = ref('')
@@ -567,14 +568,14 @@ function go(path) { router.push(path) }
   <div>
     <div class="page-head">
       <div>
-        <h1>📚 Wiki &amp; Help</h1>
+        <h1>📚 {{ lang === 'bn' ? 'উইকি ও সাহায্য' : 'Wiki &amp; Help' }}</h1>
         <div class="sub">Visual guides, alerts, notifications, email &amp; security</div>
       </div>
     </div>
 
     <!-- search -->
     <div class="panel" style="padding:14px 16px;margin-bottom:14px">
-      <input v-model="q" placeholder="🔍  Search the wiki…  (e.g. 2FA, ticket, invoice, push, digest)"
+      <input v-model="q" :placeholder="lang === 'bn' ? '🔍  উইকি খুঁজুন… (যেমন 2FA, টিকেট, ইনভয়েস, পুশ, ডাইজেস্ট)' : '🔍  Search the wiki…  (e.g. 2FA, ticket, invoice, push, digest)'"
         style="width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none">
     </div>
 
@@ -606,10 +607,10 @@ function go(path) { router.push(path) }
     </div>
 
     <div class="panel" style="padding:16px;margin-bottom:20px">
-      <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">Still stuck?</div>
+      <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">{{ lang === 'bn' ? 'আরও সাহায্য দরকার?' : 'Still stuck?' }}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn-ghost" style="padding:9px 16px;font-size:12.5px" @click="go('/support')">🎫 Open a support ticket</button>
-        <button class="btn-ghost" style="padding:9px 16px;font-size:12.5px" @click="go('/settings')">⚙️ Review my settings</button>
+        <button class="btn-ghost" style="padding:9px 16px;font-size:12.5px" @click="go('/support')">🎫 {{ lang === 'bn' ? 'সাপোর্ট টিকেট খুলুন' : 'Open a support ticket' }}</button>
+        <button class="btn-ghost" style="padding:9px 16px;font-size:12.5px" @click="go('/settings')">⚙️ {{ lang === 'bn' ? 'আমার সেটিংস দেখুন' : 'Review my settings' }}</button>
       </div>
     </div>
   </div>

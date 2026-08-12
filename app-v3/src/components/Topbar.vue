@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
+import { lang, setLang } from '../lib/i18n'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
@@ -25,9 +26,8 @@ function toggleTheme() {
   try { localStorage.setItem('krtaker_dash_theme', theme.value) } catch (e) {}
 }
 function toggleLang() {
-  const cur = (() => { try { return localStorage.getItem('krtaker_dash_lang') } catch (e) { return 'en' } })() || 'en'
-  const next = cur === 'en' ? 'bn' : 'en'
-  try { localStorage.setItem('krtaker_dash_lang', next) } catch (e) {}
+  const next = lang.value === 'bn' ? 'en' : 'bn'
+  setLang(next)
   window.__krToast?.(next === 'bn' ? 'বাংলা ভাষা নির্বাচিত' : 'Language: English')
 }
 

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { lang } from '../lib/i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
@@ -252,7 +253,7 @@ async function toggleFeatured(p) {
   <div>
     <div class="page-head">
       <div>
-        <h1>🏢 Properties</h1>
+        <h1>🏢 {{ lang === 'bn' ? 'প্রপার্টি' : 'Properties' }}</h1>
         <div class="sub">{{ propsAll.length }} properties · {{ unitsAll.length }} units · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">

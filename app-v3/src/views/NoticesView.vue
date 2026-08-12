@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { lang } from '../lib/i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
@@ -128,7 +129,7 @@ async function deleteNotice(n) {
   <div>
     <div class="page-head">
       <div>
-        <h1>📢 Notices</h1>
+        <h1>📢 {{ lang === 'bn' ? 'নোটিশ' : 'Notices' }}</h1>
         <div class="sub">{{ noticesAll.length }} notices · {{ kpis[1]?.value || 0 }} pinned · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -145,7 +146,7 @@ async function deleteNotice(n) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="openCompose">＋ New notice</button>
+        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="openCompose">＋ {{ lang === 'bn' ? 'নতুন নোটিশ' : 'New notice' }}</button>
       </div>
     </div>
 
@@ -232,7 +233,7 @@ async function deleteNotice(n) {
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="newModal = false"></div>
       <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
         <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-          <h3 style="font-size:15px;font-weight:800">📢 New notice</h3>
+          <h3 style="font-size:15px;font-weight:800">📢 {{ lang === 'bn' ? 'নতুন নোটিশ' : 'New notice' }}</h3>
           <button @click="newModal = false" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
         </div>
         <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">

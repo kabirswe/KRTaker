@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
 import { getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
+import { t } from '../lib/i18n'
 
 const router = useRouter()
 const route = useRoute()
@@ -96,7 +97,7 @@ const can = (mod) => {
 }
 
 const groups = computed(() =>
-  GROUPS.map(g => ({ ...g, items: g.items.filter(i => can(i[0])) })).filter(g => g.items.length)
+  GROUPS.map(g => ({ ...g, label: t(g.label), items: g.items.filter(i => can(i[0])) })).filter(g => g.items.length)
 )
 
 // Subordinate-only roles (strictly below the signed-in user's rank)
@@ -171,7 +172,7 @@ async function backToMe() {
       <template v-for="g in groups" :key="g.id">
         <div class="sb-group">{{ g.label }}</div>
         <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])">
-          <span class="ic">{{ i[1] }}</span>{{ i[2] }}
+          <span class="ic">{{ i[1] }}</span>{{ t(i[2]) }}
         </div>
       </template>
     </div>
@@ -184,16 +185,16 @@ async function backToMe() {
         </div>
       </div>
       <template v-if="auth.isImpersonating">
-        <button class="role-switch-btn" style="background:var(--primary-light);color:var(--primary-dark);border:1px solid var(--primary)" :disabled="switching" @click="backToMe()">↩ Back to my account</button>
+        <button class="role-switch-btn" style="background:var(--primary-light);color:var(--primary-dark);border:1px solid var(--primary)" :disabled="switching" @click="backToMe()">↩ {{ t('Back to my account') }}</button>
       </template>
-      <button v-else class="role-switch-btn" @click="openRoles = true">🔀 Switch role</button>
+      <button v-else class="role-switch-btn" @click="openRoles = true">🔀 {{ t('Switch role') }}</button>
     </div>
 
     <!-- Subordinate role switch modal -->
     <div v-if="openRoles" class="overlay" @click.self="openRoles = false">
       <div class="modal">
-        <div class="modal-h"><span class="t">🔀 Switch to subordinate user</span><button class="close" @click="openRoles = false">✕</button></div>
-        <div v-if="switching" style="padding:20px;text-align:center;color:var(--text-mute)">Switching…</div>
+        <div class="modal-h"><span class="t">🔀 {{ t('Switch role') }}</span><button class="close" @click="openRoles = false">✕</button></div>
+        <div v-if="switching" style="padding:20px;text-align:center;color:var(--text-mute)">{{ t('Loading') }}</div>
         <div v-else class="role-grid">
           <template v-for="([g, items]) in roleGroups" :key="g">
             <div v-if="roleGroups.length > 1" style="grid-column:1/-1;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute);margin-top:4px">{{ GROUP_LABEL[g] || g }}</div>

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { lang } from '../lib/i18n'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
 import { badge, useViewMode, usePager } from '../lib/ui'
@@ -41,12 +42,12 @@ const kpis = computed(() => {
   const high = ss.filter(t => t.prio === 'High' || t.prio === 'Urgent').length
   const senders = new Set(ss.map(t => (t.from_t || '').replace(/\s*\((Owner|Tenant|Partner)\)\s*$/, '')).filter(Boolean)).size
   return [
-    { label: 'Tickets', ico: '🎧', value: ss.length, trend: 'support requests' },
-    { label: 'Open', ico: '🟥', value: open, trend: open ? 'need attention' : 'none open', ok: open <= 2 },
-    { label: 'In progress', ico: '🔵', value: prog, trend: 'being worked' },
-    { label: 'Resolved', ico: '✅', value: res, trend: res ? 'closed' : 'none yet' },
-    { label: 'High prio', ico: '🚨', value: high, trend: high ? 'escalate these first' : 'no urgent items', ok: high === 0 },
-    { label: 'Senders', ico: '👥', value: senders, trend: 'distinct users' },
+    { label: 'Tickets', ico: '🎧', value: ss.length, trend: lang.value === 'bn' ? 'সাপোর্ট রিকোয়েস্ট' : 'support requests', bn: 'টিকেট' },
+    { label: 'Open', ico: '🟥', value: open, trend: lang.value === 'bn' ? 'মনোযোগ দরকার' : 'need attention', ok: open <= 2, bn: 'খোলা' },
+    { label: 'In progress', ico: '🔵', value: prog, trend: lang.value === 'bn' ? 'চলছে' : 'being worked', bn: 'চলমান' },
+    { label: 'Resolved', ico: '✅', value: res, trend: lang.value === 'bn' ? 'সমাধানকৃত' : 'closed', bn: 'সমাধানকৃত' },
+    { label: 'High prio', ico: '🚨', value: high, trend: lang.value === 'bn' ? 'এগুলো আগে সমাধান করুন' : 'escalate these first', ok: high === 0, bn: 'উচ্চ অগ্রাধিকার' },
+    { label: 'Senders', ico: '👥', value: senders, trend: lang.value === 'bn' ? 'স্বতন্ত্র ব্যবহারকারী' : 'distinct users', bn: 'ব্যবহারকারী' },
   ]
 })
 
@@ -186,7 +187,7 @@ function detailFields(row) {
   <div>
     <div class="page-head">
       <div>
-        <h1>🎧 Support</h1>
+        <h1>🎧 {{ lang === 'bn' ? 'সাপোর্ট' : 'Support' }}</h1>
         <div class="sub">{{ supportAll.length }} tickets · {{ kpis[1]?.value || 0 }} open · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -206,7 +207,7 @@ function detailFields(row) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
-        <button @click="showCompose = true" style="padding:9px 16px;font-size:12.5px;font-weight:800;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer">➕ New ticket</button>
+        <button @click="showCompose = true" style="padding:9px 16px;font-size:12.5px;font-weight:800;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer">➕ {{ lang === 'bn' ? 'নতুন টিকেট' : 'New ticket' }}</button>
       </CompactFilters>
       </div>
     </div>
@@ -225,7 +226,7 @@ function detailFields(row) {
 
     <div class="stats">
       <div v-for="k in kpis" :key="k.label" class="stat">
-        <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
+        <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ lang === 'bn' ? (k.bn || k.label) : k.label }}</div>
         <div class="s-value" :style="k.ok !== undefined ? (k.ok ? 'color:var(--ok)' : 'color:var(--danger)') : ''">{{ k.value }}</div>
         <div class="s-trend">{{ k.trend }}</div>
       </div>

@@ -2,6 +2,7 @@
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { lang } from '../lib/i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
@@ -764,7 +765,7 @@ async function delTenant(t) {
   <div>
     <div class="page-head">
       <div>
-        <h1>👥 Tenants</h1>
+        <h1>👥 {{ lang === 'bn' ? 'ভাড়াটিয়া' : 'Tenants' }}</h1>
         <div class="sub">{{ tenantsAll.length }} tenants · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">

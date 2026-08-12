@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import { lang } from '../lib/i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
@@ -141,7 +142,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
   <div>
     <div class="page-head">
       <div>
-        <h1>🔧 Maintenance</h1>
+        <h1>🔧 {{ lang === 'bn' ? 'মেইনটেন্যান্স' : 'Maintenance' }}</h1>
         <div class="sub">{{ requests.length }} requests · {{ openCount }} open · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
+import { lang } from '../lib/i18n'
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -27,14 +28,14 @@ const firstName = computed(() => (data.user?.name || '').split(' ')[0] || 'there
 
 // ── Portfolio stats (staff/owner view) ──
 const stats = computed(() => [
-  { label: 'Properties', ico: '🏢', value: total('properties') },
-  { label: 'Units', ico: '🚪', value: total('units') },
-  { label: 'Tenants', ico: '👤', value: total('tenants') },
-  { label: 'Leases', ico: '📄', value: total('leases') },
-  { label: 'Invoices', ico: '🧾', value: total('invoices') },
-  { label: 'Receipts', ico: '📎', value: total('receipts') },
-  { label: 'Payments', ico: '💳', value: total('payments') },
-  { label: 'Open tickets', ico: '🔧', value: list('tickets').filter(t => t.status === 'Open').length },
+  { label: lang.value === 'bn' ? 'প্রপার্টি' : 'Properties', ico: '🏢', value: total('properties') },
+  { label: lang.value === 'bn' ? 'ইউনিট' : 'Units', ico: '🚪', value: total('units') },
+  { label: lang.value === 'bn' ? 'ভাড়াটিয়া' : 'Tenants', ico: '👤', value: total('tenants') },
+  { label: lang.value === 'bn' ? 'লিজ' : 'Leases', ico: '📄', value: total('leases') },
+  { label: lang.value === 'bn' ? 'ইনভয়েস' : 'Invoices', ico: '🧾', value: total('invoices') },
+  { label: lang.value === 'bn' ? 'রসিদ' : 'Receipts', ico: '📎', value: total('receipts') },
+  { label: lang.value === 'bn' ? 'পেমেন্ট' : 'Payments', ico: '💳', value: total('payments') },
+  { label: lang.value === 'bn' ? 'খোলা টিকেট' : 'Open tickets', ico: '🔧', value: list('tickets').filter(t => t.status === 'Open').length },
 ])
 
 // ── Financial health (staff/owner) ──
@@ -94,23 +95,23 @@ const recentReceipts = computed(() => [...list('receipts')].sort((a, b) => (b.da
 // ── Quick actions ──
 const actions = computed(() => {
   if (isTenant.value) return [
-    { label: 'Pay rent', ico: '💳', to: '/invoices' },
-    { label: 'Raise ticket', ico: '🔧', to: '/maintenance' },
-    { label: 'My lease', ico: '📄', to: '/leases' },
+    { label: lang.value === 'bn' ? 'ভাড়া পরিশোধ' : 'Pay rent', ico: '💳', to: '/invoices' },
+    { label: lang.value === 'bn' ? 'টিকেট তৈরি' : 'Raise ticket', ico: '🔧', to: '/maintenance' },
+    { label: lang.value === 'bn' ? 'আমার লিজ' : 'My lease', ico: '📄', to: '/leases' },
     { label: 'Ask AI', ico: '🤖', to: '/ai' },
   ]
   if (isPartner.value) return [
-    { label: 'My tickets', ico: '🔧', to: '/maintenance' },
-    { label: 'Invoices', ico: '🧾', to: '/partner-invoices' },
-    { label: 'Payouts', ico: '💰', to: '/vendor-payouts' },
+    { label: lang.value === 'bn' ? 'আমার টিকেট' : 'My tickets', ico: '🔧', to: '/maintenance' },
+    { label: lang.value === 'bn' ? 'ইনভয়েস' : 'Invoices', ico: '🧾', to: '/partner-invoices' },
+    { label: lang.value === 'bn' ? 'পেআউট' : 'Payouts', ico: '💰', to: '/vendor-payouts' },
     { label: 'Ask AI', ico: '🤖', to: '/ai' },
   ]
   return [
-    { label: 'New invoice', ico: '🧾', to: '/invoices' },
-    { label: 'Add tenant', ico: '👤', to: '/tenants' },
-    { label: 'Maintenance', ico: '🔧', to: '/maintenance' },
-    { label: 'Reports', ico: '📈', to: '/analytics' },
-    { label: 'Legal', ico: '⚖️', to: '/legal' },
+    { label: lang.value === 'bn' ? 'নতুন ইনভয়েস' : 'New invoice', ico: '🧾', to: '/invoices' },
+    { label: lang.value === 'bn' ? 'ভাড়াটিয়া যোগ করুন' : 'Add tenant', ico: '👤', to: '/tenants' },
+    { label: lang.value === 'bn' ? 'মেইনটেন্যান্স' : 'Maintenance', ico: '🔧', to: '/maintenance' },
+    { label: lang.value === 'bn' ? 'রিপোর্ট' : 'Reports', ico: '📈', to: '/analytics' },
+    { label: lang.value === 'bn' ? 'লিগ্যাল' : 'Legal', ico: '⚖️', to: '/legal' },
     { label: 'Ask AI', ico: '🤖', to: '/ai' },
   ]
 })
@@ -133,9 +134,11 @@ function refresh() { data.bootstrap() }
     <!-- Hero -->
     <div class="page-head">
       <div>
-        <h1>{{ isResident ? 'My home' : 'Overview' }}</h1>
+        <h1>{{ isResident ? (lang === 'bn' ? 'আমার হোম' : 'My home') : (lang === 'bn' ? 'ওভারভিউ' : 'Overview') }}</h1>
         <div class="sub">
-          {{ isResident ? `${firstName}, here's your ${roleLabel.toLowerCase()} view — ${today}.` : `Welcome back, ${firstName} — ${today}.` }}
+          {{ isResident
+            ? (lang === 'bn' ? `${firstName}, আপনার ${roleLabel.toLowerCase()} ভিউ — ${today}.` : `${firstName}, here's your ${roleLabel.toLowerCase()} view — ${today}.`)
+            : (lang === 'bn' ? `আবারও স্বাগতম, ${firstName} — ${today}.` : `Welcome back, ${firstName} — ${today}.`) }}
         </div>
       </div>
       <div class="head-actions">
@@ -162,7 +165,7 @@ function refresh() { data.bootstrap() }
 
       <div class="grid grid-2">
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">📊</span>Monthly billing</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">📊</span>{{ lang === 'bn' ? 'মাসিক বিলিং' : 'Monthly billing' }}</div></div>
           <div class="panel-b">
             <div v-if="monthly.length">
               <svg :viewBox="`0 0 560 150`" style="width:100%;height:auto;display:block">
@@ -181,12 +184,12 @@ function refresh() { data.bootstrap() }
         </div>
 
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">💰</span>Financial health</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">💰</span>{{ lang === 'bn' ? 'আর্থিক অবস্থা' : 'Financial health' }}</div></div>
           <div class="panel-b">
-            <div class="kv"><span class="k">Total billed</span><span class="v">{{ money(totalBilled) }}</span></div>
-            <div class="kv"><span class="k">Collected</span><span class="v">{{ money(totalCollected) }}</span></div>
-            <div class="kv"><span class="k">Outstanding</span><span class="v" :style="{ color: outstanding ? 'var(--danger)' : 'var(--ok)' }">{{ money(outstanding) }}</span></div>
-            <div class="kv"><span class="k">Collection rate</span><span class="v">{{ collectRate }}%</span></div>
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'মোট বিল' : 'Total billed' }}</span><span class="v">{{ money(totalBilled) }}</span></div>
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'আদায়কৃত' : 'Collected' }}</span><span class="v">{{ money(totalCollected) }}</span></div>
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'বকেয়া' : 'Outstanding' }}</span><span class="v" :style="{ color: outstanding ? 'var(--danger)' : 'var(--ok)' }">{{ money(outstanding) }}</span></div>
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'আদায়ের হার' : 'Collection rate' }}</span><span class="v">{{ collectRate }}%</span></div>
             <div style="height:8px;border-radius:6px;background:var(--bg-alt);overflow:hidden;margin:10px 0 14px">
               <div :style="{ width: collectRate + '%', height: '100%', background: collectRate > 75 ? 'var(--ok)' : collectRate > 40 ? 'var(--warn)' : 'var(--danger)', borderRadius: 6 }"></div>
             </div>
@@ -199,7 +202,7 @@ function refresh() { data.bootstrap() }
 
       <div class="grid grid-2" style="margin-top:18px">
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🔧</span>Open tickets</div><router-link to="/maintenance" class="link">View all →</router-link></div>
+          <div class="panel-h"><div class="t"><span class="pi">🔧</span>{{ lang === 'bn' ? 'খোলা টিকেট' : 'Open tickets' }}</div><router-link to="/maintenance" class="link">{{ lang === 'bn' ? 'সব দেখুন →' : 'View all →' }}</router-link></div>
           <div class="panel-b">
             <div v-if="openTickets.length">
               <div v-for="t in openTickets.slice(0, 5)" :key="t.id" style="padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px">
@@ -212,11 +215,11 @@ function refresh() { data.bootstrap() }
         </div>
 
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">📎</span>Recent receipts</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">📎</span>{{ lang === 'bn' ? 'সাম্প্রতিক রসিদ' : 'Recent receipts' }}</div></div>
           <div class="panel-b">
             <div v-if="recentReceipts.length" class="tbl-wrap">
               <table class="kr">
-                <thead><tr><th>ID</th><th>Date</th><th>Method</th><th>Amount</th></tr></thead>
+                <thead><tr><th>{{ lang === 'bn' ? 'আইডি' : 'ID' }}</th><th>{{ lang === 'bn' ? 'তারিখ' : 'Date' }}</th><th>{{ lang === 'bn' ? 'পদ্ধতি' : 'Method' }}</th><th>{{ lang === 'bn' ? 'পরিমাণ' : 'Amount' }}</th></tr></thead>
                 <tbody>
                   <tr v-for="r in recentReceipts" :key="r.id">
                     <td>{{ r.id }}</td>
@@ -233,11 +236,11 @@ function refresh() { data.bootstrap() }
       </div>
 
       <div v-if="expiring.length" class="panel" style="margin-top:18px">
-        <div class="panel-h"><div class="t"><span class="pi">⏳</span>Leases expiring soon</div><router-link to="/leases" class="link">All leases →</router-link></div>
+        <div class="panel-h"><div class="t"><span class="pi">⏳</span>{{ lang === 'bn' ? 'শীঘ্রই মেয়াদ শেষ হচ্ছে' : 'Leases expiring soon' }}</div><router-link to="/leases" class="link">{{ lang === 'bn' ? 'সব লিজ →' : 'All leases →' }}</router-link></div>
         <div class="panel-b">
           <div class="tbl-wrap">
             <table class="kr">
-              <thead><tr><th>Lease</th><th>Unit</th><th>Tenant</th><th>Rent</th><th>Expires</th></tr></thead>
+              <thead><tr><th>{{ lang === 'bn' ? 'লিজ' : 'Lease' }}</th><th>{{ lang === 'bn' ? 'ইউনিট' : 'Unit' }}</th><th>{{ lang === 'bn' ? 'ভাড়াটিয়া' : 'Tenant' }}</th><th>{{ lang === 'bn' ? 'ভাড়া' : 'Rent' }}</th><th>{{ lang === 'bn' ? 'মেয়াদ শেষ' : 'Expires' }}</th></tr></thead>
               <tbody>
                 <tr v-for="l in expiring" :key="l.id">
                   <td style="font-weight:700">{{ l.id }}</td>

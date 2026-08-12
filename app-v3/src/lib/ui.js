@@ -70,16 +70,16 @@ export const VIEW_TOGGLE = null // (template snippet lives in each view; kept he
 
 // ── Notification center (V2.15) ──
 export const NOTIF_TYPE_META = {
-  sla:         { ico: '🔧', label: 'SLA', cls: 'b-blue' },
-  compliance:  { ico: '📋', label: 'Compliance', cls: 'b-orange' },
-  arrears:     { ico: '💰', label: 'Arrears', cls: 'b-red' },
-  renewal:     { ico: '📅', label: 'Renewals', cls: 'b-purple' },
-  land:        { ico: '🌍', label: 'Land', cls: 'b-green' },
-  nrb:         { ico: '🏠', label: 'Vacancies', cls: 'b-purple' },
-  maintenance: { ico: '🔧', label: 'Maintenance', cls: 'b-orange' },
-  payment:     { ico: '💳', label: 'Payments', cls: 'b-green' },
-  kyc:         { ico: '🪪', label: 'KYC', cls: 'b-blue' },
-  system:      { ico: '⚙️', label: 'System', cls: 'b-gray' },
+  sla:         { ico: '🔧', label: 'SLA', bn: 'এসএলএ', cls: 'b-blue' },
+  compliance:  { ico: '📋', label: 'Compliance', bn: 'কমপ্লায়েন্স', cls: 'b-orange' },
+  arrears:     { ico: '💰', label: 'Arrears', bn: 'বকেয়া', cls: 'b-red' },
+  renewal:     { ico: '📅', label: 'Renewals', bn: 'নবায়ন', cls: 'b-purple' },
+  land:        { ico: '🌍', label: 'Land', bn: 'জমি', cls: 'b-green' },
+  nrb:         { ico: '🏠', label: 'Vacancies', bn: 'খালি ইউনিট', cls: 'b-purple' },
+  maintenance: { ico: '🔧', label: 'Maintenance', bn: 'মেইনটেন্যান্স', cls: 'b-orange' },
+  payment:     { ico: '💳', label: 'Payments', bn: 'পেমেন্ট', cls: 'b-green' },
+  kyc:         { ico: '🪪', label: 'KYC', bn: 'কেওয়াইসি', cls: 'b-blue' },
+  system:      { ico: '⚙️', label: 'System', bn: 'সিস্টেম', cls: 'b-gray' },
 }
 export function notifMeta(t) { return NOTIF_TYPE_META[t] || NOTIF_TYPE_META.system }
 export function notifTarget(a) {

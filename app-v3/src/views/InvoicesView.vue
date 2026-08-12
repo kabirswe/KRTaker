@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
+import { lang } from '../lib/i18n'
 import { track } from '../lib/analytics'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
@@ -195,7 +196,7 @@ async function runAuto() {
   <div>
     <div class="page-head">
       <div>
-        <h1>🧾 Invoices</h1>
+        <h1>🧾 {{ lang === 'bn' ? 'ইনভয়েস' : 'Invoices' }}</h1>
         <div class="sub">{{ invoicesAll.length }} invoices · {{ kpis[2]?.value || '৳0' }} collected · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -224,7 +225,7 @@ async function runAuto() {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAuto" class="btn-primary" style="padding:9px 16px;font-size:12.5px" title="Generate rent invoices for a month from active leases">⚡ Auto-generate</button>
+        <button v-if="canManage" @click="openAuto" class="btn-primary" style="padding:9px 16px;font-size:12.5px" title="Generate rent invoices for a month from active leases">{{ lang === 'bn' ? '⚡ অটো-জেনারেট' : '⚡ Auto-generate' }}</button>
       </div>
     </div>
 
@@ -260,7 +261,7 @@ async function runAuto() {
             <span class="badge b-gray">📄 {{ i.l }}</span>
           </div>
           <div v-if="canManage && invDue(i) > 0" style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:9px">
-            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openPay(i)">💳 Record payment</button>
+            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openPay(i)">💳 {{ lang === 'bn' ? 'পেমেন্ট রেকর্ড করুন' : 'Record payment' }}</button>
           </div>
         </div>
       </div>
@@ -268,7 +269,7 @@ async function runAuto() {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Invoice</th><th>Month</th><th>Tenant</th><th>Lease / Unit</th><th>Gross</th><th>TDS</th><th>Net</th><th>Paid</th><th>Due</th><th>Status</th><th v-if="canManage && filtered.some(i => invDue(i) > 0)">Action</th></tr></thead>
+          <thead><tr><th>{{ lang === 'bn' ? 'ইনভয়েস' : 'Invoice' }}</th><th>{{ lang === 'bn' ? 'মাস' : 'Month' }}</th><th>{{ lang === 'bn' ? 'ভাড়াটিয়া' : 'Tenant' }}</th><th>{{ lang === 'bn' ? 'লিজ / ইউনিট' : 'Lease / Unit' }}</th><th>{{ lang === 'bn' ? 'গ্রস' : 'Gross' }}</th><th>TDS</th><th>{{ lang === 'bn' ? 'নিট' : 'Net' }}</th><th>{{ lang === 'bn' ? 'পরিশোধিত' : 'Paid' }}</th><th>{{ lang === 'bn' ? 'বকেয়া' : 'Due' }}</th><th>{{ lang === 'bn' ? 'স্ট্যাটাস' : 'Status' }}</th><th v-if="canManage && filtered.some(i => invDue(i) > 0)">{{ lang === 'bn' ? 'অ্যাকশন' : 'Action' }}</th></tr></thead>
           <tbody>
             <tr v-for="i in paged" :key="i.id" style="cursor:pointer" @click="openDetail(i)">
               <td style="white-space:nowrap"><b>{{ i.id }}</b></td>
@@ -333,9 +334,9 @@ async function runAuto() {
           </div>
 
           <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-            <button v-if="invDue(sel) > 0" class="btn-primary" style="padding:8px 15px;font-size:12.5px" @click="openPay(sel)">💳 Record payment</button>
-            <button class="btn-ghost" style="padding:8px 15px;font-size:12.5px" :disabled="emailBusy === sel.id" @click="emailInv(sel)">{{ emailBusy === sel.id ? 'Emailing…' : '📧 Email invoice' }}</button>
-            <button class="btn-ghost" style="padding:8px 15px;font-size:12.5px" :disabled="printBusy === sel.id" @click="printInv(sel)">{{ printBusy === sel.id ? 'Rendering…' : '🖨️ Print / PDF' }}</button>
+            <button v-if="invDue(sel) > 0" class="btn-primary" style="padding:8px 15px;font-size:12.5px" @click="openPay(sel)">💳 {{ lang === 'bn' ? 'পেমেন্ট রেকর্ড করুন' : 'Record payment' }}</button>
+            <button class="btn-ghost" style="padding:8px 15px;font-size:12.5px" :disabled="emailBusy === sel.id" @click="emailInv(sel)">{{ emailBusy === sel.id ? (lang === 'bn' ? 'ইমেইল হচ্ছে…' : 'Emailing…') : (lang === 'bn' ? '📧 ইনভয়েস ইমেইল করুন' : '📧 Email invoice') }}</button>
+            <button class="btn-ghost" style="padding:8px 15px;font-size:12.5px" :disabled="printBusy === sel.id" @click="printInv(sel)">{{ printBusy === sel.id ? (lang === 'bn' ? 'রেন্ডার হচ্ছে…' : 'Rendering…') : (lang === 'bn' ? '🖨️ প্রিন্ট / PDF' : '🖨️ Print / PDF') }}</button>
           </div>
 
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
@@ -382,7 +383,7 @@ async function runAuto() {
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="payModal = null"></div>
       <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(400px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
         <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-          <h3 style="font-size:15px;font-weight:800">💳 Record payment — {{ payModal.inv.id }}</h3>
+          <h3 style="font-size:15px;font-weight:800">💳 {{ lang === 'bn' ? 'পেমেন্ট রেকর্ড করুন —' : 'Record payment —' }} {{ payModal.inv.id }}</h3>
           <button @click="payModal = null" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
         </div>
         <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">

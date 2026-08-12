@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
+import { lang, setLang as setI18nLang } from '../lib/i18n'
 
 const auth = useAuthStore()
 const data = useDataStore()
@@ -166,7 +167,7 @@ async function disable2fa() {
   } finally { twofaBusy.value = false }
 }
 
-function setLang(lang) { prefs.value.lang = lang }
+function setLang(l) { prefs.value.lang = l; setI18nLang(l) }
 function setTheme(t) { prefs.value.theme = t; document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : '') }
 
 async function saveProfile() {
@@ -371,8 +372,8 @@ async function downloadExport() {
   <div>
     <div class="page-head">
       <div>
-        <h1>⚙️ Settings</h1>
-        <div class="sub">Profile, preferences, security</div>
+        <h1>⚙️ {{ lang === 'bn' ? 'সেটিংস' : 'Settings' }}</h1>
+        <div class="sub">{{ lang === 'bn' ? 'প্রোফাইল, পছন্দ, নিরাপত্তা' : 'Profile, preferences, security' }}</div>
       </div>
     </div>
 
@@ -407,7 +408,7 @@ async function downloadExport() {
 
       <!-- Profile -->
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">👤</span>Profile</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">👤</span>{{ lang === 'bn' ? 'প্রোফাইল' : 'Profile' }}</div></div>
         <div class="panel-b">
           <div class="form-field" style="margin-bottom:12px">
             <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Display name</label>
@@ -436,7 +437,7 @@ async function downloadExport() {
             <button class="btn-ghost" :style="(prefs.theme || 'light') === 'light' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setTheme('light')">☀️ Light</button>
             <button class="btn-ghost" :style="prefs.theme === 'dark' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setTheme('dark')">🌙 Dark</button>
           </div>
-          <div style="font-size:12px;font-weight:700;margin-bottom:6px">Language</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:6px">{{ lang === 'bn' ? 'ভাষা' : 'Language' }}</div>
           <div style="display:flex;gap:8px;margin-bottom:14px">
             <button class="btn-ghost" :style="(prefs.lang || 'en') === 'en' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setLang('en')">🇬🇧 English</button>
             <button class="btn-ghost" :style="prefs.lang === 'bn' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setLang('bn')">🇧🇩 বাংলা</button>
@@ -447,7 +448,7 @@ async function downloadExport() {
 
       <!-- Security -->
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🔑</span>Change password</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🔑</span>{{ lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Change password' }}</div></div>
         <div class="panel-b">
           <div class="form-field" style="margin-bottom:12px">
             <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Current password</label>
@@ -457,7 +458,7 @@ async function downloadExport() {
             <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">New password (min {{ secForm.password_min || 8 }})</label>
             <input v-model="newPw" type="password" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
-          <button class="btn-primary" style="width:100%" @click="changePassword">Change password</button>
+          <button class="btn-primary" style="width:100%" @click="changePassword">{{ lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Change password' }}</button>
         </div>
       </div>
     </div>

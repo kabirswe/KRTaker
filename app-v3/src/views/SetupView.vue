@@ -11,6 +11,7 @@ import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
+import { t, lang } from '../lib/i18n'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -24,6 +25,7 @@ const STEPS = [
   { id: 'security', ico: '🛡️', label: 'Security' },
   { id: 'done', ico: '🎉', label: 'Done' },
 ]
+const STEPS_BN = { welcome: 'স্বাগতম', profile: 'প্রোফাইল', property: 'প্রপার্টি', notify: 'নোটিফিকেশন', security: 'নিরাপত্তা', done: 'সম্পন্ন' }
 const step = ref(0)
 const busy = ref(false)
 const err = ref('')
@@ -50,13 +52,13 @@ const prefs = ref({
   notify_premium: true,
 })
 const NOTIFY_ROWS = [
-  { k: 'notify_rent', ico: '💸', t: 'Rent reminders', d: 'Emails before/at rent due dates' },
-  { k: 'notify_collections', ico: '🧾', t: 'Collections digest', d: 'Money-collected summaries' },
-  { k: 'notify_renewal', ico: '📅', t: 'Lease renewals', d: 'Leases about to end or renew' },
-  { k: 'notify_docs', ico: '📎', t: 'Document emails', d: 'Invoices, receipts, lease docs' },
-  { k: 'wa_reminders', ico: '💬', t: 'WhatsApp reminders', d: 'Rent reminders via WhatsApp (if your phone is set)' },
-  { k: 'email_digest', ico: '📬', t: 'Weekly email digest', d: 'One summary email per week' },
-  { k: 'notify_premium', ico: '✨', t: 'Product announcements', d: 'New features & premium offers' },
+  { k: 'notify_rent', ico: '💸', t: 'Rent reminders', d: 'Emails before/at rent due dates', tbn: 'ভাড়া রিমাইন্ডার', dbn: 'ভাড়া নির্ধারিত তারিখের আগে/সময়ে ইমেইল' },
+  { k: 'notify_collections', ico: '🧾', t: 'Collections digest', d: 'Money-collected summaries', tbn: 'আদায় ডাইজেস্ট', dbn: 'আদায়কৃত অর্থের সারসংক্ষেপ' },
+  { k: 'notify_renewal', ico: '📅', t: 'Lease renewals', d: 'Leases about to end or renew', tbn: 'লিজ নবায়ন', dbn: 'যেসব লিজ শেষ হতে চলেছে বা নবায়ন হবে' },
+  { k: 'notify_docs', ico: '📎', t: 'Document emails', d: 'Invoices, receipts, lease docs', tbn: 'ডকুমেন্ট ইমেইল', dbn: 'ইনভয়েস, রসিদ, লিজ ডকুমেন্ট' },
+  { k: 'wa_reminders', ico: '💬', t: 'WhatsApp reminders', d: 'Rent reminders via WhatsApp (if your phone is set)', tbn: 'হোয়াটসঅ্যাপ রিমাইন্ডার', dbn: 'হোয়াটসঅ্যাপে ভাড়া রিমাইন্ডার (ফোন নম্বর সেট থাকলে)' },
+  { k: 'email_digest', ico: '📬', t: 'Weekly email digest', d: 'One summary email per week', tbn: 'সাপ্তাহিক ইমেইল ডাইজেস্ট', dbn: 'সপ্তাহে একটি সারসংক্ষেপ ইমেইল' },
+  { k: 'notify_premium', ico: '✨', t: 'Product announcements', d: 'New features & premium offers', tbn: 'প্রোডাক্ট ঘোষণা', dbn: 'নতুন ফিচার ও প্রিমিয়াম অফার' },
 ]
 
 // ── Step 4: security (2FA + web push) ──
@@ -207,7 +209,7 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
       <div class="ob-steps">
         <div v-for="(s, i) in STEPS" :key="s.id" class="ob-step" :class="{ on: i <= step, cur: i === step }">
           <div class="ob-dot">{{ i < step ? '✓' : s.ico }}</div>
-          <div class="ob-lab">{{ s.label }}</div>
+          <div class="ob-lab">{{ lang === 'bn' ? STEPS_BN[s.id] : s.label }}</div>
         </div>
       </div>
 
@@ -217,104 +219,104 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
         <!-- 0 · WELCOME -->
         <div v-if="step === 0" class="ob-center">
           <div class="ob-hero">◆</div>
-          <h1 class="ob-title">Welcome to KRTaker 👋</h1>
+          <h1 class="ob-title">{{ lang === 'bn' ? 'KRTaker-এ স্বাগতম 👋' : 'Welcome to KRTaker 👋' }}</h1>
           <p class="ob-sub">
-            Your property &amp; facility management command center is ready.
-            Let's set up your workspace — <b>about 2 minutes, 5 quick steps.</b>
-            You can skip any step and finish later.
+            {{ lang === 'bn'
+              ? 'আপনার প্রপার্টি ও ফ্যাসিলিটি ম্যানেজমেন্ট কমান্ড সেন্টার প্রস্তুত। আপনার ওয়ার্কস্পেস সেটআপ করি — <b>প্রায় ২ মিনিট, ৫টি দ্রুত ধাপ।</b> যেকোনো ধাপ স্কিপ করে পরে শেষ করতে পারবেন।'
+              : "Your property &amp; facility management command center is ready. Let's set up your workspace — <b>about 2 minutes, 5 quick steps.</b> You can skip any step and finish later." }}
           </p>
           <div class="ob-actions">
-            <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next">Get started →</button>
-            <button class="btn-ghost" style="padding:12px 22px;font-size:13.5px" @click="skip">Skip for now</button>
+            <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next">{{ lang === 'bn' ? 'শুরু করুন →' : 'Get started →' }}</button>
+            <button class="btn-ghost" style="padding:12px 22px;font-size:13.5px" @click="skip">{{ lang === 'bn' ? 'এখনই নয়' : 'Skip for now' }}</button>
           </div>
-          <div class="ob-hint">You can change everything later in ⚙️ Settings.</div>
+          <div class="ob-hint">{{ lang === 'bn' ? 'সবকিছু পরে ⚙️ সেটিংস থেকে পরিবর্তন করতে পারবেন।' : 'You can change everything later in ⚙️ Settings.' }}</div>
         </div>
 
         <!-- 1 · PROFILE -->
         <div v-else-if="step === 1" class="ob-step-body">
-          <h2 class="ob-h">🧑‍💼 Your profile</h2>
-          <p class="ob-sub l">Your name appears on owner statements, documents and support tickets.</p>
-          <label class="ob-lab2">Full name</label>
+          <h2 class="ob-h">{{ lang === 'bn' ? '🧑‍💼 আপনার প্রোফাইল' : '🧑‍💼 Your profile' }}</h2>
+          <p class="ob-sub l">{{ lang === 'bn' ? 'আপনার নাম মালিক স্টেটমেন্ট, ডকুমেন্ট ও সাপোর্ট টিকেটে দেখা যাবে।' : 'Your name appears on owner statements, documents and support tickets.' }}</p>
+          <label class="ob-lab2">{{ lang === 'bn' ? 'পুরো নাম' : 'Full name' }}</label>
           <input v-model="name" placeholder="e.g. Alamgir Kabir Roni" class="ob-inp" @keyup.enter="next" />
-          <label class="ob-lab2" style="margin-top:14px">Organisation / company <span class="ob-opt">(optional)</span></label>
+          <label class="ob-lab2" style="margin-top:14px">{{ lang === 'bn' ? 'প্রতিষ্ঠান / কোম্পানি' : 'Organisation / company' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
           <input v-model="org" placeholder="e.g. Kabir Holdings" class="ob-inp" @keyup.enter="next" />
           <div class="ob-foot">
-            <button class="btn-ghost" @click="back">← Back</button>
-            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? 'Saving…' : 'Continue →' }}</button>
+            <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
+            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'সেভ হচ্ছে…' : 'Saving…') : (lang === 'bn' ? 'চালিয়ে যান →' : 'Continue →') }}</button>
           </div>
         </div>
 
         <!-- 2 · PROPERTY -->
         <div v-else-if="step === 2" class="ob-step-body">
-          <h2 class="ob-h">🏢 Add your first property</h2>
-          <p class="ob-sub l">This is the building or land you manage. Units, tenants and leases hang off it — you can add more properties any time.</p>
-          <label class="ob-lab2">Property name *</label>
+          <h2 class="ob-h">{{ lang === 'bn' ? '🏢 আপনার প্রথম প্রপার্টি যোগ করুন' : '🏢 Add your first property' }}</h2>
+          <p class="ob-sub l">{{ lang === 'bn' ? 'এটি সেই বিল্ডিং বা জমি যা আপনি ম্যানেজ করেন। ইউনিট, ভাড়াটিয়া ও লিজ এর সাথে যুক্ত থাকে — যেকোনো সময় আরও প্রপার্টি যোগ করতে পারবেন।' : 'This is the building or land you manage. Units, tenants and leases hang off it — you can add more properties any time.' }}</p>
+          <label class="ob-lab2">{{ lang === 'bn' ? 'প্রপার্টির নাম *' : 'Property name *' }}</label>
           <input v-model="prop.name" placeholder="e.g. Green View Residency" class="ob-inp" @keyup.enter="next" />
           <div class="ob-grid2">
             <div>
-              <label class="ob-lab2">Type</label>
+              <label class="ob-lab2">{{ t('Type') }}</label>
               <select v-model="prop.type" class="ob-inp">
                 <option v-for="t in PROP_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
             </div>
             <div>
-              <label class="ob-lab2">Jurisdiction</label>
+              <label class="ob-lab2">{{ lang === 'bn' ? 'এলাকা (জুরিসডিকশন)' : 'Jurisdiction' }}</label>
               <select v-model="prop.jur" class="ob-inp">
                 <option v-for="j in JURS" :key="j" :value="j">{{ j }}</option>
               </select>
             </div>
           </div>
-          <label class="ob-lab2" style="margin-top:14px">Address <span class="ob-opt">(optional)</span></label>
+          <label class="ob-lab2" style="margin-top:14px">{{ lang === 'bn' ? 'ঠিকানা' : 'Address' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
           <input v-model="prop.address" placeholder="e.g. House 12, Road 5, Dhanmondi, Dhaka" class="ob-inp" @keyup.enter="next" />
           <div class="ob-foot">
-            <button class="btn-ghost" @click="back">← Back</button>
-            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? 'Creating…' : 'Create & continue →' }}</button>
+            <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
+            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'তৈরি হচ্ছে…' : 'Creating…') : (lang === 'bn' ? 'তৈরি করুন ও চালিয়ে যান →' : 'Create & continue →') }}</button>
           </div>
         </div>
 
         <!-- 3 · NOTIFICATIONS -->
         <div v-else-if="step === 3" class="ob-step-body">
-          <h2 class="ob-h">🔔 Choose your notifications</h2>
-          <p class="ob-sub l">Pick what lands in <b>your</b> inbox. Every toggle can be changed later in Settings.</p>
+          <h2 class="ob-h">{{ lang === 'bn' ? '🔔 আপনার নোটিফিকেশন বেছে নিন' : '🔔 Choose your notifications' }}</h2>
+          <p class="ob-sub l">{{ lang === 'bn' ? '<b>আপনার</b> ইনবক্সে কী আসবে তা বেছে নিন। প্রতিটি টগল পরে সেটিংস থেকে বদলানো যাবে।' : 'Pick what lands in <b>your</b> inbox. Every toggle can be changed later in Settings.' }}</p>
           <div class="ob-rows">
             <div v-for="r in NOTIFY_ROWS" :key="r.k" class="ob-row" @click="tgl(r.k)">
               <span class="ob-row-ico">{{ r.ico }}</span>
               <div class="ob-row-txt">
-                <div class="ob-row-t">{{ r.t }}</div>
-                <div class="ob-row-d">{{ r.d }}</div>
+                <div class="ob-row-t">{{ lang === 'bn' ? (r.tbn || r.t) : r.t }}</div>
+                <div class="ob-row-d">{{ lang === 'bn' ? (r.dbn || r.d) : r.d }}</div>
               </div>
               <span class="ob-tgl" :class="{ on: prefs[r.k] }"></span>
             </div>
           </div>
           <div class="ob-foot">
-            <button class="btn-ghost" @click="back">← Back</button>
-            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? 'Saving…' : 'Save & continue →' }}</button>
+            <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
+            <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'সেভ হচ্ছে…' : 'Saving…') : (lang === 'bn' ? 'সেভ করুন ও চালিয়ে যান →' : 'Save & continue →') }}</button>
           </div>
         </div>
 
         <!-- 4 · SECURITY -->
         <div v-else-if="step === 4" class="ob-step-body">
-          <h2 class="ob-h">🛡️ Security &amp; on-device alerts</h2>
-          <p class="ob-sub l">Two optional steps that make your account much safer. Both can be done later from Settings.</p>
+          <h2 class="ob-h">{{ lang === 'bn' ? '🛡️ নিরাপত্তা ও ডিভাইস অ্যালার্ট' : '🛡️ Security &amp; on-device alerts' }}</h2>
+          <p class="ob-sub l">{{ lang === 'bn' ? 'দুটি ঐচ্ছিক ধাপ যা আপনার অ্যাকাউন্ট অনেক বেশি নিরাপদ করবে। দুটোই পরে সেটিংস থেকে করা যাবে।' : 'Two optional steps that make your account much safer. Both can be done later from Settings.' }}</p>
 
           <div class="ob-sec-card" :class="{ active: want2fa || twofaState.enabled }">
             <div class="ob-sec-head" @click="want2fa = !want2fa; twofaState.sent = false; twofaCode = ''">
               <div>
-                <div class="ob-sec-t">🔐 Two-factor authentication</div>
-                <div class="ob-sec-d">Logins need a fresh 6-digit code from your email — protects you even if the password leaks.</div>
+                <div class="ob-sec-t">{{ lang === 'bn' ? '🔐 টু-ফ্যাক্টর প্রমাণীকরণ' : '🔐 Two-factor authentication' }}</div>
+                <div class="ob-sec-d">{{ lang === 'bn' ? 'লগ ইন করতে আপনার ইমেইলে পাঠানো নতুন ৬-ডিজিটের কোড লাগবে — পাসওয়ার্ড লিক হলেও সুরক্ষিত থাকবেন।' : 'Logins need a fresh 6-digit code from your email — protects you even if the password leaks.' }}</div>
               </div>
               <span class="ob-tgl" :class="{ on: want2fa || twofaState.enabled }"></span>
             </div>
-            <div v-if="twofaState.enabled" class="ob-sec-done">✅ 2FA is now enabled on your account.</div>
+            <div v-if="twofaState.enabled" class="ob-sec-done">{{ lang === 'bn' ? '✅ আপনার অ্যাকাউন্টে 2FA এখন চালু।' : '✅ 2FA is now enabled on your account.' }}</div>
             <div v-else-if="want2fa" class="ob-sec-flow">
               <template v-if="!twofaState.sent">
-                <button class="btn-primary" :disabled="busy" @click="sendTwofa">{{ busy ? 'Sending…' : '📧 Send me a code' }}</button>
+                <button class="btn-primary" :disabled="busy" @click="sendTwofa">{{ busy ? (lang === 'bn' ? 'পাঠানো হচ্ছে…' : 'Sending…') : (lang === 'bn' ? '📧 আমাকে একটি কোড পাঠান' : '📧 Send me a code') }}</button>
               </template>
               <template v-else>
-                <div class="ob-sec-d">Enter the 6-digit code we emailed you:</div>
+                <div class="ob-sec-d">{{ lang === 'bn' ? 'আমরা যে ৬-ডিজিটের কোড পাঠিয়েছি তা লিখুন:' : 'Enter the 6-digit code we emailed you:' }}</div>
                 <div style="display:flex;gap:8px;margin-top:8px">
                   <input v-model="twofaCode" placeholder="000000" maxlength="6" class="ob-inp" style="width:150px;text-align:center;letter-spacing:3px;font-weight:800" @keyup.enter="enableTwofa" />
-                  <button class="btn-primary" :disabled="busy" @click="enableTwofa">Verify</button>
+                  <button class="btn-primary" :disabled="busy" @click="enableTwofa">{{ t('Verify') }}</button>
                 </div>
               </template>
             </div>
@@ -323,36 +325,36 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           <div class="ob-sec-card" :class="{ active: wantPush || pushState.enabled }">
             <div class="ob-sec-head" @click="wantPush = !wantPush">
               <div>
-                <div class="ob-sec-t">🔔 Browser push notifications</div>
-                <div class="ob-sec-d">Alerts arrive on this device even when the app tab is closed (works on desktop &amp; mobile).</div>
+                <div class="ob-sec-t">{{ lang === 'bn' ? '🔔 ব্রাউজার পুশ নোটিফিকেশন' : '🔔 Browser push notifications' }}</div>
+                <div class="ob-sec-d">{{ lang === 'bn' ? 'অ্যাপ ট্যাব বন্ধ থাকলেও এই ডিভাইসে অ্যালার্ট আসবে (ডেস্কটপ ও মোবাইলে কাজ করে)।' : 'Alerts arrive on this device even when the app tab is closed (works on desktop &amp; mobile).' }}</div>
               </div>
               <span class="ob-tgl" :class="{ on: wantPush || pushState.enabled }"></span>
             </div>
-            <div v-if="pushState.enabled" class="ob-sec-done">✅ Push is on for this device.</div>
+            <div v-if="pushState.enabled" class="ob-sec-done">{{ lang === 'bn' ? '✅ এই ডিভাইসে পুশ চালু আছে।' : '✅ Push is on for this device.' }}</div>
             <div v-else-if="wantPush" class="ob-sec-flow">
-              <button class="btn-primary" :disabled="busy" @click="enablePush">{{ busy ? 'Working…' : '🔔 Enable on this device' }}</button>
+              <button class="btn-primary" :disabled="busy" @click="enablePush">{{ busy ? (lang === 'bn' ? 'চালু হচ্ছে…' : 'Working…') : (lang === 'bn' ? '🔔 এই ডিভাইসে চালু করুন' : '🔔 Enable on this device') }}</button>
             </div>
           </div>
 
           <div class="ob-foot">
-            <button class="btn-ghost" @click="back">← Back</button>
-            <button class="btn-primary" :disabled="busy" @click="next">Continue →</button>
+            <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
+            <button class="btn-primary" :disabled="busy" @click="next">{{ lang === 'bn' ? 'চালিয়ে যান →' : 'Continue →' }}</button>
           </div>
         </div>
 
         <!-- 5 · DONE -->
         <div v-else class="ob-center">
           <div class="ob-hero ok">✓</div>
-          <h1 class="ob-title">You're all set! 🎉</h1>
-          <p class="ob-sub">Here's what your workspace looks like now:</p>
+          <h1 class="ob-title">{{ lang === 'bn' ? 'সবকিছু প্রস্তুত! 🎉' : "You're all set! 🎉" }}</h1>
+          <p class="ob-sub">{{ lang === 'bn' ? 'আপনার ওয়ার্কস্পেস এখন এ রকম দেখাচ্ছে:' : "Here's what your workspace looks like now:" }}</p>
           <div class="ob-sum">
             <div v-for="(it, i) in summary" :key="i" class="ob-sum-row">✅ {{ it }}</div>
-            <div v-if="!summary.length" class="ob-sum-row">✅ Your workspace is ready — explore the sidebar to start.</div>
+            <div v-if="!summary.length" class="ob-sum-row">{{ lang === 'bn' ? '✅ আপনার ওয়ার্কস্পেস প্রস্তুত — শুরু করতে সাইডবার ঘুরে দেখুন।' : '✅ Your workspace is ready — explore the sidebar to start.' }}</div>
           </div>
           <div class="ob-actions">
-            <button class="btn-primary" style="padding:12px 26px;font-size:14px" :disabled="busy" @click="finish">Open my dashboard →</button>
+            <button class="btn-primary" style="padding:12px 26px;font-size:14px" :disabled="busy" @click="finish">{{ lang === 'bn' ? 'আমার ড্যাশবোর্ড খুলুন →' : 'Open my dashboard →' }}</button>
           </div>
-          <div class="ob-hint">📚 Tip: the <b>Wiki &amp; Help</b> page has visual guides for every screen.</div>
+          <div class="ob-hint">{{ lang === 'bn' ? '📚 টিপ: <b>উইকি ও সাহায্য</b> পেজে প্রতিটি স্ক্রিনের ভিজ্যুয়াল গাইড আছে।' : '📚 Tip: the <b>Wiki &amp; Help</b> page has visual guides for every screen.' }}</div>
         </div>
 
         <!-- errors / success -->

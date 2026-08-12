@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
+import { t, lang } from '../lib/i18n'
 
 const router = useRouter()
 const route = useRoute()
@@ -108,30 +109,30 @@ function resendOtp() { twofa.value = ''; doLogin() }
         <div style="font-weight:800">{{ loginLogo.name }}<small style="display:block;font-size:10px;color:var(--text-mute)">Key Responsibility Taker</small></div>
       </div>
     </div>
-    <h1>Welcome back</h1>
-    <p class="sub">Log in to your workspace — owner, tenant, partner or staff.</p>
+    <h1>{{ t('Welcome back') }}</h1>
+    <p class="sub">{{ lang === 'bn' ? 'আপনার ওয়ার্কস্পেসে লগ ইন করুন — মালিক, ভাড়াটিয়া, পার্টনার বা স্টাফ।' : 'Log in to your workspace — owner, tenant, partner or staff.' }}</p>
     <div class="auth-err" :class="{ show: err }">{{ err }}</div>
     <div class="auth-field">
-      <label>Email address</label>
+      <label>{{ t('Email address') }}</label>
       <input type="email" v-model="email" placeholder="you@example.com" autocomplete="email" @keyup.enter="doLogin">
     </div>
     <div class="auth-field">
-      <label>Password</label>
+      <label>{{ t('Password') }}</label>
       <input type="password" v-model="password" placeholder="••••••••" autocomplete="current-password" @keyup.enter="doLogin">
     </div>
     <div v-if="show2fa" class="auth-field">
-      <label v-if="twofaMethod === 'email'">Enter the 6-digit code we emailed to {{ emailHint }}</label>
-      <label v-else>Enter the 6-digit code from your authenticator app</label>
+      <label v-if="twofaMethod === 'email'">{{ lang === 'bn' ? ('আমরা ' + emailHint + ' ঠিকানায় ৬-ডিজিটের কোড পাঠিয়েছি') : ('Enter the 6-digit code we emailed to ' + emailHint) }}</label>
+      <label v-else>{{ lang === 'bn' ? 'আপনার অথেন্টিকেটর অ্যাপ থেকে ৬-ডিজিটের কোড লিখুন' : 'Enter the 6-digit code from your authenticator app' }}</label>
       <input type="text" v-model="twofa" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" @keyup.enter="doLogin">
       <div style="margin-top:7px;font-size:12.5px">
-        <a v-if="twofaMethod === 'email'" href="#" @click.prevent="resendOtp" style="color:var(--primary);font-weight:700">Resend code</a>
-        <a v-else href="#" @click.prevent="useEmailOtp" style="color:var(--primary);font-weight:700">Use email code instead</a>
+        <a v-if="twofaMethod === 'email'" href="#" @click.prevent="resendOtp" style="color:var(--primary);font-weight:700">{{ lang === 'bn' ? 'কোড আবার পাঠান' : 'Resend code' }}</a>
+        <a v-else href="#" @click.prevent="useEmailOtp" style="color:var(--primary);font-weight:700">{{ lang === 'bn' ? 'পরিবর্তে ইমেইল কোড ব্যবহার করুন' : 'Use email code instead' }}</a>
       </div>
     </div>
-    <button class="auth-btn" :disabled="auth.loading" @click="doLogin">{{ auth.loading ? 'Signing in…' : 'Log in' }}</button>
+    <button class="auth-btn" :disabled="auth.loading" @click="doLogin">{{ auth.loading ? (lang === 'bn' ? 'সাইন ইন হচ্ছে…' : 'Signing in…') : t('Log in') }}</button>
     <div v-if="turnstile" ref="tsEl" class="auth-ts" style="margin-top:12px;display:flex;justify-content:center"></div>
     <div class="auth-creds">
-      New here? <a href="https://krtaker.com/register.html" style="color:var(--primary);font-weight:700">Create an account →</a>
+      {{ lang === 'bn' ? 'নতুন?' : 'New here?' }} <a href="https://krtaker.com/register.html" style="color:var(--primary);font-weight:700">{{ lang === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন →' : 'Create an account →' }}</a>
     </div>
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:16px;font-size:11.5px">
       <a href="https://krtaker.com/privacy.html" target="_blank" rel="noopener" style="color:var(--text-mute)">Privacy</a>
