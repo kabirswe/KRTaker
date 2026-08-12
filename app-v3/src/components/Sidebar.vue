@@ -46,7 +46,7 @@ const emit = defineEmits(['close'])
 // V2.0.6: Finance + Accounts groups merged into ONE Finance hub (/finance with tabs) — fewer menu entries.
 // V2.0.7: Portfolio, BMS, Community, Legal, Safety&Security all merged into hub dashboards with tabs.
 const GROUPS = [
-  { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)'], ['wiki', '📚', 'Wiki & Help']] },
+  { id: 'overview', label: 'Overview', items: [['portal', '🏠', 'My Portal'], ['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)'], ['wiki', '📚', 'Wiki & Help']] },
   { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio']] },
   { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance']] },
   { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS']] },
@@ -57,7 +57,7 @@ const GROUPS = [
 ]
 
 const VIEW_ROUTES = {
-  dashboard: '/dashboard', analytics: '/analytics', ai: '/ai', finance: '/finance',
+  dashboard: '/dashboard', analytics: '/analytics', ai: '/ai', finance: '/finance', portal: '/portal',
   portfolio: '/portfolio', bms: '/bms', community: '/community', legalhub: '/legal-hub', secure: '/secure',
   properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
   onboarding: '/onboarding', leads: '/leads', documents: '/documents', templates: '/templates',

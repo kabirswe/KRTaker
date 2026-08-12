@@ -234,6 +234,19 @@ const BN = {
   'Jobs, QC feedback, payouts': 'জব, কিউসি ফিডব্যাক, পেআউট',
   Admin: 'অ্যাডমিন', Subscriber: 'সাবস্ক্রাইবার', Backoffice: 'ব্যাকঅফিস',
   'Viewing as': 'ভিউ করছেন', 'Switched to': 'সুইচ করা হয়েছে', 'Switch failed': 'সুইচ ব্যর্থ হয়েছে',
+  // ── Tenant portal (V2.31) ──
+  'My Portal': 'আমার পোর্টাল', 'Select tenant': 'ভাড়াটিয়া নির্বাচন',
+  'Total paid': 'মোট পরিশোধিত', 'Next due': 'পরবর্তী বিল', 'Open tickets': 'খোলা টিকেট',
+  'Lease days left': 'লিজে দিন বাকি', 'My lease': 'আমার লিজ', 'Lease progress': 'লিজ অগ্রগতি',
+  'Download agreement': 'লিজ চুক্তি ডাউনলোড', 'Registration pending': 'রেজিস্ট্রেশন বাকি আছে',
+  'Renter score': 'রেন্টার স্কোর', 'Renter risk assessment — landlord vetting': 'রেন্টার ঝুঁকি মূল্যায়ন — বাড়িওয়ালা ভেটিং',
+  'No active lease': 'কোনো সক্রিয় লিজ নেই', 'Due invoices': 'বকেয়া ইনভয়েস',
+  'Recent payments': 'সাম্প্রতিক পেমেন্ট', 'Maintenance tickets': 'মেইনটেন্যান্স টিকেট',
+  'Utility bills': 'ইউটিলিটি বিল', 'Meter readings': 'মিটার রিডিং', 'Renewal requests': 'নবায়ন অনুরোধ',
+  Settlement: 'সেটেলমেন্ট', Deposit: 'ডিপোজিট', Damages: 'ক্ষতি', 'Total due': 'মোট বকেয়া',
+  Balance: 'ব্যালান্স', Refund: 'রিফান্ড', 'No-dues certificate': 'নো-ডিউজ সার্টিফিকেট',
+  Usage: 'ব্যবহার', Reading: 'রিডিং', 'Pay rent': 'ভাড়া পরিশোধ',
+  'everything about your tenancy in one place': 'আপনার ভাড়া, লিজ ও টিকেট এক জায়গায়',
 }
 
 // t(key) — dictionary lookup with English fallback.
