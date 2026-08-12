@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260908) {
+        if ($__sv < 20260915) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -178,6 +178,10 @@ function db() {
             created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)");
         $at_cols = array_column($pdo->query('PRAGMA table_info(app_tokens)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('impersonator', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN impersonator TEXT DEFAULT ''");
+        /* V2.17: session registry — IP/UA/last-seen for the session-management UI + new-sign-in alerts */
+        if (!in_array('ip', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN ip TEXT DEFAULT ''");
+        if (!in_array('ua', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN ua TEXT DEFAULT ''");
+        if (!in_array('last_seen', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN last_seen TEXT DEFAULT ''");
         /* ── SA1-fullsite v8 (v3.62): outbound webhooks — per-tenant endpoint subscriptions + delivery log ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS webhooks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1067,7 +1071,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260908'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260915'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -1534,6 +1538,11 @@ function current_user() {
     $tok = $st->fetch(PDO::FETCH_ASSOC);
     if (!$tok) return null;
     if ($tok['expires_at'] && strtotime($tok['expires_at']) < time()) return null;
+    /* V2.17: refresh last_seen (throttled to ≤1 write/5 min per session) */
+    try {
+        $pdo->prepare("UPDATE app_tokens SET last_seen=datetime('now') WHERE token=? AND (last_seen IS NULL OR last_seen < datetime('now','-5 minutes'))")
+            ->execute([hash('sha256', $m[1])]);
+    } catch (Exception $e) { /* never let session bookkeeping break requests */ }
     $row = null;
     if ($tok['kind'] === 'sub') {
         $st = $pdo->prepare('SELECT * FROM subscribers WHERE id=? AND status="active"');
@@ -1659,11 +1668,71 @@ function otp_verify($pdo, $u, $code) {
     return true;
 }
 
+/* ── V2.17: session registry + new-sign-in intelligence ── */
+/* Minimal UA → "Chrome on Windows" style label for session lists + login alerts. */
+function ua_device_label($ua) {
+    $ua = (string)$ua;
+    if ($ua === '') return 'Unknown device';
+    $os = 'Unknown OS';
+    foreach ([['Windows', 'Windows'], ['Mac OS X|Macintosh', 'macOS'], ['iPhone', 'iPhone'], ['iPad', 'iPad'], ['Android', 'Android'], ['Linux', 'Linux']] as $p) {
+        if (preg_match('/' . $p[0] . '/i', $ua)) { $os = $p[1]; break; }
+    }
+    $browser = 'Browser';
+    foreach ([['Edg/', 'Edge'], ['OPR/', 'Opera'], ['Firefox/', 'Firefox'], ['Chrome/', 'Chrome'], ['Safari/', 'Safari']] as $p) {
+        if (stripos($ua, $p[0]) !== false) { $browser = $p[1]; break; }
+    }
+    if (stripos($ua, 'Headless') !== false) $browser .= ' (headless)';
+    return "$browser on $os";
+}
+/* True when a successful login comes from an IP this email hasn't succeeded from
+   in the last 14 days — i.e. a likely new device/network. Flood-guarded at
+   3 alerts/day/email. Toggle via admin_cfg sec_login_alerts (default on). */
+function new_login_alert_needed($pdo, $email, $ip) {
+    if ($email === '') return false;
+    try {
+        if ((int)admin_cfg($pdo, 'sec_login_alerts', 1) !== 1) return false;
+        $st = $pdo->prepare("SELECT COUNT(*) FROM auth_attempts WHERE ok=1 AND kind='login' AND email=? AND ip=? AND ts >= datetime('now','-14 days')");
+        $st->execute([strtolower(trim($email)), $ip]);
+        if ((int)$st->fetchColumn() > 0) return false;
+        $st = $pdo->prepare("SELECT COUNT(*) FROM auth_attempts WHERE kind='login-alert' AND email=? AND ts >= datetime('now','-24 hours')");
+        $st->execute([strtolower(trim($email))]);
+        if ((int)$st->fetchColumn() >= 3) return false;
+        return true;
+    } catch (Exception $e) { return false; }
+}
+function send_login_alert($pdo, $email, $name, $ip) {
+    $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
+    $dev = ua_device_label($ua);
+    $when = gmdate('Y-m-d H:i:s') . ' UTC';
+    $n = htmlspecialchars((string)$name, ENT_QUOTES);
+    $html = "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto\">"
+        . "<h2 style=\"color:#b23b3b;margin:0 0 14px\">🔐 New sign-in to your KRTaker account</h2>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\">Hi $n,</p>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\">Your account was just signed in to from a device we haven't seen recently:</p>"
+        . "<table style=\"border-collapse:collapse;margin:16px 0;font-size:13.5px\">"
+        . "<tr><td style=\"padding:6px 14px 6px 0;color:#777;font-weight:700\">Device</td><td style=\"padding:6px 0\">" . htmlspecialchars($dev, ENT_QUOTES) . "</td></tr>"
+        . "<tr><td style=\"padding:6px 14px 6px 0;color:#777;font-weight:700\">IP address</td><td style=\"padding:6px 0\">" . htmlspecialchars($ip, ENT_QUOTES) . "</td></tr>"
+        . "<tr><td style=\"padding:6px 14px 6px 0;color:#777;font-weight:700\">Time</td><td style=\"padding:6px 0\">" . htmlspecialchars($when, ENT_QUOTES) . "</td></tr>"
+        . "</table>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\">If this was you, no action is needed.</p>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\"><b>If it wasn't you</b>, change your password immediately from <b>Settings → Profile → Change password</b>, and review your active sessions under <b>Settings → Sign-in &amp; sessions</b> to sign out any device you don't recognise.</p>"
+        . "<p style=\"font-size:12.5px;color:#999\">— KRTaker security team</p></div>";
+    try { send_mail($email, 'New sign-in to your KRTaker account', $html); } catch (Throwable $e) { /* alert mail is best-effort */ }
+    try {
+        $pdo->prepare("INSERT INTO auth_attempts (email, ip, kind, ok) VALUES (?,?,'login-alert',1)")
+            ->execute([strtolower(trim($email)), $ip]);
+    } catch (Exception $e) {}
+    try { audit($name, 'New sign-in alert emailed', 'auth', (string)$ip); } catch (Throwable $e) {}
+}
+
 function make_token($uid, $kind, $impersonator = '', $ttl = TOKEN_TTL) {
     $tok = bin2hex(random_bytes(24));
     $pdo = db();
-    $pdo->prepare('INSERT INTO app_tokens (token, user_id, kind, expires_at, impersonator) VALUES (?,?,?,?,?)')
-        ->execute([hash('sha256', $tok), $uid, $kind, gmdate('Y-m-d H:i:s', time() + $ttl), $impersonator]);
+    /* V2.17: session registry — record where/from-what this session was created */
+    $ip = substr((string)client_ip(), 0, 45);
+    $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
+    $pdo->prepare('INSERT INTO app_tokens (token, user_id, kind, expires_at, impersonator, ip, ua) VALUES (?,?,?,?,?,?,?)')
+        ->execute([hash('sha256', $tok), $uid, $kind, gmdate('Y-m-d H:i:s', time() + $ttl), $impersonator, $ip, $ua]);
     /* SA1 v21: opportunistic prune of expired tokens so app_tokens can't grow unbounded */
     if (random_int(1, 64) === 1) {
         try { $pdo->prepare("DELETE FROM app_tokens WHERE expires_at < datetime('now')")->execute(); } catch (Exception $e) {}
@@ -10981,7 +11050,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -11406,7 +11475,12 @@ case 'app-login': {
             }
         }
     }
+    /* V2.17: security alert on first successful login from a new IP/device.
+       Evaluated BEFORE record_attempt(true) — otherwise the success row just
+       inserted would make the IP "known" and the alert could never fire. */
+    $alertNewIp = new_login_alert_needed($pdo, $email, $ip);
     record_attempt($email, $ip, 'login', true);
+    if ($alertNewIp) send_login_alert($pdo, $email, $u['name'], $ip);
     $now = gmdate('Y-m-d H:i:s');
     if (!empty($u['team_member'])) {
         $pdo->prepare('UPDATE team_members SET last_login=? WHERE id=?')->execute([$now, $u['team_id']]);
@@ -11438,6 +11512,63 @@ case 'app-logout': {
     json_out(['ok' => true]);
 }
 
+/* ── V2.17: session registry — list active sessions, revoke one / others / all ── */
+case 'app-sessions': {
+    $u = require_user();
+    $pdo = db();
+    $kind = !empty($u['team_member']) ? 'team' : $u['kind'];
+    $uid  = !empty($u['team_member']) ? $u['team_id'] : $u['id'];
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ($_SERVER['Authorization'] ?? ''));
+    $curHash = '';
+    if (preg_match('/Bearer\s+(\S+)/i', (string)$auth, $m)) $curHash = hash('sha256', $m[1]);
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $action = $body['action'] ?? '';
+        if ($action === 'revoke') {
+            $sid = trim((string)($body['id'] ?? ''));
+            if ($sid === '') json_out(['ok' => false, 'error' => 'Session id required.'], 400);
+            $st = $pdo->prepare('DELETE FROM app_tokens WHERE token=? AND user_id=? AND kind=?');
+            $st->execute([$sid, $uid, $kind]);
+            json_out(['ok' => true, 'revoked' => (bool)$st->rowCount(), 'current_ended' => ($sid === $curHash)]);
+        } elseif ($action === 'revoke_others') {
+            $st = $pdo->prepare('DELETE FROM app_tokens WHERE user_id=? AND kind=? AND token<>?');
+            $st->execute([$uid, $kind, $curHash]);
+            json_out(['ok' => true, 'revoked' => (int)$st->rowCount()]);
+        } elseif ($action === 'revoke_all') {
+            $pdo->prepare('DELETE FROM app_tokens WHERE user_id=? AND kind=?')->execute([$uid, $kind]);
+            json_out(['ok' => true, 'revoked_all' => true, 'current_ended' => true]);
+        } elseif ($action !== '') {
+            json_out(['ok' => false, 'error' => 'Unknown action.'], 400);
+        }
+        /* empty action (frontend POSTs {}) → fall through to the listing */
+    }
+    $st = $pdo->prepare('SELECT token, ip, ua, created_at, last_seen, expires_at, impersonator FROM app_tokens WHERE user_id=? AND kind=? ORDER BY created_at DESC');
+    $st->execute([$uid, $kind]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+    $sessions = [];
+    foreach ($rows as $r) {
+        $sessions[] = [
+            'id'           => $r['token'],
+            'ip'           => $r['ip'] ?: '—',
+            'ua'           => (string)$r['ua'],
+            'device'       => ua_device_label($r['ua']),
+            'created_at'   => $r['created_at'],
+            'last_seen'    => $r['last_seen'] ?: $r['created_at'],
+            'expires_at'   => $r['expires_at'],
+            'current'      => ($r['token'] === $curHash) ? 1 : 0,
+            'impersonator' => (string)$r['impersonator'],
+        ];
+    }
+    json_out(['ok' => true, 'sessions' => $sessions]);
+}
+
+/* V2.17: recent successful sign-ins for the current account (IP + time) */
+case 'app-login-history': {
+    $u = require_user();
+    $st = db()->prepare("SELECT ts, ip, ok FROM auth_attempts WHERE email=? AND kind='login' ORDER BY id DESC LIMIT 12");
+    $st->execute([strtolower(trim($u['email']))]);
+    json_out(['ok' => true, 'history' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+}
+
 case 'app-2fa-status': {
     $u = require_user();
     if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
@@ -11449,7 +11580,11 @@ case 'app-2fa-status': {
 case 'app-2fa-send': {
     $u = require_user();
     if ($u['kind'] !== 'staff' || ($u['role'] ?? '') !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
+    /* V2.17: cap OTP email spam — 5 requests/10 min/IP (recorded so the count accumulates) */
+    $ip = client_ip();
+    if (recent_any('', $ip, 10, 0, 5, ['2fa-send'])) throttle_out('Too many code requests. Try again later.', $u['email'], $ip, 10, ['2fa-send']);
     otp_send(db(), $u);
+    record_attempt($u['email'], $ip, '2fa-send', true);
     json_out(['ok' => true, 'email_hint' => mask_email($u['email'])]);
 }
 
@@ -13027,6 +13162,7 @@ case 'app-security': {
             'turnstile_secret'   => $mask($g('turnstile_secret')),
             'bot_guard'          => (int)admin_cfg($pdo, 'bot_guard', 1) === 1,
             'bot_pow_bits'       => max(8, min(24, (int)admin_cfg($pdo, 'bot_pow_bits', 12))),
+            'sec_login_alerts'   => (int)admin_cfg($pdo, 'sec_login_alerts', 1) === 1,
             'masked'             => 1,
         ]);
     }
@@ -13050,6 +13186,7 @@ case 'app-security': {
             $in['turnstile_secret'] = trim((string)$body['turnstile_secret']);
         if (isset($body['bot_guard'])) $in['bot_guard'] = $body['bot_guard'] ? '1' : '0';
         if (isset($body['bot_pow_bits'])) $in['bot_pow_bits'] = (string)max(8, min(24, (int)$body['bot_pow_bits']));
+        if (isset($body['sec_login_alerts'])) $in['sec_login_alerts'] = $body['sec_login_alerts'] ? '1' : '0';
         foreach ($in as $k => $v) admin_cfg_save($pdo, $k, $v);
         if ($in) audit($u['name'], 'Login security config updated', 'security', 'cfg', implode(',', array_keys($in)));
         json_out(['ok' => true, 'saved' => array_keys($in)]);

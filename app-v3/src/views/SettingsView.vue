@@ -100,6 +100,8 @@ onMounted(async () => {
   loadSecurity()
   loadPushState()
   loadTwofa()
+  loadSessions()
+  loadLoginHistory()
 })
 
 // ── Two-factor authentication (superadmin) — V2.16 ──
@@ -217,6 +219,7 @@ async function loadSecurity() {
         bot_guard: !!r.bot_guard,
         bot_pow_bits: r.bot_pow_bits || 12,
       }
+      secAlerts.value = r.sec_login_alerts !== false
     }
   } finally { secLoading.value = false }
 }
@@ -229,6 +232,90 @@ async function saveSecurity() {
     if (r.ok) { saved.value = 'Security settings saved.'; await loadSecurity() }
     else err.value = r.error || 'Failed to save security settings.'
   } finally { secSaving.value = false }
+}
+
+// ── Sign-in & sessions (V2.17) ──
+const sessions = ref([])
+const sessionsLoading = ref(false)
+const sessionsBusy = ref(false)
+const loginHistory = ref([])
+const confirmRevoke = ref('')          // '' | 'others' | 'all' (two-step confirm, no native confirm())
+const secAlerts = ref(true)
+
+function fmtAgo(d) {
+  if (!d) return '—'
+  const t = new Date(String(d).replace(' ', 'T') + 'Z').getTime()
+  if (isNaN(t)) return String(d).slice(0, 16)
+  const s = Math.max(0, (Date.now() - t) / 1000)
+  if (s < 60) return 'just now'
+  if (s < 3600) return Math.floor(s / 60) + 'm ago'
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago'
+  if (s < 604800) return Math.floor(s / 86400) + 'd ago'
+  return new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+function fmtDate(d) {
+  if (!d) return '—'
+  const t = new Date(String(d).replace(' ', 'T') + 'Z')
+  if (isNaN(t)) return String(d).slice(0, 16)
+  return t.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+async function loadSessions() {
+  sessionsLoading.value = true
+  try {
+    const r = await apiCall('app-sessions', {})
+    if (r.ok) sessions.value = r.sessions || []
+  } catch (e) { sessions.value = [] }
+  finally { sessionsLoading.value = false }
+}
+async function loadLoginHistory() {
+  try {
+    const r = await apiCall('app-login-history', {})
+    if (r.ok) loginHistory.value = r.history || []
+  } catch (e) { loginHistory.value = [] }
+}
+async function revokeSession(id) {
+  sessionsBusy.value = true; err.value = ''; saved.value = ''
+  try {
+    const r = await apiCall('app-sessions', { action: 'revoke', id })
+    if (r.ok) {
+      if (r.current_ended) {
+        try { localStorage.removeItem('krtaker_dash_token') } catch (e) {}
+        auth.token = ''; auth.user = null
+        location.reload()
+        return
+      }
+      saved.value = 'Device signed out.'
+      await loadSessions()
+    } else err.value = r.error || 'Failed to revoke session.'
+  } finally { sessionsBusy.value = false }
+}
+async function revokeOthers() {
+  sessionsBusy.value = true; err.value = ''; saved.value = ''
+  try {
+    const r = await apiCall('app-sessions', { action: 'revoke_others' })
+    if (r.ok) { saved.value = `Signed out ${r.revoked || 0} other device${r.revoked === 1 ? '' : 's'}.`; confirmRevoke.value = ''; await loadSessions() }
+    else err.value = r.error || 'Failed to sign out other devices.'
+  } finally { sessionsBusy.value = false }
+}
+async function revokeAll() {
+  sessionsBusy.value = true; err.value = ''; saved.value = ''
+  try {
+    const r = await apiCall('app-sessions', { action: 'revoke_all' })
+    if (r.ok) {
+      try { localStorage.removeItem('krtaker_dash_token') } catch (e) {}
+      auth.token = ''; auth.user = null
+      location.reload()
+    } else err.value = r.error || 'Failed to sign out everywhere.'
+  } finally { sessionsBusy.value = false }
+}
+async function saveSecAlerts() {
+  sessionsBusy.value = true; err.value = ''; saved.value = ''
+  try {
+    const r = await apiCall('app-security', { action: 'config-save', sec_login_alerts: secAlerts.value })
+    if (r.ok) saved.value = 'New sign-in alerts ' + (secAlerts.value ? 'enabled for this workspace.' : 'turned off for this workspace.')
+    else err.value = r.error || 'Failed to save.'
+  } finally { sessionsBusy.value = false }
 }
 </script>
 
@@ -413,6 +500,71 @@ async function saveSecurity() {
               </div>
             </div>
             <div class="c-sub" style="font-size:12px">Lost your authenticator app? On the login screen choose <b>“Use email code instead”</b> — we'll email you a one-time code.</div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Sign-in & sessions (V2.17) -->
+      <div class="panel" style="margin-top:18px">
+        <div class="panel-h"><div class="t"><span class="pi">🖥️</span>Sign-in &amp; sessions</div></div>
+        <div class="panel-b">
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">Devices currently signed in to your account. Sign out anything you don't recognise — the session is killed instantly, even if that device is offline.</div>
+
+          <div v-if="sessionsLoading" style="color:var(--text-mute);font-size:13px">Loading sessions…</div>
+          <template v-else>
+            <table class="kr" style="width:100%;font-size:12.5px">
+              <thead>
+                <tr><th style="text-align:left">Device</th><th style="text-align:left">IP</th><th style="text-align:left">Last active</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in sessions" :key="s.id">
+                  <td>
+                    <div style="font-weight:700">{{ s.device }}</div>
+                    <div style="color:var(--text-mute);font-size:11px">{{ s.impersonator ? 'Viewing as ' + s.impersonator + ' · ' : '' }}{{ fmtDate(s.created_at) }}</div>
+                  </td>
+                  <td>{{ s.ip }}</td>
+                  <td>
+                    <span v-if="s.current" class="badge b-green">This device</span>
+                    <template v-else>{{ fmtAgo(s.last_seen) }}</template>
+                  </td>
+                  <td style="text-align:right">
+                    <button v-if="!s.current" class="btn-ghost" style="color:var(--danger);font-size:11.5px;padding:5px 10px" :disabled="sessionsBusy" @click="revokeSession(s.id)">Sign out</button>
+                  </td>
+                </tr>
+                <tr v-if="!sessions.length"><td colspan="4" style="color:var(--text-mute);padding:14px 0">No active sessions found.</td></tr>
+              </tbody>
+            </table>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+              <button class="btn-ghost" :disabled="sessionsBusy" @click="confirmRevoke = confirmRevoke === 'others' ? '' : 'others'">📴 Sign out all other devices</button>
+              <button class="btn-ghost" style="color:var(--danger)" :disabled="sessionsBusy" @click="confirmRevoke = confirmRevoke === 'all' ? '' : 'all'">🚪 Sign out everywhere</button>
+            </div>
+            <div v-if="confirmRevoke === 'others'" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+              <span style="font-size:12.5px;color:var(--text-mute)">You'll stay signed in here.</span>
+              <button class="btn-primary" style="background:var(--danger)" :disabled="sessionsBusy" @click="revokeOthers">Yes, sign out other devices</button>
+              <button class="btn-ghost" @click="confirmRevoke = ''">Cancel</button>
+            </div>
+            <div v-if="confirmRevoke === 'all'" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+              <span style="font-size:12.5px;color:var(--text-mute)">This signs out every device, including this one.</span>
+              <button class="btn-primary" style="background:var(--danger)" :disabled="sessionsBusy" @click="revokeAll">Yes, sign out everywhere</button>
+              <button class="btn-ghost" @click="confirmRevoke = ''">Cancel</button>
+            </div>
+
+            <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+              <div style="font-weight:800;font-size:13px;margin-bottom:8px">Recent sign-ins</div>
+              <div v-if="!loginHistory.length" style="color:var(--text-mute);font-size:12.5px">No recent sign-ins recorded.</div>
+              <div v-for="h in loginHistory" :key="h.ts + h.ip" style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--border)">
+                <span style="color:var(--text-mute)">{{ h.ip }}</span>
+                <span>{{ fmtAgo(h.ts) }}</span>
+              </div>
+            </div>
+
+            <div v-if="isSuperAdmin" style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer">
+                <input type="checkbox" v-model="secAlerts" @change="saveSecAlerts"> Email me when someone signs in from a new device
+              </label>
+              <span class="c-sub" style="font-size:11.5px">Applies to all accounts in this workspace.</span>
+            </div>
           </template>
         </div>
       </div>

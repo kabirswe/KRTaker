@@ -12,6 +12,11 @@ function current_user() {
     $tok = $st->fetch(PDO::FETCH_ASSOC);
     if (!$tok) return null;
     if ($tok['expires_at'] && strtotime($tok['expires_at']) < time()) return null;
+    /* V2.17: refresh last_seen (throttled to ≤1 write/5 min per session) */
+    try {
+        $pdo->prepare("UPDATE app_tokens SET last_seen=datetime('now') WHERE token=? AND (last_seen IS NULL OR last_seen < datetime('now','-5 minutes'))")
+            ->execute([hash('sha256', $m[1])]);
+    } catch (Exception $e) { /* never let session bookkeeping break requests */ }
     $row = null;
     if ($tok['kind'] === 'sub') {
         $st = $pdo->prepare('SELECT * FROM subscribers WHERE id=? AND status="active"');
@@ -135,5 +140,62 @@ function otp_verify($pdo, $u, $code) {
     }
     $pdo->prepare("UPDATE app_users SET otp_hash='', otp_expires='', otp_fails=0 WHERE id=?")->execute([$u['id']]);
     return true;
+}
+
+/* ── V2.17: session registry + new-sign-in intelligence ── */
+/* Minimal UA → "Chrome on Windows" style label for session lists + login alerts. */
+function ua_device_label($ua) {
+    $ua = (string)$ua;
+    if ($ua === '') return 'Unknown device';
+    $os = 'Unknown OS';
+    foreach ([['Windows', 'Windows'], ['Mac OS X|Macintosh', 'macOS'], ['iPhone', 'iPhone'], ['iPad', 'iPad'], ['Android', 'Android'], ['Linux', 'Linux']] as $p) {
+        if (preg_match('/' . $p[0] . '/i', $ua)) { $os = $p[1]; break; }
+    }
+    $browser = 'Browser';
+    foreach ([['Edg/', 'Edge'], ['OPR/', 'Opera'], ['Firefox/', 'Firefox'], ['Chrome/', 'Chrome'], ['Safari/', 'Safari']] as $p) {
+        if (stripos($ua, $p[0]) !== false) { $browser = $p[1]; break; }
+    }
+    if (stripos($ua, 'Headless') !== false) $browser .= ' (headless)';
+    return "$browser on $os";
+}
+/* True when a successful login comes from an IP this email hasn't succeeded from
+   in the last 14 days — i.e. a likely new device/network. Flood-guarded at
+   3 alerts/day/email. Toggle via admin_cfg sec_login_alerts (default on). */
+function new_login_alert_needed($pdo, $email, $ip) {
+    if ($email === '') return false;
+    try {
+        if ((int)admin_cfg($pdo, 'sec_login_alerts', 1) !== 1) return false;
+        $st = $pdo->prepare("SELECT COUNT(*) FROM auth_attempts WHERE ok=1 AND kind='login' AND email=? AND ip=? AND ts >= datetime('now','-14 days')");
+        $st->execute([strtolower(trim($email)), $ip]);
+        if ((int)$st->fetchColumn() > 0) return false;
+        $st = $pdo->prepare("SELECT COUNT(*) FROM auth_attempts WHERE kind='login-alert' AND email=? AND ts >= datetime('now','-24 hours')");
+        $st->execute([strtolower(trim($email))]);
+        if ((int)$st->fetchColumn() >= 3) return false;
+        return true;
+    } catch (Exception $e) { return false; }
+}
+function send_login_alert($pdo, $email, $name, $ip) {
+    $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
+    $dev = ua_device_label($ua);
+    $when = gmdate('Y-m-d H:i:s') . ' UTC';
+    $n = htmlspecialchars((string)$name, ENT_QUOTES);
+    $html = "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto\">"
+        . "<h2 style=\"color:#b23b3b;margin:0 0 14px\">🔐 New sign-in to your KRTaker account</h2>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\">Hi $n,</p>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\">Your account was just signed in to from a device we haven't seen recently:</p>"
+        . "<table style=\"border-collapse:collapse;margin:16px 0;font-size:13.5px\">"
+        . "<tr><td style=\"padding:6px 14px 6px 0;color:#777;font-weight:700\">Device</td><td style=\"padding:6px 0\">" . htmlspecialchars($dev, ENT_QUOTES) . "</td></tr>"
+        . "<tr><td style=\"padding:6px 14px 6px 0;color:#777;font-weight:700\">IP address</td><td style=\"padding:6px 0\">" . htmlspecialchars($ip, ENT_QUOTES) . "</td></tr>"
+        . "<tr><td style=\"padding:6px 14px 6px 0;color:#777;font-weight:700\">Time</td><td style=\"padding:6px 0\">" . htmlspecialchars($when, ENT_QUOTES) . "</td></tr>"
+        . "</table>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\">If this was you, no action is needed.</p>"
+        . "<p style=\"font-size:14px;line-height:1.6;color:#333\"><b>If it wasn't you</b>, change your password immediately from <b>Settings → Profile → Change password</b>, and review your active sessions under <b>Settings → Sign-in &amp; sessions</b> to sign out any device you don't recognise.</p>"
+        . "<p style=\"font-size:12.5px;color:#999\">— KRTaker security team</p></div>";
+    try { send_mail($email, 'New sign-in to your KRTaker account', $html); } catch (Throwable $e) { /* alert mail is best-effort */ }
+    try {
+        $pdo->prepare("INSERT INTO auth_attempts (email, ip, kind, ok) VALUES (?,?,'login-alert',1)")
+            ->execute([strtolower(trim($email)), $ip]);
+    } catch (Exception $e) {}
+    try { audit($name, 'New sign-in alert emailed', 'auth', (string)$ip); } catch (Throwable $e) {}
 }
 

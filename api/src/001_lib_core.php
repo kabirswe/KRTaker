@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260908) {
+        if ($__sv < 20260915) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -136,6 +136,10 @@ function db() {
             created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)");
         $at_cols = array_column($pdo->query('PRAGMA table_info(app_tokens)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('impersonator', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN impersonator TEXT DEFAULT ''");
+        /* V2.17: session registry — IP/UA/last-seen for the session-management UI + new-sign-in alerts */
+        if (!in_array('ip', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN ip TEXT DEFAULT ''");
+        if (!in_array('ua', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN ua TEXT DEFAULT ''");
+        if (!in_array('last_seen', $at_cols, true)) $pdo->exec("ALTER TABLE app_tokens ADD COLUMN last_seen TEXT DEFAULT ''");
         /* ── SA1-fullsite v8 (v3.62): outbound webhooks — per-tenant endpoint subscriptions + delivery log ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS webhooks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1000,7 +1004,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260908'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260915'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
