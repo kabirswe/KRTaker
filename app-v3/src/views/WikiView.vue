@@ -117,6 +117,89 @@ const SECTIONS = [
     ],
   },
   {
+    id: 'modules', ico: '🧭', title: 'Module guides',
+    items: [
+      {
+        t: 'Finance hub (💰)',
+        b: 'The Finance hub is your money command center:\n\n• Invoices — generate monthly rent invoices per lease; statuses track Draft → Sent → Paid\n• Receipts — record rent payments and issue receipts instantly\n• Payments & Recon — match collected amounts against invoices; Collections view shows who owes what\n• Taxes — holding tax records & TDS tracking\n• Remittances — NRB owner remittance handling\n• Statements — monthly owner statements; the 📧 Statement Emails tab (V2.21) auto-sends them on a schedule you configure (day 1–28, auto-send toggle)\n• Accounts — cash in/out, deposits, withdrawals, reconciliation\n\nTip: use the Accounts submenu for cash entries; the overview KPIs reconcile everything automatically.',
+      },
+      {
+        t: 'BMS hub (🔧)',
+        b: 'Building & Maintenance Services covers the physical estate:\n\n• Maintenance — raise work tickets per unit (tenants report issues, staff track SLA)\n• Vendors — contractor marketplace: request offers, accept/reject, issue work orders, vendor payouts\n• Staff — team directory, attendance, payroll\n• Meter readings & Utility bills — record readings, generate utility invoices\n• Gate visits — security log of every visitor\n• Samity — community committee records\n\nMaintenance tickets carry a liability flag (Landlord/Tenant/Shared) so cost allocation is transparent.',
+      },
+      {
+        t: 'Community hub (📢)',
+        b: 'Community is tenant & partner engagement:\n\n• Notices — post announcements to the notice board; the 📨 broadcast toggle (V2.22) emails them to all tenants who have an address and have not opted out (respects the docs master switch, 10/10-min rate limit)\n• Referrals — invite friends with your referral code and earn ৳5,000 per active subscriber\n• Trust (NID) — identity & document trust records\n• Support — the help desk (see the Support & ticketing section)\n\nTenants also have a self-service portal (app-portal) where they see their own lease, invoices and notices.',
+      },
+      {
+        t: 'Legal hub (⚖️)',
+        b: 'Legal covers risk & compliance:\n\n• Compliance — certificates, licenses, inspections with expiry tracking; the scanner alerts you before things lapse\n• Cases — track disputes, case status (Open → In Progress → Resolved), linked to leases\n• Concierge — resident services & requests\n\nCompliance expiries raise 📋 alerts in Notifications so renewals never sneak up on you.',
+      },
+      {
+        t: 'Safety & Security hub (🏠)',
+        b: 'Safety & Security groups the physical & digital safety tooling:\n\n• Building systems / Smart home — connected devices & building systems\n• Land — land parcel registry with ownership records\n• Build — construction project tracker with phases & budgets\n• Fire safety — fire certificates, drills, equipment checks\n• KYC — Know-Your-Customer records for partners/tenants\n• Inspections — scheduled property inspections with checklists',
+      },
+      {
+        t: 'Portfolio & properties (🏢)',
+        b: 'Portfolio is the master data layer:\n\n• Properties → Units → Tenants → Leases is the core hierarchy\n• Onboarding — move-in workflow with handover checklists\n• Leads — prospect pipeline before they become tenants\n• Documents — lease agreements, invoices, handover docs; GDPR 📦 export per tenant\n• Templates — document templates for leases/letters\n• Insurance — policy records per property\n\nEvery record carries its owning subscriber, so multi-company portfolios stay isolated.',
+      },
+    ],
+  },
+  {
+    id: 'support', ico: '🎧', title: 'Support & ticketing',
+    items: [
+      {
+        t: 'How do I open a ticket?',
+        b: 'Support → ➕ New ticket. Give it a subject, choose a category (General, Billing, Technical, Feature request, Account, Other) and a priority (Low → Urgent), then describe the issue. Tickets get an ID like SUP-014 and appear instantly in the list. The workspace owner is notified by push when a ticket is opened.',
+      },
+      {
+        t: 'The ticket workflow',
+        b: 'Every ticket moves through a status flow:\n\n• Open — just created, waiting for attention\n• In Progress — someone is working it\n• Resolved — the fix/answer has been delivered\n• Closed — done, no more replies expected\n\nFrom the ticket drawer you can advance status with one click and change priority any time (High/Urgent tickets are highlighted in red).',
+      },
+      {
+        t: 'Replies & conversation',
+        b: 'Tickets are threaded: open any ticket to see the full conversation (opened message + every reply with author and timestamp). Type in the reply box and press Send (or Enter). Replies update the ticket timestamp so the team can see it is active again. The thread is shared — everyone with the support module sees the same history.',
+      },
+      {
+        t: 'Search, filter & export',
+        b: 'The support screen has a live search box (matches subject, sender, category — anything), status / priority / category filters, and Grid/List views. ⬇ CSV exports the current filtered set for offline records. Category pills across the top give one-tap filtering by type.',
+      },
+      {
+        t: 'Escalation & help',
+        b: 'Stuck on a product question first? Check the 📚 Wiki — most answers live there. If a ticket needs urgent eyes, set priority to Urgent; the High-prio KPI on the dashboard flags it. For billing emergencies use the Billing category so the finance team can pick it up quickly.',
+      },
+    ],
+  },
+  {
+    id: 'advanced', ico: '🧠', title: 'Advanced features',
+    items: [
+      {
+        t: 'AI Caretaker (KR) 🤖',
+        b: 'The AI Caretaker in Overview answers operational questions about your portfolio in natural language — ask "who is behind on rent?" or "show expiring compliance" and it pulls from live data. It also powers smart suggestions and the kr_alert_scan that raises SLA/compliance/arrears/renewal alerts automatically.',
+      },
+      {
+        t: 'Automation: rent reminders, statements, notices',
+        b: 'KRTaker automates the collection loop end-to-end:\n\n• Rent reminders — a daily cron (00:30 UTC) emails tenants before/at due dates (respects per-user toggles + admin master switch)\n• Owner statements — computed monthly per property; the Statement Emails tab emails them on the day you configure (V2.21)\n• Notice broadcast — one click emails a notice board post to every emailable tenant (V2.22)\n\nEvery email channel respects opt-outs and the 10-sends/10-min/IP rate limit.',
+      },
+      {
+        t: 'Analytics & GA4 (📈)',
+        b: 'The Analytics hub shows P&L, occupancy and portfolio trends, and the app feeds anonymized usage events to Google Analytics 4 so you can see which modules your team actually uses. Page views, notification opens and ticket creations are tracked as events.',
+      },
+      {
+        t: 'Backups, exports & audit trail',
+        b: 'Super-admin panel (Settings → Admin):\n\n• One-click DB snapshot + JSON export of the whole workspace\n• Audit log viewer — the latest 50 events (who did what, when)\n• GDPR export — per-tenant JSON (leases, invoices, payments) from any tenant drawer\n\nBackups are kept on a rotation and the audit trail persists per the retention setting.',
+      },
+      {
+        t: 'Payments & gateways',
+        b: 'Invoices can be paid online via configured payment gateways (SSLCommerz integration; sandbox in test mode). Each transaction is recorded in gateway_tx with status tracking — pending → success/failure — and receipts reconcile automatically in the Collections view.',
+      },
+      {
+        t: 'Web push & cross-device',
+        b: 'Beyond email, the app uses Web Push (VAPID) so alerts arrive on desktop/mobile browsers even when the tab is closed. Subscribe in Settings → Browser notifications; each device is tracked and dead subscriptions are cleaned automatically. The app is a PWA — install it to the home screen for a native feel.',
+      },
+    ],
+  },
+  {
     id: 'faq', ico: '❓', title: 'FAQ & troubleshooting',
     items: [
       {

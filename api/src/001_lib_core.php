@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260917) {
+        if ($__sv < 20260918) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -382,6 +382,13 @@ function db() {
         $pdo->exec("CREATE TABLE IF NOT EXISTS support (
             id TEXT PRIMARY KEY, from_t TEXT, subject TEXT, status TEXT,
             prio TEXT, age TEXT)");
+        /* V2.25: support ticketing — category, timestamps, body (kept idempotent like documents) */
+        $supcols = [];
+        foreach ($pdo->query('PRAGMA table_info(support)') as $c) $supcols[] = $c['name'];
+        if (!in_array('cat', $supcols)) $pdo->exec("ALTER TABLE support ADD COLUMN cat TEXT DEFAULT 'General'");
+        if (!in_array('created_at', $supcols)) $pdo->exec("ALTER TABLE support ADD COLUMN created_at TEXT DEFAULT ''");
+        if (!in_array('updated_at', $supcols)) $pdo->exec("ALTER TABLE support ADD COLUMN updated_at TEXT DEFAULT ''");
+        if (!in_array('sub_email', $supcols)) $pdo->exec("ALTER TABLE support ADD COLUMN sub_email TEXT DEFAULT ''");
         $pdo->exec("CREATE TABLE IF NOT EXISTS platform_meta (\n            k TEXT PRIMARY KEY, v TEXT)");
         /* ── SA1 v18: per-subscriber plan limits — scope properties/units to an owning subscriber.
              One-time backfill: seeded demo portfolio belongs to the Enterprise owner; future
@@ -1014,7 +1021,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260917'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260918'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

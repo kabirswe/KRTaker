@@ -189,7 +189,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-inspections', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-inspections', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -1307,6 +1307,75 @@ case 'app-ticket-thread': {
     if ($u['role'] === 'tenant' && !in_array($t['u'], my_units($u), true)) json_out(['ok' => false, 'error' => 'Not your ticket.'], 403);
     if ($u['role'] === 'partner' && $t['con'] !== my_org($u)) json_out(['ok' => false, 'error' => 'Not your job.'], 403);
     $st = $pdo->prepare('SELECT * FROM ticket_thread WHERE ticket=? ORDER BY id'); $st->execute([$ticket]);
+    json_out(['ok' => true, 'thread' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+}
+/* ── V2.25: support desk — create/comment/status/prio/thread on SUP- tickets ── */
+case 'app-support-ticket': {
+    $u = require_user();
+    require_module($u, 'support');
+    $pdo = db();
+    $act = $body['action'] ?? 'thread';
+    $id = trim($body['id'] ?? '');
+    if (in_array($act, ['comment', 'status', 'prio', 'thread'], true) && !$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+
+    if ($act === 'create') {
+        $subject = trim($body['subject'] ?? '');
+        $bodyTxt = trim($body['body'] ?? '');
+        if (!$subject) json_out(['ok' => false, 'error' => 'subject required.'], 400);
+        $cat = trim($body['cat'] ?? 'General');
+        $prio = trim($body['prio'] ?? 'Medium');
+        if (!in_array($prio, ['Low', 'Medium', 'High', 'Urgent'], true)) $prio = 'Medium';
+        $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'SUP-','') AS INTEGER)) FROM support")->fetchColumn();
+        $nid = 'SUP-' . str_pad((string)($mx + 1), 3, '0', STR_PAD_LEFT);
+        $from = $u['name'] . ' (' . ucfirst($u['role']) . ')';
+        $pdo->prepare('INSERT INTO support (id, from_t, subject, status, prio, cat, created_at, updated_at, sub_email) VALUES (?,?,?,?,?,?,datetime(\'now\'),datetime(\'now\'),?)')
+            ->execute([$nid, $from, $subject, 'Open', $prio, $cat, $u['email']]);
+        $pdo->prepare('INSERT INTO ticket_thread (ticket, author, body) VALUES (?,?,?)')
+            ->execute([$nid, $u['name'], 'Ticket opened: ' . $bodyTxt]);
+        audit($u['name'], 'Support ticket created', 'support', $nid, $cat . ' ' . $subject);
+        /* push the workspace owner so a new ticket is not missed */
+        try {
+            $os = $pdo->query("SELECT sub_email FROM subscribers WHERE status='active' ORDER BY id LIMIT 1");
+            $own = $os ? (string)$os->fetchColumn() : '';
+            if ($own && strcasecmp($own, $u['email']) !== 0)
+                push_to_user($pdo, $own, '🎧 Support ticket ' . $nid,
+                    ($u['name'] ? $u['name'] . ' · ' : '') . $subject,
+                    '/app-v3/#/support?open=' . $nid);
+        } catch (Exception $e) {}
+        json_out(['ok' => true, 'id' => $nid]);
+    }
+
+    $st = $pdo->prepare('SELECT * FROM support WHERE id=?'); $st->execute([$id]);
+    $t = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$t) json_out(['ok' => false, 'error' => 'Ticket not found.'], 404);
+
+    if ($act === 'comment') {
+        $text = trim($body['body'] ?? '');
+        if (!$text) json_out(['ok' => false, 'error' => 'body required.'], 400);
+        $pdo->prepare('INSERT INTO ticket_thread (ticket, author, body) VALUES (?,?,?)')
+            ->execute([$id, $u['name'], $text]);
+        $pdo->prepare('UPDATE support SET updated_at=datetime(\'now\') WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Support comment', 'support', $id, substr($text, 0, 80));
+        json_out(['ok' => true]);
+    }
+    if ($act === 'status') {
+        $status = trim($body['status'] ?? '');
+        if (!in_array($status, ['Open', 'In Progress', 'Resolved', 'Closed'], true))
+            json_out(['ok' => false, 'error' => 'Invalid status.'], 400);
+        $pdo->prepare('UPDATE support SET status=?, updated_at=datetime(\'now\') WHERE id=?')->execute([$status, $id]);
+        audit($u['name'], 'Support status', 'support', $id, $status);
+        json_out(['ok' => true, 'status' => $status]);
+    }
+    if ($act === 'prio') {
+        $prio = trim($body['prio'] ?? '');
+        if (!in_array($prio, ['Low', 'Medium', 'High', 'Urgent'], true))
+            json_out(['ok' => false, 'error' => 'Invalid priority.'], 400);
+        $pdo->prepare('UPDATE support SET prio=?, updated_at=datetime(\'now\') WHERE id=?')->execute([$prio, $id]);
+        audit($u['name'], 'Support priority', 'support', $id, $prio);
+        json_out(['ok' => true, 'prio' => $prio]);
+    }
+    /* thread */
+    $st = $pdo->prepare('SELECT * FROM ticket_thread WHERE ticket=? ORDER BY id'); $st->execute([$id]);
     json_out(['ok' => true, 'thread' => $st->fetchAll(PDO::FETCH_ASSOC)]);
 }
 /* ── P56.2c: tenant private note (owner-only) ── */
