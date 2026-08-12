@@ -6,6 +6,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { fmtTs } from '../lib/ui'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const auth = useAuthStore()
 
@@ -258,10 +259,12 @@ onMounted(load)
 
       <!-- Filter bar -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0">
+        <CompactFilters>
         <button v-for="[k, l] in [['', 'All'], ['unverified', '🪪 Unverified'], ['pending', '⏳ Pending'], ['verified', '✅ Verified'], ['rejected', '❌ Rejected']]" :key="k" @click="fStatus = k"
           :style="fStatus === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
           style="padding:7px 13px;border:none;border-radius:9px;font-weight:800;font-size:12.5px;cursor:pointer">{{ l }}</button>
         <input v-model="q" placeholder="🔍 Search tenant / NID / phone…" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+        </CompactFilters>
       </div>
 
       <div v-if="loading" style="text-align:center;padding:40px;color:var(--text-mute)">Loading…</div>

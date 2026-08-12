@@ -5,6 +5,8 @@ import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
 import { badge, money, fmtTs, monthLabel, useViewMode } from '../lib/ui'
+import ScrollTabs from '../components/ScrollTabs.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -408,17 +410,10 @@ function exportCsv(kind) {
         <div class="sub">{{ partners.length }} partners · {{ svcJobs.length }} service tasks · {{ jobs.length }} maintenance jobs · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <CompactFilters>
         <template v-if="tab === 'partners'">
           <input v-model="q" placeholder="Search partner, trade, category…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
           <button v-if="filteredPartners.length" @click="exportCsv('partners')" class="btn-ghost">⬇ CSV</button>
-        </template>
-        <template v-else-if="tab === 'board'">
-          <input v-model="bq" placeholder="Search tasks, requester, WO…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
-          <select v-model="bCat" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <option value="">All categories</option>
-            <option v-for="c in cats" :key="c" :value="c">{{ c }}</option>
-          </select>
-          <button v-if="canManage" @click="openNew" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ New service task</button>
         </template>
         <template v-else-if="tab === 'jobs'">
           <input v-model="jq" placeholder="Search jobs…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:190px">
@@ -427,6 +422,14 @@ function exportCsv(kind) {
             <option v-for="s in jStatusOptions" :key="s" :value="s">{{ s }}</option>
           </select>
           <button v-if="filteredJobs.length" @click="exportCsv('jobs')" class="btn-ghost">⬇ CSV</button>
+        </template>
+        <template v-else-if="tab === 'board'">
+          <input v-model="bq" placeholder="Search tasks, requester, WO…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
+          <select v-model="bCat" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <option value="">All categories</option>
+            <option v-for="c in cats" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <button v-if="canManage" @click="openNew" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ New service task</button>
         </template>
         <template v-else-if="tab === 'invoices'">
           <input v-model="iq" placeholder="Search invoices…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:190px">
@@ -442,6 +445,7 @@ function exportCsv(kind) {
           <button v-if="canManage" @click="openPayoutAdd" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">💵 Record payout</button>
           <button v-if="filteredPayouts.length" @click="exportCsv('payouts')" class="btn-ghost">⬇ CSV</button>
         </template>
+        </CompactFilters>
       </div>
     </div>
 
@@ -458,14 +462,15 @@ function exportCsv(kind) {
     </div>
 
     <!-- tabs -->
-    <div class="kr-tabs" style="margin:18px 0 14px">
+    <ScrollTabs style="margin:18px 0 14px">
       <button v-for="t in tabs" :key="t.id" @click="setTab(t.id)"
         :style="tab === t.id ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'">{{ t.l }}</button>
-    </div>
+    </ScrollTabs>
 
     <!-- ── PARTNERS (category chips) ── -->
     <template v-if="tab === 'partners'">
       <div class="chip-row">
+        <CompactFilters>
         <button class="chip" :class="{ on: catFilter === '' }" @click="catFilter = ''">All <b>{{ partners.length }}</b></button>
         <button v-for="c in catOptions" :key="c" class="chip" :class="{ on: catFilter === c }" @click="catFilter = catFilter === c ? '' : c">{{ c }} <b>{{ catCounts[c] || 0 }}</b></button>
         <div style="flex:1"></div>
@@ -481,6 +486,7 @@ function exportCsv(kind) {
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
+        </CompactFilters>
       </div>
       <div v-if="filteredPartners.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
         <div v-for="p in filteredPartners" :key="p.id" class="panel p-card" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openPartner(p)">

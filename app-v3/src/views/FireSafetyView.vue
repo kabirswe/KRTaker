@@ -5,6 +5,7 @@ import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, money, fmtTs } from '../lib/ui'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -195,9 +196,11 @@ function timelineOf(i) {
         <div class="sub">{{ assets.length }} assets · {{ incidents.length }} incidents · {{ plans.length }} plans · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="aQuery" placeholder="Search assets…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
-        <button v-if="canManage" @click="openAssetAdd" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ Add asset</button>
         <button v-if="canManage" @click="openIncidentAdd" class="btn-ghost" style="display:inline-flex;align-items:center;gap:6px">🚨 Report incident</button>
+      </CompactFilters>
+        <button v-if="canManage" @click="openAssetAdd" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ Add asset</button>
       </div>
     </div>
 

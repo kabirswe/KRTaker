@@ -6,6 +6,8 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import CompactFilters from '../components/CompactFilters.vue'
+import ScrollTabs from '../components/ScrollTabs.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -180,6 +182,7 @@ async function setStatus(u, st) {
         <div class="sub">{{ unitsAll.length }} units · {{ propsAll.length }} properties · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search unit, property, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="propFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All properties</option>
@@ -200,6 +203,7 @@ async function setStatus(u, st) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+      </CompactFilters>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New unit</button>
       </div>
     </div>
@@ -301,11 +305,13 @@ async function setStatus(u, st) {
           </div>
 
           <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
+            <ScrollTabs style="gap:6px;border-bottom:none;margin-bottom:0">
             <button v-for="t in [{id:'lease',label:'Lease',ico:'📄'},{id:'invoices',label:'Invoices',ico:'🧾'},{id:'tickets',label:'Tickets',ico:'🔧'},{id:'utils',label:'Utilities',ico:'🔌'}]" :key="t.id" @click="tab = t.id"
               style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)"
               :style="tab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">
               {{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'lease' ? (selLease ? 1 : 0) : t.id === 'invoices' ? selInvoices.length : t.id === 'tickets' ? selTickets.length : selUtils.length }})</span>
             </button>
+            </ScrollTabs>
           </div>
 
           <div v-if="tab === 'lease'" class="drawer-tbl-wrap">

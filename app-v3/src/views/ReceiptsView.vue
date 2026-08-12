@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -99,6 +100,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
         <div class="sub">{{ receiptsAll.length }} receipts · {{ kpis[1]?.value || '৳0' }} collected · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search receipt, invoice, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="methodFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All methods</option>
@@ -121,6 +123,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+      </CompactFilters>
       </div>
     </div>
 

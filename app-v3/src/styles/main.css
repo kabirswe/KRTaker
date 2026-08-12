@@ -265,6 +265,31 @@ table.kr.compact td{padding:8px 10px;font-size:12.5px}
   .kr-tabs button{flex-shrink:0;padding:8px 12px !important;font-size:12px !important}
 }
 
+/* ── ScrollTabs: ◀ ▶ arrows flanking the scrollable strip (V2.13.0) ── */
+.kr-tabs-scroll{display:flex;align-items:center;gap:6px}
+.kr-tabs-scroll .kr-tabs{flex:1 1 auto;min-width:0}
+.kr-scroll-btn{flex-shrink:0;width:32px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);font-size:12px;cursor:pointer;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;transition:transform .12s ease,background .15s ease;padding:0}
+.kr-scroll-btn:hover{background:var(--bg-alt)}
+.kr-scroll-btn:active{transform:scale(.92)}
+
+/* ── CompactFilters: toolbar collapses to ⚙️ Filters dropdown on phones ── */
+.cf{display:contents}
+.cf-btn{display:none}
+.cf-panel{display:contents}
+.cf-close{display:none}
+@media (max-width:640px){
+  .cf{display:block;width:100%}
+  .cf-btn{display:flex;width:100%;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;box-shadow:var(--shadow)}
+  .cf-btn:active{transform:scale(.995)}
+  .cf-caret{font-size:11px;opacity:.7}
+  .cf-panel{display:none;margin-top:8px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:var(--shadow)}
+  .cf-panel.open{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+  .cf-panel input,.cf-panel select{width:100% !important;flex:1 1 auto !important;box-sizing:border-box;min-width:0 !important}
+  .cf-panel label{width:100%;box-sizing:border-box;justify-content:space-between}
+  .cf-panel .btn-ghost,.cf-panel .btn-primary{width:100%;justify-content:center}
+  .cf-close{display:block;width:100%;margin-top:4px;padding:10px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+}
+
 /* Samity printable report (body class toggled by SamityView Report tab) */
 @media print {
   body.print-samity .sidebar,

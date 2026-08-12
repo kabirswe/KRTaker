@@ -18,6 +18,7 @@ import { useDataStore } from '../stores/data'
 import LineChart from '../components/charts/LineChart.vue'
 import Donut from '../components/charts/Donut.vue'
 import HBars from '../components/charts/HBars.vue'
+import ScrollTabs from '../components/ScrollTabs.vue'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -166,12 +167,12 @@ onMounted(loadOverview)
     </div>
 
     <!-- Tabs -->
-    <div class="kr-tabs">
+    <ScrollTabs>
       <button v-for="[k, ico, l] in TAB_ORDER" :key="k" @click="goTab(k)"
         :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">
         {{ ico }} {{ l }}
       </button>
-    </div>
+    </ScrollTabs>
 
     <!-- ══ OVERVIEW ══ -->
     <template v-if="tab === 'overview'">

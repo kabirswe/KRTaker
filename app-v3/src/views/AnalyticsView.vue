@@ -4,6 +4,8 @@ import { apiCall } from '../api/client'
 import LineChart from '../components/charts/LineChart.vue'
 import Donut from '../components/charts/Donut.vue'
 import HBars from '../components/charts/HBars.vue'
+import ScrollTabs from '../components/ScrollTabs.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
 const C = { blue: '#2F80ED', green: '#12a150', amber: '#f6a609', orange: '#e67e22', red: '#e74c3c', purple: '#8e5cf7', teal: '#14b8a6', pink: '#ec4899' }
@@ -353,18 +355,20 @@ function printReport() {
         <div class="sub">Portfolio intelligence — P&amp;L, cashflow, collections, expenses, tenants &amp; risk</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="month" type="month" style="padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none" @change="switchTab(tab)">
         <button class="btn-ghost" @click="switchTab(tab)" :disabled="loading">{{ loading ? '⏳…' : '🔄 Refresh' }}</button>
         <button class="btn-ghost" @click="printReport" title="Print this report">🖨 Print</button>
+      </CompactFilters>
       </div>
     </div>
 
     <div v-if="toast" style="padding:10px 14px;border-radius:10px;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.35);margin-bottom:14px;font-weight:700;font-size:13.5px">{{ toast }}</div>
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
-    <div class="kr-tabs" style="gap:6px">
+    <ScrollTabs style="gap:6px">
       <button v-for="t in TABS" :key="t[0]" class="btn-ghost" :style="tab === t[0] ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" @click="switchTab(t[0])">{{ t[1] }}</button>
-    </div>
+    </ScrollTabs>
 
     <!-- ══ OVERVIEW ══ -->
     <template v-if="tab === 'overview'">

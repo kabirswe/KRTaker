@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -752,6 +753,7 @@ async function delTenant(t) {
         <div class="sub">{{ tenantsAll.length }} tenants · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search name, email, unit…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="kindFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All kinds</option>
@@ -774,6 +776,7 @@ async function delTenant(t) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+      </CompactFilters>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New tenant</button>
       </div>
     </div>

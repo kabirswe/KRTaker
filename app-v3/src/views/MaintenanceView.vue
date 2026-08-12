@@ -7,6 +7,7 @@ import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import RichEditor from '../components/RichEditor.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -142,6 +143,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
         <div class="sub">{{ requests.length }} requests · {{ openCount }} open · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search title, unit, property…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
@@ -155,6 +157,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
+      </CompactFilters>
         <button v-if="canManage" @click="openRaise" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Raise request</button>
       </div>
     </div>

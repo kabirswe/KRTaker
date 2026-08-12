@@ -7,6 +7,7 @@ import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { useViewMode, usePager, money, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import RichEditor from '../components/RichEditor.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -255,6 +256,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
         <div class="sub">{{ reqAll.length }} service requests · {{ holdings.length }} holding taxes · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search parcel, property, ref…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="svcFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All services</option>
@@ -268,8 +270,9 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="canManage" @click="openForm" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ New request</button>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+      </CompactFilters>
+        <button v-if="canManage" @click="openForm" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ New request</button>
       </div>
     </div>
 

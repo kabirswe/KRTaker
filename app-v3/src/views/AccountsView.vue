@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import { apiCall } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { badge } from '../lib/ui'
+import ScrollTabs from '../components/ScrollTabs.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -199,9 +201,9 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <!-- Tabs -->
-    <div class="kr-tabs">
+    <ScrollTabs>
       <button v-for="[k, l] in [['transactions','💱 Transactions'],['receive','📥 Receive'],['expense','📤 Expense'],['withdraw','🏧 Withdraw'],['deposit','🏦 Deposit'],['reconcile','🔁 Reconcile']]" :key="k" @click="tab = k" :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">{{ l }}</button>
-    </div>
+    </ScrollTabs>
 
     <!-- ══ TRANSACTIONS ══ -->
     <template v-if="tab === 'transactions'">
@@ -237,6 +239,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
 
         <!-- filters + table -->
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <CompactFilters>
           <select v-model="fAcct" @change="loadTx" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             <option value="">All accounts</option>
             <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }}</option>
@@ -247,6 +250,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
             <option value="withdraw">Withdraw</option><option value="deposit">Deposit</option>
           </select>
           <input v-model="fQ" @input="loadTx" placeholder="Search label, ref, payee…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:200px">
+          </CompactFilters>
           <button v-if="canWrite" @click="openPost('receive')" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">＋ Post</button>
         </div>
 

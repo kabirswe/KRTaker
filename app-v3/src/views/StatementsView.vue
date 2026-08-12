@@ -7,6 +7,8 @@ import { ref, computed, onMounted } from 'vue'
 import { apiCall, getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
+import ScrollTabs from '../components/ScrollTabs.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -242,6 +244,7 @@ onMounted(async () => {
         <div class="sub">Monthly owner statements — per-property P&amp;L, line items, payouts &amp; rent settings</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <div style="display:flex;align-items:center;gap:6px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:4px">
           <button class="btn-ghost" style="padding:5px 10px;font-size:12.5px" @click="shiftMonth(-1)">◀</button>
           <input v-model="month" type="month" style="padding:7px 10px;border:none;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);outline:none" @change="loadList">
@@ -250,6 +253,7 @@ onMounted(async () => {
         <button v-if="!isCurrentMonth" class="btn-ghost" style="font-size:12.5px" @click="month = now.toISOString().slice(0, 7); loadList()">Today</button>
         <button class="btn-ghost" @click="loadList">🔄 Refresh</button>
         <button v-if="tab === 'statements'" class="btn-ghost" style="font-weight:700" @click="openPrint">🖨️ Print</button>
+      </CompactFilters>
       </div>
     </div>
 
@@ -261,10 +265,10 @@ onMounted(async () => {
     </div>
 
     <!-- Tabs -->
-    <div class="kr-tabs">
+    <ScrollTabs>
       <button @click="tab = 'statements'" :style="tab === 'statements' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">💰 Statements</button>
       <button @click="tab = 'rentconfig'; loadRentConfig()" :style="tab === 'rentconfig' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">⚙️ Rent Config</button>
-    </div>
+    </ScrollTabs>
 
     <!-- ══ STATEMENTS TAB ══ -->
     <template v-if="tab === 'statements'">

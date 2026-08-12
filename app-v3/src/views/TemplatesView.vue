@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { apiCall } from '../api/client'
 import RichEditor from '../components/RichEditor.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const tab = ref('docs')
 const loading = ref(false)
@@ -274,6 +275,7 @@ onMounted(() => {
     <!-- Docs -->
     <template v-if="tab === 'docs'">
       <div class="tpl-toolbar">
+        <CompactFilters>
         <select v-model="kindFilter" class="tpl-select">
           <option value="">All kinds</option>
           <option v-for="(l, k) in KIND" :key="k" :value="k">{{ l }}</option>
@@ -284,6 +286,7 @@ onMounted(() => {
           <button class="lang-pill bn" :class="{ on: langFilter === 'bn' }" @click="langFilter = 'bn'">🇧🇩 বাংলা</button>
         </div>
         <div style="flex:1"></div>
+        </CompactFilters>
         <button v-for="(l, k) in KIND" :key="k" class="btn-ghost tpl-new" @click="newTpl(k)">＋ {{ l }}</button>
       </div>
 

@@ -5,6 +5,7 @@ import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
 import { useViewMode, usePager, money, avatarColor, initials, fmtTs, today } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -135,6 +136,7 @@ function detailFields(row) {
         <div class="sub">{{ kpis[0]?.value || 0 }} building staff · {{ kpis[1]?.value || 0 }} active · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <select v-model="propFilter" title="Manage this property" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;font-weight:700;color:var(--text);outline:none">
           <option value="">🏢 All properties</option>
           <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
@@ -153,6 +155,7 @@ function detailFields(row) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+      </CompactFilters>
         <button v-if="canManage" @click="openStaffModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add staff</button>
       </div>
     </div>

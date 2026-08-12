@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { apiCall } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
+import ScrollTabs from '../components/ScrollTabs.vue'
 
 const auth = useAuthStore()
 const data = useDataStore()
@@ -135,11 +136,11 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <ScrollTabs>
       <button @click="tab = 'plans'" :style="tab === 'plans' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">💎 Plans</button>
       <button v-if="canSeeAll" @click="tab = 'subs'" :style="tab === 'subs' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">📋 Subscriptions</button>
       <button v-if="canBilling" @click="tab = 'billing'" :style="tab === 'billing' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">🧾 Billing</button>
-    </div>
+    </ScrollTabs>
 
     <!-- ══ PLANS ══ -->
     <template v-if="tab === 'plans'">

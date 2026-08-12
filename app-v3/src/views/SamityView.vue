@@ -5,6 +5,8 @@ import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
 import { useViewMode, usePager, money, fmtTs, avatarColor, initials, monthLabel, today } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import CompactFilters from '../components/CompactFilters.vue'
+import ScrollTabs from '../components/ScrollTabs.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -342,6 +344,7 @@ function detailFields(row) {
         <div class="sub">{{ kpis[0]?.value || 0 }} members · {{ kpis[4]?.value || '৳0' }} bill balance · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <CompactFilters>
         <select v-model="propFilter" title="Manage this property" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;font-weight:700;color:var(--text);outline:none">
           <option value="">🏢 All properties</option>
           <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
@@ -358,6 +361,13 @@ function detailFields(row) {
           </div>
           <button v-if="filtered.length" @click="exportCsv(filtered, 'samity-members')" class="btn-ghost" title="Download CSV">⬇ CSV</button>
           <button v-if="canManage" @click="openMemberModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add member</button>
+        </template>
+        <template v-else-if="tab === 'report'">
+          <select v-model="rMonth" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <option value="">All months</option>
+            <option v-for="m in rMonths" :key="m" :value="m">{{ monthLabel(m) }}</option>
+          </select>
+          <button @click="printReport" class="btn-ghost" title="Print report">🖨 Print</button>
         </template>
         <template v-else-if="tab === 'bills'">
           <input v-model="bq" placeholder="Search bill, unit…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
@@ -390,22 +400,16 @@ function detailFields(row) {
           <button v-if="expFiltered.length" @click="exportCsv(expFiltered, 'samity-expenses')" class="btn-ghost" title="Download CSV">⬇ CSV</button>
           <button v-if="canManage" @click="openExpModal" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add expense</button>
         </template>
-        <template v-else-if="tab === 'report'">
-          <select v-model="rMonth" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <option value="">All months</option>
-            <option v-for="m in rMonths" :key="m" :value="m">{{ monthLabel(m) }}</option>
-          </select>
-          <button @click="printReport" class="btn-ghost" title="Print report">🖨 Print</button>
-        </template>
+        </CompactFilters>
       </div>
     </div>
 
     <!-- tab bar -->
-    <div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:10px">
+    <ScrollTabs style="gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:10px">
       <button v-for="[id, ico, label] in TABS" :key="id" @click="tab = id"
         :style="tab === id ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'"
         style="padding:8px 14px;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer">{{ ico }} {{ label }}</button>
-    </div>
+    </ScrollTabs>
 
     <div class="stats">
       <div v-for="k in kpis" :key="k.label" class="stat">

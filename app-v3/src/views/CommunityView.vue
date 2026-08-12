@@ -11,6 +11,7 @@
 import { ref, computed, defineAsyncComponent, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
+import ScrollTabs from '../components/ScrollTabs.vue'
 
 const route = useRoute()
 const data = useDataStore()
@@ -71,12 +72,12 @@ const goTab = (t) => { tab.value = t }
     </div>
 
     <!-- Tabs -->
-    <div class="kr-tabs">
+    <ScrollTabs>
       <button v-for="[k, ico, l] in TAB_ORDER" :key="k" @click="goTab(k)"
         :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">
         {{ ico }} {{ l }}
       </button>
-    </div>
+    </ScrollTabs>
 
     <!-- ══ OVERVIEW ══ -->
     <template v-if="tab === 'overview'">

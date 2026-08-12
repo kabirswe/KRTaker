@@ -3,6 +3,7 @@ import { computed, ref, onMounted } from 'vue'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { badge } from '../lib/ui'
+import ScrollTabs from '../components/ScrollTabs.vue'
 
 const auth = useAuthStore()
 const canManage = computed(() => ['superadmin', 'owner', 'manager', 'svc_mgr'].includes(auth.user?.role || ''))
@@ -191,11 +192,11 @@ async function createPlan() {
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <ScrollTabs>
       <button @click="tab = 'smart'; load()" :style="tab === 'smart' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">🔐 Smart Home</button>
       <button @click="tab = 'systems'; load()" :style="tab === 'systems' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">⚙️ Systems Watch</button>
       <button @click="tab = 'health'; load()" :style="tab === 'health' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">🌦️ Health Check</button>
-    </div>
+    </ScrollTabs>
 
     <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
 

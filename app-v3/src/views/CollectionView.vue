@@ -3,6 +3,8 @@ import { computed, ref, onMounted } from 'vue'
 import { apiCall } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { badge } from '../lib/ui'
+import ScrollTabs from '../components/ScrollTabs.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const auth = useAuthStore()
 const canManage = computed(() => ['superadmin', 'owner', 'manager', 'accountant'].includes(auth.user?.role || ''))
@@ -244,11 +246,11 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <!-- Tabs -->
-    <div class="kr-tabs">
+    <ScrollTabs>
       <button @click="tab = 'collections'" :style="tab === 'collections' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">📨 Collections</button>
       <button @click="tab = 'recon'" :style="tab === 'recon' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">🧾 Recon</button>
       <button @click="tab = 'reminders'" :style="tab === 'reminders' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">🔔 Reminders</button>
-    </div>
+    </ScrollTabs>
 
     <!-- ══ COLLECTIONS TAB ══ -->
     <template v-if="tab === 'collections'">
@@ -389,10 +391,12 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
             <button @click="refundFor = 'P-' + Math.random().toString(36).slice(2, 7).toUpperCase()" style="padding:9px 14px;border:none;border-radius:9px;background:var(--bg-alt);color:var(--text);font-weight:800;font-size:12.5px;cursor:pointer">＋ New refund</button>
           </div>
           <div v-else style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <CompactFilters>
             <input v-model="refundFor" placeholder="Payment ID (e.g. P-XXXXX)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:150px">
             <input v-model="refundReason" placeholder="Reason (optional)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:180px">
-            <button @click="doRefund" style="padding:9px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">💸 Refund</button>
             <button @click="refundFor = null" style="padding:9px 12px;border:none;border-radius:9px;background:transparent;color:var(--text-mute);font-weight:700;font-size:12.5px;cursor:pointer">Cancel</button>
+            </CompactFilters>
+            <button @click="doRefund" style="padding:9px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">💸 Refund</button>
           </div>
         </div>
       </template>
@@ -514,8 +518,10 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
           </div>
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
             <button @click="saveSms" :disabled="smsSaving" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer">💾 Save SMS config {{ smsSaving ? '…' : '' }}</button>
+            <CompactFilters>
             <input v-model="smsTestPhone" placeholder="Test phone (e.g. 01711…)" style="flex:1;min-width:150px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             <button v-if="canManage" @click="sendTestSms" :disabled="smsTesting" style="padding:10px 16px;border:none;border-radius:10px;background:var(--bg-alt);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">📤 Send test {{ smsTesting ? '…' : '' }}</button>
+            </CompactFilters>
           </div>
           <div v-if="smsTestResult" style="margin-top:10px;font-size:12.5px" :style="smsTestResult.ok ? 'color:var(--ok)' : 'color:var(--danger)'">
             {{ smsTestResult.ok ? `✅ SMS ${smsTestResult.ref} → ${smsTestResult.to} (${smsTestResult.provider})` : ('⚠️ ' + (smsTestResult.reason || smsTestResult.error || 'failed')) }}

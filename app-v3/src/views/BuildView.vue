@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob, apiBase } from '../api/client'
 import { useViewMode, usePager, money, fmtTs } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -323,6 +324,7 @@ load()
         <div class="sub">{{ projs.length }} projects · {{ kpis[3]?.value || 0 }} budget · {{ kpis[4]?.value || 0 }} spent</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search title, contractor, site…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="kindFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All kinds</option>
@@ -338,6 +340,7 @@ load()
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
         <button v-if="canManage" @click="openCfg" class="btn-ghost" title="Build Watch settings">⚙ Settings</button>
+      </CompactFilters>
         <button v-if="canManage" @click="openNew" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New project</button>
       </div>
     </div>

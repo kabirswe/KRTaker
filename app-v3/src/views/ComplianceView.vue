@@ -7,6 +7,7 @@ import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import RichEditor from '../components/RichEditor.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -186,6 +187,7 @@ function refreshSel() {
         <div class="sub">{{ cplAll.length }} items · {{ kpis[1]?.value || 0 }} expired · {{ kpis[2]?.value || 0 }} expiring soon</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search label, ref, notes…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All types</option>
@@ -203,6 +205,7 @@ function refreshSel() {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+      </CompactFilters>
         <template v-if="canManage">
           <button @click="runRemind" class="btn-ghost" title="Email due/expired digest">📧 Remind</button>
           <button @click="runSync" class="btn-ghost" title="Recompute from leases">🔄 Sync</button>

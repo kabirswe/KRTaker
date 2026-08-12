@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
+import CompactFilters from '../components/CompactFilters.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -186,6 +187,7 @@ function refreshBill() {
         <div class="sub">{{ billsAll.length }} bills · {{ kpis[1]?.value || '৳0' }} billed · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <CompactFilters>
         <input v-model="query" placeholder="Search bill, unit, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:190px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All types</option>
@@ -210,6 +212,7 @@ function refreshBill() {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
         <button @click="openTariffs" class="btn-ghost" title="Utility tariffs">🏷️ Tariffs</button>
+      </CompactFilters>
         <template v-if="canManage">
           <button @click="openBatch" class="btn-ghost" title="Generate bills for all leased units">⚡ Batch run</button>
           <button @click="openGenerate" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Generate bill</button>
