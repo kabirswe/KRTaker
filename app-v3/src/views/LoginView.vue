@@ -1,13 +1,31 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
+import { getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const data = useDataStore()
+
+// V2.20: dynamic branding on the login screen (logo image + site name + colors)
+const brand = ref({})
+async function loadBrand() { brand.value = await getBranding() }
+const loginLogo = computed(() => {
+  const b = brand.value
+  const img = b.dash_header || b.wl_logo_print || ''
+  return {
+    img: img ? brandUrl(img) : '',
+    h: brandSlotSize(b, 'dash_header', 40),
+    showTitle: brandTitleOn(b, 'dash_header'),
+    name: b.site_name || 'KRTaker',
+    mark: b.logo_text || 'KR',
+    grad: b.primary ? ('linear-gradient(135deg,' + b.primary + ',' + (b.secondary || b.primary) + ')') : '',
+  }
+})
+onMounted(loadBrand)
 
 // Deep-link destination preserved by the router guard (?redirect=/dashboard?gw=…&sid=…)
 const redirectTo = (() => { try { return String(route.query.redirect || '/dashboard') } catch (e) { return '/dashboard' } })()
@@ -80,9 +98,14 @@ function resendOtp() { twofa.value = ''; doLogin() }
 <template>
   <div class="auth-card">
     <div class="auth-logo">
-      <div class="logo-mark">KR</div>
-      <div>
-        <div style="font-weight:800">KRTaker<small style="display:block;font-size:10px;color:var(--text-mute)">Key Responsibility Taker</small></div>
+      <template v-if="loginLogo.img">
+        <img :src="loginLogo.img" :style="{ height: loginLogo.h + 'px', maxWidth: '160px', objectFit: 'contain' }" alt="logo" />
+      </template>
+      <template v-else>
+        <div class="logo-mark" :style="loginLogo.grad ? { background: loginLogo.grad } : {}">{{ loginLogo.mark }}</div>
+      </template>
+      <div v-if="loginLogo.showTitle">
+        <div style="font-weight:800">{{ loginLogo.name }}<small style="display:block;font-size:10px;color:var(--text-mute)">Key Responsibility Taker</small></div>
       </div>
     </div>
     <h1>Welcome back</h1>
@@ -109,6 +132,11 @@ function resendOtp() { twofa.value = ''; doLogin() }
     <div v-if="turnstile" ref="tsEl" class="auth-ts" style="margin-top:12px;display:flex;justify-content:center"></div>
     <div class="auth-creds">
       New here? <a href="https://krtaker.com/register.html" style="color:var(--primary);font-weight:700">Create an account →</a>
+    </div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:16px;font-size:11.5px">
+      <a href="https://krtaker.com/privacy.html" target="_blank" rel="noopener" style="color:var(--text-mute)">Privacy</a>
+      <a href="https://krtaker.com/terms.html" target="_blank" rel="noopener" style="color:var(--text-mute)">Terms</a>
+      <a href="https://krtaker.com/" target="_blank" rel="noopener" style="color:var(--text-mute)">krtaker.com</a>
     </div>
   </div>
 </template>

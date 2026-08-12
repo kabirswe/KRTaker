@@ -11489,8 +11489,10 @@ case 'app-login': {
     } else {
         $pdo->prepare('UPDATE app_users SET last_login=? WHERE id=?')->execute([$now, $u['id']]);
     }
-    /* SA1 v28: superadmin sessions are short-lived (12h) — higher-trust surface, smaller blast radius */
-    $ttl = (($u['kind'] ?? '') === 'staff' && ($u['role'] ?? '') === 'superadmin') ? 43200 : TOKEN_TTL;
+    /* SA1 v28: superadmin sessions are short-lived (12h) — higher-trust surface, smaller blast radius.
+       V2.20: everyone else honours the configurable session_ttl_hours policy (default 7d, clamp 1h–30d). */
+    $ttl = (($u['kind'] ?? '') === 'staff' && ($u['role'] ?? '') === 'superadmin') ? 43200
+        : (max(1, min(720, (int)admin_cfg(db(), 'session_ttl_hours', 168))) * 3600);
     $tok = make_token(!empty($u['team_member']) ? $u['team_id'] : $u['id'], !empty($u['team_member']) ? 'team' : $u['kind'], '', $ttl);
     audit($u['name'], 'Login', 'auth', (string)($u['team_id'] ?? $u['id']));
     json_out(['ok' => true, 'token' => $tok, 'user' => user_payload($u)]);
@@ -12470,6 +12472,9 @@ case 'app-invoice-email': {
     $invId = trim($body['invoice_id'] ?? '');
     if (!$invId) json_out(['ok' => false, 'error' => 'invoice_id required.'], 400);
     $pdo = db();
+    /* V2.20: rate-limit manual invoice emailing — 10 sends/10 min/IP (spam guard) */
+    $ip = client_ip();
+    if (recent_any('', $ip, 10, 0, 10, ['inv-email'])) throttle_out('Too many invoice emails. Try again later.', '', $ip, 10, ['inv-email']);
     $r = inv_context($pdo, $invId);
     if (!$r) json_out(['ok' => false, 'error' => 'Invoice not found.'], 404);
     if (!$r['temail']) json_out(['ok' => false, 'error' => 'No tenant email on file for this invoice.'], 400);
@@ -12491,6 +12496,7 @@ case 'app-invoice-email': {
         'pay_url' => 'https://krtaker.com/app-v3/#/invoices?open=' . rawurlencode($invId) . '&pay=1',
     ]);
     $ok = send_mail($r['temail'], $subj, $html, null, true);
+    record_attempt('', $ip, 'inv-email', true);   /* count the send for the throttle */
     audit($u['name'], 'Invoice emailed', 'invoices', $invId, $r['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
     json_out(['ok' => true, 'emailed' => $ok, 'to' => $r['temail'], 'subject' => $subj]);
 }
@@ -13163,6 +13169,8 @@ case 'app-security': {
             'bot_guard'          => (int)admin_cfg($pdo, 'bot_guard', 1) === 1,
             'bot_pow_bits'       => max(8, min(24, (int)admin_cfg($pdo, 'bot_pow_bits', 12))),
             'sec_login_alerts'   => (int)admin_cfg($pdo, 'sec_login_alerts', 1) === 1,
+            'session_ttl_hours'  => max(1, min(720, (int)admin_cfg($pdo, 'session_ttl_hours', 168))),
+            'password_min'       => max(6, min(32, (int)admin_cfg($pdo, 'password_min', 8))),
             'masked'             => 1,
         ]);
     }
@@ -13187,6 +13195,8 @@ case 'app-security': {
         if (isset($body['bot_guard'])) $in['bot_guard'] = $body['bot_guard'] ? '1' : '0';
         if (isset($body['bot_pow_bits'])) $in['bot_pow_bits'] = (string)max(8, min(24, (int)$body['bot_pow_bits']));
         if (isset($body['sec_login_alerts'])) $in['sec_login_alerts'] = $body['sec_login_alerts'] ? '1' : '0';
+        if (isset($body['session_ttl_hours'])) $in['session_ttl_hours'] = (string)max(1, min(720, (int)$body['session_ttl_hours']));
+        if (isset($body['password_min'])) $in['password_min'] = (string)max(6, min(32, (int)$body['password_min']));
         foreach ($in as $k => $v) admin_cfg_save($pdo, $k, $v);
         if ($in) audit($u['name'], 'Login security config updated', 'security', 'cfg', implode(',', array_keys($in)));
         json_out(['ok' => true, 'saved' => array_keys($in)]);
@@ -13985,7 +13995,7 @@ case 'app-profile': {
     if (isset($body['new_password']) && $body['new_password'] !== '') {
         $old = $body['old_password'] ?? '';
         $new = $body['new_password'];
-        if (strlen($new) < 6) json_out(['ok' => false, 'error' => 'New password must be at least 6 characters.'], 400);
+        if (strlen($new) < (int)admin_cfg(db(), 'password_min', 8)) json_out(['ok' => false, 'error' => 'New password must be at least ' . (int)admin_cfg(db(), 'password_min', 8) . ' characters.'], 400);
         $perr = password_policy_error($pdo, $new);
         if ($perr !== '') json_out(['ok' => false, 'error' => $perr], 400);
         if (!$old) json_out(['ok' => false, 'error' => 'Current password is required to change it.'], 400);

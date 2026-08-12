@@ -102,6 +102,7 @@ onMounted(async () => {
   loadTwofa()
   loadSessions()
   loadLoginHistory()
+  if (auth.user?.role === 'superadmin') loadAudit()
 })
 
 // ── Two-factor authentication (superadmin) — V2.16 ──
@@ -201,7 +202,7 @@ const roleLabel = computed(() => {
 
 // ── Login security (reCAPTCHA v3 + Cloudflare Turnstile) — owner/superadmin only ──
 const isOwner = computed(() => ['superadmin', 'owner'].includes(auth.user?.role))
-const secForm = ref({ recaptcha_site_key: '', recaptcha_secret: '', turnstile_site_key: '', turnstile_secret: '', bot_guard: true, bot_pow_bits: 12 })
+const secForm = ref({ recaptcha_site_key: '', recaptcha_secret: '', turnstile_site_key: '', turnstile_secret: '', bot_guard: true, bot_pow_bits: 12, session_ttl_hours: 168, password_min: 8 })
 const secLoading = ref(false)
 const secSaving = ref(false)
 
@@ -218,6 +219,8 @@ async function loadSecurity() {
         turnstile_secret: r.turnstile_secret || '',
         bot_guard: !!r.bot_guard,
         bot_pow_bits: r.bot_pow_bits || 12,
+        session_ttl_hours: r.session_ttl_hours || 168,
+        password_min: r.password_min || 8,
       }
       secAlerts.value = r.sec_login_alerts !== false
     }
@@ -317,6 +320,51 @@ async function saveSecAlerts() {
     else err.value = r.error || 'Failed to save.'
   } finally { sessionsBusy.value = false }
 }
+
+// ── Audit log viewer (superadmin) ──
+const auditEntries = ref([])
+const auditLoading = ref(false)
+async function loadAudit() {
+  auditLoading.value = true; err.value = ''
+  try {
+    const r = await apiCall('app-audit', { limit: 50, offset: 0 })
+    if (r.ok) auditEntries.value = r.entries || []
+    else err.value = r.error || 'Failed to load audit log.'
+  } catch (e) { err.value = e.message }
+  finally { auditLoading.value = false }
+}
+const fmtAuditTs = (ts) => { if (!ts) return '—'; return String(ts).replace('T', ' ').slice(0, 16) }
+
+// ── Backup console (superadmin) ──
+const backupBusy = ref('')
+function saveBlob(blob, fname) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = fname
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
+async function downloadBackup() {
+  backupBusy.value = 'db'; err.value = ''; saved.value = ''
+  try {
+    const res = await fetch('https://krtaker.com/api/app-backup', { headers: { Authorization: 'Bearer ' + (auth.token || '') } })
+    if (!res.ok) { err.value = 'Backup failed (HTTP ' + res.status + ')'; return }
+    const blob = await res.blob()
+    saveBlob(blob, 'krtaker_' + new Date().toISOString().slice(0, 10) + '.db')
+    saved.value = 'DB snapshot downloaded.'
+  } catch (e) { err.value = 'Backup failed: ' + e.message }
+  finally { backupBusy.value = '' }
+}
+async function downloadExport() {
+  backupBusy.value = 'json'; err.value = ''; saved.value = ''
+  try {
+    const res = await fetch('https://krtaker.com/api/app-export', { headers: { Authorization: 'Bearer ' + (auth.token || '') } })
+    if (!res.ok) { err.value = 'Export failed (HTTP ' + res.status + ')'; return }
+    const blob = await res.blob()
+    saveBlob(blob, 'krtaker_export_' + new Date().toISOString().slice(0, 10) + '.json')
+    saved.value = 'Full JSON export downloaded.'
+  } catch (e) { err.value = 'Export failed: ' + e.message }
+  finally { backupBusy.value = '' }
+}
 </script>
 
 <template>
@@ -406,7 +454,7 @@ async function saveSecAlerts() {
             <input v-model="oldPw" type="password" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <div class="form-field" style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">New password (min 6)</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">New password (min {{ secForm.password_min || 8 }})</label>
             <input v-model="newPw" type="password" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <button class="btn-primary" style="width:100%" @click="changePassword">Change password</button>
@@ -446,7 +494,24 @@ async function saveSecAlerts() {
             <input type="number" v-model.number="secForm.bot_pow_bits" min="8" max="24" style="width:70px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--bg);color:var(--text)">
           </label>
         </div>
-        <div class="c-sub" style="font-size:12px;margin-bottom:12px">Get keys from Google Cloud console (reCAPTCHA → v3) or the Cloudflare dashboard (Turnstile). Secrets are masked — an unchanged value is kept as-is; blank clears.</div>
+        <div style="display:flex;gap:24px;align-items:center;margin:14px 0;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
+            Session expiry
+            <select v-model.number="secForm.session_ttl_hours" style="padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--bg);color:var(--text)">
+              <option :value="12">12 hours</option>
+              <option :value="24">1 day</option>
+              <option :value="72">3 days</option>
+              <option :value="168">7 days (default)</option>
+              <option :value="336">14 days</option>
+              <option :value="720">30 days</option>
+            </select>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
+            Min password length
+            <input type="number" v-model.number="secForm.password_min" min="6" max="32" style="width:70px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--bg);color:var(--text)">
+          </label>
+        </div>
+        <div class="c-sub" style="font-size:12px;margin-bottom:12px">Get keys from Google Cloud console (reCAPTCHA → v3) or the Cloudflare dashboard (Turnstile). Secrets are masked — an unchanged value is kept as-is; blank clears. Session expiry applies to all non-superadmin roles; superadmin stays at 12h.</div>
         <button class="btn-primary" :disabled="secSaving" @click="saveSecurity">{{ secSaving ? 'Saving…' : '💾 Save security settings' }}</button>
       </div>
 
@@ -501,6 +566,45 @@ async function saveSecAlerts() {
             </div>
             <div class="c-sub" style="font-size:12px">Lost your authenticator app? On the login screen choose <b>“Use email code instead”</b> — we'll email you a one-time code.</div>
           </template>
+        </div>
+      </div>
+
+      <!-- Audit log (superadmin) -->
+      <div v-if="isSuperAdmin" class="panel" style="margin-top:18px">
+        <div class="panel-h"><div class="t"><span class="pi">🧾</span>Audit log <span class="badge b-blue" style="margin-left:8px">Superadmin</span></div>
+          <button class="btn-ghost" style="font-size:12px" :disabled="auditLoading" @click="loadAudit">{{ auditLoading ? 'Loading…' : '↻ Refresh' }}</button>
+        </div>
+        <div class="panel-b">
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">Latest 50 platform events — who did what, when (logins, security changes, exports, reminders).</div>
+          <div class="tbl-wrap" style="max-height:none">
+            <table class="kr" style="width:100%;font-size:12px">
+              <thead>
+                <tr><th style="text-align:left">When</th><th style="text-align:left">User</th><th style="text-align:left">Action</th><th style="text-align:left">Module</th><th style="text-align:left">Entity</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="(a, i) in auditEntries" :key="i">
+                  <td style="white-space:nowrap">{{ fmtAuditTs(a.ts) }}</td>
+                  <td style="font-weight:700">{{ a.user }}</td>
+                  <td>{{ a.action }}</td>
+                  <td><span class="badge b-gray">{{ a.module }}</span></td>
+                  <td class="c-sub" style="font-size:11px">{{ a.entity }}</td>
+                </tr>
+                <tr v-if="!auditEntries.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px 0">No audit entries loaded.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Backup & export (superadmin) -->
+      <div v-if="isSuperAdmin" class="panel" style="margin-top:18px">
+        <div class="panel-h"><div class="t"><span class="pi">💾</span>Backup &amp; export <span class="badge b-blue" style="margin-left:8px">Superadmin</span></div></div>
+        <div class="panel-b">
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:14px">Download a consistent SQLite snapshot (VACUUM INTO) or a full JSON dump of every table — for archives, migration and disaster recovery.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-primary" :disabled="!!backupBusy" @click="downloadBackup" style="font-size:13px">{{ backupBusy === 'db' ? 'Downloading…' : '⬇️ Download DB snapshot' }}</button>
+            <button class="btn-ghost" :disabled="!!backupBusy" @click="downloadExport" style="font-size:13px">{{ backupBusy === 'json' ? 'Exporting…' : '⬇️ Full JSON export' }}</button>
+          </div>
         </div>
       </div>
 

@@ -351,6 +351,21 @@ async function sendReminder() {
   } finally { remindSending.value = false }
 }
 
+// ── GDPR data export (V2.20): download this tenant's personal data as JSON ──
+const gdprBusy = ref(false)
+async function exportGdpr() {
+  if (!sel.value) return
+  gdprBusy.value = true
+  try {
+    const res = await fetch('https://krtaker.com/api/app-gdpr-export?t=' + encodeURIComponent(sel.value.id), { headers: { Authorization: 'Bearer ' + (auth.token || '') } })
+    if (!res.ok) { window.__krToast?.('Export failed (HTTP ' + res.status + ')', 'error'); return }
+    const blob = await res.blob()
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'krtaker_gdpr_' + sel.value.id + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+    window.__krToast?.('📦 Tenant data exported', 'ok')
+  } catch (e) { window.__krToast?.('Export failed: ' + e.message, 'error') }
+  finally { gdprBusy.value = false }
+}
+
 // ── lease extension (renewal) ──
 const offerModal = ref(null)
 const offerSaving = ref(false)
@@ -928,6 +943,7 @@ async function delTenant(t) {
               <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" @click="openNotice">📢 Send notice</button>
               <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" :disabled="settleLoading" @click="openSettle">{{ settleLoading ? 'Loading…' : '🧾 Settlement' }}</button>
               <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" :disabled="remindSending" @click="sendReminder">{{ remindSending ? 'Sending…' : '🔔 Payment reminder' }}</button>
+              <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" :disabled="gdprBusy" @click="exportGdpr" title="Download this tenant's personal data (GDPR export)">{{ gdprBusy ? 'Exporting…' : '📦 Data export' }}</button>
             </div>
 
             <!-- Tenant score -->
