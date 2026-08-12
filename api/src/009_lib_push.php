@@ -106,4 +106,16 @@ function push_to_user($pdo, $email, $title, $body, $url = '/app-v3/') {
     return ['sent' => $sent, 'removed' => $removed, 'errors' => $errors];
 }
 
+/* Push all active owners (V2.14 — trigger helper; never breaks the primary action). */
+function push_owners($pdo, $title, $body, $url = '/app-v3/', $actor = null) {
+    try {
+        if ($actor && in_array($actor['role'] ?? '', ['superadmin', 'owner'], true)) return;
+        $ems = $pdo->query("SELECT email FROM subscribers WHERE status='active' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
+        if (!$ems) $ems = [];
+        foreach ($ems as $em) {
+            if ($em) push_to_user($pdo, $em, $title, $body, $url);
+        }
+    } catch (Throwable $e) { /* push must never break the primary action */ }
+}
+
 /* ── SA1 v20: subscriber team (sub-accounts) + seat enforcement ── */

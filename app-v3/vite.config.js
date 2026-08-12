@@ -12,6 +12,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,   // custom registration in main.js (versioned + auto-reload on update)
+      strategies: 'injectManifest', // custom src/sw.js (adds web-push handlers)
+      srcDir: 'src',
+      filename: 'sw.js',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'KRTaker — AI Caretaker',

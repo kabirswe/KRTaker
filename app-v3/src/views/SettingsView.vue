@@ -20,6 +20,72 @@ const twofa = ref(null)
 
 const isStaff = computed(() => auth.user?.is_staff || ['superadmin', 'owner', 'manager', 'hr', 'accountant', 'crm', 'legal', 'svc_mgr'].includes(auth.user?.role))
 
+// ── Web push notifications (V2.14) ──
+const pushState = ref({ loading: true, enabled: false, devices: 0, vapid: '', subscribed: false, notifPermission: Notification ? Notification.permission : 'unsupported' })
+const pushBusy = ref(false)
+
+async function loadPushState() {
+  try {
+    const r = await apiCall('app-push?action=state', {})
+    if (r.ok) pushState.value = { loading: false, enabled: !!r.enabled, devices: r.devices || 0, vapid: r.vapid_public || '', subscribed: !!r.subscribed, notifPermission: Notification ? Notification.permission : 'unsupported' }
+  } catch (e) { pushState.value.loading = false }
+}
+
+async function enablePush() {
+  pushBusy.value = true; err.value = ''; saved.value = ''
+  try {
+    if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
+      err.value = 'Push notifications are not supported in this browser.'; return
+    }
+    if (pushState.value.notifPermission !== 'granted') {
+      const perm = await Notification.requestPermission()
+      pushState.value.notifPermission = perm
+      if (perm !== 'granted') { err.value = 'Permission denied — enable notifications in your browser settings to continue.'; return }
+    }
+    // make sure the SW is ready (it handles push events)
+    const reg = await navigator.serviceWorker.ready
+    // fetch VAPID key fresh (in case of reload before state loaded)
+    if (!pushState.value.vapid) {
+      const st = await apiCall('app-push?action=state', {})
+      if (st.ok) pushState.value.vapid = st.vapid_public || ''
+    }
+    if (!pushState.value.vapid) { err.value = 'Push is not configured on the server yet.'; return }
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushState.value.vapid })
+    const json = sub.toJSON()
+    const r = await apiCall('app-push', { action: 'save', endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, ua: navigator.userAgent.slice(0, 200) })
+    if (r.ok) { saved.value = 'Push notifications enabled for this device.'; await loadPushState() }
+    else err.value = r.error || 'Failed to save subscription.'
+  } catch (e) {
+    err.value = 'Could not subscribe: ' + (e && e.message ? e.message : e)
+  } finally { pushBusy.value = false }
+}
+
+async function testPush() {
+  pushBusy.value = true; err.value = ''; saved.value = ''
+  try {
+    const r = await apiCall('app-push', { action: 'test' })
+    if (r.ok) saved.value = 'Test notification ' + (r.sent > 0 ? 'sent to your device(s).' : '— ' + (r.detail || 'no devices.'))
+    else err.value = r.error || 'Test failed.'
+  } catch (e) { err.value = 'Network error.' }
+  finally { pushBusy.value = false }
+}
+
+async function disablePush() {
+  pushBusy.value = true; err.value = ''
+  try {
+    let ep = ''
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) { ep = sub.endpoint; await sub.unsubscribe() }
+    }
+    if (ep) await apiCall('app-push', { action: 'remove', endpoint: ep })
+    pushState.value.enabled = false; pushState.value.devices = 0
+    saved.value = 'Push notifications disabled.'
+  } catch (e) { err.value = 'Could not unsubscribe.' }
+  finally { pushBusy.value = false }
+}
+
 onMounted(async () => {
   const u = auth.user || {}
   name.value = u.name || ''
@@ -32,6 +98,7 @@ onMounted(async () => {
     twofa.value = r.twofa ?? (r.account?.twofa ?? null)
   }
   loadSecurity()
+  loadPushState()
 })
 
 function setLang(lang) { prefs.value.lang = lang }
@@ -232,6 +299,29 @@ async function saveSecurity() {
         </div>
         <div class="c-sub" style="font-size:12px;margin-bottom:12px">Get keys from Google Cloud console (reCAPTCHA → v3) or the Cloudflare dashboard (Turnstile). Secrets are masked — an unchanged value is kept as-is; blank clears.</div>
         <button class="btn-primary" :disabled="secSaving" @click="saveSecurity">{{ secSaving ? 'Saving…' : '💾 Save security settings' }}</button>
+      </div>
+
+      <!-- Notifications -->
+      <div class="panel">
+        <div class="panel-h"><div class="t"><span class="pi">🔔</span>Push notifications <span v-if="pushState.enabled" class="badge b-green" style="margin-left:8px">On</span><span v-else class="badge b-gray" style="margin-left:8px">Off</span></div></div>
+        <div class="panel-b">
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">Get instant alerts on this device when a tenant raises maintenance, a payment is recorded, or a KYC application is submitted — even when the app is closed.</div>
+          <div v-if="pushState.loading" style="color:var(--text-mute);font-size:13px">Loading…</div>
+          <template v-else>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+              <button v-if="!pushState.enabled" class="btn-primary" :disabled="pushBusy" @click="enablePush">{{ pushBusy ? 'Working…' : '🔔 Enable notifications' }}</button>
+              <template v-else>
+                <button class="btn-ghost" :disabled="pushBusy" @click="testPush">{{ pushBusy ? 'Sending…' : '🧪 Send test' }}</button>
+                <button class="btn-ghost" style="color:var(--danger)" :disabled="pushBusy" @click="disablePush">{{ pushBusy ? 'Working…' : '🚫 Disable' }}</button>
+              </template>
+            </div>
+            <div style="font-size:12.5px;color:var(--text-mute)">
+              <template v-if="pushState.enabled">✅ Active on <b>{{ pushState.devices }}</b> device{{ pushState.devices === 1 ? '' : 's' }}</template>
+              <template v-else-if="pushState.notifPermission === 'denied'">⚠️ Notification permission is blocked in this browser — unblock it from the site settings (padlock icon) to enable.</template>
+              <template v-else>No devices registered on this browser yet.</template>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </div>

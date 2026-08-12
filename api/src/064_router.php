@@ -991,54 +991,63 @@ case 'app-ticket-status': {
 }
 
 /* ── Phase 8: tenant operations ── */
-case 'push-state': {
+case 'app-push': {
     $u = require_user();
     $pdo = db();
-    $st = $pdo->prepare('SELECT COUNT(*) FROM push_subs WHERE sub_email=?'); $st->execute([$u['email']]);
-    json_out(['ok' => true, 'vapid_public' => vapid_public_b64url(), 'subs' => (int)$st->fetchColumn()]);
+    $action = trim($body['action'] ?? $_GET['action'] ?? '');
+    if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'state' : 'save';
+    $em = $u['email'];
+    if ($action === 'state') {
+        $st = $pdo->prepare("SELECT COUNT(*) FROM push_subs WHERE sub_email=?");
+        $st->execute([$em]);
+        $devices = (int)$st->fetchColumn();
+        $sub = null;
+        if (!empty($_GET['endpoint'])) {
+            $st = $pdo->prepare('SELECT * FROM push_subs WHERE endpoint=? AND sub_email=?');
+            $st->execute([$_GET['endpoint'], $em]);
+            $sub = $st->fetch(PDO::FETCH_ASSOC);
+        }
+        json_out(['ok' => true, 'enabled' => $devices > 0, 'devices' => $devices, 'vapid_public' => vapid_public_b64url(), 'subscribed' => (bool)$sub]);
+    }
+    if ($action === 'save') {
+        $endpoint = trim($body['endpoint'] ?? '');
+        $p256dh = trim($body['p256dh'] ?? '');
+        $auth = trim($body['auth'] ?? '');
+        if (!$endpoint || !preg_match('#^https://#', $endpoint)) json_out(['ok' => false, 'error' => 'Valid https endpoint required.'], 400);
+        if (strlen(b64url_decode($p256dh)) !== 65) json_out(['ok' => false, 'error' => 'p256dh must be a 65-byte key.'], 400);
+        if (strlen(b64url_decode($auth)) !== 16) json_out(['ok' => false, 'error' => 'auth must be 16 bytes.'], 400);
+        $st = $pdo->prepare("SELECT COUNT(*) FROM push_subs WHERE sub_email=?");
+        $st->execute([$em]);
+        if ((int)$st->fetchColumn() >= 10) json_out(['ok' => false, 'error' => 'Too many devices (max 10).'], 400);
+        $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 200);
+        $pdo->prepare('INSERT INTO push_subs (sub_email, endpoint, p256dh, auth, ua) VALUES (?,?,?,?,?)
+            ON CONFLICT(endpoint) DO UPDATE SET sub_email=excluded.sub_email, p256dh=excluded.p256dh, auth=excluded.auth, ua=excluded.ua, created_at=datetime(\'now\')')
+            ->execute([$em, $endpoint, $p256dh, $auth, $ua]);
+        audit($u['name'], 'Push device registered', 'notifications', substr($endpoint, 0, 60));
+        json_out(['ok' => true, 'devices' => (int)$pdo->query("SELECT COUNT(*) FROM push_subs WHERE sub_email='" . str_replace("'", "''", $em) . "'")->fetchColumn()]);
+    }
+    if ($action === 'remove') {
+        $endpoint = trim($body['endpoint'] ?? '');
+        if (!$endpoint) json_out(['ok' => false, 'error' => 'endpoint required.'], 400);
+        $pdo->prepare('DELETE FROM push_subs WHERE endpoint=? AND sub_email=?')->execute([$endpoint, $em]);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'test') {
+        $r = push_to_user($pdo, $em, '🔔 KRTaker test notification', 'Push notifications are working! You will be alerted about maintenance, payments and KYC here.', '/app-v3/');
+        json_out(['ok' => $r['sent'] > 0, 'sent' => $r['sent'], 'total' => $r['sent'] + $r['removed'] + count($r['errors']), 'detail' => $r['sent'] > 0 ? 'Delivered.' : ($r['sent'] + $r['removed'] + count($r['errors']) === 0 ? 'No devices subscribed.' : 'No push service accepted (check device).')]);
+    }
+    if ($action === 'send') {
+        if (!service_authed()) json_out(['ok' => false, 'error' => 'Service key required.'], 401);
+        $target = trim($body['email'] ?? '');
+        $title = trim($body['title'] ?? 'KRTaker');
+        $body_txt = trim($body['body'] ?? '');
+        $url = trim($body['url'] ?? '/app-v3/');
+        $r = push_to_user($pdo, $target, $title, $body_txt, $url);
+        json_out(['ok' => true, 'sent' => $r['sent'], 'total' => $r['sent'] + $r['removed'] + count($r['errors'])]);
+    }
+    json_out(['ok' => false, 'error' => 'action must be state|save|remove|test|send.'], 400);
 }
-case 'push-save': {
-    $u = require_user();
-    $ep = trim($body['endpoint'] ?? '');
-    $p256 = trim($body['p256dh'] ?? '');
-    $auth = trim($body['auth'] ?? '');
-    if (!$ep || !$p256 || !$auth) json_out(['ok' => false, 'error' => 'endpoint, p256dh and auth are required.'], 400);
-    if (!preg_match('#^https://#', $ep)) json_out(['ok' => false, 'error' => 'endpoint must be https.'], 400);
-    if (strlen(b64url_decode($p256)) !== 65 || strlen(b64url_decode($auth)) !== 16) json_out(['ok' => false, 'error' => 'invalid subscription keys.'], 400);
-    $pdo = db();
-    $st = $pdo->prepare('SELECT COUNT(*) FROM push_subs WHERE sub_email=?'); $st->execute([$u['email']]);
-    if ((int)$st->fetchColumn() >= 10) json_out(['ok' => false, 'error' => 'Too many devices (max 10).'], 400);
-    $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 200);
-    $pdo->prepare('INSERT INTO push_subs (sub_email, endpoint, p256dh, auth, ua) VALUES (?,?,?,?,?)
-        ON CONFLICT(endpoint) DO UPDATE SET sub_email=excluded.sub_email, p256dh=excluded.p256dh, auth=excluded.auth, ua=excluded.ua, created_at=datetime(\'now\')')
-        ->execute([$u['email'], $ep, $p256, $auth, $ua]);
-    audit($u['name'], 'Push device registered', 'notifications', substr($ep, 0, 60));
-    json_out(['ok' => true]);
-}
-case 'push-remove': {
-    $u = require_user();
-    $ep = trim($body['endpoint'] ?? '');
-    if (!$ep) json_out(['ok' => false, 'error' => 'endpoint required.'], 400);
-    $pdo = db();
-    $pdo->prepare('DELETE FROM push_subs WHERE endpoint=? AND sub_email=?')->execute([$ep, $u['email']]);
-    json_out(['ok' => true]);
-}
-case 'push-test': {
-    $u = require_user();
-    $pdo = db();
-    $res = push_to_user($pdo, $u['email'], '🔔 KRTaker test notification', 'Push notifications are working! You will be alerted about tickets, payments and rent here.', '/app-v3/');
-    audit($u['name'], 'Push test', 'notifications', '', json_encode($res));
-    json_out(['ok' => true, 'result' => $res]);
-}
-case 'push-send': {
-    $u = require_user();
-    if ($u['role'] !== 'superadmin') json_out(['ok' => false, 'error' => 'Superadmin only.'], 403);
-    $to = trim($body['email'] ?? ''); $title = trim($body['title'] ?? 'KRTaker'); $msg = trim($body['body'] ?? '');
-    if (!$to || !$msg) json_out(['ok' => false, 'error' => 'email and body required.'], 400);
-    $pdo = db();
-    $res = push_to_user($pdo, $to, $title, $msg, trim($body['url'] ?? '/app-v3/'));
-    json_out(['ok' => true, 'result' => $res]);
-}
+
 case 'team-list': {
     $u = require_user();
     if (!team_owner_only($u)) json_out(['ok' => false, 'error' => 'Owner access required.'], 403);

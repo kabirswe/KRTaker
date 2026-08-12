@@ -104,6 +104,11 @@ define('ADMIN_EMAIL', krenv('ADMIN_EMAIL', ''));
 define('APP_SETUP_KEY', krenv('APP_SETUP_KEY', ''));
 define('TOKEN_TTL', 7 * 86400);
 define('SERVICE_KEY', krenv('SERVICE_KEY', ''));
+define('PUSH_VAPID_PRIV', "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEINAMzyf4F2LECO2jSdIXoze9KUzs6RZdKsEDkwMbVSKOoAoGCCqGSM49\nAwEHoUQDQgAEVx8DZ+SF2RkROcNz/9eeD/wdoyjDpzVUGkcTWW7A0IJcql+W/nKX\nR/Ql+pQzPFNPnUqokoIWPwa+Mfyw2CyI3w==\n-----END EC PRIVATE KEY-----");
+define('PUSH_VAPID_PUB', "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVx8DZ+SF2RkROcNz/9eeD/wdoyjD\npzVUGkcTWW7A0IJcql+W/nKXR/Ql+pQzPFNPnUqokoIWPwa+Mfyw2CyI3w==\n-----END PUBLIC KEY-----");
+define('PUSH_VAPID_SUB', 'mailto:owner@krtaker.com');
+
+
 $SMTP = is_array($__env['SMTP'] ?? null) ? $__env['SMTP'] : ['host' => '', 'port' => 587, 'user' => '', 'pass' => '', 'from' => ''];
 
 function json_out($data, $code = 200) {
@@ -681,7 +686,7 @@ function db() {
             direction TEXT DEFAULT 'out', body TEXT NOT NULL, voice_note INTEGER DEFAULT 0,
             ts TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_krw_user ON kr_wa_msgs(user_key, id)");
-        /* ── Phase 41: portfolio analytics — saved board reports ── */
+        
         $pdo->exec("CREATE TABLE IF NOT EXISTS board_reports (
             id TEXT PRIMARY KEY, month TEXT NOT NULL, kind TEXT DEFAULT 'board',
             payload TEXT NOT NULL, created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
@@ -1314,9 +1319,9 @@ function mail_queue_drain($pdo, $limit = 50) {
 }
 
 /* ── SA1 v19: Web Push (RFC 8291 content-encryption + RFC 8292 VAPID) — keys from env file ── */
-define('VAPID_PRIV', krenv('VAPID_PRIV', ''));
-define('VAPID_PUB', krenv('VAPID_PUB', ''));
-define('VAPID_SUB', krenv('VAPID_SUB', 'mailto:kabir.swe@gmail.com'));
+define('VAPID_PRIV', krenv('VAPID_PRIV', PUSH_VAPID_PRIV));
+define('VAPID_PUB', krenv('VAPID_PUB', PUSH_VAPID_PUB));
+define('VAPID_SUB', krenv('VAPID_SUB', 'mailto:owner@krtaker.com'));
 
 function b64url_encode($s) { return rtrim(strtr(base64_encode($s), '+/', '-_'), '='); }
 function b64url_decode($s) { return base64_decode(strtr($s, '-_', '+/')); }
@@ -1428,6 +1433,19 @@ function push_to_user($pdo, $email, $title, $body, $url = '/app-v3/') {
         } else { $errors[] = ['code' => $res['code'], 'err' => $res['err']]; }
     }
     return ['sent' => $sent, 'removed' => $removed, 'errors' => $errors];
+}
+
+/* Push all active owners (V2.14 — trigger helper; never breaks the primary action).
+   $actor = acting user row — owner/superadmin-initiated actions are skipped. */
+function push_owners($pdo, $title, $body, $url = '/app-v3/', $actor = null) {
+    try {
+        if ($actor && in_array($actor['role'] ?? '', ['superadmin', 'owner'], true)) return;
+        $ems = $pdo->query("SELECT email FROM subscribers WHERE status='active' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
+        if (!$ems) $ems = [];
+        foreach ($ems as $em) {
+            if ($em) push_to_user($pdo, $em, $title, $body, $url);
+        }
+    } catch (Throwable $e) { /* push must never break the primary action */ }
 }
 
 /* ── SA1 v20: subscriber team (sub-accounts) + seat enforcement ── */
@@ -10918,7 +10936,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -13197,6 +13215,7 @@ case 'app-kyc': {
         /* sync NID onto the tenant row when empty */
         $pdo->prepare("UPDATE tenants SET nid = CASE WHEN nid='' THEN ? ELSE nid END WHERE id=?")->execute([$nid, $tid]);
         audit($u['name'], 'KYC submitted', 'tenants', $tid, $full_name . ' NID ' . $nid);
+        push_owners($pdo, '🪪 New KYC submission', $full_name . ' (' . $tid . ') awaiting review', '#/secure?tab=kyc', $u);
         json_out(['ok' => true, 'status' => 'pending']);
     }
 
@@ -15147,6 +15166,7 @@ case 'app-maintenance': {
         $pdo->prepare('INSERT INTO maintenance_requests (id, tenant, unit, prop, category, priority, title, desc, status, created_by, charge_to) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$rid, $sc['tenant'], $sc['unit'], $prop, $cat, $prio, $title, trim($body['desc'] ?? ''), 'Open', $u['email'], $u['role'] === 'tenant' ? 'tenant' : 'owner']);
         audit($u['name'], 'Maintenance request raised', 'maintenance', $rid, $title . ' [' . $cat . ']');
+        push_owners($pdo, '🔧 New maintenance request', $rid . ': ' . $title . ' · ' . $prio, '#/maintenance', $u);
         json_out(['ok' => true, 'id' => $rid]);
     }
     if ($action === 'assign') {
@@ -17238,6 +17258,63 @@ case 'app-kr-wa': {
         json_out(['ok' => true, 'reply' => $reply]);
     }
     json_out(['ok' => false, 'error' => 'action must be status|bind|unbind|send|webhook.'], 400);
+}
+
+case 'app-push': {
+    $u = require_user();
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? '');
+    if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'state' : 'save';
+    $em = $u['email'];
+    if ($action === 'state') {
+        $st = $pdo->prepare("SELECT COUNT(*) FROM push_subs WHERE sub_email=?");
+        $st->execute([$em]);
+        $devices = (int)$st->fetchColumn();
+        $sub = null;
+        if (!empty($_GET['endpoint'])) {
+            $st = $pdo->prepare('SELECT * FROM push_subs WHERE endpoint=? AND sub_email=?');
+            $st->execute([$_GET['endpoint'], $em]);
+            $sub = $st->fetch(PDO::FETCH_ASSOC);
+        }
+        json_out(['ok' => true, 'enabled' => $devices > 0, 'devices' => $devices, 'vapid_public' => vapid_public_b64url(), 'subscribed' => (bool)$sub]);
+    }
+    if ($action === 'save') {
+        $endpoint = trim($body['endpoint'] ?? '');
+        $p256dh = trim($body['p256dh'] ?? '');
+        $auth = trim($body['auth'] ?? '');
+        if (!$endpoint || !preg_match('#^https://#', $endpoint)) json_out(['ok' => false, 'error' => 'Valid https endpoint required.'], 400);
+        if (strlen(b64url_decode($p256dh)) !== 65) json_out(['ok' => false, 'error' => 'p256dh must be a 65-byte key.'], 400);
+        if (strlen(b64url_decode($auth)) !== 16) json_out(['ok' => false, 'error' => 'auth must be 16 bytes.'], 400);
+        $st = $pdo->prepare("SELECT COUNT(*) FROM push_subs WHERE sub_email=?");
+        $st->execute([$em]);
+        if ((int)$st->fetchColumn() >= 10) json_out(['ok' => false, 'error' => 'Too many devices (max 10).'], 400);
+        $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 200);
+        $pdo->prepare('INSERT INTO push_subs (sub_email, endpoint, p256dh, auth, ua) VALUES (?,?,?,?,?)
+            ON CONFLICT(endpoint) DO UPDATE SET sub_email=excluded.sub_email, p256dh=excluded.p256dh, auth=excluded.auth, ua=excluded.ua, created_at=datetime(\'now\')')
+            ->execute([$em, $endpoint, $p256dh, $auth, $ua]);
+        audit($u['name'], 'Push device registered', 'notifications', substr($endpoint, 0, 60));
+        json_out(['ok' => true, 'devices' => (int)$pdo->query("SELECT COUNT(*) FROM push_subs WHERE sub_email='" . str_replace("'", "''", $em) . "'")->fetchColumn()]);
+    }
+    if ($action === 'remove') {
+        $endpoint = trim($body['endpoint'] ?? '');
+        if (!$endpoint) json_out(['ok' => false, 'error' => 'endpoint required.'], 400);
+        $pdo->prepare('DELETE FROM push_subs WHERE endpoint=? AND sub_email=?')->execute([$endpoint, $em]);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'test') {
+        $r = push_to_user($pdo, $em, '🔔 KRTaker test notification', 'Push notifications are working! You will be alerted about maintenance, payments and KYC here.', '/app-v3/');
+        json_out(['ok' => $r['sent'] > 0, 'sent' => $r['sent'], 'total' => $r['sent'] + $r['removed'] + count($r['errors']), 'detail' => $r['sent'] > 0 ? 'Delivered.' : ($r['sent'] + $r['removed'] + count($r['errors']) === 0 ? 'No devices subscribed.' : 'No push service accepted (check device).')]);
+    }
+    if ($action === 'send') {
+        if (!service_authed()) json_out(['ok' => false, 'error' => 'Service key required.'], 401);
+        $target = trim($body['email'] ?? '');
+        $title = trim($body['title'] ?? 'KRTaker');
+        $body_txt = trim($body['body'] ?? '');
+        $url = trim($body['url'] ?? '/app-v3/');
+        $r = push_to_user($pdo, $target, $title, $body_txt, $url);
+        json_out(['ok' => true, 'sent' => $r['sent'], 'total' => $r['sent'] + $r['removed'] + count($r['errors'])]);
+    }
+    json_out(['ok' => false, 'error' => 'action must be state|save|remove|test|send.'], 400);
 }
 
 case 'app-analytics': {
@@ -21495,6 +21572,7 @@ case 'app-invoice-pay': {
     $status = $newPaid >= (int)$iv['net'] ? 'Paid' : 'Partial';
     $pdo->prepare('UPDATE invoices SET status=? WHERE id=?')->execute([$status, $inv]);
     audit($u['name'], 'Partial payment', 'invoices', $inv, $rid . ' ৳' . $amount . ' ' . $method . ' -> ' . $status);
+    push_owners($pdo, '💰 Payment received', $rid . ' · ৳' . number_format($amount) . ' via ' . $method . ' on ' . $inv, '#/receipts', $u);
     json_out(['ok' => true, 'receipt_id' => $rid, 'payment_id' => $pid, 'paid' => $newPaid, 'status' => $status, 'remaining' => max(0, (int)$iv['net'] - $newPaid)]);
 }
 
