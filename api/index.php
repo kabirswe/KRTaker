@@ -9415,12 +9415,21 @@ function kr_alert_scan($pdo) {
     $ost = $pdo->query("SELECT id FROM subscribers WHERE status='active' ORDER BY id");
     foreach ($ost->fetchAll(PDO::FETCH_ASSOC) as $o) $owners[] = 'sub:' . $o['id'];
     if (!$owners) $owners[] = 'sub:1';
+    /* V2.23: fan the GENERIC alert types (SLA/compliance/arrears/renewals) out to
+       active staff app_users too (staff:<id> user keys) — previously ops staff
+       (manager/svc_mgr/legal/hr/accountant) saw no alerts at all. Owner-specific
+       alerts (land parcels, NRB vacancies/disputes) stay targeted to the parcel
+       owner's subscriber key below. */
+    $staff = [];
+    $sst = $pdo->query("SELECT id FROM app_users WHERE active=1 AND is_staff=1 ORDER BY id");
+    foreach ($sst->fetchAll(PDO::FETCH_ASSOC) as $s) $staff[] = 'staff:' . $s['id'];
+    $targets = array_merge($owners, $staff);
     foreach ($sla['items'] as $it) {
         if ($it['status'] !== 'breached' && $it['status'] !== 'at_risk') continue;
         $sev = $it['status'] === 'breached' ? 'critical' : 'warning';
         $label = $it['status'] === 'breached' ? 'SLA breached' : 'SLA at risk';
         $body = $it['id'] . ' · ' . $it['title'] . ' · ' . $it['priority'] . ' priority · elapsed ' . $it['elapsed_hours'] . 'h';
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'sla', $sev, $label, $body, $it['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'sla', $sev, $label, $body, $it['id']) !== null) $created++;
     }
     /* compliance expiries within 45 days */
     $today = date('Y-m-d');
@@ -9428,19 +9437,19 @@ function kr_alert_scan($pdo) {
         if (!$c['expiry_date'] || $c['expiry_date'] > date('Y-m-d', strtotime('+45 days'))) continue;
         $sev = $c['expiry_date'] < $today ? 'critical' : 'warning';
         $label = $c['expiry_date'] < $today ? 'Compliance expired' : 'Compliance expiring';
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'compliance', $sev, $label, $c['label'] . ' · ' . $c['entity_id'] . ' · ' . $c['expiry_date'], $c['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'compliance', $sev, $label, $c['label'] . ' · ' . $c['entity_id'] . ' · ' . $c['expiry_date'], $c['id']) !== null) $created++;
     }
     /* arrears — unpaid invoices older than 7 days */
     $st = $pdo->query("SELECT i.id, i.l, i.m, i.net, l.t FROM invoices i JOIN leases l ON l.id=i.l WHERE i.status!='Paid' AND i.m < date('now','-7 days')");
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $i) {
         $tst = $pdo->prepare('SELECT name FROM tenants WHERE id=?'); $tst->execute([$i['t']]);
         $tname = (string)$tst->fetchColumn();
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'arrears', 'critical', 'Rent arrears', $i['id'] . ' · ' . $tname . ' · ' . $i['m'] . ' · ৳' . number_format($i['net']), $i['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'arrears', 'critical', 'Rent arrears', $i['id'] . ' · ' . $tname . ' · ' . $i['m'] . ' · ৳' . number_format($i['net']), $i['id']) !== null) $created++;
     }
     /* renewals within 60 days */
     $st = $pdo->query("SELECT l.id, l.end, l.rent, t.name AS tname, u.name AS uname FROM leases l JOIN tenants t ON t.id=l.t JOIN units u ON u.id=l.u WHERE l.status='Active' AND l.end <= date('now','+60 days') AND l.end >= date('now')");
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $l) {
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'renewal', 'warning', 'Lease renewal due', $l['id'] . ' · ' . $l['tname'] . ' · ' . $l['uname'] . ' · ends ' . $l['end'], $l['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'renewal', 'warning', 'Lease renewal due', $l['id'] . ' · ' . $l['tname'] . ' · ' . $l['uname'] . ' · ends ' . $l['end'], $l['id']) !== null) $created++;
     }
     /* land guard — encroached parcels, overdue/due-soon visits (NRB owner parcels only) */
     $landRows = $pdo->query('SELECT * FROM land_parcels ORDER BY ts DESC')->fetchAll(PDO::FETCH_ASSOC);
@@ -12653,6 +12662,9 @@ case 'app-receipt-email': {
     $pid = trim($body['payment_id'] ?? '');
     if (!$pid) json_out(['ok' => false, 'error' => 'payment_id required.'], 400);
     $pdo = db();
+    /* V2.23: rate-limit manual receipt emailing — 10 sends/10 min/IP (spam guard) */
+    $ip = client_ip();
+    if (recent_any('', $ip, 10, 0, 10, ['rcpt-email'])) throttle_out('Too many receipt emails. Try again later.', '', $ip, 10, ['rcpt-email']);
     $st = $pdo->prepare('SELECT * FROM payments WHERE id=?'); $st->execute([$pid]);
     $p = $st->fetch(PDO::FETCH_ASSOC);
     if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
@@ -12674,6 +12686,7 @@ case 'app-receipt-email': {
         'property' => $inv['pname'], 'unit' => $inv['uname'], 'month' => $inv['m'],
     ]);
     $ok = send_mail($inv['temail'], $subj, $html);
+    record_attempt('', $ip, 'rcpt-email', true);   /* count the send for the throttle */
     audit($u['name'], 'Receipt emailed', 'payments', $pid, $inv['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
     json_out(['ok' => true, 'emailed' => $ok, 'to' => $inv['temail'], 'subject' => $subj]);
 }
@@ -17807,9 +17820,15 @@ case 'app-push': {
 }
 
 case 'app-analytics': {
-    $u = require_user();
-    if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant', 'svc_mgr'], true))
-        json_out(['ok' => false, 'error' => 'Your role cannot view portfolio analytics.'], 403);
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant', 'svc_mgr'], true))
+            json_out(['ok' => false, 'error' => 'Your role cannot view portfolio analytics.'], 403);
+    } else {
+        /* V2.23: service-key consistency — cron/reporting may read analytics */
+        $u = ['name' => 'system', 'role' => 'svc', 'email' => '', 'id' => 0];
+    }
     $pdo = db();
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
     if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'pnl' : 'pnl';
@@ -17827,6 +17846,8 @@ case 'app-analytics': {
     if ($action === 'occupancy') json_out(['ok' => true] + analytics_occupancy($pdo));
     if ($action === 'maintenance') json_out(['ok' => true] + analytics_maintenance($pdo));
     if ($action === 'board') {
+        /* V2.23: board report generation persists a row — service key stays read-only */
+        if ($svc) json_out(['ok' => false, 'error' => 'Service key cannot generate board reports.'], 403);
         $md = board_report_md($pdo, $month);
         $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'BR-','') AS INTEGER)) FROM board_reports")->fetchColumn();
         $bid = 'BR-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
@@ -18685,11 +18706,17 @@ case 'app-healthcheck': {
 }
 
 case 'app-build': {
-    $u = require_user();
-    require_module($u, 'build');
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        require_module($u, 'build');
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr'], true))
+            json_out(['ok' => false, 'error' => 'Build Watch is for owners and operations staff.'], 403);
+    } else {
+        /* V2.23: service-key consistency — cron/reporting may read build data */
+        $u = ['name' => 'system', 'role' => 'svc', 'email' => '', 'id' => 0];
+    }
     $pdo = db();
-    if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr'], true))
-        json_out(['ok' => false, 'error' => 'Build Watch is for owners and operations staff.'], 403);
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
     if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'summary' : 'list';
     $ownerOk = function ($email) use ($u) {
@@ -18723,6 +18750,9 @@ case 'app-build': {
         $enr = bp_enrich($pdo, [$row])[0];
         json_out(['ok' => true, 'project' => $enr, 'milestones' => bm_rows($pdo, $id), 'expenses' => bx_rows($pdo, $id), 'media' => bd_rows($pdo, $id)]);
     }
+
+    /* V2.23: service-key is READ-ONLY here — everything below mutates data */
+    if ($svc) json_out(['ok' => false, 'error' => 'Service key cannot modify build data.'], 403);
 
     if ($action === 'create') {
         $title = trim($body['title'] ?? '');
@@ -22075,6 +22105,9 @@ case 'app-tenant-remind': {
     if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
         json_out(['ok' => false, 'error' => 'Your role cannot send reminders.'], 403);
     $pdo = db();
+    /* V2.23: rate-limit manual tenant reminders — 10 sends/10 min/IP (spam guard) */
+    $ip = client_ip();
+    if (recent_any('', $ip, 10, 0, 10, ['tremind'])) throttle_out('Too many tenant reminders. Try again later.', '', $ip, 10, ['tremind']);
     $tid = trim($body['tenant_id'] ?? '');
     if (!$tid) json_out(['ok' => false, 'error' => 'tenant_id required.'], 400);
     $st = $pdo->prepare('SELECT * FROM tenants WHERE id=?'); $st->execute([$tid]);
@@ -22138,6 +22171,7 @@ case 'app-tenant-remind': {
             . '<p>You can pay through your tenant portal or by bank transfer. Please reach out if you have any questions.</p>';
         $sent = send_mail($to, $subj, $html, null, true);
     }
+    record_attempt('', $ip, 'tremind', true);   /* count the attempt for the throttle (self-record after send) */
     /* board notice too */
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
     $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);

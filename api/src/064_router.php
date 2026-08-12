@@ -1741,6 +1741,9 @@ case 'app-receipt-email': {
     $pid = trim($body['payment_id'] ?? '');
     if (!$pid) json_out(['ok' => false, 'error' => 'payment_id required.'], 400);
     $pdo = db();
+    /* V2.23: rate-limit manual receipt emailing — 10 sends/10 min/IP (spam guard) */
+    $ip = client_ip();
+    if (recent_any('', $ip, 10, 0, 10, ['rcpt-email'])) throttle_out('Too many receipt emails. Try again later.', '', $ip, 10, ['rcpt-email']);
     $st = $pdo->prepare('SELECT * FROM payments WHERE id=?'); $st->execute([$pid]);
     $p = $st->fetch(PDO::FETCH_ASSOC);
     if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
@@ -1762,6 +1765,7 @@ case 'app-receipt-email': {
         'property' => $inv['pname'], 'unit' => $inv['uname'], 'month' => $inv['m'],
     ]);
     $ok = send_mail($inv['temail'], $subj, $html);
+    record_attempt('', $ip, 'rcpt-email', true);   /* count the send for the throttle */
     audit($u['name'], 'Receipt emailed', 'payments', $pid, $inv['temail'] . ' ' . ($ok ? 'sent' : 'failed'));
     json_out(['ok' => true, 'emailed' => $ok, 'to' => $inv['temail'], 'subject' => $subj]);
 }
@@ -6552,9 +6556,15 @@ case 'app-kr-wa': {
 }
 
 case 'app-analytics': {
-    $u = require_user();
-    if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant', 'svc_mgr'], true))
-        json_out(['ok' => false, 'error' => 'Your role cannot view portfolio analytics.'], 403);
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant', 'svc_mgr'], true))
+            json_out(['ok' => false, 'error' => 'Your role cannot view portfolio analytics.'], 403);
+    } else {
+        /* V2.23: service-key consistency — cron/reporting may read analytics */
+        $u = ['name' => 'system', 'role' => 'svc', 'email' => '', 'id' => 0];
+    }
     $pdo = db();
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
     if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'pnl' : 'pnl';
@@ -6572,6 +6582,8 @@ case 'app-analytics': {
     if ($action === 'occupancy') json_out(['ok' => true] + analytics_occupancy($pdo));
     if ($action === 'maintenance') json_out(['ok' => true] + analytics_maintenance($pdo));
     if ($action === 'board') {
+        /* V2.23: board report generation persists a row — service key stays read-only */
+        if ($svc) json_out(['ok' => false, 'error' => 'Service key cannot generate board reports.'], 403);
         $md = board_report_md($pdo, $month);
         $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'BR-','') AS INTEGER)) FROM board_reports")->fetchColumn();
         $bid = 'BR-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
@@ -7430,11 +7442,17 @@ case 'app-healthcheck': {
 }
 
 case 'app-build': {
-    $u = require_user();
-    require_module($u, 'build');
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        require_module($u, 'build');
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr'], true))
+            json_out(['ok' => false, 'error' => 'Build Watch is for owners and operations staff.'], 403);
+    } else {
+        /* V2.23: service-key consistency — cron/reporting may read build data */
+        $u = ['name' => 'system', 'role' => 'svc', 'email' => '', 'id' => 0];
+    }
     $pdo = db();
-    if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr'], true))
-        json_out(['ok' => false, 'error' => 'Build Watch is for owners and operations staff.'], 403);
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
     if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'summary' : 'list';
     $ownerOk = function ($email) use ($u) {
@@ -7468,6 +7486,9 @@ case 'app-build': {
         $enr = bp_enrich($pdo, [$row])[0];
         json_out(['ok' => true, 'project' => $enr, 'milestones' => bm_rows($pdo, $id), 'expenses' => bx_rows($pdo, $id), 'media' => bd_rows($pdo, $id)]);
     }
+
+    /* V2.23: service-key is READ-ONLY here — everything below mutates data */
+    if ($svc) json_out(['ok' => false, 'error' => 'Service key cannot modify build data.'], 403);
 
     if ($action === 'create') {
         $title = trim($body['title'] ?? '');
@@ -10793,6 +10814,9 @@ case 'app-tenant-remind': {
     if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
         json_out(['ok' => false, 'error' => 'Your role cannot send reminders.'], 403);
     $pdo = db();
+    /* V2.23: rate-limit manual tenant reminders — 10 sends/10 min/IP (spam guard) */
+    $ip = client_ip();
+    if (recent_any('', $ip, 10, 0, 10, ['tremind'])) throttle_out('Too many tenant reminders. Try again later.', '', $ip, 10, ['tremind']);
     $tid = trim($body['tenant_id'] ?? '');
     if (!$tid) json_out(['ok' => false, 'error' => 'tenant_id required.'], 400);
     $st = $pdo->prepare('SELECT * FROM tenants WHERE id=?'); $st->execute([$tid]);
@@ -10856,6 +10880,7 @@ case 'app-tenant-remind': {
             . '<p>You can pay through your tenant portal or by bank transfer. Please reach out if you have any questions.</p>';
         $sent = send_mail($to, $subj, $html, null, true);
     }
+    record_attempt('', $ip, 'tremind', true);   /* count the attempt for the throttle (self-record after send) */
     /* board notice too */
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
     $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);

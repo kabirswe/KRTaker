@@ -7,12 +7,21 @@ function kr_alert_scan($pdo) {
     $ost = $pdo->query("SELECT id FROM subscribers WHERE status='active' ORDER BY id");
     foreach ($ost->fetchAll(PDO::FETCH_ASSOC) as $o) $owners[] = 'sub:' . $o['id'];
     if (!$owners) $owners[] = 'sub:1';
+    /* V2.23: fan the GENERIC alert types (SLA/compliance/arrears/renewals) out to
+       active staff app_users too (staff:<id> user keys) — previously ops staff
+       (manager/svc_mgr/legal/hr/accountant) saw no alerts at all. Owner-specific
+       alerts (land parcels, NRB vacancies/disputes) stay targeted to the parcel
+       owner's subscriber key below. */
+    $staff = [];
+    $sst = $pdo->query("SELECT id FROM app_users WHERE active=1 AND is_staff=1 ORDER BY id");
+    foreach ($sst->fetchAll(PDO::FETCH_ASSOC) as $s) $staff[] = 'staff:' . $s['id'];
+    $targets = array_merge($owners, $staff);
     foreach ($sla['items'] as $it) {
         if ($it['status'] !== 'breached' && $it['status'] !== 'at_risk') continue;
         $sev = $it['status'] === 'breached' ? 'critical' : 'warning';
         $label = $it['status'] === 'breached' ? 'SLA breached' : 'SLA at risk';
         $body = $it['id'] . ' · ' . $it['title'] . ' · ' . $it['priority'] . ' priority · elapsed ' . $it['elapsed_hours'] . 'h';
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'sla', $sev, $label, $body, $it['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'sla', $sev, $label, $body, $it['id']) !== null) $created++;
     }
     /* compliance expiries within 45 days */
     $today = date('Y-m-d');
@@ -20,19 +29,19 @@ function kr_alert_scan($pdo) {
         if (!$c['expiry_date'] || $c['expiry_date'] > date('Y-m-d', strtotime('+45 days'))) continue;
         $sev = $c['expiry_date'] < $today ? 'critical' : 'warning';
         $label = $c['expiry_date'] < $today ? 'Compliance expired' : 'Compliance expiring';
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'compliance', $sev, $label, $c['label'] . ' · ' . $c['entity_id'] . ' · ' . $c['expiry_date'], $c['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'compliance', $sev, $label, $c['label'] . ' · ' . $c['entity_id'] . ' · ' . $c['expiry_date'], $c['id']) !== null) $created++;
     }
     /* arrears — unpaid invoices older than 7 days */
     $st = $pdo->query("SELECT i.id, i.l, i.m, i.net, l.t FROM invoices i JOIN leases l ON l.id=i.l WHERE i.status!='Paid' AND i.m < date('now','-7 days')");
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $i) {
         $tst = $pdo->prepare('SELECT name FROM tenants WHERE id=?'); $tst->execute([$i['t']]);
         $tname = (string)$tst->fetchColumn();
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'arrears', 'critical', 'Rent arrears', $i['id'] . ' · ' . $tname . ' · ' . $i['m'] . ' · ৳' . number_format($i['net']), $i['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'arrears', 'critical', 'Rent arrears', $i['id'] . ' · ' . $tname . ' · ' . $i['m'] . ' · ৳' . number_format($i['net']), $i['id']) !== null) $created++;
     }
     /* renewals within 60 days */
     $st = $pdo->query("SELECT l.id, l.end, l.rent, t.name AS tname, u.name AS uname FROM leases l JOIN tenants t ON t.id=l.t JOIN units u ON u.id=l.u WHERE l.status='Active' AND l.end <= date('now','+60 days') AND l.end >= date('now')");
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $l) {
-        foreach ($owners as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'renewal', 'warning', 'Lease renewal due', $l['id'] . ' · ' . $l['tname'] . ' · ' . $l['uname'] . ' · ends ' . $l['end'], $l['id']) !== null) $created++;
+        foreach ($targets as $ukOwner) if (kr_alert_upsert($pdo, $ukOwner, 'renewal', 'warning', 'Lease renewal due', $l['id'] . ' · ' . $l['tname'] . ' · ' . $l['uname'] . ' · ends ' . $l['end'], $l['id']) !== null) $created++;
     }
     /* land guard — encroached parcels, overdue/due-soon visits (NRB owner parcels only) */
     $landRows = $pdo->query('SELECT * FROM land_parcels ORDER BY ts DESC')->fetchAll(PDO::FETCH_ASSOC);
