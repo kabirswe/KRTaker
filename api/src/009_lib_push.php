@@ -107,13 +107,15 @@ function push_to_user($pdo, $email, $title, $body, $url = '/app-v3/') {
 }
 
 /* Push all active owners (V2.14 — trigger helper; never breaks the primary action). */
-function push_owners($pdo, $title, $body, $url = '/app-v3/', $actor = null) {
+function push_owners($pdo, $title, $body, $url = '/app-v3/', $actor = null, $atype = 'system', $aref = '') {
     try {
         if ($actor && in_array($actor['role'] ?? '', ['superadmin', 'owner'], true)) return;
-        $ems = $pdo->query("SELECT email FROM subscribers WHERE status='active' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
-        if (!$ems) $ems = [];
-        foreach ($ems as $em) {
-            if ($em) push_to_user($pdo, $em, $title, $body, $url);
+        $rows = $pdo->query("SELECT id, email FROM subscribers WHERE status='active' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+        if (!$rows) $rows = [];
+        $sev = $atype === 'payment' ? 'success' : ($atype === 'maintenance' || $atype === 'kyc' ? 'warning' : 'info');
+        foreach ($rows as $row) {
+            if (!empty($row['email'])) push_to_user($pdo, $row['email'], $title, $body, $url);
+            if (!empty($row['id'])) kr_alert_upsert($pdo, 'sub:' . $row['id'], $atype, $sev, $title, $body, $aref);
         }
     } catch (Throwable $e) { /* push must never break the primary action */ }
 }

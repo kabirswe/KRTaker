@@ -58,6 +58,7 @@ const routes = [
   { path: '/community', name: 'community', component: () => import('../views/CommunityView.vue') },
   { path: '/legal-hub', name: 'legal-hub', component: () => import('../views/LegalHubView.vue') },
   { path: '/secure', name: 'secure', component: () => import('../views/SecureView.vue') },
+  { path: '/notifications', name: 'notifications', component: () => import('../views/NotificationsView.vue') },
   { path: '/ai', name: 'ai', component: () => import('../views/AiView.vue') },
   { path: '/premium', name: 'premium', component: () => import('../views/PremiumView.vue') },
   { path: '/accounts', name: 'accounts', component: () => import('../views/AccountsView.vue') },

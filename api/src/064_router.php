@@ -6150,11 +6150,27 @@ case 'app-kr-alert': {
     $u = require_user();
     require_module($u, 'ai');
     if ($action === 'list') {
-        $st = $pdo->prepare("SELECT * FROM kr_alerts WHERE user_key=? AND status='open' ORDER BY ts DESC LIMIT 50");
+        $st = $pdo->prepare("SELECT * FROM kr_alerts WHERE user_key=? AND status='open' ORDER BY ts DESC LIMIT 100");
         $st->execute([user_key_for($u)]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$r) { if (!$r['voice_note']) $r['voice_note'] = ''; }
-        json_out(['ok' => true, 'alerts' => $rows]);
+        $stU = $pdo->prepare("SELECT COUNT(*) FROM kr_alerts WHERE user_key=? AND status='open' AND (read_at IS NULL OR read_at='')");
+        $stU->execute([user_key_for($u)]);
+        $unread = (int)$stU->fetchColumn();
+        json_out(['ok' => true, 'alerts' => $rows, 'unread' => $unread]);
+    }
+    if ($action === 'read') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT id FROM kr_alerts WHERE id=? AND user_key=?');
+        $st->execute([$id, user_key_for($u)]);
+        if (!$st->fetch()) json_out(['ok' => false, 'error' => 'Alert not found or not yours.'], 404);
+        $pdo->prepare("UPDATE kr_alerts SET read_at=datetime('now') WHERE id=? AND (read_at IS NULL OR read_at='')")->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'read-all') {
+        $pdo->prepare("UPDATE kr_alerts SET read_at=datetime('now') WHERE user_key=? AND status='open' AND (read_at IS NULL OR read_at='')")->execute([user_key_for($u)]);
+        json_out(['ok' => true]);
     }
     if ($action === 'dismiss') {
         $id = trim($body['id'] ?? '');
@@ -6169,7 +6185,7 @@ case 'app-kr-alert': {
         $pdo->prepare("UPDATE kr_alerts SET status='dismissed', resolved_at=datetime('now') WHERE user_key=? AND status='open'")->execute([user_key_for($u)]);
         json_out(['ok' => true]);
     }
-    json_out(['ok' => false, 'error' => 'action must be run|list|dismiss|dismiss-all.'], 400);
+    json_out(['ok' => false, 'error' => 'action must be run|list|read|read-all|dismiss|dismiss-all.'], 400);
 }
 
 case 'app-kr-wa': {

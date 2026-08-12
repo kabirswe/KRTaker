@@ -67,3 +67,33 @@ export function usePager(source, perPage = 12) {
 
 // ── view-toggle buttons (grid / list) — drop into any page toolbar ──
 export const VIEW_TOGGLE = null // (template snippet lives in each view; kept here for docs)
+
+// ── Notification center (V2.15) ──
+export const NOTIF_TYPE_META = {
+  sla:         { ico: '🔧', label: 'SLA', cls: 'b-blue' },
+  compliance:  { ico: '📋', label: 'Compliance', cls: 'b-orange' },
+  arrears:     { ico: '💰', label: 'Arrears', cls: 'b-red' },
+  renewal:     { ico: '📅', label: 'Renewals', cls: 'b-purple' },
+  land:        { ico: '🌍', label: 'Land', cls: 'b-green' },
+  nrb:         { ico: '🏠', label: 'Vacancies', cls: 'b-purple' },
+  maintenance: { ico: '🔧', label: 'Maintenance', cls: 'b-orange' },
+  payment:     { ico: '💳', label: 'Payments', cls: 'b-green' },
+  kyc:         { ico: '🪪', label: 'KYC', cls: 'b-blue' },
+  system:      { ico: '⚙️', label: 'System', cls: 'b-gray' },
+}
+export function notifMeta(t) { return NOTIF_TYPE_META[t] || NOTIF_TYPE_META.system }
+export function notifTarget(a) {
+  const ref = a?.ref || ''
+  switch (a?.type) {
+    case 'sla':         return { path: '/maintenance', query: ref ? { open: ref } : {} }
+    case 'compliance':  return { path: '/compliance', query: ref ? { open: ref } : {} }
+    case 'arrears':     return { path: '/invoices', query: ref ? { open: ref } : {} }
+    case 'renewal':     return { path: '/leases', query: ref ? { open: ref } : {} }
+    case 'land':        return { path: '/land', query: ref ? { open: ref } : {} }
+    case 'nrb':         return { path: '/portfolio', query: {} }
+    case 'maintenance': return { path: '/maintenance', query: ref ? { open: ref } : {} }
+    case 'payment':     return { path: '/receipts', query: ref ? { open: ref } : {} }
+    case 'kyc':         return { path: '/secure', query: { tab: 'kyc' } }
+    default:            return { path: '/dashboard', query: {} }
+  }
+}

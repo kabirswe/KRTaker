@@ -6,6 +6,7 @@ import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
 import { globalSearch, searchTarget, SEARCH_HINT } from '../lib/globalsearch'
+import { notifTarget } from '../lib/ui'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -105,11 +106,12 @@ function onDocClick(e) {
 // ── Notification bell (app-kr-alert) ──
 const bellOpen = ref(false)
 const alerts = ref([])
+const unread = ref(0)
 const bellBusy = ref(false)
 async function loadAlerts() {
   try {
     const r = await apiCall('app-kr-alert', { action: 'list' })
-    if (r.ok) alerts.value = r.alerts || []
+    if (r.ok) { alerts.value = r.alerts || []; unread.value = r.unread || 0 }
   } catch (e) { /* silent */ }
 }
 function toggleBell() {
@@ -130,7 +132,33 @@ async function dismissAllAlerts() {
     await loadAlerts()
   } finally { bellBusy.value = false }
 }
+async function readAllAlerts() {
+  if (!unread.value || bellBusy.value) return
+  bellBusy.value = true
+  try {
+    await apiCall('app-kr-alert', { action: 'read-all' })
+    await loadAlerts()
+  } finally { bellBusy.value = false }
+}
+function openAlert(a) {
+  if (!a.read_at) apiCall('app-kr-alert', { action: 'read', id: a.id }).catch(() => {})
+  bellOpen.value = false
+  const t = notifTarget(a)
+  router.push({ path: t.path, query: t.query })
+}
 const sevIco = (s) => s === 'critical' ? '🚨' : (s === 'warning' ? '⚠️' : (s === 'success' ? '✅' : '🔔'))
+const timeAgoBell = (ts) => {
+  if (!ts) return ''
+  const d = new Date(String(ts).replace(' ', 'T'))
+  if (isNaN(d)) return String(ts).slice(0, 10)
+  const s = (Date.now() - d.getTime()) / 1000
+  if (s < 3600) return Math.max(1, Math.floor(s / 60)) + 'm'
+  if (s < 86400) return Math.floor(s / 3600) + 'h'
+  if (s < 604800) return Math.floor(s / 86400) + 'd'
+  return String(ts).slice(0, 10)
+}
+// keep the badge fresh when navigating (alerts may change on other pages)
+watch(() => router.currentRoute.value.fullPath, () => { loadAlerts() })
 
 // ── Global search (client-side index over data.db) ──
 const searchQ = ref('')
@@ -222,30 +250,33 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <button class="icon-btn" @click="toggleLang()">বাংলা</button>
           <button class="icon-btn" @click="toggleTheme()">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
           <div style="position:relative;display:inline-block" class="tb-bell">
-            <button class="icon-btn" @click.stop="toggleBell()" title="Notifications" style="position:relative">🔔<span v-if="alerts.length" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ alerts.length }}</span></button>
+            <button class="icon-btn" @click.stop="toggleBell()" title="Notifications" style="position:relative">🔔<span v-if="unread" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ unread > 99 ? '99+' : unread }}</span></button>
             <!-- bell dropdown -->
             <div v-if="bellOpen" class="bell-menu" style="position:absolute;top:calc(100% + 10px);right:0;width:min(360px,86vw);background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16);z-index:90;overflow:hidden">
               <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border)">
-                <div style="font-weight:800;font-size:14px">🔔 Notifications</div>
+                <div style="font-weight:800;font-size:14px">🔔 Notifications <span v-if="unread" style="color:var(--danger);font-size:12px">· {{ unread }} new</span></div>
                 <div style="display:flex;gap:8px;align-items:center">
-                  <span v-if="alerts.length" class="c-sub" style="font-size:11.5px">{{ alerts.length }} open</span>
+                  <button v-if="unread" @click="readAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--primary);font-weight:800;font-size:11.5px;cursor:pointer">✓ Read all</button>
                   <button v-if="alerts.length" @click="dismissAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--text-mute);font-weight:800;font-size:11.5px;cursor:pointer">Clear all</button>
                 </div>
               </div>
               <div style="max-height:min(420px,60vh);overflow-y:auto">
                 <div v-if="!alerts.length" style="padding:34px 16px;text-align:center;color:var(--text-mute);font-size:13px">No open notifications 🎉</div>
-                <div v-for="a in alerts" :key="a.id" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+                <div v-for="a in alerts" :key="a.id" @click="openAlert(a)" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:transparent" :style="!a.read_at ? 'background:var(--bg-alt)' : 'opacity:.6'">
                   <div style="font-size:17px;flex-shrink:0">{{ sevIco(a.severity) }}</div>
                   <div style="flex:1;min-width:0">
                     <div style="font-weight:800;font-size:13px">{{ a.title }}</div>
                     <div v-if="a.body" class="c-sub" style="font-size:12px;margin-top:2px;line-height:1.5;white-space:pre-wrap">{{ a.body }}</div>
                     <div style="display:flex;gap:8px;align-items:center;margin-top:5px">
                       <span v-if="a.ref" class="badge b-gray" style="font-size:10.5px">{{ a.ref }}</span>
-                      <span class="c-sub" style="font-size:11px">{{ a.ts }}</span>
+                      <span class="c-sub" style="font-size:11px">{{ timeAgoBell(a.ts) }}</span>
                     </div>
                   </div>
-                  <button @click="dismissAlert(a.id)" :disabled="bellBusy" title="Dismiss" style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
+                  <button @click.stop="dismissAlert(a.id)" :disabled="bellBusy" title="Dismiss" style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
                 </div>
+              </div>
+              <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:center">
+                <button @click="bellOpen = false; router.push('/notifications')" style="border:none;background:transparent;color:var(--primary);font-weight:800;font-size:12.5px;cursor:pointer">View all notifications →</button>
               </div>
             </div>
           </div>

@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260824) {
+        if ($__sv < 20260901) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -679,7 +679,7 @@ function db() {
             id TEXT PRIMARY KEY, user_key TEXT NOT NULL, type TEXT NOT NULL,
             severity TEXT DEFAULT 'info', title TEXT NOT NULL, body TEXT DEFAULT '',
             ref TEXT DEFAULT '', status TEXT DEFAULT 'open', voice_note TEXT DEFAULT '',
-            ts TEXT DEFAULT (datetime('now')), resolved_at TEXT DEFAULT '')");
+            read_at TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')), resolved_at TEXT DEFAULT '')");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_kra_user ON kr_alerts(user_key, status)");
         $pdo->exec("CREATE TABLE IF NOT EXISTS kr_wa_msgs (
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_key TEXT NOT NULL,
@@ -1057,7 +1057,12 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             submitted_at TEXT, reviewed_at TEXT, reviewed_by TEXT DEFAULT '',
             updated_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_kyc_status ON tenant_kyc(status)");
-        try { $pdo->exec('PRAGMA user_version=20260824'); } catch (Exception $e) {}
+        /* V2.15.0: notification-center read state — add read_at to existing DBs */
+        $kraCols = $pdo->query("SELECT name FROM pragma_table_info('kr_alerts')")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('read_at', $kraCols)) {
+            $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
+        }
+        try { $pdo->exec('PRAGMA user_version=20260901'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -1437,13 +1442,15 @@ function push_to_user($pdo, $email, $title, $body, $url = '/app-v3/') {
 
 /* Push all active owners (V2.14 — trigger helper; never breaks the primary action).
    $actor = acting user row — owner/superadmin-initiated actions are skipped. */
-function push_owners($pdo, $title, $body, $url = '/app-v3/', $actor = null) {
+function push_owners($pdo, $title, $body, $url = '/app-v3/', $actor = null, $atype = 'system', $aref = '') {
     try {
         if ($actor && in_array($actor['role'] ?? '', ['superadmin', 'owner'], true)) return;
-        $ems = $pdo->query("SELECT email FROM subscribers WHERE status='active' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
-        if (!$ems) $ems = [];
-        foreach ($ems as $em) {
-            if ($em) push_to_user($pdo, $em, $title, $body, $url);
+        $rows = $pdo->query("SELECT id, email FROM subscribers WHERE status='active' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+        if (!$rows) $rows = [];
+        $sev = $atype === 'payment' ? 'success' : ($atype === 'maintenance' || $atype === 'kyc' ? 'warning' : 'info');
+        foreach ($rows as $row) {
+            if (!empty($row['email'])) push_to_user($pdo, $row['email'], $title, $body, $url);
+            if (!empty($row['id'])) kr_alert_upsert($pdo, 'sub:' . $row['id'], $atype, $sev, $title, $body, $aref);
         }
     } catch (Throwable $e) { /* push must never break the primary action */ }
 }
@@ -13215,7 +13222,7 @@ case 'app-kyc': {
         /* sync NID onto the tenant row when empty */
         $pdo->prepare("UPDATE tenants SET nid = CASE WHEN nid='' THEN ? ELSE nid END WHERE id=?")->execute([$nid, $tid]);
         audit($u['name'], 'KYC submitted', 'tenants', $tid, $full_name . ' NID ' . $nid);
-        push_owners($pdo, '🪪 New KYC submission', $full_name . ' (' . $tid . ') awaiting review', '#/secure?tab=kyc', $u);
+        push_owners($pdo, '🪪 New KYC submission', $full_name . ' (' . $tid . ') awaiting review', '#/secure?tab=kyc', $u, 'kyc', $tid);
         json_out(['ok' => true, 'status' => 'pending']);
     }
 
@@ -15166,7 +15173,7 @@ case 'app-maintenance': {
         $pdo->prepare('INSERT INTO maintenance_requests (id, tenant, unit, prop, category, priority, title, desc, status, created_by, charge_to) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$rid, $sc['tenant'], $sc['unit'], $prop, $cat, $prio, $title, trim($body['desc'] ?? ''), 'Open', $u['email'], $u['role'] === 'tenant' ? 'tenant' : 'owner']);
         audit($u['name'], 'Maintenance request raised', 'maintenance', $rid, $title . ' [' . $cat . ']');
-        push_owners($pdo, '🔧 New maintenance request', $rid . ': ' . $title . ' · ' . $prio, '#/maintenance', $u);
+        push_owners($pdo, '🔧 New maintenance request', $rid . ': ' . $title . ' · ' . $prio, '#/maintenance', $u, 'maintenance', $rid);
         json_out(['ok' => true, 'id' => $rid]);
     }
     if ($action === 'assign') {
@@ -17174,11 +17181,27 @@ case 'app-kr-alert': {
     $u = require_user();
     require_module($u, 'ai');
     if ($action === 'list') {
-        $st = $pdo->prepare("SELECT * FROM kr_alerts WHERE user_key=? AND status='open' ORDER BY ts DESC LIMIT 50");
+        $st = $pdo->prepare("SELECT * FROM kr_alerts WHERE user_key=? AND status='open' ORDER BY ts DESC LIMIT 100");
         $st->execute([user_key_for($u)]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$r) { if (!$r['voice_note']) $r['voice_note'] = ''; }
-        json_out(['ok' => true, 'alerts' => $rows]);
+        $stU = $pdo->prepare("SELECT COUNT(*) FROM kr_alerts WHERE user_key=? AND status='open' AND (read_at IS NULL OR read_at='')");
+        $stU->execute([user_key_for($u)]);
+        $unread = (int)$stU->fetchColumn();
+        json_out(['ok' => true, 'alerts' => $rows, 'unread' => $unread]);
+    }
+    if ($action === 'read') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT id FROM kr_alerts WHERE id=? AND user_key=?');
+        $st->execute([$id, user_key_for($u)]);
+        if (!$st->fetch()) json_out(['ok' => false, 'error' => 'Alert not found or not yours.'], 404);
+        $pdo->prepare("UPDATE kr_alerts SET read_at=datetime('now') WHERE id=? AND (read_at IS NULL OR read_at='')")->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'read-all') {
+        $pdo->prepare("UPDATE kr_alerts SET read_at=datetime('now') WHERE user_key=? AND status='open' AND (read_at IS NULL OR read_at='')")->execute([user_key_for($u)]);
+        json_out(['ok' => true]);
     }
     if ($action === 'dismiss') {
         $id = trim($body['id'] ?? '');
@@ -17193,7 +17216,7 @@ case 'app-kr-alert': {
         $pdo->prepare("UPDATE kr_alerts SET status='dismissed', resolved_at=datetime('now') WHERE user_key=? AND status='open'")->execute([user_key_for($u)]);
         json_out(['ok' => true]);
     }
-    json_out(['ok' => false, 'error' => 'action must be run|list|dismiss|dismiss-all.'], 400);
+    json_out(['ok' => false, 'error' => 'action must be run|list|read|read-all|dismiss|dismiss-all.'], 400);
 }
 
 case 'app-kr-wa': {
@@ -21572,7 +21595,7 @@ case 'app-invoice-pay': {
     $status = $newPaid >= (int)$iv['net'] ? 'Paid' : 'Partial';
     $pdo->prepare('UPDATE invoices SET status=? WHERE id=?')->execute([$status, $inv]);
     audit($u['name'], 'Partial payment', 'invoices', $inv, $rid . ' ৳' . $amount . ' ' . $method . ' -> ' . $status);
-    push_owners($pdo, '💰 Payment received', $rid . ' · ৳' . number_format($amount) . ' via ' . $method . ' on ' . $inv, '#/receipts', $u);
+    push_owners($pdo, '💰 Payment received', $rid . ' · ৳' . number_format($amount) . ' via ' . $method . ' on ' . $inv, '#/receipts', $u, 'payment', $rid);
     json_out(['ok' => true, 'receipt_id' => $rid, 'payment_id' => $pid, 'paid' => $newPaid, 'status' => $status, 'remaining' => max(0, (int)$iv['net'] - $newPaid)]);
 }
 
