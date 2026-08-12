@@ -54,7 +54,6 @@ const GROUPS = [
   { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal']] },
   { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors']] },
   { id: 'secure', label: 'Safety & Security', items: [['secure', '🏠', 'Safety & Security']] },
-  { id: 'admin', label: 'Admin', items: [['caretaker', '👑', 'Caretaker']] },
 ]
 
 const VIEW_ROUTES = {
@@ -84,7 +83,7 @@ const PORTFOLIO_MODS = ['properties', 'units', 'tenants', 'leases', 'insurance',
 const BMS_MODS = ['maintenance', 'gate', 'staff', 'attendance', 'payroll', 'meter', 'utilities', 'samity']
 const COMMUNITY_MODS = ['notices', 'referrals', 'trust', 'support']
 const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
-const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc']
+const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS }
 const can = (mod) => {
   const user = auth.user || data.user
@@ -112,7 +111,7 @@ const initials = computed(() => {
   const n = (data.user || auth.user)?.name || ''
   return n.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase()
 })
-const roleName = computed(() => roleLabel((data.user || auth.user)?.role))
+const roleName = computed(() => t(roleLabel((data.user || auth.user)?.role)))
 
 const openRoles = ref(false)
 const switching = ref(false)
@@ -136,12 +135,12 @@ async function pick(r) {
   try {
     const res = await auth.viewAs(r.email)
     if (!res.ok) {
-      window.__krToast?.('❌ ' + (res.error || 'Switch failed'))
+      window.__krToast?.('❌ ' + (res.error || t('Switch failed')))
       return
     }
     await data.bootstrap()
     data.setPreviewRole(r.id)
-    window.__krToast?.(auth.isImpersonating ? `👁 Viewing as ${r.role}` : 'Switched to ' + r.role)
+    window.__krToast?.(auth.isImpersonating ? `👁 ${t('Viewing as')} ${r.role}` : t('Switched to') + ' ' + t(r.role))
   } finally {
     switching.value = false
     openRoles.value = false
@@ -197,11 +196,11 @@ async function backToMe() {
         <div v-if="switching" style="padding:20px;text-align:center;color:var(--text-mute)">{{ t('Loading') }}</div>
         <div v-else class="role-grid">
           <template v-for="([g, items]) in roleGroups" :key="g">
-            <div v-if="roleGroups.length > 1" style="grid-column:1/-1;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute);margin-top:4px">{{ GROUP_LABEL[g] || g }}</div>
+            <div v-if="roleGroups.length > 1" style="grid-column:1/-1;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute);margin-top:4px">{{ t(GROUP_LABEL[g] || g) }}</div>
             <div v-for="r in items" :key="r.id" class="role-opt" :class="{ active: r.id === (data.user || auth.user)?.role }" @click="pick(r)">
               <div class="ro-ic">{{ r.ico }}</div>
-              <div class="ro-t">{{ r.role }}</div>
-              <div class="ro-d">{{ r.desc }}</div>
+              <div class="ro-t">{{ t(r.role) }}</div>
+              <div class="ro-d">{{ t(r.desc) }}</div>
             </div>
           </template>
         </div>

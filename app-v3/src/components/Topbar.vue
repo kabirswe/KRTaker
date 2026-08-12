@@ -3,7 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
-import { lang, setLang } from '../lib/i18n'
+import { lang, setLang, t } from '../lib/i18n'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
 import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
@@ -73,7 +73,7 @@ async function backToMe() {
     await auth.backToMe()
     await data.bootstrap()
     data.setPreviewRole(auth.user?.role || 'owner')
-    window.__krToast?.('Back to ' + roleLabel(auth.user?.role))
+    window.__krToast?.('↩ ' + t('Back to my account'))
   } finally {
     switching.value = false
   }
@@ -207,8 +207,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   <div>
     <!-- Impersonation banner: viewing-as a subordinate -->
     <div v-if="auth.isImpersonating" class="imp-banner">
-      <span>👁 Viewing as <b>{{ (data.user || auth.user)?.name }}</b> (<b>{{ roleLabel(auth.user?.role) }}</b>) — started by {{ auth.impersonator }} · expires {{ auth.impExpires?.replace('T', ' ').slice(0, 16) }}</span>
-      <button class="imp-back" :disabled="switching" @click="backToMe()">↩ Back to my account</button>
+      <span>👁 Viewing as <b>{{ (data.user || auth.user)?.name }}</b> (<b>{{ t(roleLabel(auth.user?.role)) }}</b>) — started by {{ auth.impersonator }} · expires {{ auth.impExpires?.replace('T', ' ').slice(0, 16) }}</span>
+      <button class="imp-back" :disabled="switching" @click="backToMe()">↩ {{ t('Back to my account') }}</button>
     </div>
 
     <header class="topbar">
@@ -287,7 +287,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             <div class="role-ava" style="width:34px;height:34px;font-size:12px">{{ initials }}</div>
             <div>
               <div class="u-name">{{ (data.user || auth.user)?.name }}</div>
-              <div class="u-role">{{ me.role }}<span v-if="auth.isImpersonating" style="color:var(--warn)"> · 👁</span></div>
+              <div class="u-role">{{ t(me.role) }}<span v-if="auth.isImpersonating" style="color:var(--warn)"> · 👁</span></div>
             </div>
           </div>
           <!-- tb-user dropdown: subordinate switch + profile settings -->
@@ -296,7 +296,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
               <div class="role-ava" style="width:38px;height:38px;font-size:13px">{{ initials }}</div>
               <div>
                 <div class="um-name">{{ (data.user || auth.user)?.name }}</div>
-                <div class="um-role">{{ me.role }}<span v-if="auth.isImpersonating" style="color:var(--warn)"> · 👁</span></div>
+                <div class="um-role">{{ t(me.role) }}<span v-if="auth.isImpersonating" style="color:var(--warn)"> · 👁</span></div>
               </div>
             </div>
             <template v-if="auth.isImpersonating">

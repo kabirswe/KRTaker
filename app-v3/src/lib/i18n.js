@@ -219,6 +219,21 @@ const BN = {
   '📋 DMP Thana Forms': '📋 ডিএমপি থানা ফরম',
   '💎 Premium & Subscriptions': '💎 প্রিমিয়াম ও সাবস্ক্রিপশন',
   Prev: 'পূর্ববর্তী',
+  // ── Role switcher (V2.30.3) ──
+  'Property Owner': 'প্রপার্টি মালিক', 'Property Manager': 'প্রপার্টি ম্যানেজার', Tenant: 'ভাড়াটিয়া',
+  'HR & Admin': 'এইচআর ও অ্যাডমিন', 'Legal Counsel': 'লিগ্যাল কাউন্সেল', Accountant: 'অ্যাকাউন্ট্যান্ট',
+  'CRM & Help Desk': 'সিআরএম ও হেল্প ডেস্ক', 'Service Manager': 'সার্ভিস ম্যানেজার', 'Service Partner': 'সার্ভিস পার্টনার',
+  'Portfolio-wide view across every building': 'সব বিল্ডিং জুড়ে পোর্টফোলিও-ব্যাপী ভিউ',
+  'Day-to-day ops on assigned properties': 'নির্ধারিত প্রপার্টিগুলোর দৈনন্দিন কার্যক্রম',
+  'Invoices, receipts, repairs — your side': 'ইনভয়েস, রসিদ, মেরামত — আপনার পক্ষ থেকে',
+  'Staff, onboarding, org admin': 'স্টাফ, অনবোর্ডিং, প্রতিষ্ঠান অ্যাডমিন',
+  'Registrations, PRCA cases, compliance docket': 'রেজিস্ট্রেশন, পিআরসিএ কেস, কমপ্লায়েন্স ডকেট',
+  'Cash flow, TDS, invoices, aging': 'ক্যাশ ফ্লো, টিডিএস, ইনভয়েস, এজিং',
+  'Tickets, CSAT, tenant onboarding, leads': 'টিকেট, সিএসএটি, ভাড়াটিয়া অনবোর্ডিং, লিড',
+  'Quality control & SLA across partners': 'পার্টনারদের মান নিয়ন্ত্রণ ও এসএলএ',
+  'Jobs, QC feedback, payouts': 'জব, কিউসি ফিডব্যাক, পেআউট',
+  Admin: 'অ্যাডমিন', Subscriber: 'সাবস্ক্রাইবার', Backoffice: 'ব্যাকঅফিস',
+  'Viewing as': 'ভিউ করছেন', 'Switched to': 'সুইচ করা হয়েছে', 'Switch failed': 'সুইচ ব্যর্থ হয়েছে',
 }
 
 // t(key) — dictionary lookup with English fallback.
