@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260915) {
+        if ($__sv < 20260917) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -957,6 +957,16 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE TABLE IF NOT EXISTS notices (
             id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT DEFAULT '',
             author TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')), pinned INTEGER DEFAULT 0)");
+        $ncols = array_column($pdo->query('PRAGMA table_info(notices)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('emailed', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN emailed INTEGER DEFAULT 0");
+        if (!in_array('email_count', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_count INTEGER DEFAULT 0");
+        if (!in_array('email_ts', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_ts TEXT DEFAULT ''");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS statement_email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, prop TEXT, month TEXT,
+            to_addr TEXT, net INTEGER, ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS notice_email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, notice TEXT, to_addr TEXT,
+            ts TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE TABLE IF NOT EXISTS referrals (
             id TEXT PRIMARY KEY, code TEXT NOT NULL, user_email TEXT NOT NULL,
             role TEXT DEFAULT 'owner', referred_name TEXT DEFAULT '', referred_email TEXT DEFAULT '',
@@ -1071,7 +1081,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260915'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260917'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -3860,6 +3870,54 @@ HTML,
 </div>
 HTML,
 ],
+'owner_statement' => [
+'📊 Owner Statement — {{property}} ({{month_label}})',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#2F80ED,#1E5EB8);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">📊 Monthly Owner Statement<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">{{org_name}} · KRTaker</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 6px;color:#475467;font-size:14px">Dear {{owner_name}},</p>
+<p style="margin:0 0 20px;color:#475467;font-size:14px">Here is your statement for <b>{{property}}</b> — <b>{{month_label}}</b>.</p>
+<table style="border-collapse:collapse;width:100%;font-size:13.5px">
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Gross rent billed</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;font-weight:700">৳{{gross}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Collected</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;font-weight:700;color:#12a150">৳{{collected}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">TDS deducted</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;color:#B91C1C">− ৳{{tds}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Service charge</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;color:#B91C1C">− ৳{{service}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Expenses</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;color:#B91C1C">− ৳{{expenses}}</td></tr>
+<tr><td style="padding:11px 10px;font-weight:800;font-size:14px">Net payable</td><td style="padding:11px 10px;text-align:right;font-weight:800;font-size:15px;color:#2F80ED">৳{{net}}</td></tr>
+</table>
+<p style="margin:18px 0 4px;font-size:12px;color:#8A94A6">Collection rate: <b>{{collect_rate}}%</b> · {{paid_invoices}} of {{total_invoices}} invoices paid</p>
+<p style="margin:0 0 18px;font-size:12px;color:#8A94A6">{{payout_line}}</p>
+<p style="margin:0 0 6px;font-size:12.5px;color:#667085">You can view the full statement with line items in your dashboard.</p>
+<p style="margin:0"><a href="{{dashboard_url}}" style="display:inline-block;background:#2F80ED;color:#fff;text-decoration:none;padding:11px 22px;border-radius:10px;font-size:13.5px;font-weight:700">Open dashboard →</a></p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">{{org_name}} · {{org_address}}<br>{{org_email}} · {{org_phone}}</div>
+</div>
+HTML,
+],
+'notice_email' => [
+'📢 {{notice_title}} — {{org_name}}',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#F59E0B,#B45309);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">📢 Notice<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">{{org_name}} · KRTaker</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 14px;color:#475467;font-size:14px">Dear {{tenant_name}},</p>
+<div style="background:#FFF8E7;border:1px solid #F5D78E;border-radius:14px;padding:18px 20px;margin-bottom:16px">
+<div style="font-size:16px;font-weight:800;color:#101828;margin-bottom:8px">{{notice_title}}</div>
+<div style="font-size:13.5px;color:#475467;line-height:1.75">{{notice_body}}</div>
+</div>
+<p style="margin:0 0 4px;font-size:12px;color:#8A94A6">Posted by {{author}} · {{posted_date}}</p>
+<p style="margin:0 0 16px;font-size:12px;color:#8A94A6">You can view the tenant board in your portal.</p>
+<p style="margin:0"><a href="{{portal_url}}" style="display:inline-block;background:#2F80ED;color:#fff;text-decoration:none;padding:11px 22px;border-radius:10px;font-size:13.5px;font-weight:700">Open portal →</a></p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">{{org_name}} · {{org_address}}<br>{{org_email}} · {{org_phone}}</div>
+</div>
+HTML,
+],
 'arrears_bn' => [
 '⚠️ বকেয়া নোটিশ — {{invoice_id}} ({{month}})',
 <<<'HTML'
@@ -3911,7 +3969,7 @@ function seed_templates($pdo) {
                 ->execute([$id, $n[0], $n[1], $n[2], $body, 'system', $n[3]]);
         }
     }
-    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn']];
+    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en']];
     foreach ($emails as $id => $em) {
         list($subj, $body) = seed_email_tpl($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM email_templates WHERE id=?'); $st->execute([$id]);
@@ -4067,6 +4125,8 @@ function email_sample_vars($id) {
         case 'receipt_bn': return ['tenant_name' => 'সুলতানা রহমান', 'receipt_id' => 'PAY-010', 'date' => '০২ আগস্ট ২০২৬', 'amount' => '25,000', 'amount_words_en' => 'Twenty-Five Thousand', 'amount_words_bn' => 'পঁচিশ হাজার টাকা মাত্র', 'method' => 'bKash', 'ref' => '8T5XK2QZ', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'month' => '2026-06'];
         case 'move_out_bn': return ['name' => 'সুলতানা রহমান', 'property' => 'Green View Residency', 'unit_name' => 'Flat 3B (U-001)', 'move_out_date' => '০১ আগস্ট ২০২৬', 'lease' => 'L-005', 'rent_due' => '0', 'util_due' => '2,400', 'dmg_due' => '0', 'deposit' => '90,000', 'balance' => '87,600', 'status' => 'Refundable', 'status_color' => '#1E8449', 'workspace_url' => 'https://krtaker.com/app-v3/'];
         case 'arrears': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'amount' => '32,000', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'total_due' => '96,000', 'days_overdue' => '21', 'pay_url' => 'https://krtaker.com/app-v3/'];
+        case 'owner_statement': return ['owner_name' => 'Alamgir Kabir', 'property' => 'Green View Residency', 'month_label' => 'July 2026', 'gross' => '140,000', 'collected' => '130,000', 'tds' => '3,000', 'service' => '7,000', 'expenses' => '5,500', 'net' => '114,500', 'collect_rate' => '93', 'paid_invoices' => '4', 'total_invoices' => '5', 'payout_line' => 'Payout: ৳114,500 · Paid', 'dashboard_url' => 'https://krtaker.com/app-v3/#/statements'];
+        case 'notice_email': return ['org_name' => 'KRTaker', 'tenant_name' => 'Sultana Rahman', 'notice_title' => 'Utility schedule for August', 'notice_body' => 'Electricity readings will be taken on 28 August, 10am–2pm. Please ensure access to your meter.', 'author' => 'Arif Chowdhury', 'posted_date' => '12 Aug 2026', 'portal_url' => 'https://krtaker.com/app-v3/'];
         case 'arrears_bn': return ['tenant_name' => 'সুলতানা রহমান', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'amount' => '32,000', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'total_due' => '96,000', 'days_overdue' => '২১', 'pay_url' => 'https://krtaker.com/app-v3/'];
     }
     return [];
@@ -11050,7 +11110,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -12730,7 +12790,55 @@ case 'app-notice-create': {
     $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
         ->execute([$id, $title, $body2, $u['name']]);
     audit($u['name'], 'Notice posted', 'notices', $id, $title);
-    json_out(['ok' => true, 'id' => $id]);
+    /* V2.22: optional email broadcast to tenants (respects docs master switch,
+       per-tenant notify_docs opt-out, and a 10/10-min/IP rate limit that
+       self-records AFTER the send — same pattern as invoice emailing). */
+    $email = !empty($body['email']);
+    $out = ['ok' => true, 'id' => $id, 'emailed' => false, 'queued' => 0, 'suppressed' => 0, 'no_email' => 0];
+    if ($email) {
+        $ip = client_ip();
+        if (recent_any('', $ip, 10, 0, 10, ['ntc-email'])) throttle_out('Too many notice broadcasts. Try again later.', '', $ip, 10, ['ntc-email']);
+        $tst = $pdo->query("SELECT DISTINCT t.email, t.name FROM tenants t
+                            JOIN leases l ON l.t = t.id
+                            WHERE l.status='Active' AND t.email <> '' ORDER BY t.name");
+        $rcpts = $tst->fetchAll(PDO::FETCH_ASSOC);
+        $queued = 0; $suppressed = 0; $noEmail = 0;
+        if (!mail_switch($pdo, 'docs')) { $suppressed = count($rcpts); }
+        else {
+            foreach ($rcpts as $rc) {
+                if (!notify_ok($pdo, $rc['email'], 'notify_docs')) { $suppressed++; continue; }
+                list($subj, $html) = email_render('notice_email', [
+                    'org_name' => 'KRTaker', 'tenant_name' => $rc['name'],
+                    'notice_title' => $title, 'notice_body' => $body2,
+                    'author' => $u['name'], 'posted_date' => gmdate('d M Y'),
+                    'portal_url' => 'https://krtaker.com/app-v3/',
+                ]);
+                if (send_mail($rc['email'], $subj, $html, null, true)) {
+                    $queued++;
+                    $pdo->prepare("INSERT INTO notice_email_log (notice, to_addr) VALUES (?,?)")->execute([$id, $rc['email']]);
+                }
+            }
+        }
+        record_attempt('', $ip, 'ntc-email', true);
+        $pdo->prepare("UPDATE notices SET emailed=1, email_count=?, email_ts=datetime('now') WHERE id=?")->execute([$queued, $id]);
+        audit($u['name'], 'Notice broadcast emailed', 'notices', $id, 'queued=' . $queued . ' suppressed=' . $suppressed);
+        $out = ['ok' => true, 'id' => $id, 'emailed' => true, 'queued' => $queued, 'suppressed' => $suppressed, 'no_email' => $noEmail];
+    }
+    json_out($out);
+}
+case 'app-notice-recipients': {
+    $u = require_user();
+    require_module($u, 'notices');
+    if (!can_post_notice($u)) json_out(['ok' => false, 'error' => 'Your role cannot post notices.'], 403);
+    $pdo = db();
+    $tst = $pdo->query("SELECT COUNT(DISTINCT t.email) FROM tenants t
+                        JOIN leases l ON l.t = t.id
+                        WHERE l.status='Active' AND t.email <> ''");
+    $withEmail = (int)$tst->fetchColumn();
+    $tst2 = $pdo->query("SELECT COUNT(DISTINCT t.id) FROM tenants t
+                         JOIN leases l ON l.t = t.id WHERE l.status='Active'");
+    $total = (int)$tst2->fetchColumn();
+    json_out(['ok' => true, 'total' => $total, 'with_email' => $withEmail]);
 }
 case 'app-notice-delete': {
     $u = require_user();
@@ -15529,6 +15637,151 @@ case 'app-statements': {
         json_out(['ok' => true]);
     }
     json_out(['ok' => false, 'error' => 'action must be list|detail|payout.'], 400);
+}
+
+/* ── V2.21: scheduled owner statement emails ──
+   Monthly per-property owner statements emailed to each property's owner
+   (properties.sub_email). Config persisted in platform_meta 'statement_email_cfg'.
+   Service-key gated (monthly cron) OR superadmin/owner/manager/accountant via UI.
+   send=0 → dry-run preview (never writes); send=1 → queue one email per property
+   (docs master switch + mail queue respected). Idempotent per (month): re-running
+   skips properties already emailed for that month. */
+case 'app-statement-email': {
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Your role cannot send owner statements.'], 403);
+    } else {
+        $u = ['name' => 'system', 'role' => 'service', 'email' => ''];
+    }
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? '');
+    if ($action === '') $action = 'config';
+
+    $st = $pdo->prepare("SELECT v FROM platform_meta WHERE k='statement_email_cfg'"); $st->execute();
+    $cfgRaw = $st->fetchColumn();
+    $cfg = $cfgRaw ? (json_decode($cfgRaw, true) ?: []) : [];
+    if (!is_array($cfg)) $cfg = [];
+    $d = ['enabled' => 0, 'day' => 5, 'owner_name' => '', 'bcc' => ''];
+    foreach ($d as $k => $dv) if (!array_key_exists($k, $cfg)) $cfg[$k] = $dv;
+    $cfg['enabled'] = !empty($cfg['enabled']) ? 1 : 0;
+
+    if ($action === 'config') {
+        $st = $pdo->prepare("SELECT v FROM platform_meta WHERE k='last_statement_email_run'"); $st->execute();
+        $lastRun = $st->fetchColumn() ?: '';
+        $st = $pdo->query('SELECT * FROM statement_email_log ORDER BY ts DESC, id DESC LIMIT 20');
+        $history = $st->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'config' => $cfg, 'last_run' => $lastRun, 'history' => $history]);
+    }
+
+    if ($action === 'save') {
+        if ($svc) json_out(['ok' => false, 'error' => 'Service key cannot change config.'], 403);
+        $in = $body['config'] ?? [];
+        $clean = [
+            'enabled' => !empty($in['enabled']) ? 1 : 0,
+            'day' => max(1, min(28, (int)($in['day'] ?? $cfg['day']))),
+            'owner_name' => mb_substr(trim((string)($in['owner_name'] ?? '')), 0, 120),
+            'bcc' => trim((string)($in['bcc'] ?? '')),
+        ];
+        $pdo->prepare("INSERT OR REPLACE INTO platform_meta (k, v) VALUES ('statement_email_cfg', ?)")
+            ->execute([json_encode($clean)]);
+        audit($u['name'], 'Statement email config saved', 'statements', 'cfg', json_encode($clean));
+        json_out(['ok' => true, 'config' => $clean]);
+    }
+
+    /* build the per-property plan for a month (shared by preview + run) */
+    $month = trim($body['month'] ?? '');
+    if (!$month) $month = gmdate('Y-m');
+    if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) json_out(['ok' => false, 'error' => 'month must be YYYY-MM.'], 400);
+    $props = $pdo->query('SELECT id, name, sub_email FROM properties ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $already = [];
+    $chk = $pdo->prepare('SELECT prop FROM statement_email_log WHERE month=?'); $chk->execute([$month]);
+    foreach ($chk->fetchAll(PDO::FETCH_COLUMN) as $pp) $already[$pp] = true;
+
+    $plan = [];
+    foreach ($props as $p) {
+        $c = statement_calc($pdo, $p['id'], $month);
+        $rec = [
+            'prop' => $p['id'], 'name' => $p['name'],
+            'gross' => (int)$c['gross'], 'collected' => (int)$c['collected'],
+            'tds' => (int)$c['tds'], 'service' => (int)$c['service'],
+            'expenses' => (int)$c['expenses'], 'net' => (int)$c['net'],
+            'to' => trim((string)($p['sub_email'] ?? '')),
+            'already' => isset($already[$p['id']]),
+        ];
+        $plan[] = $rec;
+    }
+    $tot = ['gross' => 0, 'collected' => 0, 'net' => 0, 'emailable' => 0, 'no_email' => 0, 'already' => 0];
+    foreach ($plan as $r) {
+        $tot['gross'] += $r['gross']; $tot['collected'] += $r['collected']; $tot['net'] += $r['net'];
+        if ($r['already']) { $tot['already']++; continue; }
+        if ($r['to'] !== '') $tot['emailable']++; else $tot['no_email']++;
+    }
+
+    if ($action === 'preview') {
+        json_out(['ok' => true, 'month' => $month, 'config' => $cfg, 'plan' => $plan, 'totals' => $tot]);
+    }
+
+    if ($action === 'run') {
+        $send = !empty($body['send']);
+        if ($send && !$cfg['enabled'] && !$svc)
+            json_out(['ok' => false, 'error' => 'Statement emails are disabled in config.'], 400);
+        $sent = 0; $skipped = 0; $noEmail = 0; $suppressed = 0; $queued = 0; $errors = [];
+        $sentList = [];
+        if ($send) {
+            foreach ($plan as $r) {
+                if ($r['already']) { $skipped++; continue; }
+                if ($r['to'] === '') { $noEmail++; continue; }
+                if (!mail_switch($pdo, 'docs')) { $suppressed++; continue; }
+                $payoutLine = 'No payout recorded for this month.';
+                if ($r['net'] > 0) {
+                    $pst = $pdo->prepare('SELECT status, amount FROM statement_payouts WHERE prop=? AND month=?');
+                    $pst->execute([$r['prop'], $month]);
+                    $po = $pst->fetch(PDO::FETCH_ASSOC);
+                    $payoutLine = $po ? ('Payout: ৳' . number_format((int)$po['amount']) . ' · ' . $po['status']) : 'Payout: ৳' . number_format($r['net']) . ' · Scheduled';
+                }
+                $ci = 0; $ct = 0;
+                $ist = $pdo->prepare("SELECT COUNT(*), COALESCE(SUM(CASE WHEN status='Paid' THEN 1 ELSE 0 END),0) FROM invoices WHERE l IN (SELECT id FROM leases WHERE u IN (SELECT id FROM units WHERE p=?)) AND m=?");
+                $ist->execute([$r['prop'], $month]);
+                $row = $ist->fetch(PDO::FETCH_NUM);
+                if ($row) { $ct = (int)$row[0]; $ci = (int)$row[1]; }
+                $monthLabel = gmdate('F Y', strtotime($month . '-01'));
+                list($subj, $html) = email_render('owner_statement', [
+                    'org_name' => 'KRTaker', 'owner_name' => $cfg['owner_name'] !== '' ? $cfg['owner_name'] : 'Owner',
+                    'property' => $r['name'], 'month_label' => $monthLabel,
+                    'gross' => number_format($r['gross']), 'collected' => number_format($r['collected']),
+                    'tds' => number_format($r['tds']), 'service' => number_format($r['service']),
+                    'expenses' => number_format($r['expenses']), 'net' => number_format($r['net']),
+                    'collect_rate' => $r['gross'] > 0 ? round(($r['collected'] / $r['gross']) * 100) : 0,
+                    'paid_invoices' => $ci, 'total_invoices' => $ct,
+                    'payout_line' => $payoutLine,
+                    'dashboard_url' => 'https://krtaker.com/app-v3/#/statements?month=' . $month,
+                ]);
+                $ok = send_mail($r['to'], $subj, $html, null, true);
+                if ($ok) {
+                    $queued++;
+                    $pdo->prepare("INSERT INTO statement_email_log (prop, month, to_addr, net, ts) VALUES (?,?,?,?,datetime('now'))")
+                        ->execute([$r['prop'], $month, $r['to'], $r['net']]);
+                    $sentList[] = ['prop' => $r['prop'], 'name' => $r['name'], 'to' => $r['to'], 'net' => $r['net']];
+                } else $errors[] = $r['prop'];
+            }
+            $pdo->prepare("INSERT OR REPLACE INTO platform_meta (k, v) VALUES ('last_statement_email_run', ?)")
+                ->execute([gmdate('Y-m-d H:i:s') . ' month=' . $month . ' queued=' . $queued . ' no_email=' . $noEmail . ' suppressed=' . $suppressed . ' skipped=' . $skipped]);
+            audit($u['name'], 'Statement email run', 'statements', $month,
+                'queued=' . $queued . ' no_email=' . $noEmail . ' suppressed=' . $suppressed . ' skipped=' . $skipped);
+        }
+        $st = $pdo->prepare("SELECT v FROM platform_meta WHERE k='last_statement_email_run'"); $st->execute();
+        json_out([
+            'ok' => true, 'dry_run' => !$send, 'month' => $month, 'config' => $cfg,
+            'plan' => $plan, 'totals' => $tot,
+            'queued' => $queued, 'no_email' => $noEmail, 'suppressed' => $suppressed, 'skipped' => $skipped,
+            'sent_list' => $sentList, 'errors' => $errors,
+            'last_run' => $st->fetchColumn() ?: '',
+        ]);
+    }
+
+    json_out(['ok' => false, 'error' => 'action must be config|save|preview|run.'], 400);
 }
 
 case 'app-compliance': {

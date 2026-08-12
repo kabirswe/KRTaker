@@ -98,7 +98,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260915) {
+        if ($__sv < 20260917) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -896,6 +896,16 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE TABLE IF NOT EXISTS notices (
             id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT DEFAULT '',
             author TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')), pinned INTEGER DEFAULT 0)");
+        $ncols = array_column($pdo->query('PRAGMA table_info(notices)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('emailed', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN emailed INTEGER DEFAULT 0");
+        if (!in_array('email_count', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_count INTEGER DEFAULT 0");
+        if (!in_array('email_ts', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_ts TEXT DEFAULT ''");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS statement_email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, prop TEXT, month TEXT,
+            to_addr TEXT, net INTEGER, ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS notice_email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, notice TEXT, to_addr TEXT,
+            ts TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE TABLE IF NOT EXISTS referrals (
             id TEXT PRIMARY KEY, code TEXT NOT NULL, user_email TEXT NOT NULL,
             role TEXT DEFAULT 'owner', referred_name TEXT DEFAULT '', referred_email TEXT DEFAULT '',
@@ -1004,7 +1014,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('read_at', $kraCols)) {
             $pdo->exec("ALTER TABLE kr_alerts ADD COLUMN read_at TEXT DEFAULT ''");
         }
-        try { $pdo->exec('PRAGMA user_version=20260915'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260917'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

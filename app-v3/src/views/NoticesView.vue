@@ -37,6 +37,7 @@ const kpis = computed(() => {
     { label: 'Authors', ico: '👤', value: authors, trend: 'staff contributors' },
     { label: 'Latest', ico: '🕒', value: ns.length ? timeAgo(ns[0].ts) : '—', trend: ns.length ? fmtTs(ns[0].ts) : '' },
     { label: 'Board reach', ico: '🏢', value: 'All', trend: 'visible to tenants & staff' },
+    { label: 'Emailed', ico: '📨', value: ns.filter(n => n.emailed).length, trend: 'broadcast to tenants', ok: ns.some(n => n.emailed) },
   ]
 })
 
@@ -74,12 +75,40 @@ const newModal = ref(false)
 const saving = ref(false)
 const newTitle = ref('')
 const newBody = ref('')
+// V2.22: notice broadcast — optionally email the notice to active tenants
+const emailNotice = ref(false)
+const rcptInfo = ref(null)          // { total, with_email }
+const rcptLoading = ref(false)
+async function loadRcpts() {
+  rcptLoading.value = true
+  try {
+    const r = await apiCall('app-notice-recipients', {})
+    if (r.ok) rcptInfo.value = r
+  } catch (e) { /* silent — badge just won't show */ }
+  finally { rcptLoading.value = false }
+}
+function openCompose() {
+  newModal.value = true
+  newTitle.value = ''
+  newBody.value = ''
+  emailNotice.value = false
+  rcptInfo.value = null
+  loadRcpts()
+}
 async function submitNotice() {
   if (!newTitle.value.trim()) { window.__krToast?.('Notice title required', 'error'); return }
   saving.value = true
   try {
-    const r = await apiCall('app-notice-create', { title: newTitle.value.trim(), body: newBody.value.trim() })
-    if (r.ok) { window.__krToast?.(`📢 ${r.id} posted`, 'ok'); newModal.value = false; newTitle.value = ''; newBody.value = ''; await data.bootstrap() }
+    const r = await apiCall('app-notice-create', { title: newTitle.value.trim(), body: newBody.value.trim(), email: emailNotice.value ? 1 : 0 })
+    if (r.ok) {
+      if (r.emailed) window.__krToast?.(`📢 ${r.id} posted + emailed ${r.queued} tenant(s)${r.suppressed ? ` (${r.suppressed} opted out)` : ''}`, 'ok')
+      else window.__krToast?.(`📢 ${r.id} posted`, 'ok')
+      newModal.value = false
+      newTitle.value = ''
+      newBody.value = ''
+      emailNotice.value = false
+      await data.bootstrap()
+    }
     else window.__krToast?.(r.error || 'Failed to post', 'error')
   } finally { saving.value = false }
 }
@@ -116,7 +145,7 @@ async function deleteNotice(n) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="newModal = true">＋ New notice</button>
+        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="openCompose">＋ New notice</button>
       </div>
     </div>
 
@@ -135,6 +164,7 @@ async function deleteNotice(n) {
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
             <span v-if="n.pinned" class="badge b-blue" style="background:#ffffff">📌 Pinned</span>
             <span v-else class="badge" style="background:#ffffff">Notice</span>
+            <span v-if="n.emailed" class="badge" style="background:#ffffff" title="Emailed to {{ n.email_count }} tenant(s)">📨 {{ n.email_count || '' }}</span>
           </div>
           <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ n.id }}</div>
         </div>
@@ -159,7 +189,7 @@ async function deleteNotice(n) {
           <thead><tr><th>Notice</th><th>Title</th><th>Author</th><th>Posted</th><th></th></tr></thead>
           <tbody>
             <tr v-for="n in paged" :key="n.id" style="cursor:pointer" @click="openDetail(n)">
-              <td style="white-space:nowrap"><b>{{ n.id }}</b> <template v-if="n.pinned">📌</template></td>
+              <td style="white-space:nowrap"><b>{{ n.id }}</b> <template v-if="n.pinned">📌</template> <template v-if="n.emailed">📨{{ n.email_count || '' }}</template></td>
               <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ n.title }}</td>
               <td style="white-space:nowrap" class="c-sub">{{ n.author || '—' }}</td>
               <td style="white-space:nowrap" class="c-sub">{{ fmtTs(n.ts) }}</td>
@@ -187,7 +217,7 @@ async function deleteNotice(n) {
         </div>
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
           <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.35">{{ sel.title }}</h2>
-          <div class="c-sub" style="margin-top:5px">👤 {{ sel.author || '—' }} · 🕒 {{ fmtTs(sel.ts) }} <template v-if="sel.pinned">· 📌 pinned to tenant boards</template></div>
+          <div class="c-sub" style="margin-top:5px">👤 {{ sel.author || '—' }} · 🕒 {{ fmtTs(sel.ts) }} <template v-if="sel.pinned">· 📌 pinned to tenant boards</template> <template v-if="sel.emailed">· 📨 emailed to {{ sel.email_count || 0 }} tenant(s) {{ sel.email_ts ? '(' + fmtTs(sel.email_ts) + ')' : '' }}</template></div>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:16px 0;font-size:13.5px;line-height:1.75" v-html="sel.body || '—'"></div>
           <div v-if="canPost" style="display:flex;gap:8px;margin-bottom:14px">
             <button class="btn-ghost" style="padding:8px 15px;font-size:12.5px;color:var(--danger)" :disabled="delBusy === sel.id" @click="deleteNotice(sel)">🗑️ Delete notice</button>
@@ -213,6 +243,18 @@ async function deleteNotice(n) {
           <div>
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Body</label>
             <RichEditor v-model="newBody" placeholder="Write the notice… visible to tenants and staff" :min-height="'160px'" style="margin-top:5px" />
+          </div>
+          <!-- V2.22: broadcast toggle -->
+          <div style="display:flex;align-items:center;gap:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:10px 14px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer">
+              <input type="checkbox" v-model="emailNotice" style="width:16px;height:16px">
+              📨 Also email to tenants
+            </label>
+            <span style="font-size:12px;color:var(--text-mute)">
+              <template v-if="rcptLoading">Checking recipients…</template>
+              <template v-else-if="rcptInfo">{{ rcptInfo.with_email }} of {{ rcptInfo.total }} active tenants have email · respects opt-outs &amp; docs switch</template>
+              <template v-else>Recipient count unavailable</template>
+            </span>
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">

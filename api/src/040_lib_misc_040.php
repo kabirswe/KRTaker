@@ -189,6 +189,54 @@ HTML,
 </div>
 HTML,
 ],
+'owner_statement' => [
+'📊 Owner Statement — {{property}} ({{month_label}})',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#2F80ED,#1E5EB8);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">📊 Monthly Owner Statement<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">{{org_name}} · KRTaker</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 6px;color:#475467;font-size:14px">Dear {{owner_name}},</p>
+<p style="margin:0 0 20px;color:#475467;font-size:14px">Here is your statement for <b>{{property}}</b> — <b>{{month_label}}</b>.</p>
+<table style="border-collapse:collapse;width:100%;font-size:13.5px">
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Gross rent billed</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;font-weight:700">৳{{gross}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Collected</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;font-weight:700;color:#12a150">৳{{collected}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">TDS deducted</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;color:#B91C1C">− ৳{{tds}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Service charge</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;color:#B91C1C">− ৳{{service}}</td></tr>
+<tr><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;color:#667085">Expenses</td><td style="padding:9px 10px;border-bottom:1px solid #E4EAF3;text-align:right;color:#B91C1C">− ৳{{expenses}}</td></tr>
+<tr><td style="padding:11px 10px;font-weight:800;font-size:14px">Net payable</td><td style="padding:11px 10px;text-align:right;font-weight:800;font-size:15px;color:#2F80ED">৳{{net}}</td></tr>
+</table>
+<p style="margin:18px 0 4px;font-size:12px;color:#8A94A6">Collection rate: <b>{{collect_rate}}%</b> · {{paid_invoices}} of {{total_invoices}} invoices paid</p>
+<p style="margin:0 0 18px;font-size:12px;color:#8A94A6">{{payout_line}}</p>
+<p style="margin:0 0 6px;font-size:12.5px;color:#667085">You can view the full statement with line items in your dashboard.</p>
+<p style="margin:0"><a href="{{dashboard_url}}" style="display:inline-block;background:#2F80ED;color:#fff;text-decoration:none;padding:11px 22px;border-radius:10px;font-size:13.5px;font-weight:700">Open dashboard →</a></p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">{{org_name}} · {{org_address}}<br>{{org_email}} · {{org_phone}}</div>
+</div>
+HTML,
+],
+'notice_email' => [
+'📢 {{notice_title}} — {{org_name}}',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+<div style="background:linear-gradient(135deg,#F59E0B,#B45309);padding:22px 32px">
+<div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">📢 Notice<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">{{org_name}} · KRTaker</span></div>
+</div>
+<div style="padding:32px">
+<p style="margin:0 0 14px;color:#475467;font-size:14px">Dear {{tenant_name}},</p>
+<div style="background:#FFF8E7;border:1px solid #F5D78E;border-radius:14px;padding:18px 20px;margin-bottom:16px">
+<div style="font-size:16px;font-weight:800;color:#101828;margin-bottom:8px">{{notice_title}}</div>
+<div style="font-size:13.5px;color:#475467;line-height:1.75">{{notice_body}}</div>
+</div>
+<p style="margin:0 0 4px;font-size:12px;color:#8A94A6">Posted by {{author}} · {{posted_date}}</p>
+<p style="margin:0 0 16px;font-size:12px;color:#8A94A6">You can view the tenant board in your portal.</p>
+<p style="margin:0"><a href="{{portal_url}}" style="display:inline-block;background:#2F80ED;color:#fff;text-decoration:none;padding:11px 22px;border-radius:10px;font-size:13.5px;font-weight:700">Open portal →</a></p>
+</div>
+<div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">{{org_name}} · {{org_address}}<br>{{org_email}} · {{org_phone}}</div>
+</div>
+HTML,
+],
     ];
     return $tpls[$id] ?? ['', ''];
 }
@@ -209,7 +257,7 @@ function seed_templates($pdo) {
                 ->execute([$id, $n[0], $n[1], $n[2], $body, 'system']);
         }
     }
-    $emails = ['otp' => 'Verification (OTP) Email', 'welcome' => 'Welcome Email', 'collections' => 'Collections Digest', 'rent_reminder' => 'Rent Reminder', 'invoice' => 'Invoice Email', 'receipt' => 'Receipt Email', 'renewal_status' => 'Lease Renewal Status', 'premium_welcome' => 'Caretaker Subscription Confirmation', 'move_out' => 'Move-out / Settlement Notice'];
+    $emails = ['otp' => 'Verification (OTP) Email', 'welcome' => 'Welcome Email', 'collections' => 'Collections Digest', 'rent_reminder' => 'Rent Reminder', 'invoice' => 'Invoice Email', 'receipt' => 'Receipt Email', 'renewal_status' => 'Lease Renewal Status', 'premium_welcome' => 'Caretaker Subscription Confirmation', 'move_out' => 'Move-out / Settlement Notice', 'owner_statement' => 'Monthly Owner Statement', 'notice_email' => 'Notice Broadcast Email'];
     foreach ($emails as $id => $nm) {
         list($subj, $body) = seed_email_tpl($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM email_templates WHERE id=?'); $st->execute([$id]);
@@ -359,6 +407,8 @@ function email_sample_vars($id) {
         case 'invoice': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'amount' => '32,000', 'due' => '32,000', 'due_color' => '#B91C1C'];
         case 'receipt': return ['tenant_name' => 'Sultana Rahman', 'receipt_id' => 'PAY-010', 'date' => '02 Aug 2026', 'amount' => '25,000', 'amount_words_en' => 'Twenty-Five Thousand', 'amount_words_bn' => 'পঁচিশ হাজার টাকা মাত্র', 'method' => 'bKash', 'ref' => '8T5XK2QZ', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'month' => '2026-06'];
         case 'renewal_status': return ['tenant_name' => 'Sultana Rahman', 'property' => 'Dhanmondi Apartment', 'unit' => 'Apartment 7B (U-010)', 'lease' => 'L-007', 'status' => 'Approved', 'new_end' => '14 Dec 2027', 'new_rent' => '42,000', 'note' => 'Thank you for being a valued tenant.'];
+        case 'owner_statement': return ['owner_name' => 'Alamgir Kabir', 'property' => 'Green View Residency', 'month_label' => 'July 2026', 'gross' => '140,000', 'collected' => '130,000', 'tds' => '3,000', 'service' => '7,000', 'expenses' => '5,500', 'net' => '114,500', 'collect_rate' => '93', 'paid_invoices' => '4', 'total_invoices' => '5', 'payout_line' => 'Payout: ৳114,500 · Paid', 'dashboard_url' => 'https://krtaker.com/app-v3/#/statements'];
+        case 'notice_email': return ['org_name' => 'KRTaker', 'tenant_name' => 'Sultana Rahman', 'notice_title' => 'Utility schedule for August', 'notice_body' => 'Electricity readings will be taken on 28 August, 10am–2pm. Please ensure access to your meter.', 'author' => 'Arif Chowdhury', 'posted_date' => '12 Aug 2026', 'portal_url' => 'https://krtaker.com/app-v3/'];
     }
     return [];
 }

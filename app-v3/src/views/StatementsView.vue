@@ -227,6 +227,72 @@ const avgEsc = computed(() => {
   return n ? Math.round((rentCfg.value.reduce((a, p) => a + (+(p.config?.escalation_pct) || 0), 0) / n) * 10) / 10 : 0
 })
 
+// ── 📧 Statement Emails (V2.21) ──
+// Monthly owner statement emails — config + dry-run preview + send + history.
+// API: app-statement-email (config|save|preview|run). Same two-step send
+// pattern as rent reminders; no native confirm().
+const emailLoading = ref(false)
+const emailErr = ref('')
+const emailCfg = ref({ enabled: false, day: 5, owner_name: '', bcc: '' })
+const emailLastRun = ref('')
+const emailHistory = ref([])
+const emailPlan = ref([])
+const emailTotals = ref({ gross: 0, collected: 0, net: 0, emailable: 0, no_email: 0, already: 0 })
+const emailSaving = ref(false)
+const emailRunning = ref(false)
+const confirmSendEmails = ref(false)
+const canEmail = computed(() => ['superadmin', 'owner', 'manager', 'accountant'].includes(auth.user?.role || ''))
+async function loadEmailCfg() {
+  emailLoading.value = true; emailErr.value = ''
+  try {
+    const r = await apiCall('app-statement-email', { action: 'config' })
+    if (!r.ok) { emailErr.value = r.error || 'Failed to load statement email config.'; return }
+    emailCfg.value = { enabled: !!r.config?.enabled, day: r.config?.day || 5, owner_name: r.config?.owner_name || '', bcc: r.config?.bcc || '' }
+    emailLastRun.value = r.last_run || ''
+    emailHistory.value = r.history || []
+  } catch (e) { emailErr.value = e.message }
+  finally { emailLoading.value = false }
+}
+async function saveEmailCfg() {
+  emailSaving.value = true; emailErr.value = ''
+  try {
+    const r = await apiCall('app-statement-email', { action: 'save', config: emailCfg.value })
+    if (!r.ok) { emailErr.value = r.error || 'Failed to save.'; return }
+    emailCfg.value = { enabled: !!r.config?.enabled, day: r.config?.day || 5, owner_name: r.config?.owner_name || '', bcc: r.config?.bcc || '' }
+    toast.value = '✅ Statement email config saved'
+    setTimeout(() => toast.value = '', 4000)
+    confirmSendEmails.value = false
+  } catch (e) { emailErr.value = e.message }
+  finally { emailSaving.value = false }
+}
+async function previewEmails() {
+  emailRunning.value = true; emailErr.value = ''
+  try {
+    const r = await apiCall('app-statement-email', { action: 'preview', month: month.value })
+    if (!r.ok) { emailErr.value = r.error || 'Preview failed.'; return }
+    emailPlan.value = r.plan || []
+    emailTotals.value = r.totals || {}
+  } catch (e) { emailErr.value = e.message }
+  finally { emailRunning.value = false }
+}
+async function sendEmails() {
+  emailRunning.value = true; emailErr.value = ''
+  try {
+    const r = await apiCall('app-statement-email', { action: 'run', month: month.value, send: 1 })
+    if (!r.ok) { emailErr.value = r.error || 'Send failed.'; return }
+    confirmSendEmails.value = false
+    emailPlan.value = r.plan || []
+    emailTotals.value = r.totals || {}
+    emailLastRun.value = r.last_run || ''
+    toast.value = `📧 Statement emails queued: ${r.queued ?? 0} sent · ${r.no_email ?? 0} no email · ${r.suppressed ?? 0} suppressed · ${r.skipped ?? 0} already sent`
+    setTimeout(() => toast.value = '', 6000)
+    await loadEmailCfg()
+  } catch (e) { emailErr.value = e.message }
+  finally { emailRunning.value = false }
+}
+const emailPlanRows = computed(() => emailPlan.value.filter(p => !p.already))
+const emailAlreadyRows = computed(() => emailPlan.value.filter(p => p.already))
+
 onMounted(async () => {
   await loadList()
   // Open on a month with no data? Auto-jump to the latest one that has statements.
@@ -268,6 +334,7 @@ onMounted(async () => {
     <ScrollTabs>
       <button @click="tab = 'statements'" :style="tab === 'statements' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">💰 Statements</button>
       <button @click="tab = 'rentconfig'; loadRentConfig()" :style="tab === 'rentconfig' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">⚙️ Rent Config</button>
+      <button @click="tab = 'email'; loadEmailCfg()" :style="tab === 'email' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">📧 Statement Emails</button>
     </ScrollTabs>
 
     <!-- ══ STATEMENTS TAB ══ -->
@@ -787,6 +854,108 @@ onMounted(async () => {
               <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="editProp = null">Cancel</button>
               <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="rentSaving" @click="saveRentConfig">💾 Save config {{ rentSaving ? '…' : '' }}</button>
             </div>
+          </div>
+        </div>
+      </template>
+    </template>
+
+    <!-- ══ STATEMENT EMAILS TAB (V2.21) ══ -->
+    <template v-if="tab === 'email'">
+      <div v-if="emailLoading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
+      <template v-else>
+        <!-- config + send card -->
+        <div class="panel" style="padding:18px 20px;margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div>
+              <div style="font-weight:800;font-size:15px">📧 Monthly owner statement emails</div>
+              <div class="c-sub" style="font-size:12px;margin-top:3px">One summary email per property to the owner (properties.sub_email) · idempotent per month</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer">
+              <input type="checkbox" v-model="emailCfg.enabled" :disabled="!canEmail" style="width:16px;height:16px">
+              Auto-send enabled
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
+            <div class="form-field">
+              <label>Send day of month (1–28)</label>
+              <input v-model.number="emailCfg.day" type="number" min="1" max="28" :disabled="!canEmail" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+            <div class="form-field">
+              <label>Owner salutation name</label>
+              <input v-model="emailCfg.owner_name" placeholder="e.g. Alamgir Kabir" :disabled="!canEmail" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+            <div class="form-field">
+              <label>BCC (optional)</label>
+              <input v-model="emailCfg.bcc" placeholder="accounts@…" :disabled="!canEmail" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px">
+            <button v-if="canEmail" class="btn-primary" :disabled="emailSaving" @click="saveEmailCfg" style="font-size:12.5px">💾 Save config {{ emailSaving ? '…' : '' }}</button>
+            <button class="btn-ghost" :disabled="emailRunning" @click="previewEmails" style="font-size:12.5px">👁️ Preview for {{ monthLabel }}</button>
+            <button v-if="canEmail" class="btn-primary" :disabled="emailRunning || !emailCfg.enabled" @click="confirmSendEmails = !confirmSendEmails" style="font-size:12.5px">📨 Send statements {{ emailRunning ? '…' : '' }}</button>
+            <div v-if="emailLastRun" class="c-sub" style="font-size:12px">Last run: {{ emailLastRun }}</div>
+          </div>
+          <div v-if="confirmSendEmails" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(231,76,60,.08);padding:10px 14px;border-radius:10px;margin-top:12px">
+            <span style="font-size:13px;color:var(--text)">Send owner statement emails for <b>{{ monthLabel }}</b> now? One email per property, queued through the mail worker. Already-sent properties are skipped.</span>
+            <button class="btn-primary" style="font-size:12.5px" :disabled="emailRunning" @click="sendEmails">Yes, send {{ emailRunning ? '…' : '' }}</button>
+            <button class="btn-ghost" style="font-size:12.5px" @click="confirmSendEmails = false">Cancel</button>
+          </div>
+        </div>
+
+        <!-- totals -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+          <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>Properties</div><div class="s-value">{{ emailPlan.length }}</div><div class="s-trend">{{ emailTotals.emailable }} emailable · {{ emailTotals.no_email }} no email · {{ emailTotals.already }} done</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Gross billed</div><div class="s-value">{{ money(emailTotals.gross) }}</div><div class="s-trend">for {{ monthLabel }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Collected</div><div class="s-value" style="color:var(--ok)">{{ money(emailTotals.collected) }}</div><div class="s-trend">to owners</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">📤</span>Net payable</div><div class="s-value" style="color:var(--primary)">{{ money(emailTotals.net) }}</div><div class="s-trend">across properties</div></div>
+        </div>
+
+        <!-- plan table -->
+        <div class="panel" style="overflow:hidden;margin-bottom:14px">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:800;font-size:13.5px">📋 Send plan — {{ monthLabel }}</div>
+          <div class="tbl-wrap">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>Net</th><th>Owner email</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr v-for="p in emailPlanRows" :key="p.prop">
+                  <td style="white-space:nowrap"><b>{{ p.name }}</b></td>
+                  <td class="c-sub">{{ money(p.gross) }}</td>
+                  <td class="c-sub" style="color:var(--ok)">{{ money(p.collected) }}</td>
+                  <td style="font-weight:700">{{ money(p.net) }}</td>
+                  <td class="c-sub">{{ p.to || '—' }}</td>
+                  <td><span class="badge" :style="p.to ? 'background:#E8F5E9;color:#1E8449' : 'background:#FDECEA;color:#B91C1C'">{{ p.to ? 'Will email' : 'No email' }}</span></td>
+                </tr>
+                <tr v-for="p in emailAlreadyRows" :key="'a' + p.prop" style="opacity:.55">
+                  <td style="white-space:nowrap"><b>{{ p.name }}</b></td>
+                  <td class="c-sub">{{ money(p.gross) }}</td>
+                  <td class="c-sub" style="color:var(--ok)">{{ money(p.collected) }}</td>
+                  <td style="font-weight:700">{{ money(p.net) }}</td>
+                  <td class="c-sub">{{ p.to || '—' }}</td>
+                  <td><span class="badge b-blue" style="background:#E8F0FE;color:#1E5EB8">✅ Already sent</span></td>
+                </tr>
+                <tr v-if="!emailPlan.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No properties found. Click 👁️ Preview to load the plan.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- history -->
+        <div class="panel" style="overflow:hidden">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:800;font-size:13.5px">🕓 Send history (last 20)</div>
+          <div class="tbl-wrap">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>When</th><th>Property</th><th>Month</th><th>Net</th><th>To</th></tr></thead>
+              <tbody>
+                <tr v-for="h in emailHistory" :key="h.id">
+                  <td style="white-space:nowrap" class="c-sub">{{ h.ts }}</td>
+                  <td style="white-space:nowrap"><b>{{ h.prop }}</b></td>
+                  <td style="white-space:nowrap">{{ h.month }}</td>
+                  <td>{{ money(h.net) }}</td>
+                  <td class="c-sub">{{ h.to_addr }}</td>
+                </tr>
+                <tr v-if="!emailHistory.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No statement emails sent yet.</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </template>
