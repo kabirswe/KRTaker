@@ -9,6 +9,7 @@
 // (KeepAlive + :key preserves state between switches).
 // ─────────────────────────────────────────────────────────────
 import { ref, computed, defineAsyncComponent, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import ScrollTabs from '../components/ScrollTabs.vue'
@@ -63,7 +64,7 @@ const goTab = (t) => { tab.value = t }
   <div>
     <div class="page-head">
       <div>
-        <h1>📢 Community</h1>
+        <h1>{{ t('📢 Community') }}</h1>
         <div class="sub">Resident community — notices, referrals, NID &amp; trust verification and support · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -75,7 +76,7 @@ const goTab = (t) => { tab.value = t }
     <ScrollTabs>
       <button v-for="[k, ico, l] in TAB_ORDER" :key="k" @click="goTab(k)"
         :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">
-        {{ ico }} {{ l }}
+        {{ ico }} {{ t(l) }}
       </button>
     </ScrollTabs>
 

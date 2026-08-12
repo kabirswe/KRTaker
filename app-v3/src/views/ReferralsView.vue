@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useViewMode, usePager, money, fmtTs, avatarColor, initials } from '../lib/ui'
@@ -73,12 +74,12 @@ function detailFields(row) {
   <div>
     <div class="page-head">
       <div>
-        <h1>🤝 Referrals</h1>
+        <h1>{{ t('🤝 Referrals') }}</h1>
         <div class="sub">{{ refAll.length }} referrals · {{ kpis[2]?.value || '৳0' }} paid out · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search name, email, code…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search name, email, code…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -128,7 +129,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Referred</th><th>Contact</th><th>Role</th><th>Code</th><th>Reward</th><th>Status</th><th>Date</th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Referred') }}</th><th>{{ t('Contact') }}</th><th>{{ t('Role') }}</th><th>{{ t('Code') }}</th><th>{{ t('Reward') }}</th><th>{{ t('Status') }}</th><th>{{ t('Date') }}</th></tr></thead>
           <tbody>
             <tr v-for="r in paged" :key="r.id" style="cursor:pointer" @click="openDetail(r)">
               <td style="font-weight:700;white-space:nowrap">{{ r.id }}</td>

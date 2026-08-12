@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -252,12 +253,12 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
   <div>
     <div class="page-head">
       <div>
-        <h1>🗂️ Legal Concierge</h1>
+        <h1>{{ t('🗂️ Legal Concierge') }}</h1>
         <div class="sub">{{ reqAll.length }} service requests · {{ holdings.length }} holding taxes · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search parcel, property, ref…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search parcel, property, ref…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="svcFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All services</option>
           <option v-for="s in svcOptions" :key="s" :value="s">{{ svc(s).label }}</option>

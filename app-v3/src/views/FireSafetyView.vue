@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -192,12 +193,12 @@ function timelineOf(i) {
   <div>
     <div class="page-head">
       <div>
-        <h1>🧯 Fire Safety</h1>
+        <h1>{{ t('🧯 Fire Safety') }}</h1>
         <div class="sub">{{ assets.length }} assets · {{ incidents.length }} incidents · {{ plans.length }} plans · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="aQuery" placeholder="Search assets…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
+        <input v-model="aQuery" :placeholder="t('Search assets…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
         <button v-if="canManage" @click="openIncidentAdd" class="btn-ghost" style="display:inline-flex;align-items:center;gap:6px">🚨 Report incident</button>
       </CompactFilters>
         <button v-if="canManage" @click="openAssetAdd" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ Add asset</button>
@@ -238,7 +239,7 @@ function timelineOf(i) {
         </div>
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>Asset</th><th>Type</th><th>Property</th><th>Location</th><th>Expiry</th><th>Inspection</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Asset') }}</th><th>{{ t('Type') }}</th><th>{{ t('Property') }}</th><th>{{ t('Location') }}</th><th>{{ t('Expiry') }}</th><th>{{ t('Inspection') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="a in filteredAssets" :key="a.id">
                 <td style="white-space:nowrap"><b>{{ a.id }}</b><div class="c-sub" style="font-size:11.5px">{{ a.model || '—' }}<template v-if="a.serial_no"> · {{ a.serial_no }}</template></div></td>

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { badge, useViewMode, usePager } from '../lib/ui'
@@ -96,12 +97,12 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
   <div>
     <div class="page-head">
       <div>
-        <h1>📎 Receipts</h1>
+        <h1>{{ t('📎 Receipts') }}</h1>
         <div class="sub">{{ receiptsAll.length }} receipts · {{ kpis[1]?.value || '৳0' }} collected · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search receipt, invoice, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search receipt, invoice, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="methodFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All methods</option>
           <option v-for="m in methodOptions" :key="m" :value="m">{{ m }}</option>
@@ -163,7 +164,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Receipt</th><th>Invoice</th><th>Tenant</th><th>Unit</th><th>Amount</th><th>Method</th><th>Date</th><th>Sig</th></tr></thead>
+          <thead><tr><th>{{ t('Receipt') }}</th><th>{{ t('Invoice') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Method') }}</th><th>{{ t('Date') }}</th><th>{{ t('Sig') }}</th></tr></thead>
           <tbody>
             <tr v-for="r in paged" :key="r.id" style="cursor:pointer" @click="openDetail(r)">
               <td style="white-space:nowrap"><b>{{ r.id }}</b></td>

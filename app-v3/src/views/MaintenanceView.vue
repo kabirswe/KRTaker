@@ -147,7 +147,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search title, unit, property…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
+        <input v-model="query" :placeholder="t('Search title, unit, property…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -206,7 +206,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Title</th><th>Unit</th><th>Property</th><th>Category</th><th>Priority</th><th>Vendor</th><th>Cost</th><th>Status</th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Title') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th>{{ t('Category') }}</th><th>{{ t('Priority') }}</th><th>{{ t('Vendor') }}</th><th>{{ t('Cost') }}</th><th>{{ t('Status') }}</th></tr></thead>
           <tbody>
             <tr v-for="r in paged" :key="r.id" style="cursor:pointer" @click="openDetail(r)">
               <td style="font-weight:700;white-space:nowrap">{{ r.id }}</td>
@@ -259,11 +259,11 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Title *</div>
-            <input v-model="raiseForm.title" placeholder="e.g. Kitchen sink leakage" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            <input v-model="raiseForm.title" :placeholder="t('e.g. Kitchen sink leakage')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Description</div>
-            <RichEditor v-model="raiseForm.desc" placeholder="What's the issue?" :min-height="'120px'" style="margin-top:5px" />
+            <RichEditor v-model="raiseForm.desc" :placeholder="t('What\'s the issue?')" :min-height="'120px'" style="margin-top:5px" />
           </div>
           <button @click="submitRaise" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">＋ Raise request</button>
         </div>

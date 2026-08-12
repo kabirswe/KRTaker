@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
 import LineChart from '../components/charts/LineChart.vue'
@@ -353,7 +354,7 @@ function printReport() {
   <div>
     <div class="page-head">
       <div>
-        <h1>📈 Analytics</h1>
+        <h1>{{ t('📈 Analytics') }}</h1>
         <div class="sub">Portfolio intelligence — P&amp;L, cashflow, collections, expenses, tenants &amp; risk</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -413,7 +414,7 @@ function printReport() {
         </div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Expenses</th><th>Net</th></tr></thead>
+            <thead><tr><th>{{ t('Property') }}</th><th>{{ t('Gross') }}</th><th>{{ t('Collected') }}</th><th>{{ t('TDS') }}</th><th>{{ t('Service') }}</th><th>{{ t('Expenses') }}</th><th>{{ t('Net') }}</th></tr></thead>
             <tbody>
               <tr v-for="p in pnlRows" :key="p.prop">
                 <td><span class="c-name">{{ p.name }}</span><div class="c-sub">{{ p.type }}</div></td>

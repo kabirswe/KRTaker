@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { badge } from '../lib/ui'
@@ -180,7 +181,7 @@ async function createPlan() {
   <div>
     <div class="page-head">
       <div>
-        <h1>🏠 Building Systems</h1>
+        <h1>{{ t('🏠 Building Systems') }}</h1>
         <div class="sub">Smart home · systems watch · health check — merged workspace, live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">

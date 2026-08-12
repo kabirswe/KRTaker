@@ -3,6 +3,7 @@
 // Inside Safety & Security — one-off inspections with pass/fail checklists,
 // recurring schedules that auto-materialize due inspections, completion sign-off.
 import { computed, ref, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
@@ -182,7 +183,7 @@ onMounted(load)
   <div>
     <div class="page-head">
       <div>
-        <h1>🔍 Inspections</h1>
+        <h1>{{ t('🔍 Inspections') }}</h1>
         <div class="sub">Safety / Service / Maintenance checks + recurring scheduler · sign-off with pass-fail checklists</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -217,7 +218,7 @@ onMounted(load)
           :style="fType === t.v ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
           style="padding:7px 13px;border:none;border-radius:9px;font-weight:800;font-size:12px;cursor:pointer">{{ t.l }}</button>
         <span style="flex:1"></span>
-        <input v-model="q" placeholder="Search code / title / assignee…" style="padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none;min-width:200px">
+        <input v-model="q" :placeholder="t('Search code / title / assignee…')" style="padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none;min-width:200px">
         </CompactFilters>
       </div>
 

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -138,12 +139,12 @@ function detailFields(row) {
   <div>
     <div class="page-head">
       <div>
-        <h1>📜 Legal Engine</h1>
+        <h1>{{ t('📜 Legal Engine') }}</h1>
         <div class="sub">{{ legalNotices.length }} notices · {{ kpis[0]?.value || 0 }} cases · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search notice, tenant, reason…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
+        <input v-model="query" :placeholder="t('Search notice, tenant, reason…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -201,7 +202,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Type</th><th>Tenant</th><th>Lease</th><th>Notice days</th><th>Effective</th><th>Status</th><th v-if="canManage">Action</th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Type') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Lease') }}</th><th>{{ t('Notice days') }}</th><th>{{ t('Effective') }}</th><th>{{ t('Status') }}</th><th v-if="canManage">{{ t('Action') }}</th></tr></thead>
           <tbody>
             <tr v-for="n in paged" :key="n.id" style="cursor:pointer" @click="openDetail(n)">
               <td style="font-weight:700;white-space:nowrap">{{ n.id }}</td>

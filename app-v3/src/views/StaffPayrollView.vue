@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
@@ -123,12 +124,12 @@ function detailFields(row) {
   <div>
     <div class="page-head">
       <div>
-        <h1>💰 Staff Payroll</h1>
+        <h1>{{ t('💰 Staff Payroll') }}</h1>
         <div class="sub">{{ pyAll.length }} payslips · {{ kpis[2]?.value || 0 }} paid · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search staff…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
+        <input v-model="query" :placeholder="t('Search staff…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -186,7 +187,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Staff</th><th>Month</th><th>Salary</th><th>OT</th><th>Bonus</th><th>Deduction</th><th>Net</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Staff') }}</th><th>{{ t('Month') }}</th><th>{{ t('Salary') }}</th><th>{{ t('OT') }}</th><th>{{ t('Bonus') }}</th><th>{{ t('Deduction') }}</th><th>{{ t('Net') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
           <tbody>
             <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="font-weight:700;white-space:nowrap">{{ p.id }}</td>

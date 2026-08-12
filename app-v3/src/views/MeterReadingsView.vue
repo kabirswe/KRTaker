@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -117,12 +118,12 @@ const prevReading = computed(() => {
   <div>
     <div class="page-head">
       <div>
-        <h1>📏 Meter readings</h1>
+        <h1>{{ t('📏 Meter readings') }}</h1>
         <div class="sub">{{ readingsAll.length }} readings · {{ kpis[1]?.value || 0 }} units covered · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search reading, unit, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
+        <input v-model="query" :placeholder="t('Search reading, unit, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All types</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ typeMeta(t).label }}</option>
@@ -178,7 +179,7 @@ const prevReading = computed(() => {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Reading</th><th>Type</th><th>Unit</th><th>Property</th><th>Tenant</th><th>Month</th><th>Value</th><th>Note</th></tr></thead>
+          <thead><tr><th>{{ t('Reading') }}</th><th>{{ t('Type') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Month') }}</th><th>{{ t('Value') }}</th><th>{{ t('Note') }}</th></tr></thead>
           <tbody>
             <tr v-for="r in paged" :key="r.id" style="cursor:pointer" @click="openDetail(r)">
               <td style="white-space:nowrap"><b>{{ r.id }}</b></td>
@@ -227,12 +228,12 @@ const prevReading = computed(() => {
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Reading *</div>
-            <input v-model="recForm.reading" type="number" min="0" placeholder="e.g. 5120" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:14px;font-weight:700;outline:none">
+            <input v-model="recForm.reading" type="number" min="0" :placeholder="t('e.g. 5120')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:14px;font-weight:700;outline:none">
             <div class="c-sub" style="font-size:11px;margin-top:4px">Cannot be lower than the previous reading for this unit + type.</div>
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Note</div>
-            <input v-model="recForm.note" placeholder="Optional — e.g. owner reading" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            <input v-model="recForm.note" :placeholder="t('Optional — e.g. owner reading')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           </div>
           <button @click="submitReading" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">💾 Save reading</button>
           <div class="c-sub" style="font-size:11px;text-align:center">Saving again for the same unit + type + month updates the value (UPSERT).</div>

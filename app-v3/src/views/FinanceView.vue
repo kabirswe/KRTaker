@@ -11,6 +11,7 @@
 // Tab is synced with ?tab= so each sidebar sub-item can deep-link.
 // ─────────────────────────────────────────────────────────────
 import { ref, computed, defineAsyncComponent, onMounted, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRoute } from 'vue-router'
 import { apiCall } from '../api/client'
 import { useAuthStore } from '../stores/auth'
@@ -160,7 +161,7 @@ onMounted(loadOverview)
   <div>
     <div class="page-head">
       <div>
-        <h1>💰 Finance</h1>
+        <h1>{{ t('💰 Finance') }}</h1>
         <div class="sub">Everything money — invoices, payments, collections, remittances, statements &amp; accounts · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -172,7 +173,7 @@ onMounted(loadOverview)
     <ScrollTabs>
       <button v-for="[k, ico, l] in TAB_ORDER" :key="k" @click="goTab(k)"
         :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">
-        {{ ico }} {{ l }}
+        {{ ico }} {{ t(l) }}
       </button>
     </ScrollTabs>
 

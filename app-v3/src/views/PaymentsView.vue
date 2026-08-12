@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, reactive } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
@@ -144,12 +145,12 @@ async function removeProof(p) {
   <div>
     <div class="page-head">
       <div>
-        <h1>💳 Payments</h1>
+        <h1>{{ t('💳 Payments') }}</h1>
         <div class="sub">{{ paymentsAll.length }} payments · {{ kpis[1]?.value || '৳0' }} total · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search payment, invoice, tenant…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search payment, invoice, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -216,7 +217,7 @@ async function removeProof(p) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Payment</th><th>Invoice</th><th>Tenant</th><th>Unit</th><th>Amount</th><th>Method</th><th>Ref</th><th>Date</th><th>Status</th><th>Proof</th></tr></thead>
+          <thead><tr><th>{{ t('Payment') }}</th><th>{{ t('Invoice') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Date') }}</th><th>{{ t('Status') }}</th><th>{{ t('Proof') }}</th></tr></thead>
           <tbody>
             <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="white-space:nowrap"><b>{{ p.id }}</b></td>

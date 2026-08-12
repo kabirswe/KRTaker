@@ -4,6 +4,7 @@
 // payouts) + per-property rent configuration. Pure frontend redesign; the
 // API contract (app-statements / app-rent-config-*) is unchanged.
 import { ref, computed, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { apiCall, getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -306,7 +307,7 @@ onMounted(async () => {
     <!-- ══ HEADER ══ -->
     <div class="page-head">
       <div>
-        <h1>💰 Statements &amp; Rent Config</h1>
+        <h1>{{ t('💰 Statements & Rent Config') }}</h1>
         <div class="sub">Monthly owner statements — per-property P&amp;L, line items, payouts &amp; rent settings</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -316,7 +317,7 @@ onMounted(async () => {
           <input v-model="month" type="month" style="padding:7px 10px;border:none;background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:var(--text);outline:none" @change="loadList">
           <button class="btn-ghost" style="padding:5px 10px;font-size:12.5px" @click="shiftMonth(1)">▶</button>
         </div>
-        <button v-if="!isCurrentMonth" class="btn-ghost" style="font-size:12.5px" @click="month = now.toISOString().slice(0, 7); loadList()">Today</button>
+        <button v-if="!isCurrentMonth" class="btn-ghost" style="font-size:12.5px" @click="month = now.toISOString().slice(0, 7); loadList()">{{ t('Today') }}</button>
         <button class="btn-ghost" @click="loadList">🔄 Refresh</button>
         <button v-if="tab === 'statements'" class="btn-ghost" style="font-weight:700" @click="openPrint">🖨️ Print</button>
       </CompactFilters>
@@ -327,7 +328,7 @@ onMounted(async () => {
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
     <div v-if="jumped" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:10px;background:rgba(47,128,237,.08);border:1px solid rgba(47,128,237,.28);margin-bottom:14px;font-size:12.5px;font-weight:600;color:var(--text)">
       <span>↩ {{ monthLabel }} has no statements yet — showing the latest month with data instead.</span>
-      <button class="btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:11.5px;flex-shrink:0" @click="month = now.toISOString().slice(0, 7); jumped = false; loadList()">Go to current month</button>
+      <button class="btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:11.5px;flex-shrink:0" @click="month = now.toISOString().slice(0, 7); jumped = false; loadList()">{{ t('Go to current month') }}</button>
     </div>
 
     <!-- Tabs -->
@@ -388,7 +389,7 @@ onMounted(async () => {
         </div>
         <div v-else class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Expenses</th><th>Net</th><th>Payout</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Property') }}</th><th>{{ t('Gross') }}</th><th>{{ t('Collected') }}</th><th>{{ t('TDS') }}</th><th>{{ t('Service') }}</th><th>{{ t('Expenses') }}</th><th>{{ t('Net') }}</th><th>{{ t('Payout') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="s in list" :key="s.prop">
                 <td>
@@ -447,7 +448,7 @@ onMounted(async () => {
         </div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Property</th><th>Month</th><th>Amount</th><th>Status</th><th>Method</th><th>Ref</th></tr></thead>
+            <thead><tr><th>{{ t('Property') }}</th><th>{{ t('Month') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th></tr></thead>
             <tbody>
               <tr v-for="p in payouts" :key="p.prop + p.month">
                 <td><span class="c-name">{{ p.prop }}</span></td>
@@ -509,7 +510,7 @@ onMounted(async () => {
               </div>
               <div class="tbl-wrap">
                 <table class="kr">
-                  <thead><tr><th>Invoice</th><th>Unit</th><th>Tenant</th><th>Gross</th><th>Collected</th><th>TDS</th><th>Service</th><th>Net</th><th>Status</th></tr></thead>
+                  <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Gross') }}</th><th>{{ t('Collected') }}</th><th>{{ t('TDS') }}</th><th>{{ t('Service') }}</th><th>{{ t('Net') }}</th><th>{{ t('Status') }}</th></tr></thead>
                   <tbody>
                     <tr v-for="l in detail.lines || []" :key="l.inv">
                       <td><span class="c-name">{{ l.inv }}</span></td>
@@ -544,7 +545,7 @@ onMounted(async () => {
               </div>
               <div class="tbl-wrap">
                 <table class="kr">
-                  <thead><tr><th>Ticket</th><th>Title</th><th>Category</th><th>Amount</th></tr></thead>
+                  <thead><tr><th>{{ t('Ticket') }}</th><th>{{ t('Title') }}</th><th>{{ t('Category') }}</th><th>{{ t('Amount') }}</th></tr></thead>
                   <tbody>
                     <tr v-for="e in detail.expense_items || []" :key="e.id">
                       <td><span class="c-name">{{ e.id }}</span></td>
@@ -570,7 +571,7 @@ onMounted(async () => {
             </div>
             <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
               <button v-if="['superadmin','owner','accountant'].includes(auth.user?.role || '')" class="btn-primary" style="padding:9px 16px;font-size:13px" @click="openPayout({ ...sel, net: detail.net, payout: detail.payout, name: detail.name })">💸 Record payout</button>
-              <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="sel = null">Close</button>
+              <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="sel = null">{{ t('Close') }}</button>
             </div>
           </template>
         </div>

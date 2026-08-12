@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
@@ -132,7 +133,7 @@ function detailFields(row) {
   <div>
     <div class="page-head">
       <div>
-        <h1>👷 Staff</h1>
+        <h1>{{ t('👷 Staff') }}</h1>
         <div class="sub">{{ kpis[0]?.value || 0 }} building staff · {{ kpis[1]?.value || 0 }} active · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -141,7 +142,7 @@ function detailFields(row) {
           <option value="">🏢 All properties</option>
           <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
         </select>
-        <input v-model="query" placeholder="Search name, phone…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
+        <input v-model="query" :placeholder="t('Search name, phone…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
         <select v-model="roleFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All roles</option>
           <option v-for="r in roleOptions" :key="r" :value="r">{{ roleMeta(r).label }}</option>

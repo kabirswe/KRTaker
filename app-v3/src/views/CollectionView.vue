@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { apiCall } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { badge } from '../lib/ui'
@@ -234,7 +235,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
   <div>
     <div class="page-head">
       <div>
-        <h1>📮 Collections &amp; Recon</h1>
+        <h1>{{ t('📮 Collections & Recon') }}</h1>
         <div class="sub">Unpaid-rent campaign + payment reconciliation · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -291,7 +292,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
         <div class="panel" style="overflow:hidden">
           <div class="tbl-wrap">
             <table class="kr">
-              <thead><tr><th>Invoice</th><th>Month</th><th>Tenant</th><th>Unit</th><th>Property</th><th style="text-align:right">Net</th><th style="text-align:right">Due</th><th>Contact</th><th>Status</th></tr></thead>
+              <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Month') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th style="text-align:right">{{ t('Net') }}</th><th style="text-align:right">{{ t('Due') }}</th><th>{{ t('Contact') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="r in unpaid" :key="r.inv">
                   <td style="font-weight:700">{{ r.inv }}</td>

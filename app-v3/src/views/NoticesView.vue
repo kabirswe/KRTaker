@@ -134,7 +134,7 @@ async function deleteNotice(n) {
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search title, body, author…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search title, body, author…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <button @click="pinnedOnly = !pinnedOnly" class="btn-ghost" :style="pinnedOnly ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" title="Show pinned only">📌 {{ pinnedOnly ? 'Pinned only' : 'All notices' }}</button>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="ts">Sort: Newest</option>
@@ -187,7 +187,7 @@ async function deleteNotice(n) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Notice</th><th>Title</th><th>Author</th><th>Posted</th><th></th></tr></thead>
+          <thead><tr><th>{{ t('Notice') }}</th><th>{{ t('Title') }}</th><th>{{ t('Author') }}</th><th>{{ t('Posted') }}</th><th></th></tr></thead>
           <tbody>
             <tr v-for="n in paged" :key="n.id" style="cursor:pointer" @click="openDetail(n)">
               <td style="white-space:nowrap"><b>{{ n.id }}</b> <template v-if="n.pinned">📌</template> <template v-if="n.emailed">📨{{ n.email_count || '' }}</template></td>

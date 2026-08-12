@@ -193,7 +193,7 @@ function detailFields(row) {
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
         <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px;font-weight:800;border-color:var(--primary);color:var(--primary)" @click="go('/wiki')">📚 Wiki</button>
-        <input v-model="query" placeholder="Search subject, sender…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search subject, sender…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -258,7 +258,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Subject</th><th>From</th><th>Category</th><th>Status</th><th>Prio</th><th>Age</th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Subject') }}</th><th>{{ t('From') }}</th><th>{{ t('Category') }}</th><th>{{ t('Status') }}</th><th>{{ t('Prio') }}</th><th>{{ t('Age') }}</th></tr></thead>
           <tbody>
             <tr v-for="t in paged" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
               <td style="font-weight:700;white-space:nowrap">{{ t.id }}</td>
@@ -288,7 +288,7 @@ function detailFields(row) {
         </div>
         <div style="padding:18px 20px 20px">
           <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">SUBJECT *</div>
-          <input v-model="form.subject" placeholder="What do you need help with?" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;margin-bottom:14px">
+          <input v-model="form.subject" :placeholder="t('What do you need help with?')" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;margin-bottom:14px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
             <div>
               <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">CATEGORY</div>
@@ -310,7 +310,7 @@ function detailFields(row) {
           <textarea v-model="form.body" rows="4" placeholder="Describe the issue — what happened, when, and any error you saw…" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13.5px;outline:none;resize:vertical;font-family:inherit"></textarea>
           <div v-if="composeErr" style="color:var(--danger);font-size:12.5px;font-weight:700;margin-top:8px">{{ composeErr }}</div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
-            <button class="btn-ghost" @click="showCompose = false" :disabled="busy" style="padding:10px 16px;font-size:13px">Cancel</button>
+            <button class="btn-ghost" @click="showCompose = false" :disabled="busy" style="padding:10px 16px;font-size:13px">{{ t('Cancel') }}</button>
             <button @click="submitTicket" :disabled="busy" style="padding:10px 20px;font-size:13px;font-weight:800;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer">{{ busy ? 'Opening…' : 'Open ticket' }}</button>
           </div>
         </div>

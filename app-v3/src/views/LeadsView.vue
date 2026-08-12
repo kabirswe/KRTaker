@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -131,12 +132,12 @@ function detailFields(row) {
   <div>
     <div class="page-head">
       <div>
-        <h1>📥 Leads</h1>
+        <h1>{{ t('📥 Leads') }}</h1>
         <div class="sub">{{ leadsAll.length }} leads · {{ kpis[1]?.value || 0 }} new · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search name, email, message…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search name, email, message…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -198,7 +199,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Lead</th><th>Source</th><th>Property</th><th>Status</th><th>Assigned</th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Lead') }}</th><th>{{ t('Source') }}</th><th>{{ t('Property') }}</th><th>{{ t('Status') }}</th><th>{{ t('Assigned') }}</th></tr></thead>
           <tbody>
             <tr v-for="l in paged" :key="l.id" style="cursor:pointer" @click="openDetail(l)">
               <td style="font-weight:700;white-space:nowrap">{{ l.id }}</td>
@@ -297,10 +298,10 @@ function detailFields(row) {
               <button v-for="s in STATUS_ORDER" :key="s" class="btn-ghost" :style="sel.status === s ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" :disabled="busy === sel.id + ':' + s" style="padding:6px 11px;font-size:12px" @click="setStatus(sel, s)">{{ s }}</button>
             </div>
             <div style="margin-top:13px;display:flex;gap:8px;align-items:center">
-              <input v-model="sel.assigned_to" placeholder="Assign to (e.g. Arif Chowdhury)" style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+              <input v-model="sel.assigned_to" :placeholder="t('Assign to (e.g. Arif Chowdhury)')" style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
               <button class="btn-primary" style="padding:8px 14px;font-size:12px" :disabled="busy === sel.id + ':assign'" @click="assignLead(sel)">{{ busy === sel.id + ':assign' ? 'Saving…' : 'Save' }}</button>
             </div>
-            <input v-model="sel.notes" placeholder="Notes…" style="width:100%;margin-top:8px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+            <input v-model="sel.notes" :placeholder="t('Notes…')" style="width:100%;margin-top:8px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
             <button v-if="propRef(sel)" class="btn-ghost" style="padding:7px 12px;font-size:12px;margin-top:10px" @click="go(propRef(sel).path, propRef(sel).query)">↗ {{ propName(sel.prop) }}</button>
           </div>
 

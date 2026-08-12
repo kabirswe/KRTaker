@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { apiCall, apiBase } from '../api/client'
@@ -281,12 +282,12 @@ function defaultPrintCfg() {
     <template v-if="tab === 'nid'">
     <div class="page-head">
       <div>
-        <h1>🪪 NID Verification</h1>
+        <h1>{{ t('🪪 NID Verification') }}</h1>
         <div class="sub">{{ nvAll.length }} verifications · {{ kpis[1]?.value || 0 }} verified · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search tenant, NID…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search tenant, NID…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
@@ -353,7 +354,7 @@ function defaultPrintCfg() {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Tenant</th><th>NID</th><th>DOB</th><th>Method</th><th>Checks</th><th>Status</th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('NID') }}</th><th>{{ t('DOB') }}</th><th>{{ t('Method') }}</th><th>{{ t('Checks') }}</th><th>{{ t('Status') }}</th></tr></thead>
           <tbody>
             <tr v-for="v in paged" :key="v.id" style="cursor:pointer" @click="openDetail(v)">
               <td style="font-weight:700;white-space:nowrap">{{ v.id }}</td>
@@ -432,7 +433,7 @@ function defaultPrintCfg() {
     <template v-if="tab === 'thana'">
       <div class="page-head">
         <div>
-          <h1>📋 DMP Thana Forms</h1>
+          <h1>{{ t('📋 DMP Thana Forms') }}</h1>
           <div class="sub">Tenant information forms for thana submission · create, submit, verify, print</div>
         </div>
         <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">

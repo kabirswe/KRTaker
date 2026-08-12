@@ -8,15 +8,16 @@ defineProps({
   range: { type: String, default: '' },
 })
 const emit = defineEmits(['set'])
+import { t } from '../lib/i18n'
 </script>
 
 <template>
   <div v-if="pageCount > 1" class="pager">
     <span class="c-sub pager-range">{{ range }}</span>
     <div class="pager-btns">
-      <button class="btn-ghost pager-btn" :disabled="page <= 1" @click="emit('set', page - 1)">← Prev</button>
+      <button class="btn-ghost pager-btn" :disabled="page <= 1" @click="emit('set', page - 1)">← {{ t('Prev') }}</button>
       <span class="pager-page">{{ page }} / {{ pageCount }}</span>
-      <button class="btn-ghost pager-btn" :disabled="page >= pageCount" @click="emit('set', page + 1)">Next →</button>
+      <button class="btn-ghost pager-btn" :disabled="page >= pageCount" @click="emit('set', page + 1)">{{ t('Next') }} →</button>
     </div>
   </div>
   <div v-else-if="range" class="pager pager-single">

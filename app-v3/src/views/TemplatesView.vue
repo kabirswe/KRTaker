@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { apiCall } from '../api/client'
 import RichEditor from '../components/RichEditor.vue'
 import CompactFilters from '../components/CompactFilters.vue'
@@ -247,7 +248,7 @@ onMounted(() => {
   <div>
     <div class="page-head">
       <div>
-        <h1>🗂️ Templates</h1>
+        <h1>{{ t('🗂️ Templates') }}</h1>
         <div class="sub">Documents &amp; email templates in English and বাংলা — placeholders auto-detected</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -281,7 +282,7 @@ onMounted(() => {
           <option v-for="(l, k) in KIND" :key="k" :value="k">{{ l }}</option>
         </select>
         <div class="lang-seg">
-          <button class="lang-pill" :class="{ on: langFilter === '' }" @click="langFilter = ''">All</button>
+          <button class="lang-pill" :class="{ on: langFilter === '' }" @click="langFilter = ''">{{ t('All') }}</button>
           <button class="lang-pill en" :class="{ on: langFilter === 'en' }" @click="langFilter = 'en'">🇬🇧 EN</button>
           <button class="lang-pill bn" :class="{ on: langFilter === 'bn' }" @click="langFilter = 'bn'">🇧🇩 বাংলা</button>
         </div>

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, reactive } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -320,12 +321,12 @@ load()
   <div>
     <div class="page-head">
       <div>
-        <h1>🏗️ Build Watch</h1>
+        <h1>{{ t('🏗️ Build Watch') }}</h1>
         <div class="sub">{{ projs.length }} projects · {{ kpis[3]?.value || 0 }} budget · {{ kpis[4]?.value || 0 }} spent</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search title, contractor, site…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
+        <input v-model="query" :placeholder="t('Search title, contractor, site…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="kindFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All kinds</option>
           <option v-for="k in kindOptions" :key="k" :value="k">{{ kindMeta(k).label }}</option>

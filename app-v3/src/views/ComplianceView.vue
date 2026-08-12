@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -183,12 +184,12 @@ function refreshSel() {
   <div>
     <div class="page-head">
       <div>
-        <h1>⚖️ Compliance</h1>
+        <h1>{{ t('⚖️ Compliance') }}</h1>
         <div class="sub">{{ cplAll.length }} items · {{ kpis[1]?.value || 0 }} expired · {{ kpis[2]?.value || 0 }} expiring soon</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search label, ref, notes…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search label, ref, notes…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All types</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ itemMeta(t).label }}</option>

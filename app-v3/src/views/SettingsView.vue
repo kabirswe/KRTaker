@@ -422,7 +422,7 @@ async function downloadExport() {
             <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Avatar URL (optional)</label>
             <input v-model="avatar" placeholder="https://…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
-          <button class="btn-primary" style="width:100%" @click="saveProfile">Save profile</button>
+          <button class="btn-primary" style="width:100%" @click="saveProfile">{{ t('Save profile') }}</button>
         </div>
       </div>
     </div>
@@ -442,7 +442,7 @@ async function downloadExport() {
             <button class="btn-ghost" :style="(prefs.lang || 'en') === 'en' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setLang('en')">🇬🇧 English</button>
             <button class="btn-ghost" :style="prefs.lang === 'bn' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setLang('bn')">🇧🇩 বাংলা</button>
           </div>
-          <button class="btn-primary" style="width:100%" @click="saveSettings">Save preferences</button>
+          <button class="btn-primary" style="width:100%" @click="saveSettings">{{ t('Save preferences') }}</button>
         </div>
       </div>
 
@@ -531,9 +531,9 @@ async function downloadExport() {
             <div v-if="twofaStep === 'email-code'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px">
               <div style="font-size:13px;margin-bottom:10px">1. Tap <b>Send code</b> — we'll email a 6-digit code to {{ twofaState.email_hint || 'your account email' }}. 2. Enter it below and confirm.</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">Send code</button>
-                <input v-model="twofaCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
-                <button class="btn-primary" :disabled="twofaBusy" @click="enableEmail2fa">Enable 2FA</button>
+                <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">{{ t('Send code') }}</button>
+                <input v-model="twofaCode" inputmode="numeric" maxlength="6" :placeholder="t('6-digit code')" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+                <button class="btn-primary" :disabled="twofaBusy" @click="enableEmail2fa">{{ t('Enable 2FA') }}</button>
               </div>
             </div>
 
@@ -543,8 +543,8 @@ async function downloadExport() {
               <div style="font-size:11.5px;color:var(--text-mute);margin-bottom:10px;word-break:break-all">or scan-free manual entry with the URI:<br><span style="font-family:monospace">{{ twofaSetup.uri }}</span></div>
               <div style="font-size:13px;margin-bottom:10px">2. Enter the 6-digit code the app shows and confirm:</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                <input v-model="twofaCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
-                <button class="btn-primary" :disabled="twofaBusy" @click="enableTotp2fa">Enable 2FA</button>
+                <input v-model="twofaCode" inputmode="numeric" maxlength="6" :placeholder="t('6-digit code')" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+                <button class="btn-primary" :disabled="twofaBusy" @click="enableTotp2fa">{{ t('Enable 2FA') }}</button>
               </div>
             </div>
           </template>

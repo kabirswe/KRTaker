@@ -3,6 +3,7 @@
 // Staff: review queue (pending first) with document preview + approve/reject.
 // Tenant: submit/update own KYC (required for SSLCommerz card payments).
 import { computed, ref, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { fmtTs } from '../lib/ui'
@@ -159,7 +160,7 @@ onMounted(load)
     <!-- ══ HEADER ══ -->
     <div class="page-head">
       <div>
-        <h1>🪪 Tenant KYC</h1>
+        <h1>{{ t('🪪 Tenant KYC') }}</h1>
         <div class="sub" v-if="!isTenant">Know Your Customer — verify tenant identities for payment compliance (required for SSLCommerz card payments)</div>
         <div class="sub" v-else>Verify your identity to unlock card payments (NID/TIN + ID document)</div>
       </div>

@@ -3,6 +3,7 @@
 // Tenant escalation emails (3-tier, day 1/7/15) + owner web-push digests.
 // Backend: app-reminder-config / save / summary / run + app-rent-due-push.
 import { ref, computed, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
@@ -131,7 +132,7 @@ onMounted(loadAll)
   <div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <div>
-        <h1 style="margin:0;font-size:22px">⏰ Rent Reminder Automation</h1>
+        <h1 style="margin:0;font-size:22px">{{ t('⏰ Rent Reminder Automation') }}</h1>
         <div class="c-sub" style="font-size:12.5px;margin-top:4px">3-tier tenant escalation emails (day 1 → 7 → 15) + owner web-push digests · scheduler runs daily 00:30 UTC</div>
       </div>
       <span v-if="remCfg.enabled" class="badge b-green" style="font-size:12px;padding:5px 12px">● Automation on</span>
@@ -181,8 +182,8 @@ onMounted(loadAll)
         <div class="panel-b">
           <div v-if="confirmSend" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(231,76,60,.08);padding:10px 14px;border-radius:10px;margin-bottom:12px">
             <span style="font-size:13px;color:var(--text)">Send rent-reminder emails now? Only invoices whose escalation tier increased are emailed.</span>
-            <button class="btn-primary" style="background:var(--danger);font-size:12.5px" :disabled="remRunning" @click="runReminders(true)">Yes, send emails</button>
-            <button class="btn-ghost" style="font-size:12.5px" @click="confirmSend = false">Cancel</button>
+            <button class="btn-primary" style="background:var(--danger);font-size:12.5px" :disabled="remRunning" @click="runReminders(true)">{{ t('Yes, send emails') }}</button>
+            <button class="btn-ghost" style="font-size:12.5px" @click="confirmSend = false">{{ t('Cancel') }}</button>
           </div>
 
           <div v-if="remRun" style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px;line-height:1.6">
@@ -192,7 +193,7 @@ onMounted(loadAll)
           <div class="tbl-wrap" style="max-height:none">
             <table class="kr" style="width:100%;font-size:12.5px">
               <thead>
-                <tr><th style="text-align:left">Invoice</th><th style="text-align:left">Tenant</th><th style="text-align:left">Unit · Property</th><th style="text-align:left">Month</th><th style="text-align:right">Due</th><th style="text-align:right">Days</th><th style="text-align:center">Tier</th><th style="text-align:center">Last</th><th style="text-align:left">Email</th></tr>
+                <tr><th style="text-align:left">{{ t('Invoice') }}</th><th style="text-align:left">{{ t('Tenant') }}</th><th style="text-align:left">{{ t('Unit · Property') }}</th><th style="text-align:left">{{ t('Month') }}</th><th style="text-align:right">{{ t('Due') }}</th><th style="text-align:right">{{ t('Days') }}</th><th style="text-align:center">{{ t('Tier') }}</th><th style="text-align:center">{{ t('Last') }}</th><th style="text-align:left">{{ t('Email') }}</th></tr>
               </thead>
               <tbody>
                 <tr v-for="r in planRows" :key="r.inv">
@@ -260,8 +261,8 @@ onMounted(loadAll)
           <div class="c-sub" style="font-size:12.5px;margin-bottom:10px">Proactive browser-notification digest to owners with a subscribed device — overdue / due-this-month / due-next-month per property. Respects the rent_reminders switch and per-user opt-out.</div>
           <div v-if="confirmPush" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(231,76,60,.08);padding:10px 14px;border-radius:10px;margin-bottom:12px">
             <span style="font-size:13px">Send web-push digests to <b>{{ pushRun?.targeted || '?' }}</b> owner(s)?</span>
-            <button class="btn-primary" style="background:var(--danger);font-size:12.5px" :disabled="pushRunning" @click="runPush(true)">Yes, send push</button>
-            <button class="btn-ghost" style="font-size:12.5px" @click="confirmPush = false">Cancel</button>
+            <button class="btn-primary" style="background:var(--danger);font-size:12.5px" :disabled="pushRunning" @click="runPush(true)">{{ t('Yes, send push') }}</button>
+            <button class="btn-ghost" style="font-size:12.5px" @click="confirmPush = false">{{ t('Cancel') }}</button>
           </div>
           <div v-if="pushRun" style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px">
             <b>Last run:</b> targeted {{ pushRun.targeted }} · sent {{ pushRun.sent }} · suppressed {{ pushRun.suppressed }} · overdue {{ money(pushTotals.overdue) }} · due soon {{ money(pushTotals.due_soon) }} · upcoming {{ money(pushTotals.upcoming) }} · {{ pushRun.dry_run ? '👁️ dry run' : '🔔 SENT' }}
@@ -269,7 +270,7 @@ onMounted(loadAll)
           <div class="tbl-wrap" style="max-height:none">
             <table class="kr" style="width:100%;font-size:12.5px">
               <thead>
-                <tr><th style="text-align:left">Owner</th><th style="text-align:right">Overdue</th><th style="text-align:right">Due soon</th><th style="text-align:right">Upcoming</th><th style="text-align:center">Invoices</th><th style="text-align:center">Status</th></tr>
+                <tr><th style="text-align:left">{{ t('Owner') }}</th><th style="text-align:right">{{ t('Overdue') }}</th><th style="text-align:right">{{ t('Due soon') }}</th><th style="text-align:right">{{ t('Upcoming') }}</th><th style="text-align:center">{{ t('Invoices') }}</th><th style="text-align:center">{{ t('Status') }}</th></tr>
               </thead>
               <tbody>
                 <tr v-for="(o, i) in pushOwners" :key="i">
@@ -294,7 +295,7 @@ onMounted(loadAll)
           <div class="tbl-wrap" style="max-height:none">
             <table class="kr" style="width:100%;font-size:12.5px">
               <thead>
-                <tr><th style="text-align:left">Invoice</th><th style="text-align:center">Tier</th><th style="text-align:center">Via</th><th style="text-align:left">Sent</th></tr>
+                <tr><th style="text-align:left">{{ t('Invoice') }}</th><th style="text-align:center">{{ t('Tier') }}</th><th style="text-align:center">{{ t('Via') }}</th><th style="text-align:left">{{ t('Sent') }}</th></tr>
               </thead>
               <tbody>
                 <tr v-for="(h, i) in history" :key="i">

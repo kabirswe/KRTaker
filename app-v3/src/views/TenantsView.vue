@@ -770,7 +770,7 @@ async function delTenant(t) {
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search name, email, unit…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search name, email, unit…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="kindFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All kinds</option>
           <option v-for="k in kindOptions" :key="k" :value="k">{{ k }}</option>
@@ -847,7 +847,7 @@ async function delTenant(t) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Tenant</th><th>Kind</th><th>Unit / Property</th><th>Rent / mo</th><th>Lease end</th><th>Outstanding</th><th>Collection</th><th>Tickets</th><th v-if="canManage">Actions</th></tr></thead>
+          <thead><tr><th>{{ t('Tenant') }}</th><th>{{ t('Kind') }}</th><th>{{ t('Unit / Property') }}</th><th>{{ t('Rent / mo') }}</th><th>{{ t('Lease end') }}</th><th>{{ t('Outstanding') }}</th><th>{{ t('Collection') }}</th><th>{{ t('Tickets') }}</th><th v-if="canManage">{{ t('Actions') }}</th></tr></thead>
           <tbody>
             <tr v-for="t in paged" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
               <td style="white-space:nowrap">

@@ -11,6 +11,7 @@
 // Tab is synced with ?tab= so each sidebar sub-item can deep-link.
 // ─────────────────────────────────────────────────────────────
 import { ref, computed, defineAsyncComponent, onMounted, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import ScrollTabs from '../components/ScrollTabs.vue'
@@ -86,7 +87,7 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
   <div>
     <div class="page-head">
       <div>
-        <h1>🏢 Portfolio</h1>
+        <h1>{{ t('🏢 Portfolio') }}</h1>
         <div class="sub">Everything property — properties, units, tenants, leases, insurance, onboarding, leads, documents &amp; templates · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -98,7 +99,7 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
     <ScrollTabs>
       <button v-for="[k, ico, l] in TAB_ORDER" :key="k" @click="goTab(k)"
         :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">
-        {{ ico }} {{ l }}
+        {{ ico }} {{ t(l) }}
       </button>
     </ScrollTabs>
 

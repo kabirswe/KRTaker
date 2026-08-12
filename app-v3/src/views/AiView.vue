@@ -1,5 +1,6 @@
 <script setup>
 import { ref, nextTick } from 'vue'
+import { t } from '../lib/i18n'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
 
@@ -44,7 +45,7 @@ function scroll() { nextTick(() => { if (box.value) box.value.scrollTop = box.va
   <div>
     <div class="page-head">
       <div>
-        <h1>🤖 AI Caretaker (KR)</h1>
+        <h1>{{ t('🤖 AI Caretaker (KR)') }}</h1>
         <div class="sub">Ask about your portfolio — rent, arrears, compliance, anything</div>
       </div>
     </div>
@@ -69,7 +70,7 @@ function scroll() { nextTick(() => { if (box.value) box.value.scrollTop = box.va
       </div>
 
       <div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--border)">
-        <input v-model="q" placeholder="Ask about rent, tickets, leases…" @keyup.enter="ask()" style="flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:13.5px;outline:none">
+        <input v-model="q" :placeholder="t('Ask about rent, tickets, leases…')" @keyup.enter="ask()" style="flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:13.5px;outline:none">
         <button class="btn-primary" :disabled="busy || !q.trim()" @click="ask()">{{ busy ? 'Thinking…' : 'Send ➤' }}</button>
       </div>
     </div>

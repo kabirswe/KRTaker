@@ -237,9 +237,9 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           <h2 class="ob-h">{{ lang === 'bn' ? '🧑‍💼 আপনার প্রোফাইল' : '🧑‍💼 Your profile' }}</h2>
           <p class="ob-sub l">{{ lang === 'bn' ? 'আপনার নাম মালিক স্টেটমেন্ট, ডকুমেন্ট ও সাপোর্ট টিকেটে দেখা যাবে।' : 'Your name appears on owner statements, documents and support tickets.' }}</p>
           <label class="ob-lab2">{{ lang === 'bn' ? 'পুরো নাম' : 'Full name' }}</label>
-          <input v-model="name" placeholder="e.g. Alamgir Kabir Roni" class="ob-inp" @keyup.enter="next" />
+          <input v-model="name" :placeholder="t('e.g. Alamgir Kabir Roni')" class="ob-inp" @keyup.enter="next" />
           <label class="ob-lab2" style="margin-top:14px">{{ lang === 'bn' ? 'প্রতিষ্ঠান / কোম্পানি' : 'Organisation / company' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
-          <input v-model="org" placeholder="e.g. Kabir Holdings" class="ob-inp" @keyup.enter="next" />
+          <input v-model="org" :placeholder="t('e.g. Kabir Holdings')" class="ob-inp" @keyup.enter="next" />
           <div class="ob-foot">
             <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
             <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'সেভ হচ্ছে…' : 'Saving…') : (lang === 'bn' ? 'চালিয়ে যান →' : 'Continue →') }}</button>
@@ -251,7 +251,7 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           <h2 class="ob-h">{{ lang === 'bn' ? '🏢 আপনার প্রথম প্রপার্টি যোগ করুন' : '🏢 Add your first property' }}</h2>
           <p class="ob-sub l">{{ lang === 'bn' ? 'এটি সেই বিল্ডিং বা জমি যা আপনি ম্যানেজ করেন। ইউনিট, ভাড়াটিয়া ও লিজ এর সাথে যুক্ত থাকে — যেকোনো সময় আরও প্রপার্টি যোগ করতে পারবেন।' : 'This is the building or land you manage. Units, tenants and leases hang off it — you can add more properties any time.' }}</p>
           <label class="ob-lab2">{{ lang === 'bn' ? 'প্রপার্টির নাম *' : 'Property name *' }}</label>
-          <input v-model="prop.name" placeholder="e.g. Green View Residency" class="ob-inp" @keyup.enter="next" />
+          <input v-model="prop.name" :placeholder="t('e.g. Green View Residency')" class="ob-inp" @keyup.enter="next" />
           <div class="ob-grid2">
             <div>
               <label class="ob-lab2">{{ t('Type') }}</label>
@@ -267,7 +267,7 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
             </div>
           </div>
           <label class="ob-lab2" style="margin-top:14px">{{ lang === 'bn' ? 'ঠিকানা' : 'Address' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
-          <input v-model="prop.address" placeholder="e.g. House 12, Road 5, Dhanmondi, Dhaka" class="ob-inp" @keyup.enter="next" />
+          <input v-model="prop.address" :placeholder="t('e.g. House 12, Road 5, Dhanmondi, Dhaka')" class="ob-inp" @keyup.enter="next" />
           <div class="ob-foot">
             <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
             <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'তৈরি হচ্ছে…' : 'Creating…') : (lang === 'bn' ? 'তৈরি করুন ও চালিয়ে যান →' : 'Create & continue →') }}</button>

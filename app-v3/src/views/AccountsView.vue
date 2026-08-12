@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRoute } from 'vue-router'
 import { apiCall } from '../api/client'
 import { useAuthStore } from '../stores/auth'
@@ -188,7 +189,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
   <div>
     <div class="page-head">
       <div>
-        <h1>💼 Accounts</h1>
+        <h1>{{ t('💼 Accounts') }}</h1>
         <div class="sub">Bank &amp; cash ledger — receive, expense, withdraw, deposit, reconcile · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -249,7 +250,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
             <option value="receive">Receive</option><option value="expense">Expense</option>
             <option value="withdraw">Withdraw</option><option value="deposit">Deposit</option>
           </select>
-          <input v-model="fQ" @input="loadTx" placeholder="Search label, ref, payee…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:200px">
+          <input v-model="fQ" @input="loadTx" :placeholder="t('Search label, ref, payee…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:200px">
           </CompactFilters>
           <button v-if="canWrite" @click="openPost('receive')" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">＋ Post</button>
         </div>
@@ -257,7 +258,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
         <div class="panel" style="overflow:hidden">
           <div class="tbl-wrap">
             <table class="kr">
-              <thead><tr><th>ID</th><th>Date</th><th>Account</th><th>Type</th><th>Category</th><th>Label</th><th>Payee</th><th>Method</th><th>Ref</th><th style="text-align:right">Amount</th><th>Recon</th><th></th></tr></thead>
+              <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th>{{ t('Category') }}</th><th>{{ t('Label') }}</th><th>{{ t('Payee') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Recon') }}</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="t in txList" :key="t.id">
                   <td style="font-weight:700;white-space:nowrap">{{ t.id }}</td>

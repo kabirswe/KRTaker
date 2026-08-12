@@ -4,6 +4,7 @@ import { apiCall } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import ScrollTabs from '../components/ScrollTabs.vue'
+import { t } from '../lib/i18n'
 
 const auth = useAuthStore()
 const data = useDataStore()
@@ -123,7 +124,7 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
   <div>
     <div class="page-head">
       <div>
-        <h1>💎 Premium &amp; Subscriptions</h1>
+        <h1>{{ t('💎 Premium & Subscriptions') }}</h1>
         <div class="sub">Remote caretaker plans — subscribe, manage, bill · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">

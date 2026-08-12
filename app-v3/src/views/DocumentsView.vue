@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -151,12 +152,12 @@ async function submitUpload() {
   <div>
     <div class="page-head">
       <div>
-        <h1>📁 Documents</h1>
+        <h1>{{ t('📁 Documents') }}</h1>
         <div class="sub">{{ docsAll.length }} files · {{ kpis[1]?.value || 0 }} · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" placeholder="Search name, ref, uploader…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <input v-model="query" :placeholder="t('Search name, ref, uploader…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="kindFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">All kinds</option>
           <option v-for="k in KINDS" :key="k" :value="k">{{ kindLabel(k) }}</option>
@@ -211,7 +212,7 @@ async function submitUpload() {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>File</th><th>Kind</th><th>Ref</th><th>Cat</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('File') }}</th><th>{{ t('Kind') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Cat') }}</th><th>{{ t('Size') }}</th><th>{{ t('Uploaded') }}</th><th></th></tr></thead>
           <tbody>
             <tr v-for="d in paged" :key="d.id" style="cursor:pointer" @click="openDetail(d)">
               <td style="font-weight:700;white-space:nowrap">{{ d.id }}</td>
