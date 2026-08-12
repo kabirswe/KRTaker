@@ -65,6 +65,7 @@ const routes = [
   { path: '/accounts', name: 'accounts', component: () => import('../views/AccountsView.vue') },
   // ── Module views (custom) ──
   { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') },
+  { path: '/reminders', name: 'reminders', component: () => import('../views/RemindersView.vue') },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
 ]
 
