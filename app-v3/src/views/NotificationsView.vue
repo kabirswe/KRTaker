@@ -148,8 +148,8 @@ onMounted(load)
             <span class="c-sub" style="font-size:11px">→ open {{ notifMeta(a.type).label }}</span>
           </div>
         </div>
-        <button @click.stop="dismiss(a)" :disabled="busy" title="Dismiss"
-          style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0;align-self:flex-start">✕</button>
+        <button @click.stop="dismiss(a)" :disabled="busy" title="Dismiss" class="close"
+          style="color:var(--text-mute);font-size:14px;font-weight:800">✕</button>
       </div>
     </div>
   </div>
