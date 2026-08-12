@@ -45,7 +45,7 @@ const emit = defineEmits(['close'])
 // V2.0.6: Finance + Accounts groups merged into ONE Finance hub (/finance with tabs) — fewer menu entries.
 // V2.0.7: Portfolio, BMS, Community, Legal, Safety&Security all merged into hub dashboards with tabs.
 const GROUPS = [
-  { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)']] },
+  { id: 'overview', label: 'Overview', items: [['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)'], ['wiki', '📚', 'Wiki & Help']] },
   { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio']] },
   { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance']] },
   { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS']] },
@@ -66,7 +66,7 @@ const VIEW_ROUTES = {
   accounts: '/accounts', receive: { path: '/accounts', query: { tab: 'receive' } }, expense: { path: '/accounts', query: { tab: 'expense' } },
   withdraw: { path: '/accounts', query: { tab: 'withdraw' } }, deposit: { path: '/accounts', query: { tab: 'deposit' } },
   reconcile: { path: '/accounts', query: { tab: 'reconcile' } },
-  notices: '/notices', referrals: '/referrals', trust: '/nid', support: '/support',
+  notices: '/notices', referrals: '/referrals', trust: '/nid', support: '/support', wiki: '/wiki',
   maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
   staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',
   compliance: '/compliance', legal: '/legal', cases: '/cases', concierge: '/concierge',
@@ -88,6 +88,8 @@ const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MO
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true
+  // Wiki/Help is available to every role — no module gate.
+  if (mod === 'wiki') return true
   const mods = user.role_modules ? (user.role_modules[user.role] || user.modules || []) : []
   if (HUB_MODS[mod]) return mods.some(m => HUB_MODS[mod].includes(m))
   return mods.includes(mod)
