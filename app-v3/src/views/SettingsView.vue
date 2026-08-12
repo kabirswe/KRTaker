@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
-import { lang, setLang as setI18nLang } from '../lib/i18n'
+import { lang, t, setLang as setI18nLang } from '../lib/i18n'
 
 const auth = useAuthStore()
 const data = useDataStore()

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
-import { lang } from '../lib/i18n'
+import { lang, t } from '../lib/i18n'
 import { apiCall } from '../api/client'
 import { track } from '../lib/analytics'
 import { badge, useViewMode, usePager } from '../lib/ui'

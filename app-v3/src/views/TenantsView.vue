@@ -2,7 +2,7 @@
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
-import { lang } from '../lib/i18n'
+import { lang, t } from '../lib/i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
