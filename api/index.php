@@ -14771,9 +14771,12 @@ case 'app-ws-backup': {
 }
 
 case 'app-backup': {
-    /* superadmin only — stream a consistent SQLite snapshot (DB sits outside FTP jail) */
-    $u = require_user();
-    if ($u['role'] !== 'superadmin' && $u['email'] !== ADMIN_EMAIL) json_out(['ok' => false, 'error' => 'Super admin only.'], 403);
+    /* superadmin only (or service key) — stream a consistent SQLite snapshot (DB sits outside FTP jail) */
+    $svcBackup = service_authed();
+    if (!$svcBackup) {
+        $u = require_user();
+        if ($u['role'] !== 'superadmin' && $u['email'] !== ADMIN_EMAIL) json_out(['ok' => false, 'error' => 'Super admin only.'], 403);
+    }
     $tmp = '/tmp/krtaker_backup_' . gmdate('Ymd_His') . '.db';
     try {
         $pdo = db();
@@ -14789,7 +14792,7 @@ case 'app-backup': {
             if (!$ok) throw new Exception('SQLite3 backup API failed');
         }
         if (!file_exists($tmp) || filesize($tmp) === 0) throw new Exception('backup file empty');
-        audit($u['name'], 'DB backup downloaded', 'system', 'db', filesize($tmp) . ' bytes');
+        audit($svcBackup ? 'service-key' : $u['name'], 'DB backup downloaded', 'system', 'db', filesize($tmp) . ' bytes');
         header('Content-Type: application/octet-stream');
         header('Content-Disposition: attachment; filename="krtaker_' . gmdate('Ymd_His') . '.db"');
         header('Content-Length: ' . filesize($tmp));
@@ -14803,9 +14806,12 @@ case 'app-backup': {
 }
 
 case 'app-export': {
-    /* superadmin only — all tables as JSON (PG migration + archive) */
-    $u = require_user();
-    if ($u['role'] !== 'superadmin' && $u['email'] !== ADMIN_EMAIL) json_out(['ok' => false, 'error' => 'Super admin only.'], 403);
+    /* superadmin only (or service key) — all tables as JSON (PG migration + archive) */
+    $svcExport = service_authed();
+    if (!$svcExport) {
+        $u = require_user();
+        if ($u['role'] !== 'superadmin' && $u['email'] !== ADMIN_EMAIL) json_out(['ok' => false, 'error' => 'Super admin only.'], 403);
+    }
     $pdo = db();
     $out = ['_exported_at' => gmdate('c'), '_db' => 'sqlite', '_tables' => []];
     $tables = ['subscribers','contacts','newsletter_emails','app_users','app_tokens','plan_catalog','audit_log','auth_attempts','properties','units','tenants','leases','invoices','receipts','payments','tickets','partners','staff','support','platform_meta','cases','gateway_tx','legal_docs','doc_templates','email_templates','handover_checklists','property_rent','amenities','caretaker_subs','caretaker_invoices','insurance_plans','insurance_policies','maintenance_requests','leads','statement_payouts','compliance_items','renewal_requests','meter_readings','utility_bills','utility_tariffs','partner_invoices','vendor_payouts','remittances','onboarding_apps','sla_config','vendor_ratings','job_media','nid_verifications','thana_forms','legal_notices','case_events','land_parcels','land_visits','land_media','land_events','nrb_tax_returns','nrb_repatriations','nrb_vacancies','nrb_showings','nrb_disputes','concierge_requests','concierge_docs','holding_taxes','smart_locks','cctv_cameras','health_plans','build_projects','build_milestones','build_expenses','build_media','gate_visits','resident_vehicles','gate_watchlist','fire_assets','fire_incidents','evacuation_plans','emergency_contacts','sys_assets','sys_services','sys_fuel','building_staff','staff_attendance','staff_payroll','samity_members','samity_bills','samity_collections','samity_expenses'];
@@ -14814,7 +14820,7 @@ case 'app-export': {
             $out['_tables'][$t] = $pdo->query("SELECT * FROM $t")->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) { $out['_tables'][$t] = []; }
     }
-    audit($u['name'], 'JSON export', 'system', 'db', count($tables) . ' tables');
+    audit($svcExport ? 'service-key' : $u['name'], 'JSON export', 'system', 'db', count($tables) . ' tables');
     json_out($out);
 }
 
