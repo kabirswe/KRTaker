@@ -79,6 +79,32 @@ const router = createRouter({
   routes,
 })
 
+// V2.31.4: SPA navigation-race fix. The old guard did
+//   if (!data.loaded && !data.loading) await data.bootstrap()
+// which RACES when two navigations fire close together (nav A suspends on
+// await fetchMe(), nav B starts). Nav B sees data.loading=true (A's bootstrap
+// in flight) → skips the await → mounts its view with loaded=false → blank
+// content that never re-renders. Fix: share ONE in-flight bootstrap promise so
+// every navigation awaits the same completion (mounts only after data is ready).
+let bootPromise = null
+let mePromise = null
+
+function ensureBootstrap(data) {
+  if (data.loaded) return Promise.resolve(true)
+  if (!bootPromise) {
+    bootPromise = data.bootstrap().finally(() => { bootPromise = null })
+  }
+  return bootPromise
+}
+
+function ensureMe(auth) {
+  if (auth.user) return Promise.resolve(true)
+  if (!mePromise) {
+    mePromise = auth.fetchMe().finally(() => { mePromise = null })
+  }
+  return mePromise
+}
+
 // Auth + data guard: no token → login; token but no data → bootstrap before render.
 // Also restore the user identity on reload (token persists in localStorage but auth.user
 // is null after a page refresh — without fetchMe every role gate that reads
@@ -90,11 +116,9 @@ router.beforeEach(async (to) => {
   // Preserve the intended destination (incl. deep-link query like ?gw=&sid= or ?open=)
   // so it survives the login detour — a lost query silently breaks gateway callbacks.
   if (!auth.isAuthed) return { name: 'login', query: { redirect: to.fullPath } }
-  if (!auth.user) {
-    try { await auth.fetchMe() } catch (e) { /* bootstrap below still validates the token */ }
-  }
-  if (!data.loaded && !data.loading) {
-    const ok = await data.bootstrap()
+  try { await ensureMe(auth) } catch (e) { /* bootstrap below still validates the token */ }
+  if (!data.loaded) {
+    const ok = await ensureBootstrap(data)
     if (!ok && !data.offline) {
       auth.clear()
       return { name: 'login', query: { redirect: to.fullPath } }
