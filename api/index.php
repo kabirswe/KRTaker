@@ -9850,8 +9850,8 @@ function wa_channel_for($pdo, $userKey) {
     return $st->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 /* ---------- Phase 41: portfolio analytics & forecasting helpers ---------- */
-function analytics_pnl($pdo, $month) {
-    $props = $pdo->query('SELECT id, name, type FROM properties ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+function analytics_pnl($pdo, $month, $scope = '') {
+    $props = $pdo->query('SELECT id, name, type FROM properties' . ($scope ? ' WHERE sub_email=' . $pdo->quote($scope) : '') . ' ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     $rows = []; $tot = ['gross' => 0, 'collected' => 0, 'tds' => 0, 'service' => 0, 'expenses' => 0, 'net' => 0];
     foreach ($props as $p) {
         $c = statement_calc($pdo, $p['id'], $month);
@@ -9863,23 +9863,25 @@ function analytics_pnl($pdo, $month) {
     }
     return ['month' => $month, 'properties' => $rows, 'totals' => $tot];
 }
-function analytics_trends($pdo, $months = 12) {
+function analytics_trends($pdo, $months = 12, $scope = '') {
     $out = []; $cur = new DateTime(date('Y-m-01'));
+    $sc = $scope ? ' AND l IN (SELECT l.id FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=' . $pdo->quote($scope) . ')' : '';
     for ($i = $months - 1; $i >= 0; $i--) {
         $m = (clone $cur)->modify("-{$i} months")->format('Y-m');
-        $is = $pdo->prepare('SELECT COALESCE(SUM(net),0) FROM invoices WHERE m=?'); $is->execute([$m]);
-        $cs = $pdo->prepare('SELECT COALESCE(SUM(p.amount),0) FROM payments p JOIN invoices i ON i.id=p.inv WHERE i.m=? AND p.status=\'Success\''); $cs->execute([$m]);
+        $is = $pdo->prepare('SELECT COALESCE(SUM(net),0) FROM invoices WHERE m=?' . $sc); $is->execute([$m]);
+        $cs = $pdo->prepare('SELECT COALESCE(SUM(p.amount),0) FROM payments p JOIN invoices i ON i.id=p.inv WHERE i.m=?' . $sc . ' AND p.status=\'Success\''); $cs->execute([$m]);
         $out[] = ['month' => $m, 'issued' => (int)$is->fetchColumn(), 'collected' => (int)$cs->fetchColumn()];
     }
-    $units = (int)$pdo->query('SELECT COUNT(*) FROM units')->fetchColumn();
-    $leased = (int)$pdo->query("SELECT COUNT(*) FROM units WHERE status='Leased'")->fetchColumn();
+    $units = (int)$pdo->query('SELECT COUNT(*) FROM units' . ($scope ? ' WHERE sub_email=' . $pdo->quote($scope) : ''))->fetchColumn();
+    $leased = (int)$pdo->query('SELECT COUNT(*) FROM units' . ($scope ? ' WHERE sub_email=' . $pdo->quote($scope) . ' AND status=\'Leased\'' : " WHERE status='Leased'"))->fetchColumn();
     return ['months' => $out, 'units' => $units, 'leased' => $leased, 'occupancy' => $units ? round($leased / $units * 100) : 0];
 }
-function analytics_aging($pdo) {
+function analytics_aging($pdo, $scope = '') {
     $cur = date('Y-m');
     $curY = (int)substr($cur, 0, 4); $curM = (int)substr($cur, 5, 2);
     $buckets = ['current' => 0, 'd30' => 0, 'd60' => 0, 'd90' => 0];
-    $rows = $pdo->query("SELECT m, net FROM invoices WHERE status!='Paid'")->fetchAll(PDO::FETCH_ASSOC);
+    $sc = $scope ? ' AND l IN (SELECT l.id FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=' . $pdo->quote($scope) . ')' : '';
+    $rows = $pdo->query("SELECT m, net FROM invoices WHERE status!='Paid'" . $sc)->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) {
         $y = (int)substr($r['m'], 0, 4); $mo = (int)substr($r['m'], 5, 2);
         $age = ($curY - $y) * 12 + ($curM - $mo);
@@ -9891,21 +9893,23 @@ function analytics_aging($pdo) {
     $buckets['total'] = array_sum($buckets);
     return $buckets;
 }
-function analytics_vacancy($pdo) {
-    $rows = $pdo->query("SELECT u.id, u.name, u.rent, p.name AS prop FROM units u LEFT JOIN properties p ON p.id=u.p WHERE u.status='Vacant'")->fetchAll(PDO::FETCH_ASSOC);
+function analytics_vacancy($pdo, $scope = '') {
+    $sc = $scope ? ' WHERE u.sub_email=' . $pdo->quote($scope) . ' AND u.status=\'Vacant\'' : " WHERE u.status='Vacant'";
+    $rows = $pdo->query("SELECT u.id, u.name, u.rent, p.name AS prop FROM units u LEFT JOIN properties p ON p.id=u.p" . $sc)->fetchAll(PDO::FETCH_ASSOC);
     $loss = 0;
     foreach ($rows as $r) $loss += (int)$r['rent'];
     return ['units' => $rows, 'count' => count($rows), 'monthly_loss' => $loss, 'annual_loss' => $loss * 12];
 }
-function analytics_forecast($pdo) {
-    $t = analytics_trends($pdo, 6);
+function analytics_forecast($pdo, $scope = '') {
+    $t = analytics_trends($pdo, 6, $scope);
     $issued = array_sum(array_column($t['months'], 'issued'));
     $coll = array_sum(array_column($t['months'], 'collected'));
     $rate = $issued ? (int)round($coll / $issued * 100) : 0;
     $avgIssued = $issued ? (int)round($issued / count($t['months'])) : 0;
     $avgColl = (int)round($avgIssued * $rate / 100);
-    $v = analytics_vacancy($pdo);
-    $renewals = (int)$pdo->query("SELECT COUNT(*) FROM leases WHERE status='Active' AND end <= date('now','+60 days') AND end >= date('now')")->fetchColumn();
+    $v = analytics_vacancy($pdo, $scope);
+    $sc = $scope ? " AND u IN (SELECT id FROM units WHERE sub_email=" . $pdo->quote($scope) . ")" : '';
+    $renewals = (int)$pdo->query("SELECT COUNT(*) FROM leases WHERE status='Active' AND end <= date('now','+60 days') AND end >= date('now')" . $sc)->fetchColumn();
     $months = [];
     $base = new DateTime(date('Y-m-01'));
     for ($i = 1; $i <= 12; $i++) {
@@ -9922,11 +9926,15 @@ function analytics_forecast($pdo) {
     ];
 }
 /* ---------- V2.0.2: analytics expansion — cashflow, collections, expenses, scores, occupancy, maintenance ---------- */
-function analytics_cashflow($pdo, $months = 12) {
-    $incSt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='Success' AND substr(date,1,7)=?");
-    $mntSt = $pdo->prepare("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1 AND substr(pay_paid_at,1,7)=?");
-    $vpSt  = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM vendor_payouts WHERE status='Paid' AND month=?");
-    $spSt  = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM statement_payouts WHERE status='Paid' AND month=?");
+function analytics_cashflow($pdo, $months = 12, $scope = '') {
+    $sc = $scope ? ' AND inv IN (SELECT i.id FROM invoices i JOIN leases l ON l.id=i.l JOIN units u ON u.id=l.u WHERE u.sub_email=' . $pdo->quote($scope) . ')' : '';
+    $incSt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='Success' AND substr(date,1,7)=?" . $sc);
+    $mntSc = $scope ? " AND (unit IN (SELECT id FROM units WHERE sub_email=" . $pdo->quote($scope) . ") OR prop IN (SELECT id FROM properties WHERE sub_email=" . $pdo->quote($scope) . "))" : '';
+    $mntSt = $pdo->prepare("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1 AND substr(pay_paid_at,1,7)=?" . $mntSc);
+    $vpSc = $scope ? " AND partner IN (SELECT id FROM partners WHERE sub_email=" . $pdo->quote($scope) . ")" : '';
+    $vpSt  = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM vendor_payouts WHERE status='Paid' AND month=?" . $vpSc);
+    $spSc = $scope ? " AND prop IN (SELECT id FROM properties WHERE sub_email=" . $pdo->quote($scope) . ")" : '';
+    $spSt  = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM statement_payouts WHERE status='Paid' AND month=?" . $spSc);
     $out = []; $cum = 0; $cur = new DateTime(date('Y-m-01'));
     for ($i = $months - 1; $i >= 0; $i--) {
         $m = (clone $cur)->modify("-{$i} months")->format('Y-m');
@@ -9940,18 +9948,20 @@ function analytics_cashflow($pdo, $months = 12) {
     $totI = array_sum(array_column($out, 'income')); $totE = array_sum(array_column($out, 'expenses'));
     return ['months' => $out, 'total_income' => $totI, 'total_expenses' => $totE, 'total_net' => $totI - $totE, 'expense_ratio' => $totI ? (int)round($totE / $totI * 100) : 0];
 }
-function analytics_collections($pdo, $months = 12) {
-    $byMethod = $pdo->query("SELECT method, COUNT(*) n, SUM(amount) amount FROM payments WHERE status='Success' GROUP BY method ORDER BY amount DESC")->fetchAll(PDO::FETCH_ASSOC);
+function analytics_collections($pdo, $months = 12, $scope = '') {
+    $sc = $scope ? ' AND inv IN (SELECT i.id FROM invoices i JOIN leases l ON l.id=i.l JOIN units u ON u.id=l.u WHERE u.sub_email=' . $pdo->quote($scope) . ')' : '';
+    $byMethod = $pdo->query("SELECT method, COUNT(*) n, SUM(amount) amount FROM payments WHERE status='Success'" . $sc . " GROUP BY method ORDER BY amount DESC")->fetchAll(PDO::FETCH_ASSOC);
     $onTime = 0; $late = 0; $lateDays = 0; $lateAmt = 0;
-    foreach ($pdo->query("SELECT p.date pd, p.amount, i.m mth FROM payments p JOIN invoices i ON i.id=p.inv WHERE p.status='Success'")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    foreach ($pdo->query("SELECT p.date pd, p.amount, i.m mth FROM payments p JOIN invoices i ON i.id=p.inv WHERE p.status='Success'" . $sc)->fetchAll(PDO::FETCH_ASSOC) as $r) {
         if (!$r['mth'] || !$r['pd']) continue;
         $due = strtotime($r['mth'] . '-01') + 3 * 86400;  // 1st + 3-day grace
         $pd = strtotime($r['pd']);
         if ($pd <= $due) { $onTime++; }
         else { $late++; $lateDays += max(0, (int)floor(($pd - $due) / 86400)); $lateAmt += (int)$r['amount']; }
     }
-    $issSt = $pdo->prepare('SELECT COALESCE(SUM(net),0) FROM invoices WHERE m=?');
-    $colSt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments p JOIN invoices i ON i.id=p.inv WHERE i.m=? AND p.status='Success'");
+    $issSc = $scope ? ' AND l IN (SELECT l.id FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=' . $pdo->quote($scope) . ')' : '';
+    $issSt = $pdo->prepare('SELECT COALESCE(SUM(net),0) FROM invoices WHERE m=?' . $issSc);
+    $colSt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments p JOIN invoices i ON i.id=p.inv WHERE i.m=?" . $sc . " AND p.status='Success'");
     $byMonth = []; $cur = new DateTime(date('Y-m-01'));
     for ($i = $months - 1; $i >= 0; $i--) {
         $m = (clone $cur)->modify("-{$i} months")->format('Y-m');
@@ -9964,28 +9974,30 @@ function analytics_collections($pdo, $months = 12) {
         'on_time' => $onTime, 'late' => $late, 'on_time_rate' => $tot ? (int)round($onTime / $tot * 100) : 0,
         'avg_days_late' => $late ? (int)round($lateDays / $late) : 0, 'late_amount' => $lateAmt];
 }
-function analytics_expenses($pdo, $months = 12) {
-    $totalPaid = (int)$pdo->query("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1")->fetchColumn();
-    $totalAll = (int)$pdo->query('SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests')->fetchColumn();
-    $estOpen = (int)$pdo->query("SELECT COALESCE(SUM(cost_estimate),0) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
-    $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
-    $byCategory = $pdo->query("SELECT COALESCE(NULLIF(category,''),'other') category, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests GROUP BY category ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
-    $byVendor = $pdo->query("SELECT COALESCE(NULLIF(vendor,''),'Unassigned') vendor, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests WHERE vendor<>'' GROUP BY vendor ORDER BY cost DESC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC);
-    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(m.prop,''),'—') prop, COALESCE(p.name, COALESCE(NULLIF(m.prop,''),'—')) name, COUNT(*) n, COALESCE(SUM(m.actual_cost),0) cost, SUM(CASE WHEN m.status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests m LEFT JOIN properties p ON p.id=m.prop GROUP BY m.prop ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
-    $trSt = $pdo->prepare("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE pay_paid=1 AND substr(pay_paid_at,1,7)=?");
+function analytics_expenses($pdo, $months = 12, $scope = '') {
+    $sc = $scope ? " AND (unit IN (SELECT id FROM units WHERE sub_email=" . $pdo->quote($scope) . ") OR prop IN (SELECT id FROM properties WHERE sub_email=" . $pdo->quote($scope) . "))" : '';
+    $where = $sc ? ' WHERE 1=1' : '';
+    $totalPaid = (int)$pdo->query("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests" . $where . " AND pay_paid=1" . $sc)->fetchColumn();
+    $totalAll = (int)$pdo->query('SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests' . $where . $sc)->fetchColumn();
+    $estOpen = (int)$pdo->query("SELECT COALESCE(SUM(cost_estimate),0) FROM maintenance_requests" . $where . " AND status NOT IN ('Closed','Cancelled','Done')" . $sc)->fetchColumn();
+    $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests" . $where . " AND status NOT IN ('Closed','Cancelled','Done')" . $sc)->fetchColumn();
+    $byCategory = $pdo->query("SELECT COALESCE(NULLIF(category,''),'other') category, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests" . $where . $sc . " GROUP BY category ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $byVendor = $pdo->query("SELECT COALESCE(NULLIF(vendor,''),'Unassigned') vendor, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests" . $where . " AND vendor<>''" . $sc . " GROUP BY vendor ORDER BY cost DESC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC);
+    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(m.prop,''),'—') prop, COALESCE(p.name, COALESCE(NULLIF(m.prop,''),'—')) name, COUNT(*) n, COALESCE(SUM(m.actual_cost),0) cost, SUM(CASE WHEN m.status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests m LEFT JOIN properties p ON p.id=m.prop" . $where . $sc . " GROUP BY m.prop ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $trSt = $pdo->prepare("SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests WHERE 1=1 AND pay_paid=1 AND substr(pay_paid_at,1,7)=?" . $sc);
     $trend = []; $cur = new DateTime(date('Y-m-01'));
     for ($i = $months - 1; $i >= 0; $i--) {
         $m = (clone $cur)->modify("-{$i} months")->format('Y-m');
         $trSt->execute([$m]); $trend[] = ['month' => $m, 'cost' => (int)$trSt->fetchColumn()];
     }
     $avgJob = 0;
-    $nn = (int)$pdo->query('SELECT COUNT(*) FROM maintenance_requests WHERE actual_cost>0')->fetchColumn();
+    $nn = (int)$pdo->query('SELECT COUNT(*) FROM maintenance_requests' . $where . " AND actual_cost>0" . $sc)->fetchColumn();
     if ($nn) $avgJob = (int)round($totalAll / $nn);
     return ['total_paid' => $totalPaid, 'total_all' => $totalAll, 'estimated_open' => $estOpen, 'open_count' => $openCount,
         'avg_job_cost' => $avgJob, 'by_category' => $byCategory, 'by_vendor' => $byVendor, 'by_property' => $byProperty, 'trend' => $trend];
 }
-function analytics_scores($pdo) {
-    $tenants = $pdo->query('SELECT DISTINCT t.id, t.name, t.kind FROM tenants t JOIN leases l ON l.t=t.id')->fetchAll(PDO::FETCH_ASSOC);
+function analytics_scores($pdo, $scope = '') {
+    $tenants = $pdo->query('SELECT DISTINCT t.id, t.name, t.kind FROM tenants t JOIN leases l ON l.t=t.id' . ($scope ? ' WHERE t.sub_email=' . $pdo->quote($scope) : ''))->fetchAll(PDO::FETCH_ASSOC);
     $bands = ['Excellent' => 0, 'Good' => 0, 'Fair' => 0, 'Risky' => 0];
     $atRisk = []; $scoreSum = 0; $scored = 0;
     foreach ($tenants as $t) {
@@ -10003,49 +10015,52 @@ function analytics_scores($pdo) {
     usort($atRisk, fn($a, $b) => $a['score'] <=> $b['score']);
     return ['bands' => $bands, 'total' => $scored, 'avg_score' => $scored ? (int)round($scoreSum / $scored) : 0, 'at_risk' => $atRisk];
 }
-function analytics_occupancy($pdo) {
-    $props = $pdo->query('SELECT id, name, type FROM properties ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+function analytics_occupancy($pdo, $scope = '') {
+    $props = $pdo->query('SELECT id, name, type FROM properties' . ($scope ? ' WHERE sub_email=' . $pdo->quote($scope) : '') . ' ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     $rows = []; $totU = 0; $totL = 0; $roll = 0; $vLoss = 0;
     foreach ($props as $p) {
-        $uSt = $pdo->prepare('SELECT COUNT(*) FROM units WHERE p=?'); $uSt->execute([$p['id']]); $units = (int)$uSt->fetchColumn();
-        $lSt = $pdo->prepare("SELECT COUNT(*) FROM units WHERE p=? AND status='Leased'"); $lSt->execute([$p['id']]); $leased = (int)$lSt->fetchColumn();
-        $rSt = $pdo->prepare("SELECT COALESCE(SUM(rent),0) FROM units WHERE p=? AND status='Leased'"); $rSt->execute([$p['id']]); $rentRoll = (int)$rSt->fetchColumn();
-        $vSt = $pdo->prepare("SELECT COALESCE(SUM(rent),0) FROM units WHERE p=? AND status='Vacant'"); $vSt->execute([$p['id']]); $vacLoss = (int)$vSt->fetchColumn();
+        $uSc = $scope ? ' AND sub_email=' . $pdo->quote($scope) : '';
+        $uSt = $pdo->prepare('SELECT COUNT(*) FROM units WHERE p=?' . $uSc); $uSt->execute([$p['id']]); $units = (int)$uSt->fetchColumn();
+        $lSt = $pdo->prepare("SELECT COUNT(*) FROM units WHERE p=?" . $uSc . " AND status='Leased'"); $lSt->execute([$p['id']]); $leased = (int)$lSt->fetchColumn();
+        $rSt = $pdo->prepare("SELECT COALESCE(SUM(rent),0) FROM units WHERE p=?" . $uSc . " AND status='Leased'"); $rSt->execute([$p['id']]); $rentRoll = (int)$rSt->fetchColumn();
+        $vSt = $pdo->prepare("SELECT COALESCE(SUM(rent),0) FROM units WHERE p=?" . $uSc . " AND status='Vacant'"); $vSt->execute([$p['id']]); $vacLoss = (int)$vSt->fetchColumn();
         $rows[] = ['prop' => $p['id'], 'name' => $p['name'], 'type' => $p['type'], 'units' => $units, 'leased' => $leased,
             'vacant' => $units - $leased, 'occupancy' => $units ? (int)round($leased / $units * 100) : 0,
             'rent_roll' => $rentRoll, 'vacancy_loss' => $vacLoss];
         $totU += $units; $totL += $leased; $roll += $rentRoll; $vLoss += $vacLoss;
     }
-    $exp = $pdo->query("SELECT l.id, l.end, l.rent, t.name tenant, u.name unit, p.name prop FROM leases l JOIN tenants t ON t.id=l.t JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE l.status='Active' AND l.end <= date('now','+90 days') AND l.end >= date('now') ORDER BY l.end")->fetchAll(PDO::FETCH_ASSOC);
+    $sc = $scope ? " AND l.u IN (SELECT id FROM units WHERE sub_email=" . $pdo->quote($scope) . ")" : '';
+    $exp = $pdo->query("SELECT l.id, l.end, l.rent, t.name tenant, u.name unit, p.name prop FROM leases l JOIN tenants t ON t.id=l.t JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE l.status='Active' AND l.end <= date('now','+90 days') AND l.end >= date('now')" . $sc . " ORDER BY l.end")->fetchAll(PDO::FETCH_ASSOC);
     return ['properties' => $rows, 'units' => $totU, 'leased' => $totL, 'vacant' => $totU - $totL,
         'occupancy' => $totU ? (int)round($totL / $totU * 100) : 0, 'rent_roll' => $roll, 'vacancy_loss' => $vLoss, 'expiries' => $exp];
 }
-function analytics_maintenance($pdo) {
-    $byStatus = $pdo->query('SELECT status, COUNT(*) n FROM maintenance_requests GROUP BY status ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
-    $byPriority = $pdo->query('SELECT priority, COUNT(*) n FROM maintenance_requests GROUP BY priority ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
-    $byCharge = $pdo->query("SELECT charge_to, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests GROUP BY charge_to ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
-    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(m.prop,''),'—') prop, COALESCE(p.name, COALESCE(NULLIF(m.prop,''),'—')) name, COUNT(*) n, COALESCE(SUM(m.actual_cost),0) cost, SUM(CASE WHEN m.status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests m LEFT JOIN properties p ON p.id=m.prop GROUP BY m.prop ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC);
-    $totalCost = (int)$pdo->query('SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests')->fetchColumn();
-    $estOpen = (int)$pdo->query("SELECT COALESCE(SUM(cost_estimate),0) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
-    $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done')")->fetchColumn();
-    $doneCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE status IN ('Closed','Done')")->fetchColumn();
-    $avgResolve = (float)$pdo->query("SELECT COALESCE(AVG(julianday(updated_at)-julianday(ts)),0) FROM maintenance_requests WHERE status IN ('Closed','Done') AND updated_at<>ts AND updated_at<>''")->fetchColumn();
-    $aging = $pdo->query("SELECT id, title, status, priority, CAST(julianday('now')-julianday(ts) AS INTEGER) days FROM maintenance_requests WHERE status NOT IN ('Closed','Cancelled','Done') ORDER BY days DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+function analytics_maintenance($pdo, $scope = '') {
+    $sc = $scope ? " WHERE (unit IN (SELECT id FROM units WHERE sub_email=" . $pdo->quote($scope) . ") OR prop IN (SELECT id FROM properties WHERE sub_email=" . $pdo->quote($scope) . "))" : '';
+    $byStatus = $pdo->query('SELECT status, COUNT(*) n FROM maintenance_requests' . $sc . ' GROUP BY status ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
+    $byPriority = $pdo->query('SELECT priority, COUNT(*) n FROM maintenance_requests' . $sc . ' GROUP BY priority ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC);
+    $byCharge = $pdo->query("SELECT charge_to, COUNT(*) n, COALESCE(SUM(actual_cost),0) cost FROM maintenance_requests" . $sc . " GROUP BY charge_to ORDER BY cost DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $byProperty = $pdo->query("SELECT COALESCE(NULLIF(m.prop,''),'—') prop, COALESCE(p.name, COALESCE(NULLIF(m.prop,''),'—')) name, COUNT(*) n, COALESCE(SUM(m.actual_cost),0) cost, SUM(CASE WHEN m.status NOT IN ('Closed','Cancelled','Done') THEN 1 ELSE 0 END) open FROM maintenance_requests m LEFT JOIN properties p ON p.id=m.prop" . $sc . " GROUP BY m.prop ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $totalCost = (int)$pdo->query('SELECT COALESCE(SUM(actual_cost),0) FROM maintenance_requests' . $sc)->fetchColumn();
+    $estOpen = (int)$pdo->query("SELECT COALESCE(SUM(cost_estimate),0) FROM maintenance_requests" . $sc . ($sc ? " AND status NOT IN ('Closed','Cancelled','Done')" : " WHERE status NOT IN ('Closed','Cancelled','Done')"))->fetchColumn();
+    $openCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests" . $sc . ($sc ? " AND status NOT IN ('Closed','Cancelled','Done')" : " WHERE status NOT IN ('Closed','Cancelled','Done')"))->fetchColumn();
+    $doneCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests" . $sc . ($sc ? " AND status IN ('Closed','Done')" : " WHERE status IN ('Closed','Done')"))->fetchColumn();
+    $avgResolve = (float)$pdo->query("SELECT COALESCE(AVG(julianday(updated_at)-julianday(ts)),0) FROM maintenance_requests" . $sc . ($sc ? " AND status IN ('Closed','Done') AND updated_at<>ts AND updated_at<>''" : " WHERE status IN ('Closed','Done') AND updated_at<>ts AND updated_at<>''"))->fetchColumn();
+    $aging = $pdo->query("SELECT id, title, status, priority, CAST(julianday('now')-julianday(ts) AS INTEGER) days FROM maintenance_requests" . $sc . ($sc ? " AND status NOT IN ('Closed','Cancelled','Done')" : " WHERE status NOT IN ('Closed','Cancelled','Done')") . " ORDER BY days DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
     return ['by_status' => $byStatus, 'by_priority' => $byPriority, 'by_charge' => $byCharge, 'by_property' => $byProperty,
         'total_cost' => $totalCost, 'estimated_open' => $estOpen, 'open_count' => $openCount, 'done_count' => $doneCount,
         'avg_resolve_days' => round($avgResolve, 1), 'aging' => $aging];
 }
-function board_report_md($pdo, $month) {
-    $pnl = analytics_pnl($pdo, $month);
-    $tr = analytics_trends($pdo, 6);
-    $ag = analytics_aging($pdo);
-    $vc = analytics_vacancy($pdo);
-    $fc = analytics_forecast($pdo);
-    $cf = analytics_cashflow($pdo, 12);
-    $co = analytics_collections($pdo, 12);
-    $oc = analytics_occupancy($pdo);
-    $mt = analytics_maintenance($pdo);
-    $sc = analytics_scores($pdo);
+function board_report_md($pdo, $month, $scope = '') {
+    $pnl = analytics_pnl($pdo, $month, $scope);
+    $tr = analytics_trends($pdo, 6, $scope);
+    $ag = analytics_aging($pdo, $scope);
+    $vc = analytics_vacancy($pdo, $scope);
+    $fc = analytics_forecast($pdo, $scope);
+    $cf = analytics_cashflow($pdo, 12, $scope);
+    $co = analytics_collections($pdo, 12, $scope);
+    $oc = analytics_occupancy($pdo, $scope);
+    $mt = analytics_maintenance($pdo, $scope);
+    $sc = analytics_scores($pdo, $scope);
     $t = $pnl['totals'];
     $l = [];
     $l[] = '# KRTaker Portfolio Board Report — ' . $month;
@@ -12002,10 +12017,12 @@ case 'app-bootstrap': {
                 ? $q('SELECT t.* FROM tickets t JOIN units u ON u.id=t.u WHERE u.sub_email=?', [$scope])
                 : $q('SELECT * FROM tickets'),
             'partners'   => $q('SELECT * FROM partners' . $S),
-            'staff'      => $q('SELECT * FROM staff'),
-            'support'    => $q('SELECT * FROM support'),
-            'cases'      => $q('SELECT * FROM cases'),
-            'gateway_tx' => $q('SELECT * FROM gateway_tx ORDER BY created_at DESC'),
+            'staff'      => $scope ? [] : $q('SELECT * FROM staff'),
+            'support'    => $scope ? $q('SELECT * FROM support WHERE sub_email=?', [$scope]) : $q('SELECT * FROM support'),
+            'cases'      => $scope ? [] : $q('SELECT * FROM cases'),
+            'gateway_tx' => $scope
+                ? $q('SELECT * FROM gateway_tx WHERE invoice_id IN (SELECT i.id FROM invoices i JOIN leases l ON l.id=i.l JOIN units u ON u.id=l.u WHERE u.sub_email=?) ORDER BY created_at DESC', [$scope])
+                : $q('SELECT * FROM gateway_tx ORDER BY created_at DESC'),
             'ticket_thread' => $scope
                 ? $q('SELECT * FROM ticket_thread WHERE ticket IN (SELECT t.id FROM tickets t JOIN units u ON u.id=t.u WHERE u.sub_email=?) ORDER BY id', [$scope])
                 : $q('SELECT * FROM ticket_thread ORDER BY id'),
@@ -12022,15 +12039,25 @@ case 'app-bootstrap': {
             'amenities'  => $scope
                 ? $q('SELECT * FROM amenities WHERE prop IN (SELECT id FROM properties WHERE sub_email=?) OR unit IN (SELECT id FROM units WHERE sub_email=?) ORDER BY prop, unit', [$scope, $scope])
                 : $q('SELECT * FROM amenities ORDER BY prop, unit'),
-            'caretaker_invoices' => $q('SELECT * FROM caretaker_invoices ORDER BY month DESC'),
-            'insurance_policies' => $q('SELECT * FROM insurance_policies ORDER BY ts DESC'),
+            'caretaker_invoices' => $scope ? [] : $q('SELECT * FROM caretaker_invoices ORDER BY month DESC'),
+            'insurance_policies' => $scope
+                ? $q('SELECT * FROM insurance_policies WHERE tenant IN (SELECT id FROM tenants WHERE sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM insurance_policies ORDER BY ts DESC'),
             'maintenance_requests' => $scope
                 ? $q('SELECT * FROM maintenance_requests WHERE unit IN (SELECT id FROM units WHERE sub_email=?) OR prop IN (SELECT id FROM properties WHERE sub_email=?) ORDER BY ts DESC', [$scope, $scope])
                 : $q('SELECT * FROM maintenance_requests ORDER BY ts DESC'),
-            'leads' => $q('SELECT * FROM leads ORDER BY ts DESC'),
-            'statement_payouts' => $q('SELECT * FROM statement_payouts ORDER BY month DESC'),
-            'compliance_items' => $q('SELECT * FROM compliance_items ORDER BY expiry_date'),
-            'renewal_requests' => $q('SELECT * FROM renewal_requests ORDER BY ts DESC'),
+            'leads' => $scope
+                ? $q('SELECT * FROM leads WHERE prop IN (SELECT id FROM properties WHERE sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM leads ORDER BY ts DESC'),
+            'statement_payouts' => $scope
+                ? $q('SELECT * FROM statement_payouts WHERE prop IN (SELECT id FROM properties WHERE sub_email=?) ORDER BY month DESC', [$scope])
+                : $q('SELECT * FROM statement_payouts ORDER BY month DESC'),
+            'compliance_items' => $scope
+                ? $q("SELECT * FROM compliance_items WHERE (entity_type='property' AND entity_id IN (SELECT id FROM properties WHERE sub_email=?)) OR (entity_type='unit' AND entity_id IN (SELECT id FROM units WHERE sub_email=?)) OR (entity_type='tenant' AND entity_id IN (SELECT id FROM tenants WHERE sub_email=?)) ORDER BY expiry_date", [$scope, $scope, $scope])
+                : $q('SELECT * FROM compliance_items ORDER BY expiry_date'),
+            'renewal_requests' => $scope
+                ? $q('SELECT * FROM renewal_requests WHERE lease IN (SELECT l.id FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM renewal_requests ORDER BY ts DESC'),
             'meter_readings' => $scope
                 ? $q('SELECT * FROM meter_readings WHERE unit IN (SELECT id FROM units WHERE sub_email=?) ORDER BY month DESC', [$scope])
                 : $q('SELECT * FROM meter_readings ORDER BY month DESC'),
@@ -12038,55 +12065,145 @@ case 'app-bootstrap': {
                 ? $q('SELECT * FROM utility_bills WHERE unit IN (SELECT id FROM units WHERE sub_email=?) ORDER BY month DESC', [$scope])
                 : $q('SELECT * FROM utility_bills ORDER BY month DESC'),
             'utility_tariffs' => $q('SELECT * FROM utility_tariffs'),
-            'partner_invoices' => $q('SELECT * FROM partner_invoices ORDER BY ts DESC'),
-            'vendor_payouts' => $q('SELECT * FROM vendor_payouts ORDER BY month DESC'),
-            'remittances' => $q('SELECT * FROM remittances ORDER BY month DESC'),
-            'onboarding_apps' => $q('SELECT * FROM onboarding_apps ORDER BY ts DESC'),
-            'vendor_ratings' => $q('SELECT * FROM vendor_ratings ORDER BY ts DESC'),
+            'partner_invoices' => $scope
+                ? $q('SELECT * FROM partner_invoices WHERE partner IN (SELECT id FROM partners WHERE sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM partner_invoices ORDER BY ts DESC'),
+            'vendor_payouts' => $scope
+                ? $q('SELECT * FROM vendor_payouts WHERE partner IN (SELECT id FROM partners WHERE sub_email=?) ORDER BY month DESC', [$scope])
+                : $q('SELECT * FROM vendor_payouts ORDER BY month DESC'),
+            'remittances' => $scope
+                ? $q('SELECT * FROM remittances WHERE owner_email=? ORDER BY month DESC', [$scope])
+                : $q('SELECT * FROM remittances ORDER BY month DESC'),
+            'onboarding_apps' => $scope
+                ? $q('SELECT * FROM onboarding_apps WHERE tenant_id IN (SELECT id FROM tenants WHERE sub_email=?) OR unit IN (SELECT id FROM units WHERE sub_email=?) OR prop IN (SELECT id FROM properties WHERE sub_email=?) ORDER BY ts DESC', [$scope, $scope, $scope])
+                : $q('SELECT * FROM onboarding_apps ORDER BY ts DESC'),
+            'vendor_ratings' => $scope
+                ? $q('SELECT * FROM vendor_ratings WHERE partner IN (SELECT id FROM partners WHERE sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM vendor_ratings ORDER BY ts DESC'),
             'sla_config' => $q('SELECT * FROM sla_config'),
             'kr_alerts' => $q("SELECT * FROM kr_alerts WHERE user_key=? OR user_key='sub:1' ORDER BY ts DESC LIMIT 50", [user_key_for($u)]),
-            'wa_channels' => $q('SELECT * FROM wa_channels ORDER BY ts DESC'),
-            'kr_wa_msgs' => $q('SELECT * FROM kr_wa_msgs ORDER BY id DESC LIMIT 100'),
-            'board_reports' => $q('SELECT id, month, kind, created_by, ts FROM board_reports ORDER BY ts DESC LIMIT 25'),
-            'nid_verifications' => $q('SELECT * FROM nid_verifications ORDER BY ts DESC'),
-            'legal_notices' => $q('SELECT * FROM legal_notices ORDER BY ts DESC'),
-            'case_events' => $q('SELECT * FROM case_events ORDER BY ts DESC'),
-            'thana_forms' => $q('SELECT * FROM thana_forms ORDER BY ts DESC'),
-            'land_parcels' => $q('SELECT * FROM land_parcels ORDER BY ts DESC'),
-            'land_visits' => $q('SELECT * FROM land_visits ORDER BY scheduled_for DESC'),
-            'land_media' => $q('SELECT * FROM land_media ORDER BY ts DESC'),
-            'land_events' => $q('SELECT * FROM land_events ORDER BY ts DESC'),
-            'nrb_tax_returns' => $q('SELECT * FROM nrb_tax_returns ORDER BY ts DESC'),
-            'nrb_repatriations' => $q('SELECT * FROM nrb_repatriations ORDER BY ts DESC'),
-            'nrb_vacancies' => $q('SELECT * FROM nrb_vacancies ORDER BY ts DESC'),
-            'nrb_showings' => $q('SELECT * FROM nrb_showings ORDER BY scheduled_at DESC'),
-            'nrb_disputes' => $q('SELECT * FROM nrb_disputes ORDER BY ts DESC'),
-            'concierge_requests' => $q('SELECT * FROM concierge_requests ORDER BY ts DESC'),
-            'concierge_docs' => $q('SELECT * FROM concierge_docs ORDER BY ts DESC'),
-            'holding_taxes' => $q('SELECT * FROM holding_taxes ORDER BY ts DESC'),
-            'smart_locks' => $q('SELECT * FROM smart_locks ORDER BY ts DESC'),
-            'cctv_cameras' => $q('SELECT * FROM cctv_cameras ORDER BY ts DESC'),
-            'health_plans' => $q('SELECT * FROM health_plans ORDER BY ts DESC'),
-            'build_projects' => $q('SELECT * FROM build_projects ORDER BY ts DESC'),
-            'build_milestones' => $q('SELECT * FROM build_milestones ORDER BY ts DESC'),
-            'build_expenses' => $q('SELECT * FROM build_expenses ORDER BY ts DESC'),
-            'build_media' => $q('SELECT * FROM build_media ORDER BY ts DESC'),
-            'gate_visits' => $q('SELECT * FROM gate_visits ORDER BY ts DESC'),
-            'fire_assets' => $q('SELECT * FROM fire_assets ORDER BY ts DESC'),
-            'fire_incidents' => $q('SELECT * FROM fire_incidents ORDER BY ts DESC'),
-            'evacuation_plans' => $q('SELECT * FROM evacuation_plans ORDER BY ts DESC'),
-            'emergency_contacts' => $q('SELECT * FROM emergency_contacts ORDER BY ts DESC'),
-            'sys_assets' => $q('SELECT * FROM sys_assets ORDER BY ts DESC'),
-            'building_staff' => $q('SELECT * FROM building_staff ORDER BY ts DESC'),
-            'staff_attendance' => $q('SELECT * FROM staff_attendance ORDER BY ts DESC'),
-                        'samity_members' => $q('SELECT * FROM samity_members ORDER BY ts DESC'),
-            'samity_bills' => $q('SELECT * FROM samity_bills ORDER BY ts DESC'),
-            'samity_collections' => $q('SELECT * FROM samity_collections ORDER BY ts DESC'),
-            'samity_expenses' => $q('SELECT * FROM samity_expenses ORDER BY ts DESC'),'staff_payroll' => $q('SELECT * FROM staff_payroll ORDER BY ts DESC'),
-            'sys_services' => $q('SELECT * FROM sys_services ORDER BY ts DESC'),
-            'sys_fuel' => $q('SELECT * FROM sys_fuel ORDER BY ts DESC'),
-            'resident_vehicles' => $q('SELECT * FROM resident_vehicles ORDER BY ts DESC'),
-            'gate_watchlist' => $q('SELECT * FROM gate_watchlist ORDER BY ts DESC'),
+            'wa_channels' => $scope ? [] : $q('SELECT * FROM wa_channels ORDER BY ts DESC'),
+            'kr_wa_msgs' => $scope ? [] : $q('SELECT * FROM kr_wa_msgs ORDER BY id DESC LIMIT 100'),
+            'board_reports' => $scope
+                ? $q("SELECT id, month, kind, created_by, ts FROM board_reports WHERE created_by=? ORDER BY ts DESC LIMIT 25", [$u['name']])
+                : $q('SELECT id, month, kind, created_by, ts FROM board_reports ORDER BY ts DESC LIMIT 25'),
+            'nid_verifications' => $scope
+                ? $q('SELECT * FROM nid_verifications WHERE tenant IN (SELECT id FROM tenants WHERE sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM nid_verifications ORDER BY ts DESC'),
+            'legal_notices' => $scope
+                ? $q('SELECT * FROM legal_notices WHERE lease IN (SELECT l.id FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM legal_notices ORDER BY ts DESC'),
+            'case_events' => $scope ? [] : $q('SELECT * FROM case_events ORDER BY ts DESC'),
+            'thana_forms' => $scope
+                ? $q('SELECT * FROM thana_forms WHERE tenant IN (SELECT id FROM tenants WHERE sub_email=?) OR unit IN (SELECT id FROM units WHERE sub_email=?) OR prop IN (SELECT id FROM properties WHERE sub_email=?) ORDER BY ts DESC', [$scope, $scope, $scope])
+                : $q('SELECT * FROM thana_forms ORDER BY ts DESC'),
+            'land_parcels' => $scope
+                ? $q('SELECT * FROM land_parcels WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM land_parcels ORDER BY ts DESC'),
+            'land_visits' => $scope
+                ? $q('SELECT * FROM land_visits WHERE parcel IN (SELECT id FROM land_parcels WHERE owner_email=?) ORDER BY scheduled_for DESC', [$scope])
+                : $q('SELECT * FROM land_visits ORDER BY scheduled_for DESC'),
+            'land_media' => $scope
+                ? $q('SELECT * FROM land_media WHERE visit IN (SELECT id FROM land_visits WHERE parcel IN (SELECT id FROM land_parcels WHERE owner_email=?)) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM land_media ORDER BY ts DESC'),
+            'land_events' => $scope
+                ? $q('SELECT * FROM land_events WHERE parcel IN (SELECT id FROM land_parcels WHERE owner_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM land_events ORDER BY ts DESC'),
+            'nrb_tax_returns' => $scope
+                ? $q('SELECT * FROM nrb_tax_returns WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM nrb_tax_returns ORDER BY ts DESC'),
+            'nrb_repatriations' => $scope
+                ? $q('SELECT * FROM nrb_repatriations WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM nrb_repatriations ORDER BY ts DESC'),
+            'nrb_vacancies' => $scope
+                ? $q('SELECT * FROM nrb_vacancies WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM nrb_vacancies ORDER BY ts DESC'),
+            'nrb_showings' => $scope
+                ? $q('SELECT * FROM nrb_showings WHERE vacancy IN (SELECT id FROM nrb_vacancies WHERE owner_email=?) ORDER BY scheduled_at DESC', [$scope])
+                : $q('SELECT * FROM nrb_showings ORDER BY scheduled_at DESC'),
+            'nrb_disputes' => $scope
+                ? $q('SELECT * FROM nrb_disputes WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM nrb_disputes ORDER BY ts DESC'),
+            'concierge_requests' => $scope
+                ? $q('SELECT * FROM concierge_requests WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM concierge_requests ORDER BY ts DESC'),
+            'concierge_docs' => $scope
+                ? $q('SELECT * FROM concierge_docs WHERE request IN (SELECT id FROM concierge_requests WHERE owner_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM concierge_docs ORDER BY ts DESC'),
+            'holding_taxes' => $scope
+                ? $q('SELECT * FROM holding_taxes WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM holding_taxes ORDER BY ts DESC'),
+            'smart_locks' => $scope
+                ? $q('SELECT * FROM smart_locks WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM smart_locks ORDER BY ts DESC'),
+            'cctv_cameras' => $scope
+                ? $q('SELECT * FROM cctv_cameras WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM cctv_cameras ORDER BY ts DESC'),
+            'health_plans' => $scope
+                ? $q('SELECT * FROM health_plans WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM health_plans ORDER BY ts DESC'),
+            'build_projects' => $scope
+                ? $q('SELECT * FROM build_projects WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM build_projects ORDER BY ts DESC'),
+            'build_milestones' => $scope
+                ? $q('SELECT * FROM build_milestones WHERE project IN (SELECT id FROM build_projects WHERE owner_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM build_milestones ORDER BY ts DESC'),
+            'build_expenses' => $scope
+                ? $q('SELECT * FROM build_expenses WHERE project IN (SELECT id FROM build_projects WHERE owner_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM build_expenses ORDER BY ts DESC'),
+            'build_media' => $scope
+                ? $q('SELECT * FROM build_media WHERE project IN (SELECT id FROM build_projects WHERE owner_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM build_media ORDER BY ts DESC'),
+            'gate_visits' => $scope
+                ? $q('SELECT * FROM gate_visits WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM gate_visits ORDER BY ts DESC'),
+            'fire_assets' => $scope
+                ? $q('SELECT * FROM fire_assets WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM fire_assets ORDER BY ts DESC'),
+            'fire_incidents' => $scope
+                ? $q('SELECT * FROM fire_incidents WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM fire_incidents ORDER BY ts DESC'),
+            'evacuation_plans' => $scope
+                ? $q('SELECT * FROM evacuation_plans WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM evacuation_plans ORDER BY ts DESC'),
+            'emergency_contacts' => $scope
+                ? $q('SELECT * FROM emergency_contacts WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM emergency_contacts ORDER BY ts DESC'),
+            'sys_assets' => $scope
+                ? $q('SELECT * FROM sys_assets WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM sys_assets ORDER BY ts DESC'),
+            'building_staff' => $scope
+                ? $q('SELECT * FROM building_staff WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM building_staff ORDER BY ts DESC'),
+            'staff_attendance' => $scope
+                ? $q('SELECT * FROM staff_attendance WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM staff_attendance ORDER BY ts DESC'),
+            'samity_members' => $scope
+                ? $q('SELECT * FROM samity_members WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM samity_members ORDER BY ts DESC'),
+            'samity_bills' => $scope
+                ? $q('SELECT * FROM samity_bills WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM samity_bills ORDER BY ts DESC'),
+            'samity_collections' => $scope
+                ? $q('SELECT * FROM samity_collections WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM samity_collections ORDER BY ts DESC'),
+            'samity_expenses' => $scope
+                ? $q('SELECT * FROM samity_expenses WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM samity_expenses ORDER BY ts DESC'),
+            'staff_payroll' => $scope
+                ? $q('SELECT * FROM staff_payroll WHERE owner_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM staff_payroll ORDER BY ts DESC'),
+            'sys_services' => $scope
+                ? $q('SELECT * FROM sys_services WHERE asset IN (SELECT id FROM sys_assets WHERE owner_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM sys_services ORDER BY ts DESC'),
+            'sys_fuel' => $scope
+                ? $q('SELECT * FROM sys_fuel WHERE asset IN (SELECT id FROM sys_assets WHERE owner_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM sys_fuel ORDER BY ts DESC'),
+            'resident_vehicles' => $scope
+                ? $q('SELECT * FROM resident_vehicles WHERE unit IN (SELECT id FROM units WHERE sub_email=?) OR prop IN (SELECT id FROM properties WHERE sub_email=?) ORDER BY ts DESC', [$scope, $scope])
+                : $q('SELECT * FROM resident_vehicles ORDER BY ts DESC'),
+            'gate_watchlist' => $scope ? [] : $q('SELECT * FROM gate_watchlist ORDER BY ts DESC'),
+
 
 
         ];
@@ -18516,25 +18633,27 @@ case 'app-analytics': {
         $u = ['name' => 'system', 'role' => 'svc', 'email' => '', 'id' => 0];
     }
     $pdo = db();
+    /* V2.36: subscriber owners see ONLY their own portfolio in analytics. */
+    $scope = (($u['kind'] ?? '') === 'sub' && ($u['role'] ?? '') === 'owner') ? strtolower(trim((string)$u['email'])) : '';
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
     if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'pnl' : 'pnl';
     $month = trim($body['month'] ?? $_GET['month'] ?? '');
     if (!$month) $month = date('Y-m');
-    if ($action === 'pnl') json_out(['ok' => true] + analytics_pnl($pdo, $month));
-    if ($action === 'trends') json_out(['ok' => true] + analytics_trends($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
-    if ($action === 'aging') json_out(['ok' => true] + ['buckets' => analytics_aging($pdo)]);
-    if ($action === 'vacancy') json_out(['ok' => true] + analytics_vacancy($pdo));
-    if ($action === 'forecast') json_out(['ok' => true] + analytics_forecast($pdo));
-    if ($action === 'cashflow') json_out(['ok' => true] + analytics_cashflow($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
-    if ($action === 'collections') json_out(['ok' => true] + analytics_collections($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
-    if ($action === 'expenses') json_out(['ok' => true] + analytics_expenses($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12)));
-    if ($action === 'scores') json_out(['ok' => true] + analytics_scores($pdo));
-    if ($action === 'occupancy') json_out(['ok' => true] + analytics_occupancy($pdo));
-    if ($action === 'maintenance') json_out(['ok' => true] + analytics_maintenance($pdo));
+    if ($action === 'pnl') json_out(['ok' => true] + analytics_pnl($pdo, $month, $scope));
+    if ($action === 'trends') json_out(['ok' => true] + analytics_trends($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12), $scope));
+    if ($action === 'aging') json_out(['ok' => true] + ['buckets' => analytics_aging($pdo, $scope)]);
+    if ($action === 'vacancy') json_out(['ok' => true] + analytics_vacancy($pdo, $scope));
+    if ($action === 'forecast') json_out(['ok' => true] + analytics_forecast($pdo, $scope));
+    if ($action === 'cashflow') json_out(['ok' => true] + analytics_cashflow($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12), $scope));
+    if ($action === 'collections') json_out(['ok' => true] + analytics_collections($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12), $scope));
+    if ($action === 'expenses') json_out(['ok' => true] + analytics_expenses($pdo, (int)($body['months'] ?? $_GET['months'] ?? 12), $scope));
+    if ($action === 'scores') json_out(['ok' => true] + analytics_scores($pdo, $scope));
+    if ($action === 'occupancy') json_out(['ok' => true] + analytics_occupancy($pdo, $scope));
+    if ($action === 'maintenance') json_out(['ok' => true] + analytics_maintenance($pdo, $scope));
     if ($action === 'board') {
         /* V2.23: board report generation persists a row — service key stays read-only */
         if ($svc) json_out(['ok' => false, 'error' => 'Service key cannot generate board reports.'], 403);
-        $md = board_report_md($pdo, $month);
+        $md = board_report_md($pdo, $month, $scope);
         $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'BR-','') AS INTEGER)) FROM board_reports")->fetchColumn();
         $bid = 'BR-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
         $pdo->prepare('INSERT INTO board_reports (id, month, kind, payload, created_by) VALUES (?,?,?,?,?)')
@@ -18543,7 +18662,11 @@ case 'app-analytics': {
         json_out(['ok' => true, 'id' => $bid, 'month' => $month, 'markdown' => $md]);
     }
     if ($action === 'boards') {
-        $rows = $pdo->query('SELECT id, month, kind, created_by, ts FROM board_reports ORDER BY ts DESC LIMIT 25')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $scope
+            ? $pdo->prepare('SELECT id, month, kind, created_by, ts FROM board_reports WHERE created_by=? ORDER BY ts DESC LIMIT 25')
+            : $pdo->query('SELECT id, month, kind, created_by, ts FROM board_reports ORDER BY ts DESC LIMIT 25');
+        if ($scope) { $rows->execute([$u['name']]); $rows = $rows->fetchAll(PDO::FETCH_ASSOC); }
+        else $rows = $rows->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'reports' => $rows]);
     }
     json_out(['ok' => false, 'error' => 'action must be pnl|trends|aging|vacancy|forecast|cashflow|collections|expenses|scores|occupancy|maintenance|board|boards.'], 400);
