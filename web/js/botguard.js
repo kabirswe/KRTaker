@@ -39,7 +39,7 @@
     function tryNonce() {
       return sha256Hex(chal + ':' + nonce.toString(16)).then(function (hex) {
         if (leadingZeroBits(hex) >= DIFFICULTY || nonce >= 400000) {
-          var fields = { hp: '', ft: ft, pow: nonce.toString(16) };
+          var fields = { hp: '', ft: _FT, pow: nonce.toString(16) };
           try {
             var tok = document.querySelector('[name="cf-turnstile-response"]');
             if (tok && tok.value) fields['cf-turnstile-response'] = tok.value;
