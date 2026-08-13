@@ -165,7 +165,7 @@ onMounted(loadOverview)
         <div class="sub">Everything money — invoices, payments, collections, remittances, statements &amp; accounts · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="refreshAll">🔄 Refresh</button>
+        <button class="btn-ghost" @click="refreshAll" title="Refresh all finance data from the server">🔄 Refresh</button>
       </div>
     </div>
 
@@ -195,13 +195,13 @@ onMounted(loadOverview)
 
         <!-- Quick actions -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-          <button @click="goTab('invoices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">⚡ Auto-generate invoices</button>
-          <button @click="goTab('invoices')" class="btn-ghost">💳 Record payment</button>
-          <button @click="goTab('collections')" class="btn-ghost">📮 Collections &amp; recon</button>
-          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost">📥 Post receive</button>
-          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost">📤 Post expense</button>
-          <button @click="goTab('accounts')" class="btn-ghost">💱 Accounts ledger</button>
-          <button @click="goTab('subscriptions')" class="btn-ghost">💎 Subscriptions</button>
+          <button @click="goTab('invoices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="Open Invoices tab and auto-generate this month's invoices">⚡ Auto-generate invoices</button>
+          <button @click="goTab('invoices')" class="btn-ghost" title="Open Invoices tab to record a tenant payment">💳 Record payment</button>
+          <button @click="goTab('collections')" class="btn-ghost" title="Open Collections tab — bank collections and reconciliation">📮 Collections &amp; recon</button>
+          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" title="Post a money-in entry to the accounts ledger">📥 Post receive</button>
+          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" title="Post a money-out entry to the accounts ledger">📤 Post expense</button>
+          <button @click="goTab('accounts')" class="btn-ghost" title="Open the full accounts ledger (receive / expense / deposit / withdraw)">💱 Accounts ledger</button>
+          <button @click="goTab('subscriptions')" class="btn-ghost" title="Open Subscriptions tab — plan, billing and premium features">💎 Subscriptions</button>
         </div>
 
         <!-- charts row -->

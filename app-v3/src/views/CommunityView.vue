@@ -68,7 +68,7 @@ const goTab = (t) => { tab.value = t }
         <div class="sub">Resident community — notices, referrals, NID &amp; trust verification and support · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="goTab('notices')">➕ New notice</button>
+        <button class="btn-ghost" @click="goTab('notices')" title="Post a new notice — opens the Notices tab">➕ New notice</button>
       </div>
     </div>
 
@@ -92,10 +92,10 @@ const goTab = (t) => { tab.value = t }
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('notices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">📢 Notice Board</button>
-        <button @click="goTab('referrals')" class="btn-ghost">🤝 Referrals</button>
-        <button @click="goTab('trust')" class="btn-ghost">🪪 NID &amp; Trust</button>
-        <button @click="goTab('support')" class="btn-ghost">🎧 Support</button>
+        <button @click="goTab('notices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="View and post notices">📢 Notice Board</button>
+        <button @click="goTab('referrals')" class="btn-ghost" title="Referral program and rewards">🤝 Referrals</button>
+        <button @click="goTab('trust')" class="btn-ghost" title="NID verification and trust services">🪪 NID &amp; Trust</button>
+        <button @click="goTab('support')" class="btn-ghost" title="Support tickets">🎧 Support</button>
       </div>
 
       <!-- lists -->

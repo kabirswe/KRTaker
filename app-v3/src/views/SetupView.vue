@@ -254,8 +254,8 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
               ? 'আপনার প্রপার্টি ও ফ্যাসিলিটি ম্যানেজমেন্ট কমান্ড সেন্টার প্রস্তুত। আপনার ওয়ার্কস্পেস সেটআপ করি — <b>প্রায় ২ মিনিট, ৫টি দ্রুত ধাপ।</b> যেকোনো ধাপ স্কিপ করে পরে শেষ করতে পারবেন।'
               : &quot;Your property &amp; facility management command center is ready. Let's set up your workspace — <b>about 2 minutes, 5 quick steps.</b> You can skip any step and finish later.&quot;"></p>
           <div class="ob-actions">
-            <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next">{{ lang === 'bn' ? 'শুরু করুন →' : 'Get started →' }}</button>
-            <button class="btn-ghost" style="padding:12px 22px;font-size:13.5px" @click="skip">{{ lang === 'bn' ? 'এখনই নয়' : 'Skip for now' }}</button>
+            <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next" title="Begin the guided workspace setup — about 2 minutes, 5 quick steps">{{ lang === 'bn' ? 'শুরু করুন →' : 'Get started →' }}</button>
+            <button class="btn-ghost" style="padding:12px 22px;font-size:13.5px" @click="skip" title="Skip the wizard — finish setting up later from Settings"> {{ lang === 'bn' ? 'এখনই নয়' : 'Skip for now' }}</button>
           </div>
           <div class="ob-hint">{{ lang === 'bn' ? 'সবকিছু পরে ⚙️ সেটিংস থেকে পরিবর্তন করতে পারবেন।' : 'You can change everything later in ⚙️ Settings.' }}</div>
         </div>
@@ -265,9 +265,9 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           <h2 class="ob-h">{{ lang === 'bn' ? '🧑‍💼 আপনার প্রোফাইল' : '🧑‍💼 Your profile' }}</h2>
           <p class="ob-sub l">{{ lang === 'bn' ? 'আপনার নাম মালিক স্টেটমেন্ট, ডকুমেন্ট ও সাপোর্ট টিকেটে দেখা যাবে।' : 'Your name appears on owner statements, documents and support tickets.' }}</p>
           <label class="ob-lab2">{{ lang === 'bn' ? 'পুরো নাম' : 'Full name' }}</label>
-          <input v-model="name" :placeholder="t('e.g. Alamgir Kabir Roni')" class="ob-inp" @keyup.enter="next" />
+          <input v-model="name" :placeholder="t('e.g. Alamgir Kabir Roni')" class="ob-inp" @keyup.enter="next" title="Your full name — shown on owner statements, documents and support tickets" />
           <label class="ob-lab2" style="margin-top:14px">{{ lang === 'bn' ? 'প্রতিষ্ঠান / কোম্পানি' : 'Organisation / company' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
-          <input v-model="org" :placeholder="t('e.g. Kabir Holdings')" class="ob-inp" @keyup.enter="next" />
+          <input v-model="org" :placeholder="t('e.g. Kabir Holdings')" class="ob-inp" @keyup.enter="next" title="Your company or organisation name (optional)" />
           <div class="ob-foot">
             <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
             <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'সেভ হচ্ছে…' : 'Saving…') : (lang === 'bn' ? 'চালিয়ে যান →' : 'Continue →') }}</button>
@@ -279,38 +279,38 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           <h2 class="ob-h">{{ lang === 'bn' ? '🏢 আপনার প্রথম প্রপার্টি যোগ করুন' : '🏢 Add your first property' }}</h2>
           <p class="ob-sub l">{{ lang === 'bn' ? 'এটি সেই বিল্ডিং বা জমি যা আপনি ম্যানেজ করেন। ইউনিট, ভাড়াটিয়া ও লিজ এর সাথে যুক্ত থাকে — যেকোনো সময় আরও প্রপার্টি যোগ করতে পারবেন।' : 'This is the building or land you manage. Units, tenants and leases hang off it — you can add more properties any time.' }}</p>
           <label class="ob-lab2">{{ lang === 'bn' ? 'প্রপার্টির নাম *' : 'Property name *' }}</label>
-          <input v-model="prop.name" :placeholder="t('e.g. Green View Residency')" class="ob-inp" @keyup.enter="next" />
+          <input v-model="prop.name" :placeholder="t('e.g. Green View Residency')" class="ob-inp" @keyup.enter="next" title="Required: name of the building or land you manage" />
           <div class="ob-grid2">
             <div>
               <label class="ob-lab2">{{ t('Type') }}</label>
-              <select v-model="prop.type" class="ob-inp">
+              <select v-model="prop.type" class="ob-inp" title="Property type: apartment, commercial, land, etc.">
                 <option v-for="t in PROP_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
             </div>
             <div>
               <label class="ob-lab2">{{ lang === 'bn' ? 'এলাকা (জুরিসডিকশন)' : 'Jurisdiction' }}</label>
-              <select v-model="prop.jur" class="ob-inp">
+              <select v-model="prop.jur" class="ob-inp" title="Legal jurisdiction / area for this property">
                 <option v-for="j in JURS" :key="j" :value="j">{{ j }}</option>
               </select>
             </div>
           </div>
           <label class="ob-lab2" style="margin-top:14px">{{ lang === 'bn' ? 'ঠিকানা' : 'Address' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
-          <input v-model="prop.address" :placeholder="t('e.g. House 12, Road 5, Dhanmondi, Dhaka')" class="ob-inp" @keyup.enter="next" />
+          <input v-model="prop.address" :placeholder="t('e.g. House 12, Road 5, Dhanmondi, Dhaka')" class="ob-inp" @keyup.enter="next" title="Street address of the property (optional)" />
           <div class="ob-unit">
             <div class="ob-unit-h">{{ lang === 'bn' ? '🏠 আপনার প্রথম ইউনিট (ঐচ্ছিক)' : '🏠 Your first unit (optional)' }}</div>
             <p class="ob-unit-d">{{ lang === 'bn' ? 'একটি ফ্ল্যাট/অ্যাপার্টমেন্ট যোগ করলে পরে ভাড়া ও ভাড়াটিয়া সংযুক্ত করা সহজ হবে। এখনই না দিলে পরে 📦 ইউনিট মেনু থেকে যোগ করতে পারবেন।' : 'Adding a flat/apartment now makes it easy to attach rent and a tenant later. You can skip this and add units from the Units menu any time.' }}</p>
             <div class="ob-grid2">
               <div>
                 <label class="ob-lab2">{{ lang === 'bn' ? 'ইউনিটের নাম' : 'Unit name' }} <span class="ob-opt">({{ lang === 'bn' ? 'যেমন: ফ্ল্যাট A' : 'e.g. Flat A' }})</span></label>
-                <input v-model="unit.name" :placeholder="t('e.g. Flat A')" class="ob-inp" />
+                <input v-model="unit.name" :placeholder="t('e.g. Flat A')" class="ob-inp" title="Unit name, e.g. Flat A / Shop 2" />
               </div>
               <div>
                 <label class="ob-lab2">{{ t('Floor') }}</label>
-                <input v-model="unit.floor" :placeholder="t('e.g. 3rd')" class="ob-inp" />
+                <input v-model="unit.floor" :placeholder="t('e.g. 3rd')" class="ob-inp" title="Floor of the unit" />
               </div>
             </div>
             <label class="ob-lab2" style="margin-top:12px">{{ lang === 'bn' ? 'মাসিক ভাড়া (৳)' : 'Monthly rent (৳)' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
-            <input v-model="unit.rent" type="number" min="0" :placeholder="t('e.g. 25000')" class="ob-inp" />
+            <input v-model="unit.rent" type="number" min="0" :placeholder="t('e.g. 25000')" class="ob-inp" title="Expected monthly rent for this unit (optional)" />
           </div>
           <div class="ob-foot">
             <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>

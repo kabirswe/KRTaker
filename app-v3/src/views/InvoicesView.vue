@@ -261,7 +261,7 @@ async function runAuto() {
             <span class="badge b-gray">📄 {{ i.l }}</span>
           </div>
           <div v-if="canManage && invDue(i) > 0" style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:9px">
-            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openPay(i)">💳 {{ lang === 'bn' ? 'পেমেন্ট রেকর্ড করুন' : 'Record payment' }}</button>
+            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openPay(i)" title="Record a payment against this invoice">💳 {{ lang === 'bn' ? 'পেমেন্ট রেকর্ড করুন' : 'Record payment' }}</button>
           </div>
         </div>
       </div>
@@ -283,7 +283,7 @@ async function runAuto() {
               <td :style="invDue(i) > 0 ? 'color:var(--danger);font-weight:800;white-space:nowrap' : 'white-space:nowrap'">{{ money(invDue(i)) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="badge(invStatusRow(i))">{{ invStatusRow(i) }}</span></td>
               <td v-if="canManage && filtered.some(i => invDue(i) > 0)" style="white-space:nowrap">
-                <button v-if="invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openPay(i)">💳 Pay</button>
+                <button v-if="invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openPay(i)" title="Record payment for this invoice">💳 Pay</button>
               </td>
             </tr>
           </tbody>
@@ -410,8 +410,8 @@ async function runAuto() {
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="payModal = null">Cancel</button>
-          <button class="btn-primary" :disabled="paySaving" @click="submitPay" style="padding:9px 18px">{{ paySaving ? 'Recording…' : '💳 Record payment' }}</button>
+          <button class="btn-ghost" @click="payModal = null" title="Cancel and close">Cancel</button>
+          <button class="btn-primary" :disabled="paySaving" @click="submitPay" style="padding:9px 18px" :title="paySaving ? 'Saving…' : 'Save this payment and update the invoice'">{{ paySaving ? 'Recording…' : '💳 Record payment' }}</button>
         </div>
       </div>
     </template>

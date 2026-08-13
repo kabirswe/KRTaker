@@ -793,7 +793,7 @@ async function delTenant(t) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New tenant</button>
+        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Register a new tenant">＋ New tenant</button>
       </div>
     </div>
 
@@ -998,7 +998,7 @@ async function delTenant(t) {
             <div v-if="String(sel.kind).toLowerCase() === 'individual'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:12px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
                 <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">👨‍👩‍👧 Family information</div>
-                <button v-if="canManage" class="btn-primary" style="padding:6px 14px;font-size:12px" @click="openFamAdd">＋ Add member</button>
+                <button v-if="canManage" class="btn-primary" style="padding:6px 14px;font-size:12px" @click="openFamAdd" title="Add a family member to this tenant">＋ Add member</button>
               </div>
               <div v-if="!family.length" class="c-sub" style="font-size:12px;padding:6px 0 10px">No family members recorded yet.</div>
               <div style="display:flex;flex-direction:column;gap:8px">
@@ -1070,7 +1070,7 @@ async function delTenant(t) {
             <div v-if="canManage" style="margin-top:22px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
                 <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">📄 Lease extension / renewal</div>
-                <button class="btn-primary" style="padding:6px 12px;font-size:12px" @click="openOffer">＋ Extension offer</button>
+                <button class="btn-primary" style="padding:6px 12px;font-size:12px" @click="openOffer" title="Offer a lease extension to this tenant">＋ Extension offer</button>
               </div>
               <div v-if="!selRenewals.length" class="c-sub" style="font-size:12px;padding:4px 0 8px">No renewal requests. Tenants can request extension from their portal, or you can send an offer above.</div>
               <div v-for="r in selRenewals" :key="r.id" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-bottom:8px;flex-wrap:wrap">
@@ -1130,7 +1130,7 @@ async function delTenant(t) {
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
                 <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">⚡ Postpaid meter billing</div>
                 <div style="display:flex;gap:8px">
-                  <button class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="openMeter">＋ Meter reading</button>
+                  <button class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="openMeter" title="Log a new utility meter reading">＋ Meter reading</button>
                   <button class="btn-primary" style="padding:6px 12px;font-size:12px" @click="openBill">🧾 Generate bill</button>
                 </div>
               </div>

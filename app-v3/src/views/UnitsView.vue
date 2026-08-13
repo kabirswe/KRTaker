@@ -205,7 +205,7 @@ async function setStatus(u, st) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New unit</button>
+        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Add a new unit (flat/shop) to a property">＋ New unit</button>
       </div>
     </div>
 

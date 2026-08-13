@@ -965,6 +965,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT DEFAULT '',
             author TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')), pinned INTEGER DEFAULT 0)");
         $ncols = array_column($pdo->query('PRAGMA table_info(notices)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('sub_email', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN sub_email TEXT DEFAULT ''");
         if (!in_array('emailed', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN emailed INTEGER DEFAULT 0");
         if (!in_array('email_count', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_count INTEGER DEFAULT 0");
         if (!in_array('email_ts', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_ts TEXT DEFAULT ''");
@@ -2402,8 +2403,8 @@ function notice_seed() {
             ['NTC-002', 'Annual fire-safety inspection', 'Dhaka Fire Service inspection is scheduled for 18–20 July. Access to common areas required 9am–5pm.', 'Arif Chowdhury', 1],
             ['NTC-003', 'Generator maintenance — 26 July', 'Standby generator service from 10am–2pm on 26 July. Expect brief water-pump interruptions.', 'Shakil Ahmed', 0],
         ];
-        $st = $pdo->prepare('INSERT OR IGNORE INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,?)');
-        foreach ($seed as $r) $st->execute($r);
+        $st = $pdo->prepare('INSERT OR IGNORE INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,?,?)');
+        foreach ($seed as $r) $st->execute([$r[0], $r[1], $r[2], $r[3], $r[4], 'owner@krtaker.com']);
     }
 }
 function can_post_notice($u) {
@@ -4460,8 +4461,9 @@ function ai_execute_tool($u, $name, $args) {
             if (!$title) return ['ok' => false, 'text' => 'title is required.'];
             $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
             $id = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
-            $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-                ->execute([$id, $title, $body, $u['name']]);
+            $aiOrg = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : '';
+            $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,0,?)')
+                ->execute([$id, $title, $body, $u['name'], $aiOrg]);
             audit($u['name'], 'KR posted notice', 'notices', $id, $title);
             return ['ok' => true, 'text' => 'Notice **' . $id . '** posted: ' . $title . ($body ? ' — ' . $body : '') . '. It is live on the notice board now.', 'data' => ['id' => $id]];
         }
@@ -7466,8 +7468,10 @@ function renewal_apply($pdo, $rr) {
     if ($tn) {
         $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
         $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
-        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-            ->execute([$ntc, 'Lease renewal approved', 'Your renewal for ' . $rr['lease'] . ' was approved. New end date: ' . $newEnd . '. Monthly rent: ৳' . number_format($newRent) . '.', 'system']);
+        $stU = $pdo->prepare('SELECT sub_email FROM units WHERE id=?'); $stU->execute([$l['u']]);
+        $ntcOrg = (string)$stU->fetchColumn();
+        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,?,?)')
+            ->execute([$ntc, 'Lease renewal approved', 'Your renewal for ' . $rr['lease'] . ' was approved. New end date: ' . $newEnd . '. Monthly rent: ৳' . number_format($newRent) . '.', 'system', 0, $ntcOrg]);
         if (!empty($tn['sub_email']) && mail_switch($pdo, 'renewal') && notify_ok($pdo, $tn['sub_email'], 'notify_renewal')) {
             $st = $pdo->prepare('SELECT name FROM units WHERE id=?'); $st->execute([$l['u']]);
             $uname = (string)$st->fetchColumn();
@@ -12029,7 +12033,9 @@ case 'app-bootstrap': {
             'documents'  => $scope
                 ? $q('SELECT * FROM documents WHERE ref IN (SELECT l.id FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=?) ORDER BY ts DESC', [$scope])
                 : $q('SELECT * FROM documents ORDER BY ts DESC'),
-            'notices'    => $q('SELECT * FROM notices ORDER BY pinned DESC, ts DESC'),
+            'notices'    => $scope
+                ? $q("SELECT * FROM notices WHERE sub_email=? OR sub_email='' ORDER BY pinned DESC, ts DESC", [$scope])
+                : $q('SELECT * FROM notices ORDER BY pinned DESC, ts DESC'),
             'referrals'  => $scope
                 ? $q('SELECT * FROM referrals WHERE user_email=? ORDER BY ts DESC', [$scope])
                 : $q('SELECT * FROM referrals ORDER BY ts DESC'),
@@ -12215,6 +12221,10 @@ case 'app-bootstrap': {
         $units = $unitIds ? $q('SELECT * FROM units WHERE id IN (' . implode(',', array_fill(0, count($unitIds), '?')) . ')', $unitIds) : [];
         $propIds = array_column($units, 'p');
         $props = $propIds ? $q('SELECT * FROM properties WHERE id IN (' . implode(',', array_fill(0, count($propIds), '?')) . ')', $propIds) : [];
+        $tenantOrgs = $unitIds ? array_values(array_unique(array_filter(array_column($units, 'sub_email'), fn($v) => $v !== null && $v !== ''))) : [];
+        $orgFilter = $tenantOrgs
+            ? 'WHERE sub_email IN (' . implode(',', array_fill(0, count($tenantOrgs), '?')) . ") OR sub_email=''"
+            : "WHERE sub_email=''";
         $leaseIds = array_column($leases, 'id');
         $invIds = $leaseIds ? $q('SELECT id FROM invoices WHERE l IN (' . implode(',', array_fill(0, count($leaseIds), '?')) . ')', $leaseIds) : [];
         $invIds = array_column($invIds, 'id');
@@ -12234,7 +12244,9 @@ case 'app-bootstrap': {
             'payments' => $payments, 'tickets' => $tickets,
             'partners' => [], 'staff' => [], 'support' => [], 'cases' => [],
             'gateway_tx' => $gws, 'ticket_thread' => $thread, 'documents' => $docs,
-            'notices' => $q('SELECT * FROM notices ORDER BY pinned DESC, ts DESC'),
+            'notices' => $tenantOrgs
+                ? $q('SELECT * FROM notices ' . $orgFilter . ' ORDER BY pinned DESC, ts DESC', $tenantOrgs)
+                : $q("SELECT * FROM notices WHERE sub_email='' ORDER BY pinned DESC, ts DESC"),
             'referrals' => [],
             'property_rent' => $propIds ? $q('SELECT * FROM property_rent WHERE prop IN (' . implode(',', array_fill(0, count($propIds), '?')) . ')', $propIds) : [],
             'amenities' => $propIds ? $q('SELECT * FROM amenities WHERE prop IN (' . implode(',', array_fill(0, count($propIds), '?')) . ') ORDER BY unit', $propIds) : [],
@@ -12278,7 +12290,9 @@ case 'app-bootstrap': {
             'payments' => [], 'tickets' => $tickets, 'partners' => $me,
             'staff' => [], 'support' => [], 'cases' => [], 'gateway_tx' => [],
             'ticket_thread' => $thread, 'documents' => $docs,
-            'notices' => $q('SELECT * FROM notices ORDER BY pinned DESC, ts DESC'),
+            'notices' => $me && trim((string)$me[0]['sub_email']) !== ''
+                ? $q("SELECT * FROM notices WHERE sub_email=? OR sub_email='' ORDER BY pinned DESC, ts DESC", [strtolower(trim((string)$me[0]['sub_email']))])
+                : $q("SELECT * FROM notices WHERE sub_email='' ORDER BY pinned DESC, ts DESC"),
             'referrals' => $q('SELECT * FROM referrals WHERE user_email=? ORDER BY ts DESC', [$u['email']]),
             'property_rent' => [], 'amenities' => [], 'caretaker_invoices' => [], 'insurance_policies' => [],
             'maintenance_requests' => $org ? $q('SELECT * FROM maintenance_requests WHERE vendor=? ORDER BY ts DESC', [$org]) : [],
@@ -12945,7 +12959,14 @@ case 'app-notice-list': {
     $u = require_user();
     require_module($u, 'notices');
     $pdo = db();
-    $rows = $pdo->query('SELECT * FROM notices ORDER BY pinned DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+    $scope = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : '';
+    if ($scope) {
+        $st = $pdo->prepare("SELECT * FROM notices WHERE sub_email=? OR sub_email='' ORDER BY pinned DESC, ts DESC");
+        $st->execute([$scope]);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $rows = $pdo->query('SELECT * FROM notices ORDER BY pinned DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+    }
     json_out(['ok' => true, 'notices' => $rows]);
 }
 
@@ -13216,8 +13237,9 @@ case 'app-notice-create': {
     $pdo = db();
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
     $id = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
-    $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-        ->execute([$id, $title, $body2, $u['name']]);
+    $ntcOrg = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : ($u['sub_email'] ?? '');
+    $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,0,?)')
+        ->execute([$id, $title, $body2, $u['name'], $ntcOrg]);
     audit($u['name'], 'Notice posted', 'notices', $id, $title);
     /* V2.22: optional email broadcast to tenants (respects docs master switch,
        per-tenant notify_docs opt-out, and a 10/10-min/IP rate limit that
@@ -13260,12 +13282,18 @@ case 'app-notice-recipients': {
     require_module($u, 'notices');
     if (!can_post_notice($u)) json_out(['ok' => false, 'error' => 'Your role cannot post notices.'], 403);
     $pdo = db();
-    $tst = $pdo->query("SELECT COUNT(DISTINCT t.email) FROM tenants t
+    $scope = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : '';
+    $tenantFilter = $scope
+        ? "AND t.sub_email IN (SELECT DISTINCT sub_email FROM units WHERE sub_email=? OR sub_email='')"
+        : '';
+    $tst = $pdo->prepare("SELECT COUNT(DISTINCT t.email) FROM tenants t
                         JOIN leases l ON l.t = t.id
-                        WHERE l.status='Active' AND t.email <> ''");
+                        WHERE l.status='Active' AND t.email <> '' $tenantFilter");
+    $tst->execute($scope ? [$scope] : []);
     $withEmail = (int)$tst->fetchColumn();
-    $tst2 = $pdo->query("SELECT COUNT(DISTINCT t.id) FROM tenants t
-                         JOIN leases l ON l.t = t.id WHERE l.status='Active'");
+    $tst2 = $pdo->prepare("SELECT COUNT(DISTINCT t.id) FROM tenants t
+                         JOIN leases l ON l.t = t.id WHERE l.status='Active' $tenantFilter");
+    $tst2->execute($scope ? [$scope] : []);
     $total = (int)$tst2->fetchColumn();
     json_out(['ok' => true, 'total' => $total, 'with_email' => $withEmail]);
 }
@@ -13280,6 +13308,13 @@ case 'app-notice-delete': {
     if (!$n) json_out(['ok' => false, 'error' => 'Notice not found.'], 404);
     if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true) && $n['author'] !== $u['name'])
         json_out(['ok' => false, 'error' => 'Only the author or an admin can delete.'], 403);
+    /* V2.37: subscriber orgs can only delete their own org's notices */
+    if (($u['kind'] ?? '') === 'sub') {
+        $myOrg = strtolower(trim((string)$u['email']));
+        $nOrg = strtolower(trim((string)($n['sub_email'] ?? '')));
+        if ($nOrg !== $myOrg && $nOrg !== '')
+            json_out(['ok' => false, 'error' => 'You can only delete notices from your own workspace.'], 403);
+    }
     $pdo->prepare('DELETE FROM notices WHERE id=?')->execute([$id]);
     audit($u['name'], 'Notice deleted', 'notices', $id);
     json_out(['ok' => true]);
@@ -15285,8 +15320,10 @@ case 'app-renewal-decide': {
         $title = $status === 'Approved' ? 'Lease renewal approved' : 'Lease renewal not approved';
         $body2 = 'Your renewal request for ' . $rr['lease'] . ' was ' . strtolower($status) . '.'
             . ($status === 'Approved' ? ' New end date: ' . $newEnd . '. Monthly rent: ৳' . number_format($newRent) . '.' : '');
-        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-            ->execute([$ntc, $title, $body2, 'system']);
+        $stU = $pdo->prepare('SELECT sub_email FROM units WHERE id=?'); $stU->execute([$l['u']]);
+        $ntcOrg = (string)$stU->fetchColumn();
+        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,?,?)')
+            ->execute([$ntc, $title, $body2, 'system', 0, $ntcOrg]);
         if (!empty($tn['sub_email'])) {
             $st = $pdo->prepare('SELECT name FROM units WHERE id=?'); $st->execute([$l['u']]);
             $uname = (string)$st->fetchColumn();
@@ -15345,8 +15382,10 @@ case 'app-renewal-offer': {
     if ($tn) {
         $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
         $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
-        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-            ->execute([$ntc, 'New lease renewal offer', 'The owner offered to renew ' . $lease . ' for ' . $months . ' months at ৳' . number_format($newRent) . '/month. Accept or decline from your tenant portal.' . ($note ? ' Note: ' . $note : ''), 'system']);
+        $stU = $pdo->prepare('SELECT sub_email FROM units WHERE id=?'); $stU->execute([$l['u']]);
+        $ntcOrg = (string)$stU->fetchColumn();
+        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,?,?)')
+            ->execute([$ntc, 'New lease renewal offer', 'The owner offered to renew ' . $lease . ' for ' . $months . ' months at ৳' . number_format($newRent) . '/month. Accept or decline from your tenant portal.' . ($note ? ' Note: ' . $note : ''), 'system', 0, $ntcOrg]);
         if (!empty($tn['sub_email']) && mail_switch($pdo, 'renewal') && notify_ok($pdo, $tn['sub_email'], 'notify_renewal')) {
             $st = $pdo->prepare('SELECT name FROM units WHERE id=?'); $st->execute([$l['u']]);
             $uname = (string)$st->fetchColumn();
@@ -16014,8 +16053,8 @@ case 'app-moveout': {
         /* system notice */
         $st = $pdo->prepare("SELECT COALESCE(MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)),0)+1 FROM notices");
         $nid = 'NTC-' . str_pad((string)((int)$st->fetchColumn()), 3, '0', STR_PAD_LEFT);
-        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-            ->execute([$nid, 'Move-out completed — ' . $tenant['name'], $tenant['name'] . ' vacated ' . $unit['name'] . ' (' . $prop['name'] . ') on ' . $moveOutDate . '. Settlement ' . $settle['status'] . ' — balance ৳' . number_format($settle['totals']['balance']) . '.', 'System']);
+        $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,?,?)')
+            ->execute([$nid, 'Move-out completed — ' . $tenant['name'], $tenant['name'] . ' vacated ' . $unit['name'] . ' (' . $prop['name'] . ') on ' . $moveOutDate . '. Settlement ' . $settle['status'] . ' — balance ৳' . number_format($settle['totals']['balance']) . '.', 'System', 0, $unit['sub_email'] ?? '']);
         /* email (transactional; tenant email if sub_email absent) */
         $to = $tenant['sub_email'] ?: $tenant['email'];
         if ($to) {
@@ -18868,8 +18907,10 @@ case 'app-nrb': {
         $res = nrb_vacancy_approve($pdo, $u, $row);
         if (empty($res['ok'])) json_out(['ok' => false, 'error' => $res['error']], 400);
         audit($u['name'], 'Vacancy approved — lease signed', 'nrb', $id, $res['tenant'] . ' ' . $res['lease'] . ' ' . $res['invoice']);
-        $pdo->prepare('INSERT INTO notices (id, title, body, author) VALUES (?,?,?,?)')
-            ->execute(['N-' . strtoupper(bin2hex(random_bytes(3))), 'Lease signed — welcome!', 'Your lease ' . $res['lease'] . ' is active. First invoice ' . $res['invoice'] . ' generated.', 'NRB Hub']);
+        $stU = $pdo->prepare('SELECT sub_email FROM units WHERE id=?'); $stU->execute([$row['unit']]);
+        $ntcOrg = (string)$stU->fetchColumn();
+        $pdo->prepare('INSERT INTO notices (id, title, body, author, sub_email) VALUES (?,?,?,?,?)')
+            ->execute(['N-' . strtoupper(bin2hex(random_bytes(3))), 'Lease signed — welcome!', 'Your lease ' . $res['lease'] . ' is active. First invoice ' . $res['invoice'] . ' generated.', 'NRB Hub', $ntcOrg]);
         json_out(['ok' => true] + $res);
     }
     if ($action === 'vacancy-cancel') {
@@ -23166,12 +23207,24 @@ case 'app-tenant-remind': {
     /* board notice too */
     $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'NTC-','') AS INTEGER)) FROM notices")->fetchColumn();
     $ntc = 'NTC-' . str_pad((string)max(100, $mx + 1), 3, '0', STR_PAD_LEFT);
+    $remOrg = '';
+    foreach ($leases as $lx) {
+        if (strtolower($lx['status'] ?? '') === 'active') {
+            $stU = $pdo->prepare('SELECT sub_email FROM units WHERE id=?'); $stU->execute([$lx['u']]);
+            $remOrg = (string)$stU->fetchColumn();
+            if ($remOrg !== '') break;
+        }
+    }
+    if ($remOrg === '' && $leaseIds) {
+        $stU = $pdo->prepare('SELECT sub_email FROM units WHERE id=?'); $stU->execute([$leases[0]['u']]);
+        $remOrg = (string)$stU->fetchColumn();
+    }
     $bodyTxt = ($totalDue > 0 ? count($due) . ' invoice(s) due · ৳' . number_format($totalDue) : '')
         . ($totalDue > 0 && $totalUp > 0 ? ' + ' : '')
         . ($totalUp > 0 ? 'upcoming rent ৳' . number_format($totalUp) . ' (' . $next . ')' : '')
         . ' · ' . $tid;
-    $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned) VALUES (?,?,?,?,0)')
-        ->execute([$ntc, 'Payment reminder — ' . $tn['name'], $bodyTxt, $u['name']]);
+    $pdo->prepare('INSERT INTO notices (id, title, body, author, pinned, sub_email) VALUES (?,?,?,?,?,?)')
+        ->execute([$ntc, 'Payment reminder — ' . $tn['name'], $bodyTxt, $u['name'], 0, $remOrg]);
     audit($u['name'], 'Payment reminder sent', 'tenants', $tid, count($due) . ' due ৳' . $totalDue . ' / ' . count($upcoming) . ' upcoming ৳' . $totalUp . ' email=' . ($sent ? 'sent' : 'skipped'));
     json_out(['ok' => true, 'notice_id' => $ntc, 'invoices' => count($due), 'total_due' => $totalDue, 'upcoming' => count($upcoming), 'total_upcoming' => $totalUp, 'emailed' => $sent]);
 }

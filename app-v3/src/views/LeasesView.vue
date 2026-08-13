@@ -272,7 +272,7 @@ async function delDoc(d) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New lease</button>
+        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Create a new lease agreement">＋ New lease</button>
       </div>
     </div>
 
@@ -421,7 +421,7 @@ async function delDoc(d) {
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🔄 Renewals</div>
-                <button v-if="canManage" class="btn-primary" style="padding:5px 12px;font-size:11.5px" @click="openOffer">＋ Offer renewal</button>
+                <button v-if="canManage" class="btn-primary" style="padding:5px 12px;font-size:11.5px" @click="openOffer" title="Offer a renewal to the tenant">＋ Offer renewal</button>
               </div>
               <div v-if="!selRenewals.length" class="c-sub" style="font-size:12px">No renewal requests yet.</div>
               <div v-for="r in selRenewals" :key="r.id" style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px 11px;margin-bottom:7px">

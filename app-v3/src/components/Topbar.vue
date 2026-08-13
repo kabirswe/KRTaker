@@ -263,8 +263,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           </div>
         </div>
         <div class="tb-actions">
-          <button class="icon-btn" @click="toggleLang()">বাংলা</button>
-          <button class="icon-btn" @click="toggleTheme()">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
+          <button class="icon-btn" @click="toggleLang()" title="Switch language: English / বাংলা">বাংলা</button>
+          <button class="icon-btn" @click="toggleTheme()" title="Toggle light / dark theme">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
           <div style="position:relative;display:inline-block" class="tb-bell">
             <button class="icon-btn" @click.stop="toggleBell()" title="Notifications" style="position:relative">🔔<span v-if="unread" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ unread > 99 ? '99+' : unread }}</span></button>
             <!-- bell dropdown -->
@@ -296,8 +296,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
               </div>
             </div>
           </div>
-          <button class="icon-btn" @click="goSettings()" title="Settings">⚙️</button>
-          <div class="tb-user" id="tbUserChip" @click.stop="toggleMenu()">
+          <button class="icon-btn" @click="goSettings()" title="Settings: profile, preferences, security, billing">⚙️</button>
+          <div class="tb-user" id="tbUserChip" @click.stop="toggleMenu()" title="Account menu: switch role, profile, log out">
             <div class="role-ava" style="width:34px;height:34px;font-size:12px">{{ initials }}</div>
             <div>
               <div class="u-name">{{ (data.user || auth.user)?.name }}</div>

@@ -86,7 +86,7 @@ const goTab = (t) => { tab.value = t }
         <div class="sub">Building management — maintenance, gate, staff, attendance, payroll, meters &amp; utilities · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="goTab('maintenance')">➕ New request</button>
+        <button class="btn-ghost" @click="goTab('maintenance')" title="Create a new maintenance request — opens the Maintenance tab">➕ New request</button>
       </div>
     </div>
 
@@ -112,13 +112,13 @@ const goTab = (t) => { tab.value = t }
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('maintenance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">🔧 Maintenance</button>
-        <button @click="goTab('gate')" class="btn-ghost">🚪 Gate Visits</button>
-        <button @click="goTab('staff')" class="btn-ghost">👷 Staff</button>
-        <button @click="goTab('attendance')" class="btn-ghost">⏱️ Attendance</button>
-        <button @click="goTab('payroll')" class="btn-ghost">💵 Payroll</button>
-        <button @click="goTab('meter')" class="btn-ghost">⚡ Meters</button>
-        <button @click="goTab('utilities')" class="btn-ghost">🔌 Utilities</button>
+        <button @click="goTab('maintenance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="Maintenance requests and work orders">🔧 Maintenance</button>
+        <button @click="goTab('gate')" class="btn-ghost" title="Visitor and gate visit log">🚪 Gate Visits</button>
+        <button @click="goTab('staff')" class="btn-ghost" title="Building staff directory">👷 Staff</button>
+        <button @click="goTab('attendance')" class="btn-ghost" title="Staff attendance tracking">⏱️ Attendance</button>
+        <button @click="goTab('payroll')" class="btn-ghost" title="Staff payroll management">💵 Payroll</button>
+        <button @click="goTab('meter')" class="btn-ghost" title="Meter readings">⚡ Meters</button>
+        <button @click="goTab('utilities')" class="btn-ghost" title="Utility bills (electric, gas, water)">🔌 Utilities</button>
       </div>
 
       <!-- lists -->

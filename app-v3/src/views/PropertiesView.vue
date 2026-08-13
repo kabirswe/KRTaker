@@ -284,7 +284,7 @@ async function toggleFeatured(p) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px">＋ New property</button>
+        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Add a new property to your portfolio">＋ New property</button>
       </div>
     </div>
 

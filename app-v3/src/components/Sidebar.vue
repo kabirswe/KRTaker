@@ -12,6 +12,9 @@ const route = useRoute()
 const auth = useAuthStore()
 const data = useDataStore()
 
+// V2.37: software version shown in the sidebar credit block (kept in sync with package.json).
+const APP_VERSION = '2.37'
+
 // ── Dynamic branding (app-theme): dash_header logo (dark variant), site name,
 // brand colors. Falls back to the classic "KR" mark + KRTaker text.
 const brand = ref({})
@@ -45,15 +48,16 @@ const emit = defineEmits(['close'])
 // Same GROUPS as dashboard-v2 (v3 consolidation: legal cluster grouped, vendor finance merged into Vendors workspace)
 // V2.0.6: Finance + Accounts groups merged into ONE Finance hub (/finance with tabs) — fewer menu entries.
 // V2.0.7: Portfolio, BMS, Community, Legal, Safety&Security all merged into hub dashboards with tabs.
+// V2.37: each menu item carries a detailed tooltip (desc) shown on hover.
 const GROUPS = [
-  { id: 'overview', label: 'Overview', items: [['portal', '🏠', 'My Portal'], ['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)'], ['wiki', '📚', 'Wiki & Help'], ['backup', '💾', 'Backup & Restore']] },
-  { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio']] },
-  { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance']] },
-  { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS']] },
-  { id: 'community', label: 'Community', items: [['community', '📢', 'Community'], ['society', '🏘️', 'Society']] },
-  { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal']] },
-  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors']] },
-  { id: 'secure', label: 'Safety & Security', items: [['secure', '🏠', 'Safety & Security']] },
+  { id: 'overview', label: 'Overview', items: [['portal', '🏠', 'My Portal', 'Tenant-facing portal: leases, invoices, payments, tickets and documents for your rental units'], ['dashboard', '📊', 'Overview', 'Key metrics at a glance — occupancy, collections, dues, maintenance and alerts for your portfolio'], ['analytics', '📈', 'Analytics', 'Business intelligence: P&L, cashflow, occupancy, aging, expenses, maintenance and board reports'], ['ai', '🤖', 'AI Caretaker (KR)', 'Ask KR anything — vacancy checks, rent summaries, notices, renewals and portfolio insights in plain language'], ['wiki', '📚', 'Wiki & Help', 'Product guide, feature walkthroughs, FAQs and troubleshooting help'], ['backup', '💾', 'Backup & Restore', 'Download a full JSON backup of your workspace data or restore from a previous export']] },
+  { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio', 'All properties, units, tenants, leases, insurance, leads, documents and templates in one hub']] },
+  { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance', 'Invoices, receipts, payments, taxes, remittances, statements, subscriptions and accounts in one hub']] },
+  { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS', 'Building management: maintenance, staff, attendance, payroll, meters, utilities and gate access']] },
+  { id: 'community', label: 'Community', items: [['community', '📢', 'Community', 'Notices, referrals, NID trust, support tickets and society features for your residents'], ['society', '🏘️', 'Society', 'Society management: parking, bookings, voting, forums, events and samity accounts']] },
+  { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal', 'Compliance, legal cases, concierge services and NID verifications in one hub']] },
+  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors', 'Manage service vendors, vendor payouts, ratings and maintenance contracts']] },
+  { id: 'secure', label: 'Safety & Security', items: [['secure', '🏠', 'Safety & Security', 'Smart locks, CCTV, land records, construction, fire safety, health and building systems']] },
 ]
 
 const VIEW_ROUTES = {
@@ -107,12 +111,6 @@ const roleGroups = computed(() => {
   roles.value.forEach(r => { (map[r.group] = map[r.group] || []).push(r) })
   return Object.entries(map)
 })
-
-const initials = computed(() => {
-  const n = (data.user || auth.user)?.name || ''
-  return n.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase()
-})
-const roleName = computed(() => t(roleLabel((data.user || auth.user)?.role)))
 
 const openRoles = ref(false)
 const switching = ref(false)
@@ -171,23 +169,22 @@ async function backToMe() {
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
         <div class="sb-group">{{ g.label }}</div>
-        <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])">
+        <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])" :title="i[3] || t(i[2])">
           <span class="ic">{{ i[1] }}</span>{{ t(i[2]) }}
         </div>
       </template>
     </div>
     <div class="sb-bottom">
-      <div class="role-card">
-        <div class="role-ava">{{ initials }}</div>
-        <div>
-          <div class="rc-name">{{ (data.user || auth.user)?.name }}</div>
-          <div class="rc-role">{{ roleName }}<span v-if="auth.isImpersonating" style="color:var(--warn)"> · 👁</span></div>
-        </div>
+      <!-- V2.37: user identity card removed — show software credit & version only -->
+      <div class="sb-credit">
+        <div class="sc-brand">{{ sbLogo.mark }} KRTaker</div>
+        <div class="sc-ver">v{{ APP_VERSION }} · Key Responsibility Taker</div>
+        <div class="sc-copy">© {{ new Date().getFullYear() }} KRTaker — managed buildings, made simple</div>
       </div>
       <template v-if="auth.isImpersonating">
         <button class="role-switch-btn" style="background:var(--primary-light);color:var(--primary-dark);border:1px solid var(--primary)" :disabled="switching" @click="backToMe()">↩ {{ t('Back to my account') }}</button>
       </template>
-      <button v-else class="role-switch-btn" @click="openRoles = true">🔀 {{ t('Switch role') }}</button>
+      <button v-else-if="roles.length" class="role-switch-btn" @click="openRoles = true">🔀 {{ t('Switch role') }}</button>
     </div>
 
     <!-- Subordinate role switch modal -->

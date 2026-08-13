@@ -91,7 +91,7 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
         <div class="sub">Everything property — properties, units, tenants, leases, insurance, onboarding, leads, documents &amp; templates · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="goTab('properties')">➕ New property</button>
+        <button class="btn-ghost" @click="goTab('properties')" title="Add a new property — opens the Properties tab">➕ New property</button>
       </div>
     </div>
 
@@ -117,13 +117,13 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('properties')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">🏢 Properties</button>
-        <button @click="goTab('units')" class="btn-ghost">🚪 Units</button>
-        <button @click="goTab('tenants')" class="btn-ghost">👤 Tenants</button>
-        <button @click="goTab('leases')" class="btn-ghost">📄 Leases</button>
-        <button @click="goTab('onboarding')" class="btn-ghost">📋 Onboarding</button>
-        <button @click="goTab('leads')" class="btn-ghost">📥 Leads</button>
-        <button @click="goTab('documents')" class="btn-ghost">📁 Documents</button>
+        <button @click="goTab('properties')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="Manage your properties">🏢 Properties</button>
+        <button @click="goTab('units')" class="btn-ghost" title="Manage units within your properties">🚪 Units</button>
+        <button @click="goTab('tenants')" class="btn-ghost" title="Manage tenants and their profiles">👤 Tenants</button>
+        <button @click="goTab('leases')" class="btn-ghost" title="Manage lease agreements">📄 Leases</button>
+        <button @click="goTab('onboarding')" class="btn-ghost" title="Tenant onboarding checklists">📋 Onboarding</button>
+        <button @click="goTab('leads')" class="btn-ghost" title="Track property leads">📥 Leads</button>
+        <button @click="goTab('documents')" class="btn-ghost" title="Documents vault and templates">📁 Documents</button>
       </div>
 
       <!-- lists -->
