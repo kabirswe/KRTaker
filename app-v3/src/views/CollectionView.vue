@@ -94,7 +94,7 @@ async function doRefund() {
 async function cleanupStale() {
   if (!confirm(`Expire ${rec.value?.stale_sessions?.length || 0} stale pending gateway session(s)?`)) return
   err.value = ''
-  const r = await apiCall('app-gateway-cleanup')
+  const r = await apiCall('app-gateway-cleanup', {})
   if (!r.ok) { err.value = r.error || 'Cleanup failed.'; return }
   toast.value = `✅ ${r.expired} stale session(s) expired`
   setTimeout(() => toast.value = '', 4000)
