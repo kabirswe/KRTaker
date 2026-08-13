@@ -11163,10 +11163,17 @@ case 'app-community': {
     if ($action === '') $action = 'list';
     $actor = ['email' => $u['email'], 'name' => $u['name']];
     $gen = function ($table, $idPrefix) use ($pdo) {
-        $st = $pdo->prepare("SELECT id FROM $table ORDER BY id DESC LIMIT 1");
-        $last = $st->fetchColumn();
-        $n = $last ? ((int)substr($last, strlen($idPrefix) + 1)) + 1 : 100;
-        return $idPrefix . '-' . str_pad((string)$n, 3, '0', STR_PAD_LEFT);
+        /* V2.32.2 FIX: PDO SQLite returns false from fetchColumn() on an UN-EXECUTED
+           statement — the old code never called execute(), so the SELECT always
+           "returned" no rows and gen() kept regenerating the -100 id → UNIQUE
+           constraint failed on the 2nd+ insert (each community table was capped
+           at ONE row since V2.31.0). Also use MAX over the numeric suffix so
+           string ORDER BY can never pick PRK-99 over PRK-100. */
+        $pre = $idPrefix . '-';
+        $st = $pdo->prepare("SELECT MAX(CAST(substr(id, ?) AS INTEGER)) FROM $table WHERE id LIKE ?");
+        $st->execute([strlen($pre) + 1, $pre . '%']);
+        $n = (int)$st->fetchColumn();
+        return $pre . str_pad((string)($n ? $n + 1 : 100), 3, '0', STR_PAD_LEFT);
     };
     $t = [
         'parking'  => 'community_parking',
