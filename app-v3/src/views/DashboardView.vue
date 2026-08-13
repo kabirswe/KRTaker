@@ -86,6 +86,14 @@ const myDue = computed(() => myInvoices.value.filter(i => (i.status || '').match
 const myPaid = computed(() => list('payments').reduce((a, p) => a + (p.amount || 0), 0))
 const myTickets = computed(() => list('tickets'))
 const myOpenTickets = computed(() => myTickets.value.filter(t => t.status === 'Open'))
+// V2.39.3: maintenance/service requests for the tenant's units (ongoing/pending first)
+const myMaint = computed(() => list('maintenance_requests'))
+const myMaintOpen = computed(() => myMaint.value.filter(m => m.status !== 'Closed'))
+const maintBadge = (s) => {
+  const m = { Open: ['b-red', 'Open'], 'In Progress': ['b-orange', 'In progress'], Pending: ['b-orange', 'Pending'], Completed: ['b-green', 'Completed'], Closed: ['b-green', 'Closed'] }
+  const r = m[s] || ['b-gray', s || '—']
+  return { cls: r[0], label: r[1] }
+}
 const myPayouts = computed(() => list('vendor_payouts').reduce((a, p) => a + (p.amount || 0), 0))
 const myPartnerInvoices = computed(() => list('partner_invoices'))
 
@@ -289,11 +297,11 @@ function refresh() { data.bootstrap() }
         <div class="panel">
           <div class="panel-h"><div class="t"><span class="pi">🧾</span>My invoices</div><router-link to="/invoices" class="link">View all →</router-link></div>
           <div class="panel-b">
-            <div v-if="myInvoices.length" class="tbl-wrap">
+            <div v-if="myInvoices.length" class="tbl-wrap" style="max-height:340px;overflow:auto">
               <table class="kr">
                 <thead><tr><th>ID</th><th>Month</th><th>Amount</th><th>Status</th></tr></thead>
                 <tbody>
-                  <tr v-for="i in [...myInvoices].sort((a,b)=>(b.m||'').localeCompare(a.m||'')).slice(0,6)" :key="i.id">
+                  <tr v-for="i in [...myInvoices].sort((a,b)=>(b.m||'').localeCompare(a.m||''))" :key="i.id">
                     <td style="font-weight:700">{{ i.id }}</td>
                     <td>{{ i.m }}</td>
                     <td>{{ money(i.net) }}</td>
@@ -317,6 +325,31 @@ function refresh() { data.bootstrap() }
             </div>
             <div v-else class="c-sub">No tickets yet.</div>
           </div>
+        </div>
+      </div>
+
+      <!-- V2.39.3: ongoing/pending maintenance & service work on the tenant's unit -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-h">
+          <div class="t"><span class="pi">🛠️</span>Maintenance & service</div>
+          <span style="margin-left:auto" class="badge" :class="myMaintOpen.length ? 'b-orange' : 'b-green'">{{ myMaintOpen.length }} ongoing</span>
+        </div>
+        <div class="panel-b" style="padding:0">
+          <div v-if="myMaint.length" class="tbl-wrap">
+            <table class="kr">
+              <thead><tr><th>ID</th><th>Work</th><th>Status</th><th>Priority</th><th>Reported</th></tr></thead>
+              <tbody>
+                <tr v-for="m in [...myMaint].sort((a,b)=>(a.status === 'Closed') - (b.status === 'Closed') || String(b.ts||'').localeCompare(String(a.ts||'')))" :key="m.id">
+                  <td style="font-weight:700">{{ m.id }}</td>
+                  <td style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.title || m.desc || '—' }}</td>
+                  <td><span class="badge" :class="maintBadge(m.status).cls">{{ maintBadge(m.status).label }}</span></td>
+                  <td>{{ m.priority || '—' }}</td>
+                  <td class="c-sub">{{ m.ts || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else style="padding:22px;text-align:center;color:var(--text-mute);font-size:13px">No maintenance work 🎉</div>
         </div>
       </div>
     </template>

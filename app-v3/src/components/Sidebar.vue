@@ -3,7 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
-import { ROLES, roleLabel, GROUP_LABEL } from '../lib/roles'
+import { roleLabel } from '../lib/roles'
 import { getBranding, brandUrl, brandSlotSize, brandTitleOn } from '../api/client'
 import { t } from '../lib/i18n'
 
@@ -82,6 +82,9 @@ const VIEW_ROUTES = {
 // Module gating follows the EFFECTIVE user (updates after a real role switch).
 // V2.0.6: 'finance' is a frontend alias — shows when the user has ANY finance module.
 // V2.0.7: hub aliases show when the user has ANY module inside that hub.
+// V2.39.3: tenants never see the owner hub menus — invoices/maintenance live in
+// My Portal + Overview instead; Society is gated by the owner's plan modules.
+const TENANT_HIDDEN = new Set(['finance', 'bms', 'portfolio', 'legalhub', 'analytics'])
 const FINANCE_MODS = ['invoices', 'receipts', 'payments', 'recon', 'taxes', 'remit', 'statements', 'subscriptions', 'accounts', 'receive', 'expense', 'withdraw', 'deposit', 'reconcile']
 const PORTFOLIO_MODS = ['properties', 'units', 'tenants', 'leases', 'insurance', 'onboarding', 'leads', 'documents', 'templates']
 const BMS_MODS = ['maintenance', 'gate', 'staff', 'attendance', 'payroll', 'meter', 'utilities']
@@ -95,6 +98,8 @@ const can = (mod) => {
   if (!user) return true
   // Wiki/Help is available to every role — no module gate.
   if (mod === 'wiki') return true
+  // V2.39.3: tenant role is portal-scoped — owner hub menus are hidden entirely.
+  if (user.role === 'tenant' && TENANT_HIDDEN.has(mod)) return false
   const mods = user.role_modules ? (user.role_modules[user.role] || user.modules || []) : []
   if (HUB_MODS[mod]) return mods.some(m => HUB_MODS[mod].includes(m))
   return mods.includes(mod)
@@ -104,15 +109,9 @@ const groups = computed(() =>
   GROUPS.map(g => ({ ...g, label: t(g.label), items: g.items.filter(i => can(i[0])) })).filter(g => g.items.length)
 )
 
-// Subordinate-only roles (strictly below the signed-in user's rank)
-const roles = computed(() => ROLES.filter(r => auth.canSwitchTo(r.id)))
-const roleGroups = computed(() => {
-  const map = {}
-  roles.value.forEach(r => { (map[r.group] = map[r.group] || []).push(r) })
-  return Object.entries(map)
-})
-
-const openRoles = ref(false)
+// V2.39.3: the sb-bottom role-switch button/modal was removed — subordinate
+// switching lives in the topbar user menu (tb-user chip). Only the
+// impersonation "back to my account" escape hatch remains in the sidebar.
 const switching = ref(false)
 
 const go = (view) => {
@@ -127,24 +126,6 @@ const activeFor = (view) => {
   if (typeof r === 'string') return route.path === r
   if (!r) return false
   return route.path === r.path && (r.query?.tab ? route.query.tab === r.query.tab : !route.query.tab)
-}
-async function pick(r) {
-  if (switching.value) return
-  switching.value = true
-  try {
-    const res = await auth.viewAs(r.email)
-    if (!res.ok) {
-      window.__krToast?.('❌ ' + (res.error || t('Switch failed')))
-      return
-    }
-    await data.bootstrap()
-    data.setPreviewRole(r.id)
-    window.__krToast?.(auth.isImpersonating ? `👁 ${t('Viewing as')} ${r.role}` : t('Switched to') + ' ' + t(r.role))
-  } finally {
-    switching.value = false
-    openRoles.value = false
-    emit('close')
-  }
 }
 async function backToMe() {
   switching.value = true
@@ -184,25 +165,6 @@ async function backToMe() {
       <template v-if="auth.isImpersonating">
         <button class="role-switch-btn" style="background:var(--primary-light);color:var(--primary-dark);border:1px solid var(--primary)" :disabled="switching" @click="backToMe()">↩ {{ t('Back to my account') }}</button>
       </template>
-      <button v-else-if="roles.length" class="role-switch-btn" @click="openRoles = true">🔀 {{ t('Switch role') }}</button>
-    </div>
-
-    <!-- Subordinate role switch modal -->
-    <div v-if="openRoles" class="overlay" @click.self="openRoles = false">
-      <div class="modal">
-        <div class="modal-h"><span class="t">🔀 {{ t('Switch role') }}</span><button class="close" @click="openRoles = false">✕</button></div>
-        <div v-if="switching" style="padding:20px;text-align:center;color:var(--text-mute)">{{ t('Loading') }}</div>
-        <div v-else class="role-grid">
-          <template v-for="([g, items]) in roleGroups" :key="g">
-            <div v-if="roleGroups.length > 1" style="grid-column:1/-1;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute);margin-top:4px">{{ t(GROUP_LABEL[g] || g) }}</div>
-            <div v-for="r in items" :key="r.id" class="role-opt" :class="{ active: r.id === (data.user || auth.user)?.role }" @click="pick(r)">
-              <div class="ro-ic">{{ r.ico }}</div>
-              <div class="ro-t">{{ t(r.role) }}</div>
-              <div class="ro-d">{{ t(r.desc) }}</div>
-            </div>
-          </template>
-        </div>
-      </div>
     </div>
   </aside>
 </template>

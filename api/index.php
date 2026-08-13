@@ -243,8 +243,8 @@ function db() {
              with '[]'/'{}' placeholders (seed endpoint never ran), so per-plan caps never
              applied there. Canonical values mirror seed_app() definitions. ── */
         $cmods = [
-            'starter' => json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','notices','documents','subscriptions','analytics'], 'tenant' => ['dashboard','invoices','receipts','payments','maintenance','notices','documents']]),
-            'business' => json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','referrals','subscriptions','analytics','ai'], 'manager' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','analytics','ai'], 'tenant' => ['dashboard','invoices','receipts','payments','maintenance','notices','documents','ai']]),
+            'starter' => json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','notices','documents','subscriptions','analytics'], 'tenant' => ['dashboard','portal','invoices','receipts','payments','maintenance','notices','documents']]),
+            'business' => json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','referrals','subscriptions','analytics','ai'], 'manager' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','analytics','ai'], 'tenant' => ['dashboard','portal','invoices','receipts','payments','maintenance','notices','documents','ai']]),
             'enterprise' => json_encode(['owner' => ROLE_MODULES()['owner'], 'manager' => ROLE_MODULES()['manager'], 'svc_mgr' => ROLE_MODULES()['svc_mgr'], 'tenant' => ROLE_MODULES()['tenant'], 'partner' => ROLE_MODULES()['partner'], 'legal' => ROLE_MODULES()['legal'], 'crm' => ROLE_MODULES()['crm'], 'accountant' => ROLE_MODULES()['accountant'], 'hr' => ROLE_MODULES()['hr']]),
         ];
         $clims = [
@@ -256,7 +256,12 @@ function db() {
             $cr = $pdo->prepare('SELECT modules, limits FROM plan_catalog WHERE lower(code)=?'); $cr->execute([$cc]);
             $crow = $cr->fetch(PDO::FETCH_ASSOC);
             if ($crow) {
-                if (empty($crow['modules']) || $crow['modules'] === '[]' || $crow['modules'] === '{}')
+                $needsMods = empty($crow['modules']) || $crow['modules'] === '[]' || $crow['modules'] === '{}';
+                if (!$needsMods && in_array($cc, ['starter', 'business'], true)) {
+                    $curMods = json_decode($crow['modules'], true) ?: [];
+                    if (!in_array('portal', $curMods['tenant'] ?? [], true)) $needsMods = true;  /* V2.39.3: tenant role gains the portal module */
+                }
+                if ($needsMods)
                     $pdo->prepare('UPDATE plan_catalog SET modules=? WHERE lower(code)=?')->execute([$cm, $cc]);
                 if (empty($crow['limits']) || $crow['limits'] === '{}' || $crow['limits'] === '[]')
                     $pdo->prepare('UPDATE plan_catalog SET limits=? WHERE lower(code)=?')->execute([$clims[$cc], $cc]);
@@ -1168,6 +1173,20 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('acknowledged_by', $hcols, true)) $pdo->exec("ALTER TABLE handover_checklists ADD COLUMN acknowledged_by TEXT DEFAULT ''");
         if (!in_array('acknowledged_at', $hcols, true)) $pdo->exec("ALTER TABLE handover_checklists ADD COLUMN acknowledged_at TEXT DEFAULT ''");
     }
+    /* ── V2.39.3 (unconditional): tenant role gains the portal module in Starter/Business matrices ── */
+    try {
+        foreach (['starter', 'business'] as $cc) {
+            $cr = $pdo->prepare('SELECT modules FROM plan_catalog WHERE lower(code)=?'); $cr->execute([$cc]);
+            $mraw = $cr->fetchColumn();
+            if ($mraw) {
+                $mm = json_decode($mraw, true) ?: [];
+                if (isset($mm['tenant']) && is_array($mm['tenant']) && !in_array('portal', $mm['tenant'], true)) {
+                    $mm['tenant'][] = 'portal';
+                    $pdo->prepare('UPDATE plan_catalog SET modules=? WHERE lower(code)=?')->execute([json_encode($mm), $cc]);
+                }
+            }
+        }
+    } catch (Exception $e) { /* non-fatal */ }
     return $pdo;
 }
 
@@ -1888,6 +1907,17 @@ function plan_for_user($u) {
 function effective_modules($u, $role = null) {
     $role = $role ?: ($u['role'] ?? 'owner');
     $base = ROLE_MODULES()[$role] ?? [];
+    /* V2.39.3: tenant portal accounts (app_users, kind=staff) must inherit the
+       OWNER's subscription plan — otherwise they resolve as Enterprise and get
+       every module (analytics, legal, society, …). Orphan tenants default to
+       the Starter matrix (least privilege). */
+    if ($role === 'tenant' && ($u['role'] ?? '') === 'tenant' && (($u['kind'] ?? '') !== 'sub' || (($u['plan'] ?? '') === 'Enterprise' || ($u['plan'] ?? '') === ''))) {
+        if (($u['kind'] ?? '') !== 'sub') {
+            $op = tenant_owner_plan($u['email'] ?? '');
+            $u['kind'] = 'sub';
+            $u['plan'] = $op !== '' ? $op : 'starter';
+        }
+    }
     if (($u['kind'] ?? '') !== 'sub') return $base;                 /* staff = full base (Enterprise) */
     $code = plan_for_user($u);
     $map = package_modules_map($code);
@@ -1895,6 +1925,16 @@ function effective_modules($u, $role = null) {
     if (!$map) return $base;                                        /* legacy package w/o matrix → full base */
     $granted = $map[$role] ?? [];                                   /* role NOT in matrix → zero modules */
     return array_values(array_intersect($base, $granted));          /* package restricts, role is base */
+}
+/* V2.39.3: tenant account → owner subscriber's plan (portal logins inherit the workspace plan) */
+function tenant_owner_plan($email) {
+    $pdo = db();
+    $st = $pdo->prepare("SELECT lower(s.plan) FROM tenants t
+        JOIN subscribers s ON lower(s.email)=lower(t.sub_email) AND s.status IN ('active','trial')
+        WHERE lower(t.email)=? LIMIT 1");
+    $st->execute([strtolower(trim((string)$email))]);
+    $plan = $st->fetchColumn();
+    return $plan ? strtolower(trim((string)$plan)) : '';
 }
 function effective_limits($u) {
     $def = ['property_limit'=>9999,'unit_limit'=>99999,'seats'=>1,'kr_ai'=>true,'api_access'=>false,'reports'=>true];
@@ -2565,6 +2605,13 @@ function portal_data($pdo, $tid) {
         $st->execute($unitIds);
         $tickets = $st->fetchAll(PDO::FETCH_ASSOC);
     }
+    /* V2.39.3: maintenance/service requests for the tenant's units (ongoing + history) */
+    $maintenance = [];
+    if ($unitIds) {
+        $st = $pdo->prepare('SELECT * FROM maintenance_requests WHERE unit IN (' . ai_in_list($unitIds) . ') ORDER BY ts DESC');
+        $st->execute($unitIds);
+        $maintenance = $st->fetchAll(PDO::FETCH_ASSOC);
+    }
     $notices = $pdo->query('SELECT id, title, body, ts FROM notices ORDER BY pinned DESC, ts DESC LIMIT 3')->fetchAll(PDO::FETCH_ASSOC);
     /* Phase 16: lease renewal requests + utility meter readings (tenant scoped) */
     $renewals = [];
@@ -2596,6 +2643,7 @@ function portal_data($pdo, $tid) {
         'paid_total' => (int)$paidTotal,
         'next_due' => $next ? ['id' => $next['id'], 'm' => $next['m'], 'amount' => (int)$next['due']] : null,
         'tickets_open' => count(array_filter($tickets, fn($t) => $t['status'] !== 'Closed')),
+        'maint_open' => count(array_filter($maintenance, fn($m) => $m['status'] !== 'Closed')),
         'min_days_left' => $minLeft,
     ];
     /* Phase 21: settlement summary (non-persisting) */
@@ -2611,7 +2659,7 @@ function portal_data($pdo, $tid) {
         'tenant' => ['id' => $tenant['id'], 'name' => $tenant['name'], 'email' => $tenant['email'] ?: $tenant['sub_email'], 'phone' => $tenant['phone'], 'kind' => $tenant['kind'], 'nid' => $tenant['nid'], 'photo' => $tenant['photo'] ?? '', 'family' => json_decode($tenant['family'] ?? '[]', true) ?: []],
         'leases' => $enriched, 'invoices' => $invoices, 'payments' => $payments,
         'receipts' => $receipts, 'docs' => $docs, 'nid_docs' => $nidDocs, 'handover' => $handover,
-        'tickets' => $tickets, 'notices' => $notices, 'stats' => $stats,
+        'tickets' => $tickets, 'maintenance' => $maintenance, 'notices' => $notices, 'stats' => $stats,
         'renewals' => $renewals, 'meters' => $meters, 'utility_bills' => $utilityBills,
         'settlement' => $settle,
         'score' => tenant_scorecard($pdo, $tid),
@@ -5829,6 +5877,16 @@ function view_as_targets($u) {
             if (!$them) continue;
             if ($me['g'] === $them['g'] && $them['r'] < $me['r'])
                 $out[] = ['name' => $r['name'], 'email' => $r['email'], 'role' => $r['role'], 'kind' => 'team'];
+        }
+        /* V2.39.3: the subscriber's tenants (app_users role=tenant linked via tenants.sub_email)
+           are switchable subordinates too — so an owner sees their tenants in the 🔀 dropdown. */
+        $st = $pdo->prepare("SELECT u.name, u.email, u.role FROM app_users u
+            WHERE u.role='tenant' AND u.active=1
+              AND lower(u.email) IN (SELECT lower(email) FROM tenants WHERE lower(sub_email)=?)");
+        $st->execute([$subEmail]);
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (strtolower((string)$r['email']) === $subEmail) continue;
+            $out[] = ['name' => $r['name'], 'email' => $r['email'], 'role' => $r['role'], 'kind' => 'tenant'];
         }
     }
     return $out;
@@ -21730,6 +21788,11 @@ case 'app-photo': {
         if (!move_uploaded_file($f['tmp_name'], DATA_DIR() . '/' . $fname))
             json_out(['ok' => false, 'error' => 'Failed to store photo.'], 500);
         $pdo->prepare('UPDATE ' . $tbl . ' SET photo=? WHERE id=?')->execute([$fname, $uid]);
+        /* V2.39.3: tenant self-upload also updates their tenant-row photo so the portal avatar refreshes */
+        if ($u['role'] === 'tenant') {
+            $tid = tenant_resolve_id($pdo, $u['email']);
+            if ($tid) $pdo->prepare('UPDATE tenants SET photo=? WHERE id=?')->execute([$fname, $tid]);
+        }
         audit($u['name'], 'user-photo', 'profile', (string)$uid . ' ' . $fname);
         json_out(['ok' => true, 'photo' => $fname]);
     }

@@ -131,18 +131,37 @@ const family = ref([])
 const famSaving = ref(false)
 const profileBusy = ref('')
 const moveInLists = computed(() => (portal.value?.handover || []).filter(h => h.kind === 'move_in'))
+// V2.39.3: live previews after upload (object URL shown instantly, then the server copy after reload)
+const photoPreview = ref('')
+const nidPreview = ref('')
+// V2.39.3: maintenance/service requests for the tenant's units
+const maintList = computed(() => portal.value?.maintenance || [])
+const maintOpen = computed(() => maintList.value.filter(m => m.status !== 'Closed'))
 watch(portal, () => { family.value = JSON.parse(JSON.stringify(tenant.value?.family || [])) })
+
+const tenantPhotoUrl = computed(() => tenant.value?.photo ? apiBase() + 'app-photo?action=view&target=tenant&id=' + tenant.value.id : '')
+const nidThumbUrl = (d) => {
+  const img = /\.(png|jpe?g|webp|gif)$/i.test(d.name || '') ? apiBase() + 'app-doc-view?id=' + encodeURIComponent(d.id) : ''
+  return img
+}
+const maintBadge = (s) => {
+  const m = { Open: ['b-red', 'Open'], 'In Progress': ['b-orange', 'In progress'], Pending: ['b-orange', 'Pending'], Completed: ['b-green', 'Completed'], Closed: ['b-green', 'Closed'] }
+  const r = m[s] || ['b-gray', s || '—']
+  return { cls: r[0], label: r[1] }
+}
 
 async function uploadPhoto(e) {
   const f = e.target.files && e.target.files[0]
   e.target.value = ''
   if (!f) return
   profileBusy.value = 'photo'
+  if (photoPreview.value) URL.revokeObjectURL(photoPreview.value)
+  photoPreview.value = URL.createObjectURL(f)
   try {
     const fd = new FormData(); fd.append('file', f)
     const r = await apiUpload('app-photo?action=user-upload', fd)
     if (r.ok) { window.__krToast?.('📸 Profile photo updated', 'ok'); load() }
-    else window.__krToast?.(r.error || 'Photo upload failed', 'error')
+    else { window.__krToast?.(r.error || 'Photo upload failed', 'error'); photoPreview.value = '' }
   } finally { profileBusy.value = '' }
 }
 async function uploadNid(e) {
@@ -150,12 +169,14 @@ async function uploadNid(e) {
   e.target.value = ''
   if (!f || !tenant.value) return
   profileBusy.value = 'nid'
+  if (nidPreview.value) URL.revokeObjectURL(nidPreview.value)
+  nidPreview.value = URL.createObjectURL(f)
   try {
     const fd = new FormData()
     fd.append('file', f); fd.append('kind', 'tenant'); fd.append('ref', tenant.value.id)
     const r = await apiUpload('app-doc-upload', fd)
     if (r.ok) { window.__krToast?.('🪪 NID copy uploaded', 'ok'); load() }
-    else window.__krToast?.(r.error || 'Upload failed', 'error')
+    else { window.__krToast?.(r.error || 'Upload failed', 'error'); nidPreview.value = '' }
   } finally { profileBusy.value = '' }
 }
 async function saveFamily() {
@@ -228,7 +249,7 @@ async function viewDoc(d) {
               <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">{{ lang === 'bn' ? 'পরিচয়' : 'Identity' }}</div>
               <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
                 <div style="width:46px;height:46px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;overflow:hidden;flex-shrink:0">
-                  <img v-if="tenant?.photo" :src="apiBase() + 'app-photo?action=view&target=tenant&id=' + tenant.id" style="width:100%;height:100%;object-fit:cover">
+                  <img v-if="photoPreview || tenantPhotoUrl" :src="photoPreview || tenantPhotoUrl" style="width:100%;height:100%;object-fit:cover">
                   <span v-else>{{ (tenant?.name || '?').slice(0, 2).toUpperCase() }}</span>
                 </div>
                 <div style="min-width:0">
@@ -246,9 +267,15 @@ async function viewDoc(d) {
                   <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" hidden @change="uploadNid">
                 </label>
               </div>
+              <div v-if="nidPreview" style="margin-top:10px">
+                <div class="c-sub" style="font-size:11px;margin-bottom:4px">{{ lang === 'bn' ? 'নতুন আপলোডের প্রিভিউ' : 'New upload preview' }}</div>
+                <img :src="nidPreview" style="max-height:120px;max-width:100%;border-radius:8px;border:1px solid var(--border)">
+              </div>
               <div v-if="nidDocs.length" style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
                 <div v-for="d in nidDocs" :key="d.id" style="display:flex;align-items:center;gap:8px;font-size:12.5px">
-                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">📄 {{ d.name }}</span>
+                  <img v-if="nidThumbUrl(d)" :src="nidThumbUrl(d)" style="width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;cursor:pointer" @click="viewDoc(d)" :title="d.name">
+                  <span v-else style="font-size:15px">📄</span>
+                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">{{ d.name }}</span>
                   <button class="btn-ghost" style="padding:2px 9px;font-size:11px" @click="viewDoc(d)">{{ lang === 'bn' ? 'দেখুন' : 'view' }}</button>
                 </div>
               </div>
@@ -378,11 +405,47 @@ async function viewDoc(d) {
         </div>
       </div>
 
-      <!-- Due invoices -->
+      <!-- V2.39.3: Ongoing maintenance / service work for the tenant's unit -->
       <div class="panel" style="margin-top:16px">
         <div class="panel-h">
-          <div class="t"><span class="pi">🧾</span>{{ lang === 'bn' ? 'বকেয়া ইনভয়েস' : 'Due invoices' }}</div>
-          <div style="margin-left:auto"><span class="badge" :class="dueInvoices.length ? 'b-orange' : 'b-green'">{{ dueInvoices.length }}</span></div>
+          <div class="t"><span class="pi">🛠️</span>{{ lang === 'bn' ? 'মেইনটেন্যান্স ও সার্ভিস' : 'Maintenance & service' }}</div>
+          <div style="margin-left:auto"><span class="badge" :class="maintOpen.length ? 'b-orange' : 'b-green'">{{ maintOpen.length }} {{ lang === 'bn' ? 'চলমান' : 'ongoing' }}</span></div>
+        </div>
+        <div class="panel-b" style="padding:0">
+          <div v-if="maintList.length" class="tbl-wrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>{{ t('ID') }}</th>
+                  <th>{{ t('Work') }}</th>
+                  <th>{{ t('Status') }}</th>
+                  <th>{{ t('Priority') }}</th>
+                  <th>{{ t('Reported') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="m in maintList" :key="m.id">
+                  <td class="mono">{{ m.id }}</td>
+                  <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.title || m.desc || '—' }}</td>
+                  <td><span class="badge" :class="maintBadge(m.status).cls">{{ maintBadge(m.status).label }}</span></td>
+                  <td>{{ m.priority || '—' }}</td>
+                  <td class="c-sub">{{ fmtTs(m.ts) }}</td>
+                </tr>
+                <tr v-if="!maintList.length">
+                  <td colspan="5" style="text-align:center;color:var(--text-mute);font-size:13px;padding:22px">{{ lang === 'bn' ? 'কোনো মেইনটেন্যান্স কাজ নেই 🎉' : 'No maintenance work 🎉' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else style="padding:22px;text-align:center;color:var(--text-mute);font-size:13px">{{ lang === 'bn' ? 'কোনো মেইনটেন্যান্স কাজ নেই 🎉' : 'No maintenance work 🎉' }}</div>
+        </div>
+      </div>
+
+      <!-- All invoices -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-h">
+          <div class="t"><span class="pi">🧾</span>{{ lang === 'bn' ? 'সব ইনভয়েস' : 'All invoices' }}</div>
+          <div style="margin-left:auto"><span class="badge" :class="dueInvoices.length ? 'b-orange' : 'b-green'">{{ invoices.length }}</span></div>
         </div>
         <div class="panel-b" style="padding:0">
           <div class="tbl-wrap">
