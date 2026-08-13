@@ -14,8 +14,8 @@ function MODULE_REGISTRY() {
         ['id'=>'build','built'=>true],['id'=>'gate','built'=>true],['id'=>'firesafety','built'=>true],
         ['id'=>'systems','built'=>true],['id'=>'staffwatch','built'=>true],['id'=>'samity','built'=>true],
         ['id'=>'ai','built'=>true],['id'=>'packages','built'=>true],['id'=>'portal','built'=>true],
-        ['id'=>'parking','built'=>false],['id'=>'bookings','built'=>false],['id'=>'voting','built'=>false],
-        ['id'=>'forums','built'=>false],['id'=>'events','built'=>false],['id'=>'insurance','built'=>false],
+        ['id'=>'parking','built'=>true],['id'=>'bookings','built'=>true],['id'=>'voting','built'=>true],
+        ['id'=>'forums','built'=>true],['id'=>'events','built'=>true],['id'=>'insurance','built'=>true],
     ];
 }
 function package_row($code) {
