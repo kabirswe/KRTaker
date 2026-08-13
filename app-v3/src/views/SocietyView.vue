@@ -211,6 +211,55 @@ async function delRow(mod, row) {
 const evtDate = (d) => d ? String(d).slice(0, 10) : '—'
 const evtTime = (x) => x || '—'
 
+// ── Voting (V2.32.1: stats + Open/Closed filter + search + result bars) ──
+const voteFilter = ref('All')
+const voteQ = ref('')
+const voteFiltered = computed(() => {
+  let out = rows.value.filter(r => voteFilter.value === 'All' || (voteFilter.value === 'Open' ? r.open : !r.open))
+  const q = voteQ.value.trim().toLowerCase()
+  if (q) out = out.filter(r => String(r.question || '').toLowerCase().includes(q))
+  return out
+})
+const voteStats = computed(() => {
+  const all = rows.value
+  return { total: all.length, open: all.filter(r => r.open).length, closed: all.filter(r => !r.open).length, votes: all.reduce((s, r) => s + (r.total_votes || 0), 0) }
+})
+const pct = (p, i) => p.total_votes ? Math.round((p.tally[i] || 0) / p.total_votes * 100) : 0
+
+// ── Forums (V2.32.1: category chips + search + stats) ──
+const forumCat = ref('All')
+const forumQ = ref('')
+const forumFiltered = computed(() => {
+  let out = rows.value.filter(r => forumCat.value === 'All' || r.cat === forumCat.value)
+  const q = forumQ.value.trim().toLowerCase()
+  if (q) out = out.filter(r => String(r.title || '').toLowerCase().includes(q))
+  return out
+})
+const forumStats = computed(() => {
+  const all = rows.value
+  return { total: all.length, pinned: all.filter(r => r.pinned).length, posts: all.reduce((s, r) => s + (r.posts || 0), 0), cats: new Set(all.map(r => r.cat).filter(Boolean)).size }
+})
+
+// ── Events (V2.32.1: Upcoming/Past filter + search + stats) ──
+const evtFilter = ref('All')
+const evtQ = ref('')
+const todayStr = () => new Date().toISOString().slice(0, 10)
+const evtFiltered = computed(() => {
+  let out = rows.value.filter(r => {
+    if (evtFilter.value === 'All') return true
+    const d = evtDate(r.date)
+    return d === '—' ? true : (evtFilter.value === 'Upcoming' ? d >= todayStr() : d < todayStr())
+  })
+  const q = evtQ.value.trim().toLowerCase()
+  if (q) out = out.filter(r => [r.title, r.location, r.desc].some(v => String(v || '').toLowerCase().includes(q)))
+  return out
+})
+const evtStats = computed(() => {
+  const all = rows.value
+  const t = todayStr()
+  return { total: all.length, upcoming: all.filter(r => { const d = evtDate(r.date); return d !== '—' && d >= t }).length, past: all.filter(r => { const d = evtDate(r.date); return d !== '—' && d < t }).length, rsvps: all.reduce((s, r) => s + (r.rsvps || 0), 0) }
+})
+
 // ── V2.31.6: Society KPI strip — live counts per module (incl. Samity) ──
 const stats = ref({ parking: 0, bookings: 0, voting: 0, forums: 0, events: 0, samity: 0 })
 async function loadStats() {
@@ -409,20 +458,34 @@ const loadingRow = () => loading.value
           <button class="btn-primary" style="margin-left:8px" :disabled="pollBusy" @click="savePoll">{{ t('Create poll') }}</button>
         </div>
       </div>
+      <!-- V2.32.1: stats row -->
+      <div class="stats" style="margin-bottom:14px">
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('Total polls') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ voteStats.total }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('Open') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px;color:var(--ok)">{{ voteStats.open }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('Closed') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px;color:var(--text-mute)">{{ voteStats.closed }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🗳️ {{ t('Votes cast') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ voteStats.votes }}</div></div>
+      </div>
+      <!-- V2.32.1: filter chips + search -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <button v-for="f in ['All', 'Open', 'Closed']" :key="f" class="chip" :class="{ on: voteFilter === f }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="voteFilter = f">{{ f === 'All' ? t('All') : t(f) }}</button>
+        <input v-model="voteQ" :placeholder="t('Search') + '…'" style="flex:1;min-width:160px;max-width:280px;margin-left:auto;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px">
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
-        <div v-for="p in rows" :key="p.id" class="panel">
+        <div v-for="p in voteFiltered" :key="p.id" class="panel">
           <div class="panel-b">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
               <div style="font-weight:800;font-size:14px">{{ p.question }}</div>
               <span class="badge" :class="p.open ? 'b-green' : 'b-gray'">{{ p.open ? t('Open') : t('Closed') }}</span>
             </div>
             <div class="c-sub" style="font-size:11.5px;margin-bottom:10px">{{ t('Created by') }} {{ p.created_name || '—' }} · {{ fmtTs(p.ts) }}</div>
+            <!-- V2.32.1: result bars -->
             <div v-for="(o, i) in p.options" :key="i" style="margin-bottom:7px">
               <button :disabled="p.my_vote !== null || !p.open" @click="castVote(p.id, i)"
-                style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--text);text-align:left">
-                <span style="flex-shrink:0">{{ p.my_vote === i ? '✅' : '○' }}</span>
-                <span style="flex:1">{{ o }}</span>
-                <span v-if="p.total_votes" class="c-sub" style="font-size:11px">{{ p.tally[i] || 0 }} · {{ Math.round((p.tally[i] || 0) / p.total_votes * 100) }}%</span>
+                style="position:relative;width:100%;display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--text);text-align:left;overflow:hidden">
+                <span v-if="p.total_votes" class="vote-fill" :class="{ mine: p.my_vote === i }" :style="{ width: pct(p, i) + '%' }"></span>
+                <span style="position:relative;flex-shrink:0">{{ p.my_vote === i ? '✅' : '○' }}</span>
+                <span style="position:relative;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o }}</span>
+                <span v-if="p.total_votes" class="c-sub" style="position:relative;font-size:11px">{{ p.tally[i] || 0 }} · {{ pct(p, i) }}%</span>
               </button>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
@@ -431,7 +494,7 @@ const loadingRow = () => loading.value
             </div>
           </div>
         </div>
-        <div v-if="!loading && !rows.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ t('No polls yet') }}</div>
+        <div v-if="!loading && !voteFiltered.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ voteQ || voteFilter !== 'All' ? t('No match') : t('No polls yet') }}</div>
       </div>
     </template>
 
@@ -474,19 +537,31 @@ const loadingRow = () => loading.value
         </div>
       </div>
 
+      <!-- V2.32.1: stats row -->
+      <div class="stats" style="margin-bottom:14px">
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">💬 {{ t('Threads') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ forumStats.total }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">📌 {{ t('Pinned') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ forumStats.pinned }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('replies') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ forumStats.posts }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('Categories') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ forumStats.cats }}</div></div>
+      </div>
+      <!-- V2.32.1: category chips + search -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <button v-for="c in ['All', ...CATS]" :key="c" class="chip" :class="{ on: forumCat === c }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="forumCat = c">{{ c === 'All' ? t('All') : t(c) }}</button>
+        <input v-model="forumQ" :placeholder="t('Search') + '…'" style="flex:1;min-width:160px;max-width:280px;margin-left:auto;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px">
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">
-        <div v-for="r in rows" :key="r.id" class="panel" style="cursor:pointer" @click="openThreadView(r.id)">
+        <div v-for="r in forumFiltered" :key="r.id" class="panel" style="cursor:pointer" @click="openThreadView(r.id)">
           <div class="panel-b">
             <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
               <div style="font-weight:800;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
                 {{ r.pinned ? '📌 ' : '' }}{{ r.title }}
               </div>
-              <span class="badge b-gray">{{ r.cat }}</span>
+              <span class="badge" :class="r.pinned ? 'b-orange' : 'b-gray'">{{ r.cat }}</span>
             </div>
             <div class="c-sub" style="font-size:11.5px;margin-top:4px">{{ r.author_name || r.author || '—' }} · {{ r.posts || 0 }} {{ t('replies') }} · {{ fmtTs(r.ts) }}</div>
           </div>
         </div>
-        <div v-if="!loading && !rows.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ t('No threads yet') }}</div>
+        <div v-if="!loading && !forumFiltered.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ forumQ || forumCat !== 'All' ? t('No match') : t('No threads yet') }}</div>
       </div>
     </template>
 
@@ -509,12 +584,25 @@ const loadingRow = () => loading.value
           <button class="btn-primary" style="margin-top:12px" :disabled="evtBusy" @click="saveEvent">{{ t('Create event') }}</button>
         </div>
       </div>
+      <!-- V2.32.1: stats row -->
+      <div class="stats" style="margin-bottom:14px">
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🎉 {{ t('Total events') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ evtStats.total }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('Upcoming events') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px;color:var(--primary)">{{ evtStats.upcoming }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('Past events') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px;color:var(--text-mute)">{{ evtStats.past }}</div></div>
+        <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">✅ {{ t('Total RSVPs') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ evtStats.rsvps }}</div></div>
+      </div>
+      <!-- V2.32.1: filter chips + search -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <button v-for="f in ['All', 'Upcoming', 'Past']" :key="f" class="chip" :class="{ on: evtFilter === f }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="evtFilter = f">{{ f === 'All' ? t('All') : t(f) }}</button>
+        <input v-model="evtQ" :placeholder="t('Search') + '…'" style="flex:1;min-width:160px;max-width:280px;margin-left:auto;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px">
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
-        <div v-for="r in rows" :key="r.id" class="panel">
+        <div v-for="r in evtFiltered" :key="r.id" class="panel">
           <div class="panel-b">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-              <div style="font-weight:800;font-size:14px">{{ r.title }}</div>
-              <div style="display:flex;align-items:center;gap:6px">
+              <div style="font-weight:800;font-size:14px;min-width:0">{{ r.title }}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <span class="badge" :class="evtDate(r.date) !== '—' && evtDate(r.date) < todayStr() ? 'b-gray' : 'b-blue'">{{ evtDate(r.date) !== '—' && evtDate(r.date) < todayStr() ? t('Past') : t('Upcoming') }}</span>
                 <span class="badge" :class="r.full ? 'b-red' : 'b-blue'">{{ r.rsvps || 0 }}/{{ r.capacity || '∞' }} {{ t('going') }}</span>
                 <button v-if="isStaff" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('events', r)">🗑</button>
               </div>
@@ -534,7 +622,7 @@ const loadingRow = () => loading.value
             </div>
           </div>
         </div>
-        <div v-if="!loading && !rows.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ t('No events yet') }}</div>
+        <div v-if="!loading && !evtFiltered.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ evtQ || evtFilter !== 'All' ? t('No match') : t('No events yet') }}</div>
       </div>
     </template>
 
@@ -548,6 +636,9 @@ const loadingRow = () => loading.value
 <style scoped>
 /* V2.32.0: filter-chip active state + stat card polish (mirrors VendorsView) */
 .chip.on { border-color: var(--primary); color: var(--primary); background: rgba(47,128,237,.08) }
+/* V2.32.1: poll result bar */
+.vote-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(47,128,237,.13); border-radius: 8px; transition: width .3s }
+.vote-fill.mine { background: rgba(47,128,237,.24) }
 .s-value { font-size: 24px; font-weight: 800; margin-top: 2px; line-height: 1.1 }
 .s-trend { font-size: 11px; color: var(--text-mute); margin-top: 3px }
 </style>

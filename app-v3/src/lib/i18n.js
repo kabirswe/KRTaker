@@ -274,6 +274,11 @@ const BN = {
   'New event': 'নতুন ইভেন্ট', 'Event title': 'ইভেন্টের শিরোনাম', 'Event created': 'ইভেন্ট তৈরি হয়েছে',
   'Create event': 'ইভেন্ট তৈরি করুন', Location: 'অবস্থান', Capacity: 'ধারণক্ষমতা', going: 'আসছেন',
   'No events yet': 'এখনো কোনো ইভেন্ট নেই', 'RSVP confirmed': 'আরএসভিপি নিশ্চিত', 'RSVP': 'আরএসভিপি',
+  // V2.32.1: Society tabs polish — stats, filters, search, result bars
+  'Total polls': 'মোট পোল', 'Open polls': 'চলমান পোল', 'Votes cast': 'মোট ভোট',
+  Threads: 'থ্রেড', Pinned: 'পিন করা', Categories: 'বিভাগ',
+  Past: 'অতীত', Upcoming: 'আসন্ন',
+  'Total events': 'মোট ইভেন্ট', 'Upcoming events': 'আসন্ন ইভেন্ট', 'Past events': 'অতীত ইভেন্ট', 'Total RSVPs': 'মোট আরএসভিপি',
   'Backup & Restore': 'ব্যাকআপ ও রিস্টোর', 'Create a backup': 'নতুন ব্যাকআপ', 'Backup history': 'ব্যাকআপ ইতিহাস',
 }
 
