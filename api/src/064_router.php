@@ -255,8 +255,29 @@ case 'register': {
     if (recent_any($email, $ip, 60, 4, 8, ['register', 'resend'])) {   /* ≤8/IP/hr, ≤4/email/hr */
         throttle_out('Too many attempts from this address. Try again later.', $email, $ip, 60, ['register', 'resend']);
     }
-    if (!$name || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        json_out(['ok' => false, 'error' => 'Invalid name or email.'], 400);
+    if (!$name) {
+        json_out(['ok' => false, 'error' => 'Please enter your name.'], 400);
+    }
+    /* SA1 v27: explicit consent to Terms & Privacy Policy is mandatory */
+    if (($body['agree'] ?? '') !== '1') {
+        json_out(['ok' => false, 'error' => 'You must accept the Terms of Service and Privacy Policy to register.'], 400);
+    }
+    /* Email OR phone — at least one is required (V2.33) */
+    $phoneRaw = trim((string)($body['phone'] ?? ''));
+    if ($email === '' && $phoneRaw === '') {
+        json_out(['ok' => false, 'error' => 'Provide at least one: your email address or your phone number.'], 400);
+    }
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        json_out(['ok' => false, 'error' => 'Invalid email address.'], 400);
+    }
+    /* Normalize + validate phone (E.164-ish: + followed by 7–15 digits) */
+    $phone = '';
+    if ($phoneRaw !== '') {
+        $phoneDigits = preg_replace('/\D/', '', $phoneRaw);
+        if (strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
+            json_out(['ok' => false, 'error' => 'Enter a valid phone number (7–15 digits with country code, e.g. +8801712XXXXXX).'], 400);
+        }
+        $phone = (substr($phoneRaw, 0, 1) === '+') ? '+' . $phoneDigits : $phoneDigits;
     }
     $pass = $body['pass'] ?? '';
     $perr = password_policy_error(db(), $pass);
@@ -264,18 +285,36 @@ case 'register': {
         json_out(['ok' => false, 'error' => $perr], 400);
     }
     $pdo = db();
-    $st = $pdo->prepare('SELECT * FROM subscribers WHERE email = ?');
-    $st->execute([$email]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
-    if ($row && $row['status'] === 'active') {
-        json_out(['ok' => false, 'error' => 'This email is already registered. Please log in.'], 409);
+    /* Duplicate entry: active email OR active phone must be unique */
+    $row = null;
+    if ($email !== '') {
+        $st = $pdo->prepare('SELECT * FROM subscribers WHERE email = ?');
+        $st->execute([$email]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row && $row['status'] === 'active') {
+            json_out(['ok' => false, 'error' => 'This email is already registered. Please log in.'], 409);
+        }
+    }
+    if ($phone !== '') {
+        $pd = preg_replace('/\D/', '', $phone);
+        $st = $pdo->prepare("SELECT id FROM subscribers WHERE status='active' AND phone <> ''
+            AND (REPLACE(REPLACE(phone,'+',''),' ','') = ?
+                 OR substr(REPLACE(REPLACE(phone,'+',''),' ',''), -10) = ?) LIMIT 1");
+        $st->execute([$pd, substr($pd, -10)]);
+        if ($st->fetchColumn()) {
+            json_out(['ok' => false, 'error' => 'This phone number is already registered. Please log in.'], 409);
+        }
+    }
+    /* Verification channel: email OTP works today; SMS is not enabled yet */
+    if ($email === '') {
+        json_out(['ok' => false, 'error' => 'SMS verification is not enabled yet — please add your email address to receive your verification code.'], 400);
     }
     $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     $otp_hash = hash('sha256', $otp);
     $expires = gmdate('Y-m-d\TH:i:s', time() + 300);
     $trial_days = (int)admin_cfg($pdo, 'trial_days', TRIAL_DAYS); if ($trial_days < 1) $trial_days = 1; if ($trial_days > 365) $trial_days = 365;
     $trial_end = gmdate('d M Y', time() + $trial_days * 86400);
-    $org = $body['org'] ?? ''; $phone = $body['phone'] ?? '';
+    $org = $body['org'] ?? '';                     // $phone already normalized above
     $role = $body['role'] ?? 'owner'; $plan = 'Trial';          // plan always Trial — chosen later in dashboard
     $hash = password_hash($pass, PASSWORD_DEFAULT);
     if ($row) {

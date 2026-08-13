@@ -28,6 +28,18 @@
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" as="style">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css?v=3.86">
+<style>
+  /* register wizard — country picker + terms checkbox (kept local to avoid touching shared css) */
+  .phone-row{display:flex;gap:8px;align-items:stretch}
+  .phone-row select{width:132px;flex:0 0 132px}
+  .phone-row input{flex:1;min-width:0}
+  .terms-check{display:flex;align-items:flex-start;gap:9px;margin:14px 2px 2px;font-size:13px;line-height:1.45;color:var(--text-soft);cursor:pointer}
+  .terms-check input{width:16px;height:16px;margin-top:2px;accent-color:var(--primary);cursor:pointer;flex:0 0 auto}
+  .terms-check a{color:var(--primary);text-decoration:underline}
+  .terms-check.err{color:#E5484D}
+  .otp-hint{font-size:12px;color:var(--text-mute);text-align:center;margin:6px 0 0}
+  @media (max-width:520px){.phone-row select{width:112px;flex-basis:112px;font-size:12.5px}}
+</style>
 <!-- KRTaker analytics: Google Analytics 4 (G-C68G5Q03ZT) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-C68G5Q03ZT"></script>
 <script>
@@ -163,21 +175,71 @@ gtag('config', 'G-C68G5Q03ZT');
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="rEmail" data-i18n="reg.email">Email address</label>
-              <input type="email" id="rEmail" name="email" data-i18n-ph="reg.emailPh" placeholder="you@example.com" required>
+              <label for="rEmail" data-i18n="reg.email">Email address <em style="font-style:normal;color:var(--text-mute);font-size:12px">(or phone — one is enough)</em></label>
+              <input type="email" id="rEmail" name="email" data-i18n-ph="reg.emailPh" placeholder="you@example.com">
               <div class="form-err" id="errEmail" data-i18n="reg.err.email">Please enter a valid email.</div>
             </div>
             <div class="form-group">
               <label for="rPhone" data-i18n="reg.phone">Phone / WhatsApp</label>
-              <input type="tel" id="rPhone" name="phone" data-i18n-ph="reg.phonePh" placeholder="+880 17XX-XXXXXX">
+              <div class="phone-row">
+                <select id="rCountry" name="cc" title="Country code" aria-label="Country code">
+                  <option value="+880" selected>🇧🇩 +880 (BD)</option>
+                  <option value="+91">🇮🇳 +91 (IN)</option>
+                  <option value="+92">🇵🇰 +92 (PK)</option>
+                  <option value="+94">🇱🇰 +94 (LK)</option>
+                  <option value="+977">🇳🇵 +977 (NP)</option>
+                  <option value="+975">🇧🇹 +975 (BT)</option>
+                  <option value="+960">🇲🇻 +960 (MV)</option>
+                  <option value="+966">🇸🇦 +966 (SA)</option>
+                  <option value="+971">🇦🇪 +971 (AE)</option>
+                  <option value="+974">🇶🇦 +974 (QA)</option>
+                  <option value="+965">🇰🇼 +965 (KW)</option>
+                  <option value="+968">🇴🇲 +968 (OM)</option>
+                  <option value="+973">🇧🇭 +973 (BH)</option>
+                  <option value="+1">🇺🇸 +1 (US)</option>
+                  <option value="+44">🇬🇧 +44 (UK)</option>
+                  <option value="+61">🇦🇺 +61 (AU)</option>
+                  <option value="+1">🇨🇦 +1 (CA)</option>
+                  <option value="+65">🇸🇬 +65 (SG)</option>
+                  <option value="+60">🇲🇾 +60 (MY)</option>
+                  <option value="+81">🇯🇵 +81 (JP)</option>
+                  <option value="+82">🇰🇷 +82 (KR)</option>
+                  <option value="+86">🇨🇳 +86 (CN)</option>
+                  <option value="+852">🇭🇰 +852 (HK)</option>
+                  <option value="+20">🇪🇬 +20 (EG)</option>
+                  <option value="+27">🇿🇦 +27 (ZA)</option>
+                  <option value="+33">🇫🇷 +33 (FR)</option>
+                  <option value="+49">🇩🇪 +49 (DE)</option>
+                  <option value="+31">🇳🇱 +31 (NL)</option>
+                  <option value="+39">🇮🇹 +39 (IT)</option>
+                  <option value="+34">🇪🇸 +34 (ES)</option>
+                  <option value="+351">🇵🇹 +351 (PT)</option>
+                  <option value="+7">🇷🇺 +7 (RU)</option>
+                  <option value="+90">🇹🇷 +90 (TR)</option>
+                  <option value="+62">🇮🇩 +62 (ID)</option>
+                  <option value="+63">🇵🇭 +63 (PH)</option>
+                  <option value="+66">🇹🇭 +66 (TH)</option>
+                  <option value="+84">🇻🇳 +84 (VN)</option>
+                  <option value="+55">🇧🇷 +55 (BR)</option>
+                  <option value="+52">🇲🇽 +52 (MX)</option>
+                  <option value="+234">🇳🇬 +234 (NG)</option>
+                  <option value="+254">🇰🇪 +254 (KE)</option>
+                </select>
+                <input type="tel" id="rPhone" name="phone" data-i18n-ph="reg.phonePh" placeholder="17XX-XXXXXX" inputmode="tel">
+              </div>
+              <div class="form-err" id="errPhone" data-i18n="reg.err.phone">Enter a valid phone number for the selected country.</div>
             </div>
           </div>
           <div class="form-group">
             <label for="rPass" data-i18n="reg.pass">Password</label>
-            <input type="password" id="rPass" name="password" data-i18n-ph="reg.passPh" placeholder="Min 6 characters" minlength="6" required>
-            <div class="form-err" id="errPass" data-i18n="reg.err.pass">Password must be at least 6 characters.</div>
+            <input type="password" id="rPass" name="password" data-i18n-ph="reg.passPh" placeholder="Min 6 characters, letters & numbers" minlength="6" required>
+            <div class="form-err" id="errPass" data-i18n="reg.err.passWeak">Password too weak — use 6+ characters with at least one letter and one number.</div>
           </div>
-          <p class="terms-note" data-i18n="reg.terms">By registering you agree to our <a href="terms.html">Terms</a> &amp; <a href="privacy.html">Privacy Policy</a>.</p>
+          <label class="terms-check">
+            <input type="checkbox" id="rTerms">
+            <span><span data-i18n="reg.termsCheck">I agree to the</span> <a href="terms.html" target="_blank" rel="noopener" data-i18n="footer.terms">Terms</a> &amp; <a href="privacy.html" target="_blank" rel="noopener" data-i18n="footer.privacy">Privacy Policy</a>.</span>
+          </label>
+          <div class="form-err" id="errTerms" data-i18n="reg.err.terms">Please accept the Terms &amp; Privacy Policy to continue.</div>
           <div class="wiz-actions">
             <button type="button" class="btn btn-outline" id="backTo1" data-i18n="reg.back">Back</button>
             <button type="submit" class="btn btn-primary btn-lg" id="regSubmit" data-i18n="reg.next">Continue</button>
@@ -199,6 +261,7 @@ gtag('config', 'G-C68G5Q03ZT');
         </div>
         <div class="form-err" id="errOtp" style="text-align:center" data-i18n="reg.err.otp">Invalid or expired code. Try again.</div>
         <div class="otp-timer" id="otpTimer">60s · <a id="otpResend" data-i18n="reg.otpResend">Resend code</a></div>
+        <p class="otp-hint" data-i18n="reg.otpHint">Didn't get it? Check your spam/junk folder — we send from noreply@krtaker.com.</p>
         <div class="wiz-actions">
           <button class="btn btn-outline" id="backTo2" data-i18n="reg.back">Back</button>
           <button class="btn btn-primary btn-lg" id="otpVerify" data-i18n="reg.otpBtn">Verify &amp; activate trial</button>
@@ -221,7 +284,7 @@ gtag('config', 'G-C68G5Q03ZT');
   </div>
 </div>
 <script src="js/botguard.js?v=3.90"></script>
-<script src="js/register.js?v=3.88"></script>
+<script src="js/register.js?v=3.89"></script>
 
 <!-- ===== CTA SECTION ===== -->
 <section class="cta-section">
@@ -348,7 +411,7 @@ gtag('config', 'G-C68G5Q03ZT');
 </div>
 <!-- Back to top -->
 <button class="btt-btn" aria-label="Back to top">↑</button>
-<script src="i18n/i18n-dict.js?v=3.86"></script>
+<script src="i18n/i18n-dict.js?v=3.87"></script>
 <script src="js/i18n.js?v=3.86"></script>
 <script src="js/cms-hydrate.js?v=3.86"></script>
 <script src="js/main.js?v=3.86"></script>
