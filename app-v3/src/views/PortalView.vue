@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
-import { apiCall, apiBlob } from '../api/client'
+import { apiCall, apiBlob, apiUpload, apiBase } from '../api/client'
 import { lang, t } from '../lib/i18n'
 import { money, fmtTs, badge, monthLabel } from '../lib/ui'
 
@@ -124,6 +124,64 @@ const settleRows = computed(() => {
 })
 const meterType = (t) => ({ electricity: '⚡', gas: '🔥', water: '💧' }[t] || '📟') + ' ' + (t || '')
 const utType = (t) => ({ electricity: '⚡', gas: '🔥', water: '💧', common: '🏢' }[t] || '📟') + ' ' + (t || '')
+
+// ── V2.39: my profile & onboarding (tenant self-service) ──
+const nidDocs = computed(() => portal.value?.nid_docs || [])
+const family = ref([])
+const famSaving = ref(false)
+const profileBusy = ref('')
+const moveInLists = computed(() => (portal.value?.handover || []).filter(h => h.kind === 'move_in'))
+watch(portal, () => { family.value = JSON.parse(JSON.stringify(tenant.value?.family || [])) })
+
+async function uploadPhoto(e) {
+  const f = e.target.files && e.target.files[0]
+  e.target.value = ''
+  if (!f) return
+  profileBusy.value = 'photo'
+  try {
+    const fd = new FormData(); fd.append('file', f)
+    const r = await apiUpload('app-photo?action=user-upload', fd)
+    if (r.ok) { window.__krToast?.('📸 Profile photo updated', 'ok'); load() }
+    else window.__krToast?.(r.error || 'Photo upload failed', 'error')
+  } finally { profileBusy.value = '' }
+}
+async function uploadNid(e) {
+  const f = e.target.files && e.target.files[0]
+  e.target.value = ''
+  if (!f || !tenant.value) return
+  profileBusy.value = 'nid'
+  try {
+    const fd = new FormData()
+    fd.append('file', f); fd.append('kind', 'tenant'); fd.append('ref', tenant.value.id)
+    const r = await apiUpload('app-doc-upload', fd)
+    if (r.ok) { window.__krToast?.('🪪 NID copy uploaded', 'ok'); load() }
+    else window.__krToast?.(r.error || 'Upload failed', 'error')
+  } finally { profileBusy.value = '' }
+}
+async function saveFamily() {
+  famSaving.value = true
+  try {
+    const clean = family.value.filter(m => m && (m.name || m.relation))
+    const r = await apiCall('app-portal', { action: 'family-save', family: clean })
+    if (r.ok) { window.__krToast?.('👨‍👩‍👧 Family info saved', 'ok'); load() }
+    else window.__krToast?.(r.error || 'Save failed', 'error')
+  } finally { famSaving.value = false }
+}
+async function ackMoveIn(h) {
+  if (!confirm(`Acknowledge move-in checklist ${h.id}? This confirms you agree with the flat's condition.`)) return
+  profileBusy.value = 'ack'
+  try {
+    const r = await apiCall('app-portal', { action: 'movein-ack', id: h.id })
+    if (r.ok) { window.__krToast?.('✅ Move-in checklist acknowledged', 'ok'); load() }
+    else window.__krToast?.(r.error || 'Acknowledge failed', 'error')
+  } finally { profileBusy.value = '' }
+}
+async function viewDoc(d) {
+  try {
+    const url = await apiBlob('app-doc-view?id=' + encodeURIComponent(d.id))
+    if (url) window.open(url, '_blank')
+  } catch (e) { window.__krToast?.('Failed to open document.', 'error') }
+}
 </script>
 
 <template>
@@ -160,6 +218,73 @@ const utType = (t) => ({ electricity: '⚡', gas: '🔥', water: '💧', common:
     </div>
 
     <template v-if="portal">
+      <!-- V2.39: My profile & onboarding (tenant self-service) -->
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-h"><div class="t"><span class="pi">🪪</span>{{ lang === 'bn' ? 'আমার প্রোফাইল ও অনবোর্ডিং' : 'My profile & onboarding' }}</div></div>
+        <div class="panel-b">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px">
+            <!-- identity -->
+            <div>
+              <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">{{ lang === 'bn' ? 'পরিচয়' : 'Identity' }}</div>
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+                <div style="width:46px;height:46px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;overflow:hidden;flex-shrink:0">
+                  <img v-if="tenant?.photo" :src="apiBase() + 'app-photo?action=view&target=tenant&id=' + tenant.id" style="width:100%;height:100%;object-fit:cover">
+                  <span v-else>{{ (tenant?.name || '?').slice(0, 2).toUpperCase() }}</span>
+                </div>
+                <div style="min-width:0">
+                  <div style="font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tenant?.name }}</div>
+                  <div class="c-sub" style="font-size:12px">{{ tenant?.email || '—' }} · {{ tenant?.phone || '—' }}</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <label style="padding:8px 13px;border:1px dashed var(--border);border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+                  📷 {{ profileBusy === 'photo' ? '…' : (lang === 'bn' ? 'প্রোফাইল ছবি' : 'Profile photo') }}
+                  <input type="file" accept="image/*" hidden @change="uploadPhoto">
+                </label>
+                <label style="padding:8px 13px;border:1px dashed var(--border);border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+                  🪪 {{ profileBusy === 'nid' ? '…' : (lang === 'bn' ? 'এনআইডি কপি আপলোড' : 'Upload NID copy') }}
+                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" hidden @change="uploadNid">
+                </label>
+              </div>
+              <div v-if="nidDocs.length" style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+                <div v-for="d in nidDocs" :key="d.id" style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">📄 {{ d.name }}</span>
+                  <button class="btn-ghost" style="padding:2px 9px;font-size:11px" @click="viewDoc(d)">{{ lang === 'bn' ? 'দেখুন' : 'view' }}</button>
+                </div>
+              </div>
+            </div>
+            <!-- family -->
+            <div>
+              <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">👨‍👩‍👧 {{ lang === 'bn' ? 'পরিবারের সদস্য' : 'Family members' }}</div>
+              <div v-for="(m, i) in family" :key="i" style="display:flex;gap:6px;margin-bottom:6px">
+                <input v-model="m.name" :placeholder="lang === 'bn' ? 'নাম' : 'Name'" style="flex:1.4;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <input v-model="m.relation" :placeholder="lang === 'bn' ? 'সম্পর্ক' : 'Relation'" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <input v-model="m.phone" placeholder="Phone" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <button style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:13px" @click="family.splice(i, 1)">✕</button>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-ghost" style="padding:7px 12px;font-size:12.5px" @click="family.push({ name: '', relation: '', phone: '' })">＋ {{ lang === 'bn' ? 'সদস্য যোগ' : 'Add member' }}</button>
+                <button class="btn-primary" style="padding:7px 14px;font-size:12.5px" :disabled="famSaving" @click="saveFamily">💾 {{ famSaving ? '…' : (lang === 'bn' ? 'সংরক্ষণ' : 'Save family') }}</button>
+              </div>
+            </div>
+            <!-- move-in checklist + password -->
+            <div>
+              <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📋 {{ lang === 'bn' ? 'মুভ-ইন চেকলিস্ট' : 'Move-in checklist' }}</div>
+              <div v-if="moveInLists.length" style="display:flex;flex-direction:column;gap:7px">
+                <div v-for="h in moveInLists" :key="h.id" style="display:flex;align-items:center;gap:8px;font-size:12.5px;flex-wrap:wrap">
+                  <span style="font-weight:700">{{ h.id }}</span>
+                  <span class="badge" :class="h.status === 'Acknowledged' ? 'b-green' : 'b-orange'">{{ h.status }}</span>
+                  <span v-if="h.acknowledged_by" class="c-sub" style="font-size:11px">{{ h.acknowledged_by }} · {{ h.acknowledged_at }}</span>
+                  <button v-if="h.status === 'In Progress'" class="btn-primary" style="padding:5px 12px;font-size:11.5px" :disabled="profileBusy === 'ack'" @click="ackMoveIn(h)">✅ {{ lang === 'bn' ? 'স্বীকার করুন' : 'Acknowledge' }}</button>
+                </div>
+              </div>
+              <div v-else class="c-sub" style="font-size:12.5px">{{ lang === 'bn' ? 'কোনো মুভ-ইন চেকলিস্ট নেই।' : 'No move-in checklist.' }}</div>
+              <a href="#/settings" style="display:inline-block;margin-top:14px;padding:8px 14px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;font-weight:700;text-decoration:none;color:var(--text)">🔑 {{ lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Change password' }}</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Stat cards -->
       <div class="grid grid-4" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
         <div v-for="(c, i) in statCards" :key="i" class="panel" style="padding:14px 16px">

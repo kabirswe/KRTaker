@@ -1162,6 +1162,11 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
         try { $pdo->exec('PRAGMA user_version=20260922'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
+        /* ── V2.39 (unconditional): tenant acknowledgment columns on handover checklists ── */
+        $hcols = [];
+        foreach ($pdo->query('PRAGMA table_info(handover_checklists)') as $c) $hcols[] = $c['name'];
+        if (!in_array('acknowledged_by', $hcols, true)) $pdo->exec("ALTER TABLE handover_checklists ADD COLUMN acknowledged_by TEXT DEFAULT ''");
+        if (!in_array('acknowledged_at', $hcols, true)) $pdo->exec("ALTER TABLE handover_checklists ADD COLUMN acknowledged_at TEXT DEFAULT ''");
     }
     return $pdo;
 }
@@ -1999,9 +2004,7 @@ function crud_guard_owner($pdo, $u, $collection, $id) {
 /* tenant/partner own-scope helpers */
 function my_units($u) {
     $pdo = db();
-    $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?');
-    $st->execute([$u['email']]);
-    $tid = $st->fetchColumn();
+    $tid = tenant_resolve_id($pdo, $u['email']);
     if (!$tid) return [];
     $st = $pdo->prepare('SELECT u FROM leases WHERE t=?');
     $st->execute([$tid]);
@@ -2228,8 +2231,7 @@ function invoice_owner_check($u, $inv) {
     /* tenant may only pay invoices on their own leases; staff may pay any */
     if ($u['role'] !== 'tenant') return true;
     $pdo = db();
-    $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-    $tid = $st->fetchColumn();
+    $tid = tenant_resolve_id($pdo, $u['email']);
     if (!$tid) return false;
     $st = $pdo->prepare('SELECT COUNT(*) FROM leases WHERE t=? AND id IN (SELECT l FROM invoices WHERE id=?)');
     $st->execute([$tid, $inv]);
@@ -2348,8 +2350,8 @@ function legal_search($q) {
 function ai_scope($u) {
     if ($u['role'] === 'tenant') {
         $pdo = db();
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = $st->fetchColumn();
+        /* V2.39: resolve by sub_email (demo) or the tenant's own email */
+        $tid = tenant_resolve_id($pdo, $u['email']);
         if (!$tid) return ['leases' => [], 'units' => [], 'invoices' => []];
         $st = $pdo->prepare('SELECT id, u FROM leases WHERE t=?'); $st->execute([$tid]);
         $leases = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -2431,6 +2433,7 @@ function DOC_CATS() {
         'tax'       => 'Tax & khajna',
         'community' => 'Community / society documents',
         'agreement' => 'Agreement & lease papers',
+        'nid'       => 'NID & identity documents',
         'other'     => 'Other',
     ];
 }
@@ -2537,14 +2540,22 @@ function portal_data($pdo, $tid) {
     $conds = []; $args = [];
     if ($leaseIds) { $conds[] = 'ref IN (' . ai_in_list($leaseIds) . ')'; $args = array_merge($args, $leaseIds); }
     if ($pIds) { $conds[] = 'p IN (' . ai_in_list($pIds) . ')'; $args = array_merge($args, $pIds); }
+    /* V2.39: tenant NID copy uploads (kind=tenant, ref=tenant id) */
+    if ($tid) { $conds[] = "(kind='tenant' AND ref=?)"; $args[] = $tid; }
     if ($conds) {
         $st = $pdo->prepare('SELECT * FROM documents WHERE ' . implode(' OR ', $conds) . ' ORDER BY ts DESC');
         $st->execute($args);
         $docs = $st->fetchAll(PDO::FETCH_ASSOC);
     }
+    $nidDocs = [];
+    if ($tid) {
+        $st = $pdo->prepare("SELECT * FROM documents WHERE kind='tenant' AND ref=? ORDER BY ts DESC");
+        $st->execute([$tid]);
+        $nidDocs = $st->fetchAll(PDO::FETCH_ASSOC);
+    }
     $handover = [];
     if ($leaseIds) {
-        $st = $pdo->prepare('SELECT id, lease, kind, status, ts, updated_at FROM handover_checklists WHERE lease IN (' . ai_in_list($leaseIds) . ') ORDER BY updated_at DESC');
+        $st = $pdo->prepare('SELECT id, lease, kind, status, ts, updated_at, acknowledged_by, acknowledged_at FROM handover_checklists WHERE lease IN (' . ai_in_list($leaseIds) . ') ORDER BY updated_at DESC');
         $st->execute($leaseIds);
         $handover = $st->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -2597,9 +2608,9 @@ function portal_data($pdo, $tid) {
                    'rent' => $sr['totals']['rent'], 'utility' => $sr['totals']['utility'], 'damages' => $sr['totals']['damages']];
     }
     return [
-        'tenant' => ['id' => $tenant['id'], 'name' => $tenant['name'], 'email' => $tenant['sub_email'], 'phone' => $tenant['phone'], 'kind' => $tenant['kind'], 'nid' => $tenant['nid']],
+        'tenant' => ['id' => $tenant['id'], 'name' => $tenant['name'], 'email' => $tenant['email'] ?: $tenant['sub_email'], 'phone' => $tenant['phone'], 'kind' => $tenant['kind'], 'nid' => $tenant['nid'], 'photo' => $tenant['photo'] ?? '', 'family' => json_decode($tenant['family'] ?? '[]', true) ?: []],
         'leases' => $enriched, 'invoices' => $invoices, 'payments' => $payments,
-        'receipts' => $receipts, 'docs' => $docs, 'handover' => $handover,
+        'receipts' => $receipts, 'docs' => $docs, 'nid_docs' => $nidDocs, 'handover' => $handover,
         'tickets' => $tickets, 'notices' => $notices, 'stats' => $stats,
         'renewals' => $renewals, 'meters' => $meters, 'utility_bills' => $utilityBills,
         'settlement' => $settle,
@@ -3670,6 +3681,31 @@ HTML,
 </div>
 HTML,
 ],
+'tenant_welcome' => [
+'Your KRTaker tenant portal is ready — {{property}} {{unit}}',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#2F80ED,#1E5EB8);padding:22px 32px">
+    <div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">KRTaker<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KEY RESPONSIBILITY TAKER</span></div>
+  </div>
+  <div style="padding:32px">
+    <h1 style="margin:0 0 8px;font-size:20px;color:#101828">Hello {{name}} 👋</h1>
+    <p style="margin:0 0 6px;color:#475467;font-size:14px;line-height:1.7">You have been registered on <b>KRTaker</b> as a tenant@{{property}}{{unit ? ' · ' + unit : ''}} and your <b>tenant portal account is ready</b>.</p>
+    <p style="margin:0 0 18px;color:#475467;font-size:14px;line-height:1.7">Through the portal you can view your lease, pay rent, raise maintenance tickets, download receipts &amp; agreements, update your profile (NID copy, photo, family members) and acknowledge your move-in checklist.</p>
+    <div style="background:#F6F9FE;border:1px solid #E4EAF3;border-radius:14px;padding:18px 20px;margin-bottom:18px">
+      <div style="font-size:12px;font-weight:800;color:#2F80ED;letter-spacing:.6px;text-transform:uppercase;margin-bottom:10px">Portal access</div>
+      <div style="font-size:13.5px;color:#1A2433;margin-bottom:6px">🔗 <a href="{{portal_url}}" style="color:#2F80ED;font-weight:700;text-decoration:none">krtaker.com/app-v3</a></div>
+      <div style="font-size:13.5px;color:#1A2433;margin-bottom:6px">📧 Login email: <b>{{email}}</b></div>
+      <div style="font-size:13.5px;color:#1A2433;margin-bottom:6px">🔑 Temporary password: <b style="font-family:monospace">{{temp_password}}</b></div>
+      <div style="font-size:12.5px;color:#667085;line-height:1.6">Please sign in and <b>change your password</b> the first time you log in. On your first login you will get a short guided tour of the portal.</div>
+    </div>
+    <a href="{{portal_url}}" style="display:inline-block;background:#2F80ED;color:#fff;padding:13px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px">Open your tenant portal →</a>
+    <p style="margin:22px 0 0;color:#8A94A6;font-size:12.5px;line-height:1.7">Questions about your tenancy? Reply to this email — your landlord's team replies within 24 hours. 🇧🇩</p>
+  </div>
+  <div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh<br>support@krtaker.com · +880 1722-759646<br>Never share your password. KRTaker will never ask for it over the phone.</div>
+</div>
+HTML,
+],
 'collections' => [
 'KRTaker — {{unpaid}} unpaid rent invoice(s)',
 <<<'HTML'
@@ -4048,7 +4084,7 @@ function seed_templates($pdo) {
                 ->execute([$id, $n[0], $n[1], $n[2], $body, 'system', $n[3]]);
         }
     }
-    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en']];
+    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en'], 'tenant_welcome' => ['Tenant Portal Welcome Email', 'en']];
     foreach ($emails as $id => $em) {
         list($subj, $body) = seed_email_tpl($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM email_templates WHERE id=?'); $st->execute([$id]);
@@ -7646,8 +7682,7 @@ function insurance_premium_for($base, $score) {
 /* Phase 30: maintenance & repairs — scope unit for a user (tenant → own lease unit; staff → any) */
 function maintenance_scope($pdo, $u, $unit = '') {
     if ($u['role'] === 'tenant') {
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = (string)$st->fetchColumn();
+        $tid = tenant_resolve_id($pdo, $u['email']);
         $st = $pdo->prepare("SELECT l.u FROM leases l WHERE l.t=? AND l.status IN ('Active','Pending Registration') ORDER BY l.start DESC LIMIT 1");
         $st->execute([$tid]);
         return ['tenant' => $tid, 'unit' => (string)$st->fetchColumn()];
@@ -7709,9 +7744,9 @@ function user_profile($pdo, $u) {
         $profile['trial_end'] = $u['trial_end'] ?? '';
         $profile['is_staff'] = false;
         /* link tenant row if this subscriber is a tenant */
-        $st = $pdo->prepare('SELECT id, name, phone FROM tenants WHERE sub_email=?');
-        $st->execute([$u['email']]);
-        $tn = $st->fetch(PDO::FETCH_ASSOC);
+        $tid = tenant_resolve_id($pdo, $u['email']);
+        $tn = null;
+        if ($tid) { $st = $pdo->prepare('SELECT id, name, phone FROM tenants WHERE id=?'); $st->execute([$tid]); $tn = $st->fetch(PDO::FETCH_ASSOC); }
         $profile['tenant_id'] = $tn ? $tn['id'] : '';
         $profile['linked_tenant'] = $tn ? $tn['name'] : '';
     } else {
@@ -7912,8 +7947,8 @@ function tf_next_id($pdo) {
 }
 function trust_tenant_id($pdo, $u) {
     if ($u['role'] === 'tenant') {
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        return (string)$st->fetchColumn();
+        /* V2.39: portal accounts can be linked by sub_email (demo) or the tenant's own email */
+        return tenant_resolve_id($pdo, $u['email']);
     }
     return '';
 }
@@ -7951,6 +7986,57 @@ function nid_ensure_for_tenant($pdo, $tid, $nid = '', $dob = '', $verifiedBy = '
     $pdo->prepare('INSERT INTO nid_verifications (id, tenant, nid, dob, status, method, checksum_ok, age_ok, notes, verified_by, verified_at) VALUES (?,?,?,?,?,?,?,?,?,?,datetime(\'now\'))')
         ->execute([$id, $tid, $nid, $dob, $status, 'checksum', ($nid !== '' && $v['ok']) ? 1 : 0, $ageOk, $notes, $verifiedBy]);
     return $id;
+}
+/* V2.39: resolve a tenant row for a portal login email. sub_email match first (demo model),
+   then the tenant's own email (subscriber-owned tenants keep sub_email = owner, email = tenant). */
+function tenant_resolve_id($pdo, $email) {
+    $e = strtolower(trim((string)$email));
+    if ($e === '') return '';
+    $st = $pdo->prepare("SELECT id FROM tenants WHERE lower(sub_email)=? AND sub_email<>'' ORDER BY id LIMIT 1"); $st->execute([$e]);
+    $id = (string)$st->fetchColumn();
+    if ($id !== '') return $id;
+    $st = $pdo->prepare("SELECT id FROM tenants WHERE lower(email)=? AND email<>'' ORDER BY id LIMIT 1"); $st->execute([$e]);
+    return (string)$st->fetchColumn();
+}
+/* V2.39: provision a portal login account (app_users role=tenant) for a tenant row +
+   send the welcome email (registration + portal access + temp password). Idempotent. */
+function tenant_provision_account($pdo, $tid, $actor) {
+    $st = $pdo->prepare('SELECT * FROM tenants WHERE id=?'); $st->execute([$tid]);
+    $t = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$t) return ['ok' => false, 'error' => 'Tenant not found.'];
+    $email = strtolower(trim((string)$t['email']));
+    if ($email === '') return ['ok' => false, 'error' => 'Tenant has no email — add one to grant portal access.', 'provisioned' => false];
+    $st = $pdo->prepare('SELECT id, role FROM app_users WHERE lower(email)=?'); $st->execute([$email]);
+    $ex = $st->fetch(PDO::FETCH_ASSOC);
+    if ($ex) {
+        if (($ex['role'] ?? '') !== 'tenant')
+            return ['ok' => false, 'error' => 'Email already used by a staff account.', 'provisioned' => false];
+        return ['ok' => true, 'provisioned' => false, 'already' => true, 'email' => $email];
+    }
+    /* temp password: hex = letters+digits → passes the letter&number policy */
+    $temp = substr(bin2hex(random_bytes(6)), 0, 10);
+    $pdo->prepare('INSERT INTO app_users (name, email, password_hash, role, dept, is_staff, active, phone, title, employee_id, joined_at, address, notes) VALUES (?,?,?,?,?,0,1,?,?,?,?,?,?)')
+        ->execute([$t['name'], $email, password_hash($temp, PASSWORD_DEFAULT), 'tenant', '', trim((string)$t['phone']), '', '', '', '', 'Portal account created by ' . ($actor ?: 'owner')]);
+    /* property / unit from the active lease (for the email) */
+    $unit = ''; $prop = '';
+    $st = $pdo->prepare("SELECT l.u, u.p, p.name AS pname, u.name AS uname FROM leases l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE l.t=? AND l.status IN ('Active','Pending Registration') ORDER BY l.start DESC LIMIT 1");
+    $st->execute([$tid]);
+    if ($lease = $st->fetch(PDO::FETCH_ASSOC)) {
+        $unit = $lease['uname'] ?? $lease['u'] ?? '';
+        $prop = $lease['pname'] ?? $lease['p'] ?? '';
+    }
+    audit($actor ?: 'system', 'Tenant portal account provisioned', 'tenants', $tid, $email);
+    $ok = true; $mailErr = '';
+    try {
+        list($subj, $body) = email_render('tenant_welcome', [
+            'name' => $t['name'], 'email' => $email, 'temp_password' => $temp,
+            'portal_url' => 'https://krtaker.com/app-v3/#/portal',
+            'app_url' => 'https://krtaker.com/app-v3/', 'property' => $prop, 'unit' => $unit,
+        ]);
+        $ok = send_mail($email, $subj, $body);
+        if (!$ok) $mailErr = ' (mail send failed)';
+    } catch (Exception $e) { $mailErr = ' (mail error: ' . $e->getMessage() . ')'; }
+    return ['ok' => true, 'provisioned' => true, 'temp_password' => $temp, 'email' => $email, 'mail' => $mailErr];
 }
 function nv_rows($pdo, $tenant = '', $scope = '') {
     $sql = "SELECT v.*, t.name AS tenant_name, t.phone AS tenant_phone, t.kind AS tenant_kind
@@ -8173,8 +8259,10 @@ function tds_due($pdo, $month) {
     return ['month' => $month, 'rate' => $rate, 'items' => $items, 'total' => $total];
 }
 function legal_my_leases($pdo, $u) {
-    $st = $pdo->prepare('SELECT id FROM leases WHERE t=(SELECT id FROM tenants WHERE sub_email=?)');
-    $st->execute([$u['email']]);
+    $tid = tenant_resolve_id($pdo, $u['email']);
+    if (!$tid) return [];
+    $st = $pdo->prepare('SELECT id FROM leases WHERE t=?');
+    $st->execute([$tid]);
     return array_column($st->fetchAll(PDO::FETCH_ASSOC), 'id');
 }
 function lease_audit_all($pdo) {
@@ -8651,6 +8739,8 @@ function nrb_vacancy_approve($pdo, $u, $vc) {
         ->execute([$tid, $cand['name'], trim($cand['phone'] ?? ''), $temail, trim($cand['nid'] ?? ''), 'Individual', $temail ?: null]);
     /* V2.38: approved NRB candidates also auto-get a NID verification record */
     nid_ensure_for_tenant($pdo, $tid, $cand['nid'] ?? '', '', $u['name']);
+    /* V2.39: approved candidate with an email gets portal access + welcome email */
+    if ($temail !== '') tenant_provision_account($pdo, $tid, $u['name']);
     $start = trim($cand['start'] ?? '') ?: date('Y-m-d');
     $d = new DateTime($start);
     $d->modify('+' . max(1, min(36, (int)($cand['months'] ?? 12))) . ' months');
@@ -12253,8 +12343,9 @@ case 'app-bootstrap': {
 
         ];
     } elseif ($role === 'tenant') {
-        $me = $q('SELECT * FROM tenants WHERE sub_email=?', [$u['email']]);
-        $tid = $me ? $me[0]['id'] : '';
+        /* V2.39: portal account links by sub_email (demo) or the tenant's own email */
+        $tid = tenant_resolve_id($pdo, $u['email']);
+        $me = $tid ? $q('SELECT * FROM tenants WHERE id=?', [$tid]) : [];
         $leases = $tid ? $q('SELECT * FROM leases WHERE t=?', [$tid]) : [];
         $unitIds = array_column($leases, 'u');
         $units = $unitIds ? $q('SELECT * FROM units WHERE id IN (' . implode(',', array_fill(0, count($unitIds), '?')) . ')', $unitIds) : [];
@@ -12736,8 +12827,7 @@ case 'app-tenant-chat': {
     $tid = trim($body['tenant_id'] ?? '');
     if ($u['role'] === 'tenant') {
         /* tenant reads their OWN thread — resolve tid from sub_email */
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = (string)$st->fetchColumn();
+        $tid = tenant_resolve_id($pdo, $u['email']);
         if (!$tid) json_out(['ok' => false, 'error' => 'No tenant profile for this account.'], 404);
     } else {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true))
@@ -12757,8 +12847,7 @@ case 'app-tenant-chat-send': {
     $text = trim($body['body'] ?? '');
     if ($u['role'] === 'tenant') {
         /* tenant writes to their OWN thread */
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = (string)$st->fetchColumn();
+        $tid = tenant_resolve_id($pdo, $u['email']);
         if (!$tid) json_out(['ok' => false, 'error' => 'No tenant profile for this account.'], 404);
     } else {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true))
@@ -12799,8 +12888,17 @@ case 'app-doc-upload': {
     }
     if ($role === 'tenant') {
         $sc = ai_scope($u);
-        if (!$ref || !in_array($ref, $sc['leases'], true)) json_out(['ok' => false, 'error' => 'You can only attach documents to your own lease.'], 403);
-        $p = ''; $cat = 'agreement';
+        if ($kind === 'tenant') {
+            /* V2.39: tenants upload their own NID copy (kind=tenant, ref=own tenant id) */
+            $tid = tenant_resolve_id($pdo, $u['email']);
+            if (!$ref || $ref !== $tid) json_out(['ok' => false, 'error' => 'You can only attach documents to your own profile.'], 403);
+            $p = ''; $cat = 'nid';
+        } elseif ($kind === 'lease') {
+            if (!$ref || !in_array($ref, $sc['leases'], true)) json_out(['ok' => false, 'error' => 'You can only attach documents to your own lease.'], 403);
+            $p = ''; $cat = 'agreement';
+        } else {
+            json_out(['ok' => false, 'error' => 'Tenants can only upload lease documents or their NID copy.'], 403);
+        }
     }
     if ($role === 'partner') {
         $sc = ai_scope($u);
@@ -14545,9 +14643,16 @@ case 'app-crud': {
         $pdo->prepare('INSERT INTO ' . $collection . ' (id, ' . implode(',', $keys) . ') VALUES (?, ' . implode(',', array_fill(0, count($keys), '?')) . ')')
             ->execute(array_merge([$id], array_values($data)));
         audit($u['name'], 'Created', $collection, $id);
+        $provision = [];
         /* V2.38: tenants auto-get a NID verification record so they appear in 🪪 NID & Trust */
-        if ($collection === 'tenants') nid_ensure_for_tenant($pdo, $id, $data['nid'] ?? '', '', $u['name']);
-        json_out(['ok' => true, 'id' => $id]);
+        if ($collection === 'tenants') {
+            nid_ensure_for_tenant($pdo, $id, $data['nid'] ?? '', '', $u['name']);
+            /* V2.39: a tenant with an email gets a portal login account + welcome email */
+            if (trim((string)($data['email'] ?? '')) !== '') {
+                $provision = tenant_provision_account($pdo, $id, $u['name']);
+            }
+        }
+        json_out(['ok' => true, 'id' => $id, 'provision' => $provision]);
     }
 
     /* update */
@@ -14576,9 +14681,16 @@ case 'app-crud': {
     $sets = implode(',', array_map(fn($k) => "$k=?", array_keys($data)));
     $pdo->prepare('UPDATE ' . $collection . " SET $sets WHERE id=?")->execute(array_merge(array_values($data), [$id]));
     audit($u['name'], 'Updated', $collection, $id, json_encode($data) ?: '');
+    $provision = [];
     /* V2.38: keep NID verification in sync when a tenant's NID is edited */
-    if ($collection === 'tenants' && isset($data['nid'])) nid_ensure_for_tenant($pdo, $id, $data['nid'], '', $u['name']);
-    json_out(['ok' => true, 'id' => $id]);
+    if ($collection === 'tenants') {
+        if (isset($data['nid'])) nid_ensure_for_tenant($pdo, $id, $data['nid'], '', $u['name']);
+        /* V2.39: when an email is added to a tenant, provision the portal account + welcome email */
+        if (isset($data['email']) && trim((string)$data['email']) !== '') {
+            $provision = tenant_provision_account($pdo, $id, $u['name']);
+        }
+    }
+    json_out(['ok' => true, 'id' => $id, 'provision' => $provision]);
 }
 
 case 'app-profile': {
@@ -14629,8 +14741,7 @@ case 'app-profile': {
     $pdo->prepare("UPDATE $table SET " . implode(',', $sets) . " WHERE id=?")->execute($args);
     /* keep tenant row in sync when a linked subscriber updates name/phone (owner only, not team members) */
     if (($u['kind'] === 'sub') && empty($u['team_member']) && (in_array('name', $changed, true) || in_array('phone', $changed, true))) {
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = $st->fetchColumn();
+        $tid = tenant_resolve_id($pdo, $u['email']);
         if ($tid) {
             $tsets = []; $targs = [];
             if (in_array('name', $changed, true)) { $tsets[] = 'name=?'; $targs[] = trim($body['name']); }
@@ -14884,8 +14995,8 @@ case 'app-portal': {
     $pdo = db();
     $tid = '';
     if ($u['role'] === 'tenant') {
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = (string)$st->fetchColumn();
+        /* V2.39: resolve by sub_email (demo) or the tenant's own email */
+        $tid = tenant_resolve_id($pdo, $u['email']);
         if (!$tid) json_out(['ok' => false, 'error' => 'No tenant profile for this account.'], 404);
     } elseif (in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) {
         $tid = trim($_GET['t'] ?? $body['t'] ?? '');
@@ -14894,6 +15005,44 @@ case 'app-portal': {
         if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
     } else {
         json_out(['ok' => false, 'error' => 'Your role cannot view the tenant portal.'], 403);
+    }
+    /* V2.39: tenant self-service (tenant own profile, or staff with t) */
+    $portalAction = trim((string)($body['action'] ?? ''));
+    if ($portalAction !== '') {
+        if ($portalAction === 'family-save') {
+            $fam = $body['family'] ?? [];
+            if (is_string($fam)) $fam = json_decode($fam, true) ?: [];
+            $clean = array_values(array_filter((array)$fam, fn($m) => is_array($m) && (trim((string)($m['name'] ?? '')) !== '' || trim((string)($m['relation'] ?? '')) !== '')));
+            $pdo->prepare('UPDATE tenants SET family=? WHERE id=?')->execute([json_encode($clean, JSON_UNESCAPED_UNICODE), $tid]);
+            audit($u['name'], 'Family info saved', 'portal', $tid, count($clean) . ' members');
+            json_out(['ok' => true, 'family' => $clean]);
+        }
+        if ($portalAction === 'profile-save') {
+            $sets = []; $args = [];
+            $name = trim((string)($body['name'] ?? '')); $phone = trim((string)($body['phone'] ?? ''));
+            if ($name !== '') { $sets[] = 'name=?'; $args[] = $name; }
+            if ($phone !== '') { $sets[] = 'phone=?'; $args[] = $phone; }
+            if ($sets) { $args[] = $tid; $pdo->prepare('UPDATE tenants SET ' . implode(',', $sets) . ' WHERE id=?')->execute($args); }
+            audit($u['name'], 'Portal profile updated', 'portal', $tid, implode(',', $sets));
+            json_out(['ok' => true]);
+        }
+        if ($portalAction === 'movein-ack') {
+            $hid = trim((string)($body['id'] ?? ''));
+            if (!$hid) json_out(['ok' => false, 'error' => 'id required.'], 400);
+            $st = $pdo->prepare('SELECT * FROM handover_checklists WHERE id=?'); $st->execute([$hid]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$row) json_out(['ok' => false, 'error' => 'Checklist not found.'], 404);
+            if ($u['role'] === 'tenant') {
+                $st = $pdo->prepare('SELECT COUNT(*) FROM leases WHERE id=? AND t=?'); $st->execute([$row['lease'], $tid]);
+                if (!(int)$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Not your lease.'], 403);
+            }
+            if ($row['kind'] !== 'move_in') json_out(['ok' => false, 'error' => 'Only move-in checklists can be acknowledged by the tenant.'], 400);
+            if ($row['status'] === 'Acknowledged') json_out(['ok' => true, 'status' => 'Acknowledged', 'already' => true]);
+            $pdo->prepare("UPDATE handover_checklists SET status='Acknowledged', acknowledged_by=?, acknowledged_at=datetime('now'), updated_at=datetime('now') WHERE id=?")->execute([$u['name'], $hid]);
+            audit($u['name'], 'Move-in checklist acknowledged', 'portal', $hid, $row['lease']);
+            json_out(['ok' => true, 'status' => 'Acknowledged']);
+        }
+        json_out(['ok' => false, 'error' => 'Unknown portal action.'], 400);
     }
     $data = portal_data($pdo, $tid);
     if (!$data) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
@@ -14908,8 +15057,7 @@ case 'app-portal-agreement': {
     $l = $st->fetch(PDO::FETCH_ASSOC);
     if (!$l) json_out(['ok' => false, 'error' => 'Lease not found.'], 404);
     if ($u['role'] === 'tenant') {
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = $st->fetchColumn();
+        $tid = tenant_resolve_id($pdo, $u['email']);
         if ($tid !== $l['t']) json_out(['ok' => false, 'error' => 'Not your lease.'], 403);
     } elseif (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'legal'], true)) {
         json_out(['ok' => false, 'error' => 'Your role cannot view agreements.'], 403);
@@ -15491,8 +15639,7 @@ case 'app-meter-submit': {
     $mine = my_units($u);
     if ($u['role'] === 'tenant') {
         if (!$mine || !in_array($unit, $mine, true)) json_out(['ok' => false, 'error' => 'Not your unit.'], 403);
-        $st = $pdo->prepare('SELECT id FROM tenants WHERE sub_email=?'); $st->execute([$u['email']]);
-        $tid = (string)$st->fetchColumn();
+        $tid = tenant_resolve_id($pdo, $u['email']);
     } elseif (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) {
         json_out(['ok' => false, 'error' => 'Your role cannot submit meter readings.'], 403);
     }
@@ -21837,6 +21984,17 @@ case 'app-admin': {
             $pdo->prepare('INSERT INTO app_users (name, email, password_hash, role, dept, is_staff, active, phone, title, employee_id, joined_at, address, notes) VALUES (?,?,?,?,?,1,?,?,?,?,?,?,?)')
                 ->execute([$name, $email, password_hash($password, PASSWORD_DEFAULT), $role, $dept, $active, $phone, $title, $employee_id, $joined_at, $address, $notes]);
             audit($u['name'], 'User create', 'users', (string)$pdo->lastInsertId(), $email);
+            /* V2.39: tenant users created from User Management get their portal credentials by mail */
+            if ($role === 'tenant' && $active) {
+                try {
+                    list($subj, $body) = email_render('tenant_welcome', [
+                        'name' => $name, 'email' => $email, 'temp_password' => $password,
+                        'portal_url' => 'https://krtaker.com/app-v3/#/portal',
+                        'app_url' => 'https://krtaker.com/app-v3/', 'property' => '', 'unit' => '',
+                    ]);
+                    send_mail($email, $subj, $body);
+                } catch (Exception $e) { /* mail failure must not fail user creation */ }
+            }
         }
         json_out(['ok' => true]);
     }

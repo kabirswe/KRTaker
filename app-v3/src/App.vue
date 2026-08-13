@@ -6,6 +6,7 @@ import { useDataStore } from './stores/data'
 import { apiCall } from './api/client'
 import Sidebar from './components/Sidebar.vue'
 import Topbar from './components/Topbar.vue'
+import TenantTour from './components/TenantTour.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -121,5 +122,8 @@ document.documentElement.setAttribute('data-theme', savedTheme)
     <div class="toast-wrap">
       <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">{{ t.msg }}</div>
     </div>
+
+    <!-- V2.39: first-login guided tour for tenant portal accounts -->
+    <TenantTour v-if="auth.validated && !isSetup && (auth.user?.role || '') === 'tenant'" />
   </div>
 </template>

@@ -729,6 +729,7 @@ const modal = ref(null)
 const form = ref({})
 const saving = ref(false)
 const formErr = ref('')
+const provisionInfo = ref(null)   // V2.39: temp portal credentials after creating a tenant
 function openAdd() {
   form.value = { name: '', phone: '', email: '', nid: '', nrb: false, kind: 'Individual', sub_email: '' }
   formErr.value = ''; modal.value = { mode: 'add' }
@@ -749,6 +750,11 @@ async function submitForm() {
     })
     if (r.ok) {
       window.__krToast?.(modal.value.mode === 'edit' ? `✏️ ${modal.value.t.id} updated` : '✅ Tenant created', 'ok')
+      if (modal.value.mode !== 'edit' && r.provision?.provisioned) {
+        provisionInfo.value = { name: form.value.name.trim(), ...r.provision }
+      } else if (r.provision?.provisioned) {
+        window.__krToast?.('🔑 Portal account created — welcome email sent', 'ok')
+      }
       closeModal(); await data.bootstrap()
     } else formErr.value = r.error || 'Save failed.'
   } finally { saving.value = false }
@@ -1836,6 +1842,28 @@ async function delTenant(t) {
         </div>
       </div>
     </template>
+
+    <!-- V2.39: temp portal credentials after creating a tenant with an email -->
+    <div v-if="provisionInfo" class="overlay" @click.self="provisionInfo = null">
+      <div class="drawer" style="max-width:520px">
+        <div class="modal-h"><span class="t">🔑 Portal account created</span><button class="close" @click="provisionInfo = null">✕</button></div>
+        <div style="padding:20px 22px">
+          <div style="font-size:14px;line-height:1.7;margin-bottom:14px">
+            <b>{{ provisionInfo.name }}</b>'s portal login is ready and a welcome email was sent to <b>{{ provisionInfo.email }}</b>.
+            Keep this temporary password safe — they can change it after their first login.
+          </div>
+          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+            <div style="font-size:13px"><span style="color:var(--text-mute)">Portal:</span> <b>krtaker.com/app-v3</b> → My Portal</div>
+            <div style="font-size:13px"><span style="color:var(--text-mute)">Login email:</span> <b>{{ provisionInfo.email }}</b></div>
+            <div style="font-size:13px"><span style="color:var(--text-mute)">Temporary password:</span> <b style="font-family:monospace;font-size:14px">{{ provisionInfo.temp_password }}</b></div>
+            <div v-if="provisionInfo.mail" style="font-size:12px;color:var(--warn)">⚠️ {{ provisionInfo.mail }}</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn-primary" style="padding:9px 18px;font-size:13px" @click="provisionInfo = null">Got it</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
