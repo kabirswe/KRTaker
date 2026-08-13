@@ -72,7 +72,7 @@ const VIEW_ROUTES = {
   compliance: '/compliance', legal: '/legal', cases: '/cases', concierge: '/concierge',
   smart: '/building-systems', smarthome: '/building-systems', land: '/land', build: '/build', gate: '/gate-visits',
   firesafety: '/fire-safety', staffwatch: '/staff-attendance',
-  samity: '/samity', caretaker: '/dashboard',
+  samity: '/society?tab=samity', caretaker: '/dashboard',
 }
 
 // Module gating follows the EFFECTIVE user (updates after a real role switch).
@@ -80,11 +80,11 @@ const VIEW_ROUTES = {
 // V2.0.7: hub aliases show when the user has ANY module inside that hub.
 const FINANCE_MODS = ['invoices', 'receipts', 'payments', 'recon', 'taxes', 'remit', 'statements', 'subscriptions', 'accounts', 'receive', 'expense', 'withdraw', 'deposit', 'reconcile']
 const PORTFOLIO_MODS = ['properties', 'units', 'tenants', 'leases', 'insurance', 'onboarding', 'leads', 'documents', 'templates']
-const BMS_MODS = ['maintenance', 'gate', 'staff', 'attendance', 'payroll', 'meter', 'utilities', 'samity']
+const BMS_MODS = ['maintenance', 'gate', 'staff', 'attendance', 'payroll', 'meter', 'utilities']
 const COMMUNITY_MODS = ['notices', 'referrals', 'trust', 'support']
 const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
 const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
-const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events']
+const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events', 'samity']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS, society: SOCIETY_MODS }
 const can = (mod) => {
   const user = auth.user || data.user

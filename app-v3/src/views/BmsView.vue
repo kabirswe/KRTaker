@@ -27,7 +27,6 @@ const TAB_ORDER = [
   ['payroll', '💵', 'Payroll'],
   ['meter', '⚡', 'Meter Readings'],
   ['utilities', '🔌', 'Utility Bills'],
-  ['samity', '🏘️', 'Samity'],
 ]
 
 const VIEWS = {
@@ -38,7 +37,6 @@ const VIEWS = {
   payroll: defineAsyncComponent(() => import('./StaffPayrollView.vue')),
   meter: defineAsyncComponent(() => import('./MeterReadingsView.vue')),
   utilities: defineAsyncComponent(() => import('./UtilityBillsView.vue')),
-  samity: defineAsyncComponent(() => import('./SamityView.vue')),
 }
 
 const tab = ref('overview')
@@ -58,7 +56,6 @@ const attAll = computed(() => data.list('staff_attendance'))
 const payAll = computed(() => data.list('staff_payroll'))
 const meterAll = computed(() => data.list('meter_readings'))
 const utilAll = computed(() => data.list('utility_bills'))
-const samAll = computed(() => data.list('samity_members'))
 
 const openMnt = computed(() => mntAll.value.filter(r => ['Open', 'Assigned', 'In Progress'].includes(r.status)).length)
 const urgentMnt = computed(() => mntAll.value.filter(r => r.priority === 'urgent' && !['Resolved', 'Closed'].includes(r.status)).length)
@@ -72,7 +69,7 @@ const utilThisMonth = computed(() => utilAll.value.filter(u => (u.month || '').s
 const kpis = computed(() => ({
   open: openMnt.value, urgent: urgentMnt.value, staff: staffAll.value.length, active: activeStaff.value,
   present: presentToday.value, late: lateToday.value, payroll: payThisMonth.value, util: utilThisMonth.value,
-  gate: gateAll.value.length, meter: meterAll.value.length, samity: samAll.value.length, onLeave: onLeave.value,
+  gate: gateAll.value.length, meter: meterAll.value.length, onLeave: onLeave.value,
 }))
 
 const recentMnt = computed(() => [...mntAll.value].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || ''))).slice(0, 5))
@@ -86,7 +83,7 @@ const goTab = (t) => { tab.value = t }
     <div class="page-head">
       <div>
         <h1>{{ t('🔧 BMS') }}</h1>
-        <div class="sub">Building management — maintenance, gate, staff, attendance, payroll, meters, utilities &amp; samity · one dashboard</div>
+        <div class="sub">Building management — maintenance, gate, staff, attendance, payroll, meters &amp; utilities · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn-ghost" @click="goTab('maintenance')">➕ New request</button>
@@ -110,7 +107,7 @@ const goTab = (t) => { tab.value = t }
         <div class="stat"><div class="s-label"><span class="s-ico">⏱️</span>Present today</div><div class="s-value" style="color:var(--ok,#12a150)">{{ kpis.present }}</div><div class="s-trend">{{ kpis.late }} late</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Payroll this month</div><div class="s-value">{{ money(kpis.payroll) }}</div><div class="s-trend">{{ thisMonth() }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">🔌</span>Utility bills</div><div class="s-value">{{ money(kpis.util) }}</div><div class="s-trend">{{ thisMonth() }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🚪</span>Gate visits</div><div class="s-value">{{ kpis.gate }}</div><div class="s-trend">{{ kpis.meter }} meter readings · {{ kpis.samity }} samity members</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🚪</span>Gate visits</div><div class="s-value">{{ kpis.gate }}</div><div class="s-trend">{{ kpis.meter }} meter readings · {{ kpis.onLeave }} on leave</div></div>
       </div>
 
       <!-- Quick actions -->

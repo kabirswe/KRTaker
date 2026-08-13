@@ -9,6 +9,11 @@ import PagerBar from '../components/PagerBar.vue'
 import CompactFilters from '../components/CompactFilters.vue'
 import ScrollTabs from '../components/ScrollTabs.vue'
 
+// V2.31.6: embedded mode — Samity is now a tab inside the Society hub. When
+// embedded we hide the page-head h1/sub (the Society header already says it)
+// but keep the action row (property filter, search, CSV, add) and inner tabs.
+const props = defineProps({ embedded: { type: Boolean, default: false } })
+
 const router = useRouter()
 const route = useRoute()
 const viewMode = useViewMode('samity')
@@ -339,8 +344,8 @@ function detailFields(row) {
 
 <template>
   <div>
-    <div class="page-head">
-      <div>
+    <div class="page-head" style="margin-top:14px">
+      <div v-if="!embedded">
         <h1>{{ t('🏘️ Samity') }}</h1>
         <div class="sub">{{ kpis[0]?.value || 0 }} members · {{ kpis[4]?.value || '৳0' }} bill balance · live from API</div>
       </div>

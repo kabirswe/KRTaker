@@ -47,7 +47,7 @@ const SPECS = [
     sub: r => [r.vtype, r.vehicle_no, 'Unit ' + r.unit, r.status].filter(Boolean).join(' · ') },
   { coll: 'building_staff',  group: 'Building Staff', ic: '👷', route: '/staff',      fields: [['name', 1], ['id', 2], ['role', 1], ['phone', 1], ['prop', 1], ['status', 1]],
     sub: r => ['Prop ' + r.prop, r.role, r.phone, r.status].filter(Boolean).join(' · ') },
-  { coll: 'samity_members',  group: 'Samity',       ic: '🏘️', route: '/samity',       fields: [['name', 1], ['id', 2], ['role', 1], ['phone', 1], ['status', 1]],
+  { coll: 'samity_members',  group: 'Samity',       ic: '🏘️', route: '/society?tab=samity',       fields: [['name', 1], ['id', 2], ['role', 1], ['phone', 1], ['status', 1]],
     sub: r => [r.role, r.phone, r.status].filter(Boolean).join(' · ') },
   { coll: 'insurance_policies', group: 'Insurance', ic: '🛡️', route: '/insurance',    fields: [['id', 2], ['tenant', 1], ['plan', 1], ['status', 1]],
     sub: r => ['Tenant ' + r.tenant, r.plan, r.status].filter(Boolean).join(' · ') },

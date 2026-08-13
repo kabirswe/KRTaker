@@ -1,7 +1,7 @@
 <script setup>
 // ─────────────────────────────────────────────────────────────
 // Society Hub (V2.31.0) — community suite for buildings & societies.
-// Tabs: Parking · Amenity Bookings · Voting · Forums · Events
+// Tabs: Parking · Amenity Bookings · Voting · Forums · Events · Samity (V2.31.6)
 // Backed by the app-community API (POST actions; GET list/thread).
 // ─────────────────────────────────────────────────────────────
 import { ref, computed, onMounted } from 'vue'
@@ -11,10 +11,16 @@ import { apiCall } from '../api/client'
 import { lang, t } from '../lib/i18n'
 import { fmtTs, badge } from '../lib/ui'
 import ScrollTabs from '../components/ScrollTabs.vue'
+import { defineAsyncComponent } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+
+// V2.31.6: Samity moved into Society hub (was a standalone /samity page and a
+// BMS tab). SamityView is self-contained (its own data + filters), so it is
+// embedded as an async component — the same pattern BmsView already used.
+const SamityView = defineAsyncComponent(() => import('./SamityView.vue'))
 
 const TAB_ORDER = [
   ['parking', '🅿️', 'Parking'],
@@ -22,6 +28,7 @@ const TAB_ORDER = [
   ['voting', '🗳️', 'Voting'],
   ['forums', '💬', 'Forums'],
   ['events', '🎉', 'Events'],
+  ['samity', '🏘️', 'Samity'],
 ]
 const tab = ref('parking')
 if (route.query.tab && TAB_ORDER.some(([k]) => k === route.query.tab)) tab.value = String(route.query.tab)
@@ -52,6 +59,8 @@ async function post(mod, payload) {
 function onTab(k) {
   tab.value = k
   router.replace({ query: { ...route.query, tab: k } })
+  // Samity is self-contained (its own data loading + filters) — don't double-load.
+  if (k === 'samity') return
   load(k)
 }
 
@@ -167,7 +176,25 @@ async function rsvp(id) {
 const evtDate = (d) => d ? String(d).slice(0, 10) : '—'
 const evtTime = (x) => x || '—'
 
-onMounted(() => { load(tab.value) })
+// ── V2.31.6: Society KPI strip — live counts per module (incl. Samity) ──
+const stats = ref({ parking: 0, bookings: 0, voting: 0, forums: 0, events: 0, samity: 0 })
+async function loadStats() {
+  const out = { parking: 0, bookings: 0, voting: 0, forums: 0, events: 0, samity: 0 }
+  const mods = ['parking', 'bookings', 'voting', 'forums', 'events']
+  await Promise.all(mods.map(async (m) => {
+    try {
+      const r = await apiCall('app-community?mod=' + m + '&action=list')
+      if (r.ok) out[m] = (r.rows || []).length
+    } catch (e) {}
+  }))
+  try {
+    const r = await apiCall('app-samity', { action: 'list' })
+    if (r.ok) out.samity = (r.members || r.rows || []).length
+  } catch (e) {}
+  stats.value = out
+}
+
+onMounted(() => { load(tab.value); loadStats() })
 
 const loadingRow = () => loading.value
 </script>
@@ -177,11 +204,21 @@ const loadingRow = () => loading.value
     <div class="page-head">
       <div>
         <h1>{{ lang === 'bn' ? '🏘️ সোসাইটি' : '🏘️ Society' }}</h1>
-        <div class="sub">{{ lang === 'bn' ? 'পার্কিং, বুকিং, ভোট, ফোরাম ও ইভেন্ট' : 'Parking, bookings, voting, forums & events' }}</div>
+        <div class="sub">{{ lang === 'bn' ? 'পার্কিং, বুকিং, ভোট, ফোরাম, ইভেন্ট ও সমিতি' : 'Parking, bookings, voting, forums, events & samity' }}</div>
       </div>
       <div class="head-actions">
-        <button class="btn-ghost" @click="load(tab)" title="Refresh">🔄</button>
+        <button class="btn-ghost" @click="load(tab); loadStats()" title="Refresh">🔄</button>
       </div>
+    </div>
+
+    <!-- V2.31.6: live KPI strip -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0">
+      <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🅿️ {{ t('Parking') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ stats.parking }}</div></div>
+      <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">📅 {{ t('Bookings') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ stats.bookings }}</div></div>
+      <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🗳️ {{ t('Voting') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ stats.voting }}</div></div>
+      <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">💬 {{ t('Forums') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ stats.forums }}</div></div>
+      <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🎉 {{ t('Events') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ stats.events }}</div></div>
+      <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🏘️ {{ t('Samity') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ stats.samity }}</div></div>
     </div>
 
     <div v-if="err" class="auth-err show" style="margin-bottom:12px">{{ err }}</div>
@@ -421,6 +458,11 @@ const loadingRow = () => loading.value
         </div>
         <div v-if="!loading && !rows.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ t('No events yet') }}</div>
       </div>
+    </template>
+
+    <!-- ══════════════ SAMITY (V2.31.6 — moved from standalone /samity + BMS tab) ══════════════ -->
+    <template v-if="tab === 'samity'">
+      <SamityView embedded />
     </template>
   </div>
 </template>
