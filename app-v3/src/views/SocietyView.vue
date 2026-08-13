@@ -29,6 +29,7 @@ const TAB_ORDER = [
   ['forums', '💬', 'Forums'],
   ['events', '🎉', 'Events'],
   ['samity', '🏘️', 'Samity'],
+  ['analytics', '📊', 'Analytics'],
 ]
 const tab = ref('parking')
 if (route.query.tab && TAB_ORDER.some(([k]) => k === route.query.tab)) tab.value = String(route.query.tab)
@@ -61,6 +62,8 @@ function onTab(k) {
   router.replace({ query: { ...route.query, tab: k } })
   // Samity is self-contained (its own data loading + filters) — don't double-load.
   if (k === 'samity') return
+  // Analytics pulls every module's rows — separate loader.
+  if (k === 'analytics') { loadAnalytics(); return }
   load(k)
 }
 
@@ -241,6 +244,8 @@ function donutStyle(p) {
   })
   return 'background:conic-gradient(' + segs.join(',') + ')'
 }
+// conic-gradient style for the parking occupancy donut (V2.32.4)
+const parkDonutStyle = () => 'background:conic-gradient(var(--ok) 0% ' + anPark.value.pct + '%, var(--border) ' + anPark.value.pct + '% 100%)'
 // index of the leading option (👑), -1 when nothing has votes
 function winIdx(p) {
   let wi = -1, mx = -1
@@ -342,7 +347,91 @@ async function loadStats() {
   stats.value = out
 }
 
-onMounted(() => { load(tab.value); loadStats() })
+// ── V2.32.4: Analytics dashboard — full cross-module rows ──
+const an = ref({ parking: [], bookings: [], voting: [], forums: [], events: [], samity: [] })
+const anLoading = ref(false)
+async function loadAnalytics() {
+  anLoading.value = true
+  try {
+    const mods = ['parking', 'bookings', 'voting', 'forums', 'events']
+    const results = await Promise.all(mods.map(async (m) => {
+      try {
+        const r = await apiCall('app-community?mod=' + m + '&action=list')
+        return [m, r.ok ? (r.rows || []) : []]
+      } catch (e) { return [m, []] }
+    }))
+    const out = { parking: [], bookings: [], voting: [], forums: [], events: [], samity: [] }
+    results.forEach(([m, rows]) => { out[m] = rows })
+    try {
+      const r = await apiCall('app-samity', { action: 'list' })
+      out.samity = (r.members || r.rows || [])
+    } catch (e) {}
+    an.value = out
+  } finally { anLoading.value = false }
+}
+// per-module analytics computeds
+const anPark = computed(() => {
+  const all = an.value.parking
+  const active = all.filter(r => r.status === 'Active').length
+  const released = all.filter(r => r.status === 'Released').length
+  const pct = all.length ? Math.round(active / all.length * 100) : 0
+  return { total: all.length, active, released, pct }
+})
+const anBkg = computed(() => {
+  const all = an.value.bookings
+  const by = {}
+  all.forEach(r => {
+    const f = r.facility || 'Other'
+    by[f] = by[f] || { facility: f, total: 0, pending: 0, confirmed: 0, cancelled: 0 }
+    by[f].total++
+    by[f][String(r.status || 'pending').toLowerCase()] = (by[f][String(r.status || 'pending').toLowerCase()] || 0) + 1
+  })
+  const pending = all.filter(r => String(r.status || '').toLowerCase() === 'pending').length
+  const confirmed = all.filter(r => String(r.status || '').toLowerCase() === 'confirmed').length
+  const cancelled = all.filter(r => String(r.status || '').toLowerCase() === 'cancelled').length
+  return { total: all.length, pending, confirmed, cancelled, byFacility: Object.values(by).sort((a, b) => b.total - a.total) }
+})
+const anVote = computed(() => {
+  const all = an.value.voting
+  const totalVotes = all.reduce((s, r) => s + (r.total_votes || 0), 0)
+  const top = [...all].sort((a, b) => (b.total_votes || 0) - (a.total_votes || 0)).slice(0, 5)
+  return { total: all.length, votes: totalVotes, open: all.filter(r => r.open).length, top }
+})
+const anForum = computed(() => {
+  const all = an.value.forums
+  const cats = {}
+  all.forEach(r => {
+    const c = r.cat || 'General'
+    cats[c] = (cats[c] || 0) + 1
+  })
+  const pinned = all.filter(r => r.pinned).length
+  const posts = all.reduce((s, r) => s + (r.posts || 0), 0)
+  return { total: all.length, pinned, posts, cats: Object.entries(cats).sort((a, b) => b[1] - a[1]) }
+})
+const anEvt = computed(() => {
+  const all = an.value.events
+  const t = todayStr()
+  const upcoming = all.filter(r => { const d = evtDate(r.date); return d !== '—' && d >= t })
+  const past = all.filter(r => { const d = evtDate(r.date); return d !== '—' && d < t })
+  const rsvps = all.reduce((s, r) => s + (r.rsvps || 0), 0)
+  return { total: all.length, upcoming: upcoming.length, past: past.length, rsvps, next: upcoming.sort((a, b) => evtDate(a.date).localeCompare(evtDate(b.date))).slice(0, 4) }
+})
+const anSamity = computed(() => {
+  const all = an.value.samity
+  const roles = {}
+  all.forEach(r => {
+    const role = r.role || 'Member'
+    roles[role] = (roles[role] || 0) + 1
+  })
+  const office = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer'].filter(x => roles[x]).map(x => ({ role: x, name: (all.find(r => r.role === x) || {}).name || '—' }))
+  return { total: all.length, roles: Object.entries(roles).sort((a, b) => b[1] - a[1]), office }
+})
+
+onMounted(() => {
+  if (tab.value === 'analytics') loadAnalytics()
+  else if (tab.value !== 'samity') load(tab.value)
+  loadStats()
+})
 
 const loadingRow = () => loading.value
 </script>
@@ -757,6 +846,129 @@ const loadingRow = () => loading.value
         </div>
         <div v-if="!loading && !evtFiltered.length" class="panel" style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text-mute)">{{ evtQ || evtFilter !== 'All' ? t('No match') : t('No events yet') }}</div>
       </div>
+    </template>
+
+    <!-- ══════════════ ANALYTICS (V2.32.4) ══════════════ -->
+    <template v-if="tab === 'analytics'">
+      <div v-if="anLoading" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">⏳ {{ t('Loading') }}…</div>
+      <template v-else>
+        <!-- top KPI strip -->
+        <div class="stats" style="margin-bottom:14px">
+          <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🅿️ {{ t('Parking spots') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ anPark.total }}</div><div class="s-trend">{{ anPark.active }} {{ t('Active') }} · {{ anPark.released }} {{ t('Released') }}</div></div>
+          <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">📅 {{ t('Bookings') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ anBkg.total }}</div><div class="s-trend">{{ anBkg.pending }} {{ t('Pending') }} · {{ anBkg.confirmed }} {{ t('Confirmed') }}</div></div>
+          <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🗳️ {{ t('Polls') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ anVote.total }}</div><div class="s-trend">{{ anVote.votes }} {{ t('votes') }} · {{ anVote.open }} {{ t('Open') }}</div></div>
+          <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">💬 {{ t('Threads') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ anForum.total }}</div><div class="s-trend">{{ anForum.posts }} {{ t('replies') }} · {{ anForum.pinned }} {{ t('Pinned') }}</div></div>
+          <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🎉 {{ t('Events') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ anEvt.total }}</div><div class="s-trend">{{ anEvt.upcoming }} {{ t('Upcoming') }} · {{ anEvt.rsvps }} {{ t('going') }}</div></div>
+          <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">🏘️ {{ t('Samity') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ anSamity.total }}</div><div class="s-trend">{{ anSamity.office.length }} {{ t('office bearers') }}</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+
+          <!-- Parking occupancy donut -->
+          <div class="panel">
+            <div class="panel-b">
+              <div style="font-weight:800;font-size:14px;margin-bottom:14px">🅿️ {{ t('Parking occupancy') }}</div>
+              <div style="display:flex;align-items:center;gap:16px">
+                <div :style="parkDonutStyle()" style="position:relative;width:96px;height:96px;border-radius:50%;flex-shrink:0">
+                  <div style="position:absolute;inset:14px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center">
+                    <span style="font-weight:900;font-size:18px;line-height:1">{{ anPark.pct }}%</span>
+                    <span class="c-sub" style="font-size:9px;font-weight:700">{{ t('Active') }}</span>
+                  </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ok);flex-shrink:0"></span><span style="flex:1">{{ t('Active') }}</span><b>{{ anPark.active }}</b></div>
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:10px;height:10px;border-radius:3px;background:var(--border);flex-shrink:0"></span><span style="flex:1">{{ t('Released') }}</span><b>{{ anPark.released }}</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bookings by facility -->
+          <div class="panel">
+            <div class="panel-b">
+              <div style="font-weight:800;font-size:14px;margin-bottom:14px">📅 {{ t('Bookings by facility') }}</div>
+              <div v-if="!anBkg.byFacility.length" class="c-sub" style="font-size:12px">{{ t('No bookings yet') }}</div>
+              <div v-for="b in anBkg.byFacility" :key="b.facility" style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span>{{ b.facility }}</span><span>{{ b.total }}</span></div>
+                <div style="height:8px;background:var(--bg-alt);border-radius:99px;overflow:hidden">
+                  <div style="height:100%;border-radius:99px;background:var(--primary)" :style="{ width: Math.round(b.total / Math.max(anBkg.byFacility[0].total, 1) * 100) + '%' }"></div>
+                </div>
+                <div class="c-sub" style="font-size:10px;margin-top:2px">{{ b.pending }} {{ t('Pending') }} · {{ b.confirmed }} {{ t('Confirmed') }} · {{ b.cancelled }} {{ t('Cancelled') }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top polls -->
+          <div class="panel">
+            <div class="panel-b">
+              <div style="font-weight:800;font-size:14px;margin-bottom:14px">🗳️ {{ t('Top polls') }}</div>
+              <div v-if="!anVote.top.length" class="c-sub" style="font-size:12px">{{ t('No polls yet') }}</div>
+              <div v-for="(p, pi) in anVote.top" :key="p.id" style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;font-weight:800;margin-bottom:5px">
+                  <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.question }}</span>
+                  <span class="badge" :class="p.open ? 'b-green' : 'b-gray'" style="flex-shrink:0">{{ p.open ? t('Open') : t('Closed') }}</span>
+                </div>
+                <div v-for="(o, i) in (p.options || []).slice(0, 3)" :key="i" style="display:flex;align-items:center;gap:7px;font-size:11px;margin-top:3px">
+                  <span :style="{ background: PAL[i % PAL.length] }" style="width:8px;height:8px;border-radius:50%;flex-shrink:0"></span>
+                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-mute)">{{ o }}</span>
+                  <span style="font-weight:800">{{ p.tally[i] || 0 }} <span class="c-sub" style="font-weight:600">({{ pct(p, i) }}%)</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Forum categories -->
+          <div class="panel">
+            <div class="panel-b">
+              <div style="font-weight:800;font-size:14px;margin-bottom:14px">💬 {{ t('Forum categories') }}</div>
+              <div v-if="!anForum.cats.length" class="c-sub" style="font-size:12px">{{ t('No threads yet') }}</div>
+              <div v-for="([c, n], i) in anForum.cats" :key="c" style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span>{{ c }}</span><span>{{ n }}</span></div>
+                <div style="height:8px;background:var(--bg-alt);border-radius:99px;overflow:hidden">
+                  <div style="height:100%;border-radius:99px" :style="{ width: Math.round(n / Math.max(anForum.cats[0][1], 1) * 100) + '%', background: PAL[i % PAL.length] }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upcoming events -->
+          <div class="panel">
+            <div class="panel-b">
+              <div style="font-weight:800;font-size:14px;margin-bottom:14px">🎉 {{ t('Upcoming events') }}</div>
+              <div v-if="!anEvt.next.length" class="c-sub" style="font-size:12px">{{ t('No events yet') }}</div>
+              <div v-for="e in anEvt.next" :key="e.id" style="display:flex;align-items:center;gap:11px;padding:7px 0;border-bottom:1px dashed var(--border)">
+                <div style="width:34px;min-width:34px;text-align:center;background:var(--bg-alt);border-radius:9px;padding:5px 0">
+                  <div style="font-size:14px;font-weight:900;line-height:1">{{ String(evtDate(e.date)).slice(8, 10) }}</div>
+                  <div style="font-size:8.5px;font-weight:700;color:var(--text-mute);text-transform:uppercase">{{ MONTHS[Number(String(evtDate(e.date)).slice(5, 7)) - 1]?.slice(0, 3) }}</div>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
+                  <div class="c-sub" style="font-size:10.5px">{{ evtTime(e.time) }} <span v-if="e.location">· {{ e.location }}</span></div>
+                </div>
+                <span class="c-sub" style="font-size:10.5px;flex-shrink:0">{{ e.rsvps || 0 }}/{{ e.capacity || '∞' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Samity committee -->
+          <div class="panel">
+            <div class="panel-b">
+              <div style="font-weight:800;font-size:14px;margin-bottom:14px">🏘️ {{ t('Samity committee') }}</div>
+              <div v-if="anSamity.office.length">
+                <div v-for="o in anSamity.office" :key="o.role" style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)">
+                  <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7b7bf0,#5a5ae6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0">{{ String(o.name || '?').slice(0, 1).toUpperCase() }}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
+                    <div class="c-sub" style="font-size:10.5px">{{ o.role }}</div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="c-sub" style="font-size:12px">{{ t('No samity members') }}</div>
+            </div>
+          </div>
+
+        </div>
+      </template>
     </template>
 
     <!-- ══════════════ SAMITY (V2.31.6 — moved from standalone /samity + BMS tab) ══════════════ -->

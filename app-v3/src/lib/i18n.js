@@ -281,6 +281,8 @@ const BN = {
   'Total events': 'মোট ইভেন্ট', 'Upcoming events': 'আসন্ন ইভেন্ট', 'Past events': 'অতীত ইভেন্ট', 'Total RSVPs': 'মোট আরএসভিপি',
   // V2.32.3: Voting donut charts + Events calendar view
   'List view': 'তালিকা ভিউ', Calendar: 'ক্যালেন্ডার', Today: 'আজ', 'Events on': 'এই তারিখের ইভেন্ট', 'No events this day': 'এই দিনে কোনো ইভেন্ট নেই', more: 'আরও',
+  // V2.32.4: Society analytics dashboard
+  Analytics: 'অ্যানালিটিক্স', 'Parking spots': 'পার্কিং স্পট', 'Parking occupancy': 'পার্কিং ব্যবহার', 'Bookings by facility': 'সুবিধা অনুযায়ী বুকিং', 'Top polls': 'সেরা পোল', 'Forum categories': 'ফোরাম বিভাগ', 'Samity committee': 'সমিতি কমিটি', 'office bearers': 'পদধারী', 'No samity members': 'কোনো সমিতি সদস্য নেই', Loading: 'লোড হচ্ছে', Polls: 'পোল',
   'Backup & Restore': 'ব্যাকআপ ও রিস্টোর', 'Create a backup': 'নতুন ব্যাকআপ', 'Backup history': 'ব্যাকআপ ইতিহাস',
 }
 
