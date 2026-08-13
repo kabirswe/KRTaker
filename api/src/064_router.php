@@ -9072,6 +9072,183 @@ case 'app-samity': {
         echo $html;
         exit;
     }
+    /* ── V2.31.7: Committee elections — members elect office bearers by voting.
+       Election lifecycle: draft → open (voting) → closed (tally + role assignment).
+       positions JSON: [{"name":"Chairman","seats":1}, ...]; ballots are one row per
+       (election, voter, position) so each member casts exactly one vote per position. */
+    $POSITIONS = ['Chairman', 'Vice Chairman', 'Secretary', 'Joint Secretary', 'Treasurer', 'Member'];
+    $canAdminElection = function () use ($u) {
+        return in_array($u['role'], ['superadmin', 'owner', 'manager'], true);
+    };
+    $getElection = function ($id) use ($pdo) {
+        $st = $pdo->prepare('SELECT * FROM samity_elections WHERE id=?'); $st->execute([$id]);
+        return $st->fetch(PDO::FETCH_ASSOC);
+    };
+    if ($action === 'election-list') {
+        $rows = $pdo->query('SELECT * FROM samity_elections ORDER BY ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $out = [];
+        foreach ($rows as $e) {
+            $e['positions'] = json_decode($e['positions'], true) ?: [];
+            $cs = $pdo->prepare('SELECT c.*, m.name AS member_name, m.role AS member_role FROM samity_candidates c LEFT JOIN samity_members m ON m.id=c.member WHERE c.election=? ORDER BY c.position, c.ts');
+            $cs->execute([$e['id']]);
+            $cands = $cs->fetchAll(PDO::FETCH_ASSOC);
+            $bs = $pdo->prepare('SELECT candidate, COUNT(*) AS votes FROM samity_ballots WHERE election=? GROUP BY candidate');
+            $bs->execute([$e['id']]);
+            $tally = [];
+            foreach ($bs->fetchAll(PDO::FETCH_ASSOC) as $b) $tally[$b['candidate']] = (int)$b['votes'];
+            foreach ($cands as &$c) $c['votes'] = $tally[$c['id']] ?? 0;
+            $mv = $pdo->prepare('SELECT position, candidate FROM samity_ballots WHERE election=? AND voter=?');
+            $mv->execute([$e['id'], $u['email']]);
+            $my = [];
+            foreach ($mv->fetchAll(PDO::FETCH_ASSOC) as $m) $my[$m['position']] = $m['candidate'];
+            $e['candidates'] = $cands;
+            $e['my_votes'] = $my;
+            $e['total_ballots'] = (int)$pdo->query("SELECT COUNT(DISTINCT voter) FROM samity_ballots WHERE election='" . $e['id'] . "'")->fetchColumn();
+            $out[] = $e;
+        }
+        json_out(['ok' => true, 'elections' => $out]);
+    }
+    if ($action === 'election-create') {
+        if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can create elections.'], 403);
+        $title = trim($body['title'] ?? '');
+        if ($title === '') json_out(['ok' => false, 'error' => 'Election title is required.'], 400);
+        $positions = (array)($body['positions'] ?? []);
+        $clean = [];
+        foreach ($positions as $p) {
+            $nm = trim((string)($p['name'] ?? ''));
+            if ($nm === '') continue;
+            $seats = max(1, min(30, (int)($p['seats'] ?? 1)));
+            $clean[] = ['name' => $nm, 'seats' => $seats];
+        }
+        if (!$clean) json_out(['ok' => false, 'error' => 'Add at least one position.'], 400);
+        $id = samity_next_id($pdo, 'ELE-');
+        $pdo->prepare('INSERT INTO samity_elections (id, owner_email, title, status, positions, starts_at, ends_at, created_by, created_name) VALUES (?,?,?,?,?,?,?,?,?)')
+            ->execute([$id, ($u['role'] === 'owner') ? $u['email'] : trim($body['owner_email'] ?? ''), $title, 'draft', json_encode($clean), trim($body['starts_at'] ?? ''), trim($body['ends_at'] ?? ''), $u['email'], $u['name']]);
+        audit($u['name'], 'election-create', 'samity', $id, $title);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($action === 'election-save') {
+        if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can edit elections.'], 403);
+        $e = $getElection(trim($body['id'] ?? ''));
+        if (!$e) json_out(['ok' => false, 'error' => 'Election not found.'], 404);
+        if ($e['status'] !== 'draft') json_out(['ok' => false, 'error' => 'Only draft elections can be edited.'], 400);
+        $title = trim($body['title'] ?? $e['title']);
+        $positions = (array)($body['positions'] ?? json_decode($e['positions'], true) ?: []);
+        $clean = [];
+        foreach ($positions as $p) {
+            $nm = trim((string)($p['name'] ?? ''));
+            if ($nm === '') continue;
+            $clean[] = ['name' => $nm, 'seats' => max(1, min(30, (int)($p['seats'] ?? 1)))];
+        }
+        if (!$clean) json_out(['ok' => false, 'error' => 'Add at least one position.'], 400);
+        $pdo->prepare('UPDATE samity_elections SET title=?, positions=?, starts_at=?, ends_at=? WHERE id=?')
+            ->execute([$title, json_encode($clean), trim($body['starts_at'] ?? $e['starts_at']), trim($body['ends_at'] ?? $e['ends_at']), $e['id']]);
+        audit($u['name'], 'election-save', 'samity', $e['id'], $title);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'election-delete') {
+        if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can delete elections.'], 403);
+        $e = $getElection(trim($body['id'] ?? ''));
+        if (!$e) json_out(['ok' => false, 'error' => 'Election not found.'], 404);
+        if ($e['status'] !== 'draft') json_out(['ok' => false, 'error' => 'Only draft elections can be deleted.'], 400);
+        $pdo->prepare('DELETE FROM samity_ballots WHERE election=?')->execute([$e['id']]);
+        $pdo->prepare('DELETE FROM samity_candidates WHERE election=?')->execute([$e['id']]);
+        $pdo->prepare('DELETE FROM samity_elections WHERE id=?')->execute([$e['id']]);
+        audit($u['name'], 'election-delete', 'samity', $e['id']);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'election-open') {
+        if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can open elections.'], 403);
+        $e = $getElection(trim($body['id'] ?? ''));
+        if (!$e) json_out(['ok' => false, 'error' => 'Election not found.'], 404);
+        if ($e['status'] !== 'draft') json_out(['ok' => false, 'error' => 'Only draft elections can be opened.'], 400);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM samity_candidates WHERE election=?'); $st->execute([$e['id']]);
+        if (!(int)$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Add at least one candidate before opening voting.'], 400);
+        $pdo->prepare("UPDATE samity_elections SET status='open' WHERE id=?")->execute([$e['id']]);
+        audit($u['name'], 'election-open', 'samity', $e['id']);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'election-close') {
+        if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can close elections.'], 403);
+        $e = $getElection(trim($body['id'] ?? ''));
+        if (!$e) json_out(['ok' => false, 'error' => 'Election not found.'], 404);
+        if ($e['status'] !== 'open') json_out(['ok' => false, 'error' => 'Only open elections can be closed.'], 400);
+        $positions = json_decode($e['positions'], true) ?: [];
+        $cs = $pdo->prepare('SELECT * FROM samity_candidates WHERE election=?'); $cs->execute([$e['id']]);
+        $cands = $cs->fetchAll(PDO::FETCH_ASSOC);
+        $bs = $pdo->prepare('SELECT candidate, COUNT(*) AS votes FROM samity_ballots WHERE election=? GROUP BY candidate');
+        $bs->execute([$e['id']]);
+        $tally = [];
+        foreach ($bs->fetchAll(PDO::FETCH_ASSOC) as $b) $tally[$b['candidate']] = (int)$b['votes'];
+        $winners = [];
+        /* The election decides the whole committee: every candidate first steps
+           down (role → Member), then the winners take their elected positions. */
+        foreach ($cands as $c) {
+            $pdo->prepare("UPDATE samity_members SET role='Member' WHERE id=?")->execute([$c['member']]);
+        }
+        foreach ($positions as $pos) {
+            $pc = array_filter($cands, fn($c) => $c['position'] === $pos['name']);
+            usort($pc, fn($a, $b) => ($tally[$b['id']] ?? 0) - ($tally[$a['id']] ?? 0));
+            $seats = max(1, (int)$pos['seats']);
+            $won = array_slice($pc, 0, $seats);
+            $winners[$pos['name']] = array_map(fn($c) => ['candidate' => $c['id'], 'member' => $c['member'], 'votes' => $tally[$c['id']] ?? 0], $won);
+            foreach ($won as $w) {
+                $pdo->prepare('UPDATE samity_members SET role=? WHERE id=?')->execute([$pos['name'], $w['member']]);
+            }
+        }
+        $pdo->prepare("UPDATE samity_elections SET status='closed', closed_at=datetime('now') WHERE id=?")->execute([$e['id']]);
+        audit($u['name'], 'election-close', 'samity', $e['id'], json_encode($winners));
+        json_out(['ok' => true, 'winners' => $winners]);
+    }
+    if ($action === 'candidate-add') {
+        if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can manage candidates.'], 403);
+        $e = $getElection(trim($body['election'] ?? ''));
+        if (!$e) json_out(['ok' => false, 'error' => 'Election not found.'], 404);
+        if (!in_array($e['status'], ['draft', 'open'], true)) json_out(['ok' => false, 'error' => 'Candidates can only be added to draft or open elections.'], 400);
+        $member = trim($body['member'] ?? '');
+        $position = trim($body['position'] ?? '');
+        $st = $pdo->prepare('SELECT * FROM samity_members WHERE id=?'); $st->execute([$member]);
+        $mem = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$mem) json_out(['ok' => false, 'error' => 'Member not found.'], 404);
+        $valid = array_map(fn($p) => $p['name'], json_decode($e['positions'], true) ?: []);
+        if (!in_array($position, $valid, true)) json_out(['ok' => false, 'error' => 'Invalid position for this election.'], 400);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM samity_candidates WHERE election=? AND member=?');
+        $st->execute([$e['id'], $member]);
+        if ((int)$st->fetchColumn()) json_out(['ok' => false, 'error' => $mem['name'] . ' is already a candidate.'], 400);
+        $id = samity_next_id($pdo, 'SCD-');
+        $pdo->prepare('INSERT INTO samity_candidates (id, election, member, position, manifesto) VALUES (?,?,?,?,?)')
+            ->execute([$id, $e['id'], $member, $position, trim($body['manifesto'] ?? '')]);
+        audit($u['name'], 'candidate-add', 'samity', $e['id'], $mem['name'] . ' → ' . $position);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($action === 'candidate-remove') {
+        if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can manage candidates.'], 403);
+        $st = $pdo->prepare('SELECT c.*, e.status AS estatus FROM samity_candidates c JOIN samity_elections e ON e.id=c.election WHERE c.id=?');
+        $st->execute([trim($body['id'] ?? '')]);
+        $c = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$c) json_out(['ok' => false, 'error' => 'Candidate not found.'], 404);
+        if (!in_array($c['estatus'], ['draft', 'open'], true)) json_out(['ok' => false, 'error' => 'Candidates can only be removed from draft or open elections.'], 400);
+        $pdo->prepare('DELETE FROM samity_ballots WHERE candidate=?')->execute([$c['id']]);
+        $pdo->prepare('DELETE FROM samity_candidates WHERE id=?')->execute([$c['id']]);
+        audit($u['name'], 'candidate-remove', 'samity', $c['election']);
+        json_out(['ok' => true]);
+    }
+    if ($action === 'vote') {
+        $e = $getElection(trim($body['election'] ?? ''));
+        if (!$e) json_out(['ok' => false, 'error' => 'Election not found.'], 404);
+        if ($e['status'] !== 'open') json_out(['ok' => false, 'error' => 'Voting is not open.'], 400);
+        $position = trim($body['position'] ?? '');
+        $candidate = trim($body['candidate'] ?? '');
+        $valid = array_map(fn($p) => $p['name'], json_decode($e['positions'], true) ?: []);
+        if (!in_array($position, $valid, true)) json_out(['ok' => false, 'error' => 'Invalid position.'], 400);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM samity_candidates WHERE id=? AND election=? AND position=?');
+        $st->execute([$candidate, $e['id'], $position]);
+        if (!(int)$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Invalid candidate for this position.'], 400);
+        $pdo->prepare('INSERT INTO samity_ballots (id, election, voter, position, candidate) VALUES (?,?,?,?,?) ON CONFLICT(election, voter, position) DO UPDATE SET candidate=excluded.candidate, ts=datetime(\'now\')')
+            ->execute([samity_next_id($pdo, 'SBL-'), $e['id'], $u['email'], $position, $candidate]);
+        audit($u['name'], 'vote', 'samity', $e['id'], $position);
+        json_out(['ok' => true]);
+    }
     json_out(['ok' => false, 'error' => 'Unknown samity action: ' . $action], 400);
 }
 

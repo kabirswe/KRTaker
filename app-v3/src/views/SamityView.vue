@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
@@ -32,6 +32,7 @@ const inProp = (row) => !propFilter.value || (row.prop || '') === propFilter.val
 // ── tabs ──
 const TABS = [
   ['committee', '👥', 'Committee'],
+  ['elections', '🗳️', 'Elections'],
   ['bills', '🧾', 'Bills'],
   ['collection', '💳', 'Collection'],
   ['expenses', '💸', 'Expenses'],
@@ -340,6 +341,115 @@ function detailFields(row) {
   const skip = new Set(['id', 'name', 'role', 'phone', 'since_date', 'status', 'notes', 'owner_email', 'prop'])
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
+
+// ── V2.31.7: Committee Elections — members elect office bearers by voting ──
+const elections = ref([])
+const elLoading = ref(false)
+const elErr = ref('')
+const DEFAULT_POSITIONS = [
+  { name: 'Chairman', seats: 1 },
+  { name: 'Vice Chairman', seats: 1 },
+  { name: 'Secretary', seats: 1 },
+  { name: 'Treasurer', seats: 1 },
+  { name: 'Member', seats: 5 },
+]
+const POSITION_OPTIONS = ['Chairman', 'Vice Chairman', 'Secretary', 'Joint Secretary', 'Treasurer', 'Member']
+async function loadElections() {
+  elLoading.value = true; elErr.value = ''
+  try {
+    const r = await apiCall('app-samity', { action: 'election-list' })
+    if (r && r.ok === false) elErr.value = r.error || 'Failed to load elections.'
+    else elections.value = (r && r.elections) || []
+  } catch (e) { elErr.value = e.message || 'Network error.' }
+  finally { elLoading.value = false }
+}
+const statusMeta = (s) => ({ draft: { ico: '📝', cls: 'b-gray', label: 'Draft' }, open: { ico: '🗳️', cls: 'b-green', label: 'Voting open' }, closed: { ico: '🏆', cls: 'b-blue', label: 'Closed' } }[s] || { ico: '—', cls: 'b-gray', label: s })
+const memberName = (id) => memAll.value.find(m => m.id === id)?.name || id || '—'
+const seatsOf = (e, pos) => (e.positions.find(p => p.name === pos)?.seats) || 1
+const candsOf = (e, pos) => e.candidates.filter(c => c.position === pos).sort((a, b) => b.votes - a.votes)
+const hasVotedPos = (e, pos) => !!(e.my_votes && e.my_votes[pos])
+const myChoice = (e, pos) => (e.my_votes && e.my_votes[pos]) || ''
+const electionWinner = (e, pos) => {
+  const seats = seatsOf(e, pos)
+  return candsOf(e, pos).slice(0, seats).map(c => c.id)
+}
+async function castElectionVote(e, pos, cand) {
+  if (!window.confirm('Vote for ' + (cand.member_name || memberName(cand.member)) + ' as ' + pos + '?')) return
+  const r = await apiCall('app-samity', { action: 'vote', election: e.id, position: pos, candidate: cand.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('✅ Vote recorded')
+  await loadElections()
+  await data.bootstrap()
+}
+// ── election admin ──
+const elModal = ref(false)
+const elForm = ref({ id: '', title: '', positions: JSON.parse(JSON.stringify(DEFAULT_POSITIONS)), starts_at: '', ends_at: '' })
+function openElModal(e) {
+  elForm.value = e
+    ? { id: e.id, title: e.title || '', positions: JSON.parse(JSON.stringify(e.positions && e.positions.length ? e.positions : DEFAULT_POSITIONS)), starts_at: e.starts_at || '', ends_at: e.ends_at || '' }
+    : { id: '', title: '', positions: JSON.parse(JSON.stringify(DEFAULT_POSITIONS)), starts_at: today(), ends_at: today() }
+  elModal.value = true
+}
+function elAddPos() { elForm.value.positions.push({ name: 'Member', seats: 1 }) }
+function elRemovePos(i) { if (elForm.value.positions.length > 1) elForm.value.positions.splice(i, 1) }
+async function saveElection() {
+  const f = elForm.value
+  if (!f.title.trim()) { window.__krToast?.('❌ Election title is required'); return }
+  const positions = f.positions.filter(p => p.name && p.name.trim()).map(p => ({ name: p.name.trim(), seats: Math.max(1, parseInt(p.seats) || 1) }))
+  if (!positions.length) { window.__krToast?.('❌ Add at least one position'); return }
+  const r = await apiCall('app-samity', { action: f.id ? 'election-save' : 'election-create', id: f.id, title: f.title.trim(), positions, starts_at: f.starts_at, ends_at: f.ends_at })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  elModal.value = false
+  window.__krToast?.('✅ Election ' + (f.id ? 'updated' : 'created'))
+  await loadElections()
+}
+async function openElection(e) {
+  if (!window.confirm('Open voting for "' + e.title + '"? Members can now cast votes.')) return
+  const r = await apiCall('app-samity', { action: 'election-open', id: e.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('✅ Voting opened')
+  await loadElections()
+}
+async function closeElection(e) {
+  if (!window.confirm('Close voting for "' + e.title + '"? Winners will be assigned committee roles.')) return
+  const r = await apiCall('app-samity', { action: 'election-close', id: e.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('✅ Election closed — committee updated')
+  await loadElections()
+  await data.bootstrap()
+}
+async function deleteElection(e) {
+  if (!window.confirm('Delete election "' + e.title + '"? This cannot be undone.')) return
+  const r = await apiCall('app-samity', { action: 'election-delete', id: e.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Deleted')
+  await loadElections()
+}
+// ── candidate admin ──
+const candModal = ref(false)
+const candForm = ref({ election: '', member: '', position: '', manifesto: '' })
+function openCandModal(e) {
+  candForm.value = { election: e.id, member: '', position: (e.positions[0] && e.positions[0].name) || 'Member', manifesto: '' }
+  candModal.value = true
+}
+async function addCandidate() {
+  const f = candForm.value
+  if (!f.member) { window.__krToast?.('❌ Select a member'); return }
+  const r = await apiCall('app-samity', { action: 'candidate-add', election: f.election, member: f.member, position: f.position, manifesto: f.manifesto.trim() })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  candModal.value = false
+  window.__krToast?.('✅ Candidate added')
+  await loadElections()
+}
+async function removeCandidate(c) {
+  if (!window.confirm('Remove ' + (c.member_name || memberName(c.member)) + ' from the ballot?')) return
+  const r = await apiCall('app-samity', { action: 'candidate-remove', id: c.id })
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  window.__krToast?.('🗑 Removed')
+  await loadElections()
+}
+// load elections when the view mounts (SamityView is embedded in the Society hub)
+onMounted(() => { loadElections() })
 </script>
 
 <template>
@@ -471,6 +581,76 @@ function detailFields(row) {
       </div>
       <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No members found{{ query ? ' for “' + query + '”' : '' }}.</div>
       <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
+    </template>
+
+    <!-- ── 🗳️ ELECTIONS (V2.31.7) ── -->
+    <template v-else-if="tab === 'elections'">
+      <div v-if="elErr" class="auth-err show" style="margin-bottom:12px">{{ elErr }}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <div style="flex:1;min-width:140px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div class="s-label" style="font-size:10.5px;color:var(--text-mute);font-weight:800;text-transform:uppercase;letter-spacing:.3px">🗳️ Elections</div>
+          <div style="font-size:20px;font-weight:800;margin-top:2px">{{ elections.length }}</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div class="s-label" style="font-size:10.5px;color:var(--text-mute);font-weight:800;text-transform:uppercase;letter-spacing:.3px">🟢 Voting now</div>
+          <div style="font-size:20px;font-weight:800;margin-top:2px">{{ elections.filter(e => e.status === 'open').length }}</div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div class="s-label" style="font-size:10.5px;color:var(--text-mute);font-weight:800;text-transform:uppercase;letter-spacing:.3px">🏆 Completed</div>
+          <div style="font-size:20px;font-weight:800;margin-top:2px">{{ elections.filter(e => e.status === 'closed').length }}</div>
+        </div>
+        <button v-if="canManage" @click="openElModal()" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🗳️ New election</button>
+        <button class="btn-ghost" @click="loadElections" title="Refresh">🔄</button>
+      </div>
+
+      <div v-if="elLoading" class="panel" style="padding:30px;text-align:center;color:var(--text-mute)">Loading elections…</div>
+      <div v-else-if="!elections.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
+        No elections yet. Members elect the committee by voting — create your first election.
+      </div>
+
+      <div v-for="e in elections" :key="e.id" class="panel" style="overflow:hidden;margin-bottom:14px">
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border)">
+          <span class="badge" :class="statusMeta(e.status).cls">{{ statusMeta(e.status).ico }} {{ statusMeta(e.status).label }}</span>
+          <div style="flex:1;min-width:160px">
+            <div style="font-weight:800;font-size:15px">{{ e.title }}</div>
+            <div class="c-sub" style="font-size:12px">{{ e.id }} · {{ e.total_ballots || 0 }} voter(s)<template v-if="e.starts_at"> · {{ e.starts_at }} → {{ e.ends_at || 'open' }}</template></div>
+          </div>
+          <template v-if="canManage">
+            <button v-if="e.status === 'draft'" class="btn-ghost" @click="openElModal(e)" title="Edit">✏️</button>
+            <button v-if="e.status === 'draft'" @click="openElection(e)" style="padding:8px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">▶ Open voting</button>
+            <button v-if="e.status === 'open'" @click="closeElection(e)" style="padding:8px 14px;border:none;border-radius:10px;background:var(--danger,#e5484d);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🏁 Close & tally</button>
+            <button v-if="e.status === 'draft'" @click="deleteElection(e)" class="btn-ghost" title="Delete">🗑</button>
+          </template>
+        </div>
+
+        <div v-for="pos in e.positions" :key="pos.name" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <span style="font-weight:800;font-size:13.5px">🎖️ {{ pos.name }}</span>
+            <span class="c-sub" style="font-size:11.5px">{{ seatsOf(e, pos.name) }} seat(s)</span>
+            <span v-if="hasVotedPos(e, pos.name) && e.status === 'open'" class="badge b-green" style="margin-left:auto">✅ You voted</span>
+            <button v-if="canManage && ['draft','open'].includes(e.status)" @click="openCandModal(e)" style="margin-left:auto;padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">＋ Candidate</button>
+          </div>
+          <div v-if="!candsOf(e, pos.name).length" class="c-sub" style="font-size:12.5px;padding:6px 0">No candidates yet.</div>
+          <div v-for="c in candsOf(e, pos.name)" :key="c.id" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;margin-bottom:6px;background:var(--bg-alt);border:1px solid var(--border)">
+            <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff" :style="{ background: avatarColor(c.id) }">{{ initials(c.member_name || memberName(c.member)) }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:13.5px">{{ c.member_name || memberName(c.member) }}</div>
+              <div v-if="c.manifesto" class="c-sub" style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“{{ c.manifesto }}”</div>
+            </div>
+            <div style="text-align:center;min-width:52px">
+              <div style="font-weight:800;font-size:15px">{{ c.votes }}</div>
+              <div class="c-sub" style="font-size:10px">votes</div>
+            </div>
+            <span v-if="e.status === 'closed' && electionWinner(e, pos.name).includes(c.id)" class="badge b-blue">👑 Winner</span>
+            <button v-if="e.status === 'open' && myChoice(e, pos.name) === c.id" class="badge b-green" style="border:none;cursor:default">✅ Your vote</button>
+            <button v-else-if="e.status === 'open' && !hasVotedPos(e, pos.name)" @click="castElectionVote(e, pos.name, c)" style="padding:7px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer">🗳 Vote</button>
+            <button v-if="canManage && ['draft','open'].includes(e.status)" @click="removeCandidate(c)" class="btn-ghost" title="Remove candidate" style="padding:5px 9px">✕</button>
+          </div>
+        </div>
+        <div v-if="e.status === 'closed'" style="padding:12px 16px;font-size:12.5px;color:var(--text-mute);background:var(--bg-alt)">
+          🏆 Committee updated on close — winners now hold their elected roles in the committee tab.
+        </div>
+      </div>
     </template>
 
     <!-- ── 🧾 BILLS ── -->
@@ -989,6 +1169,84 @@ function detailFields(row) {
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>
+        </div>
+      </div>
+    </template>
+
+    <!-- election modal -->
+    <template v-if="elModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="elModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow-y:auto;background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28)">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">🗳️ {{ elForm.id ? 'Edit election' : 'New committee election' }}</div>
+          <button @click="elModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Election title *</div>
+            <input v-model="elForm.title" placeholder="e.g. 2026 Annual Committee Election" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Starts</div>
+              <input v-model="elForm.starts_at" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Ends</div>
+              <input v-model="elForm.ends_at" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Positions & seats</div>
+              <button @click="elAddPos" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">＋ Add position</button>
+            </div>
+            <div v-for="(p, i) in elForm.positions" :key="i" style="display:flex;gap:8px;margin-bottom:8px">
+              <select v-model="p.name" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+                <option v-for="opt in POSITION_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+              </select>
+              <input v-model.number="p.seats" type="number" min="1" max="30" title="Seats" style="width:70px;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;text-align:center">
+              <button @click="elRemovePos(i)" class="btn-ghost" style="padding:5px 10px">✕</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="elModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="saveElection" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 {{ elForm.id ? 'Save changes' : 'Create election' }}</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- candidate modal -->
+    <template v-if="candModal">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="candModal = false"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
+        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <div style="font-weight:800;font-size:15.5px">＋ Add candidate</div>
+          <button @click="candModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Member *</div>
+            <select v-model="candForm.member" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+              <option value="">Select member…</option>
+              <option v-for="m in memAll.filter(inProp).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')))" :key="m.id" :value="m.id">{{ m.name }}<template v-if="m.role && m.role !== 'Member'"> · {{ m.role }}</template></option>
+            </select>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Position *</div>
+            <select v-model="candForm.position" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+              <option v-for="p in (elections.find(x => x.id === candForm.election)?.positions || [])" :key="p.name" :value="p.name">{{ p.name }} ({{ p.seats }} seat)</option>
+            </select>
+          </div>
+          <div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Manifesto</div>
+            <textarea v-model="candForm.manifesto" rows="2" placeholder="Short statement to voters (optional)…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;box-sizing:border-box;resize:vertical"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+            <button @click="candModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="addCandidate" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Add candidate</button>
+          </div>
         </div>
       </div>
     </template>
