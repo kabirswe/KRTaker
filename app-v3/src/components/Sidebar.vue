@@ -46,7 +46,7 @@ const emit = defineEmits(['close'])
 // V2.0.6: Finance + Accounts groups merged into ONE Finance hub (/finance with tabs) — fewer menu entries.
 // V2.0.7: Portfolio, BMS, Community, Legal, Safety&Security all merged into hub dashboards with tabs.
 const GROUPS = [
-  { id: 'overview', label: 'Overview', items: [['portal', '🏠', 'My Portal'], ['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)'], ['wiki', '📚', 'Wiki & Help']] },
+  { id: 'overview', label: 'Overview', items: [['portal', '🏠', 'My Portal'], ['dashboard', '📊', 'Overview'], ['analytics', '📈', 'Analytics'], ['ai', '🤖', 'AI Caretaker (KR)'], ['wiki', '📚', 'Wiki & Help'], ['backup', '💾', 'Backup & Restore']] },
   { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio']] },
   { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance']] },
   { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS']] },

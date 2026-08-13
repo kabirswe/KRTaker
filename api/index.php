@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260920) {
+        if ($__sv < 20260921) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1134,7 +1134,13 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE TABLE IF NOT EXISTS community_rsvps (
             id TEXT PRIMARY KEY, event TEXT NOT NULL, name TEXT NOT NULL, phone TEXT DEFAULT '',
             guests INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')), UNIQUE(event, name))");
-        try { $pdo->exec('PRAGMA user_version=20260920'); } catch (Exception $e) {}
+        /* V2.31.5: workspace backup/restore console — JSON snapshots of the
+           owner's scoped data (sub_email chain), one row per backup. */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS ws_backups (
+            id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
+            size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
+            created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        try { $pdo->exec('PRAGMA user_version=20260921'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;
@@ -1573,9 +1579,9 @@ function contact_email_html($c) {
 /* ---------- Phase 2: RBAC ---------- */
 function ROLE_MODULES() {
     return [
-        'superadmin' => ['dashboard','subscriptions','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','packages','parking','bookings','voting','forums','events','insurance','support'],
-        'owner'      => ['dashboard','subscriptions','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','insurance','support','parking','bookings','voting','forums','events'],
-        'manager'    => ['dashboard','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','insurance','support','parking','bookings','voting','forums','events'],
+        'superadmin' => ['dashboard','subscriptions','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','packages','parking','bookings','voting','forums','events','insurance','backup','support'],
+        'owner'      => ['dashboard','subscriptions','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','insurance','backup','support','parking','bookings','voting','forums','events'],
+        'manager'    => ['dashboard','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','insurance','backup','support','parking','bookings','voting','forums','events'],
         'tenant'     => ['dashboard','portal','invoices','receipts','payments','maintenance','legal','trust','ai','notices','documents','analytics','insurance','support','parking','bookings','voting','forums','events'],
         'partner'    => ['dashboard','maintenance','vendors','invoices','payments','ai','notices','documents','referrals','support'],
         'svc_mgr'    => ['dashboard','maintenance','vendors','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','support','parking','bookings','forums','events'],
@@ -14302,6 +14308,152 @@ case 'app-health': {
     } catch (Exception $e) {
         json_out(['ok' => false, 'error' => 'DB error: ' . $e->getMessage()], 500);
     }
+}
+
+case 'app-ws-backup': {
+    /* V2.31.5: owner/manager workspace backup & restore console.
+       Actions (POST body): list | create | get | restore | delete.
+       Backup = JSON snapshot of the subscriber's OWN scoped rows (sub_email
+       chain through properties/units/tenants/partners/team_members and
+       parent-chain tables leases/invoices/receipts/payments/tickets/amenities).
+       Restore = upsert rows back from a snapshot, validating each row still
+       resolves to the same owner before writing (never touches other subs). */
+    $u = require_user();
+    if (($u['kind'] ?? '') !== 'sub') json_out(['ok' => false, 'error' => 'Subscriber account required.'], 403);
+    if (!in_array($u['role'], ['owner', 'property_owner', 'manager', 'superadmin'], true))
+        json_out(['ok' => false, 'error' => 'Owner or manager access required.'], 403);
+    $act = $body['action'] ?? '';
+    $sub = $u['email'];
+    $pdo = db();
+
+    /* owner-scoped tables: direct sub_email tables + parent-chain tables.
+       For chain tables, rows are matched via their owning unit/property's
+       sub_email so a workspace backup NEVER includes another account's rows. */
+    $DIRECT = ['properties' => 'sub_email', 'units' => 'sub_email', 'tenants' => 'sub_email', 'partners' => 'sub_email', 'team_members' => 'sub_email'];
+    $CHAIN = [
+        'leases'     => "l.id IN (SELECT l2.id FROM leases l2 JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'invoices'   => "i.id IN (SELECT i2.id FROM invoices i2 JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'receipts'   => "r.id IN (SELECT r2.id FROM receipts r2 JOIN invoices i2 ON i2.id=r2.inv JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'payments'   => "p.id IN (SELECT p2.id FROM payments p2 JOIN invoices i2 ON i2.id=p2.inv JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'tickets'    => "t.id IN (SELECT t2.id FROM tickets t2 JOIN units u ON u.id=t2.u WHERE u.sub_email=:sub)",
+        'amenities'  => "a.id IN (SELECT a2.id FROM amenities a2 LEFT JOIN units u ON u.id=a2.unit LEFT JOIN properties p ON p.id=a2.prop WHERE COALESCE(u.sub_email, p.sub_email)=:sub)",
+        'meter_readings' => "m.id IN (SELECT m2.id FROM meter_readings m2 JOIN units u ON u.id=m2.unit WHERE u.sub_email=:sub)",
+        'utility_bills'  => "b.id IN (SELECT b2.id FROM utility_bills b2 JOIN units u ON u.id=b2.unit WHERE u.sub_email=:sub)",
+        'maintenance_requests' => "m.id IN (SELECT m2.id FROM maintenance_requests m2 LEFT JOIN units u ON u.id=m2.unit LEFT JOIN properties p ON p.id=m2.prop WHERE COALESCE(u.sub_email, p.sub_email)=:sub)",
+    ];
+
+    if ($act === 'list') {
+        $rows = $pdo->prepare("SELECT id, kind, size, note, created_by, ts FROM ws_backups WHERE sub_email=? ORDER BY ts DESC, id DESC LIMIT 50");
+        $rows->execute([$sub]);
+        json_out(['ok' => true, 'backups' => $rows->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    if ($act === 'create') {
+        $snap = ['_schema' => 1, '_sub' => $sub, '_ts' => gmdate('c'), '_tables' => []];
+        foreach ($DIRECT as $t => $col) {
+            try {
+                $st = $pdo->prepare("SELECT * FROM $t WHERE $col=?");
+                $st->execute([$sub]);
+                $snap['_tables'][$t] = $st->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) { $snap['_tables'][$t] = []; }
+        }
+        foreach ($CHAIN as $t => $where) {
+            try {
+                $st = $pdo->prepare("SELECT $t.* FROM $t WHERE $where");
+                $st->execute([':sub' => $sub]);
+                $snap['_tables'][$t] = $st->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) { $snap['_tables'][$t] = []; }
+        }
+        $json = json_encode($snap, JSON_UNESCAPED_UNICODE);
+        $id = 'WSB-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+        $note = trim($body['note'] ?? '');
+        $pdo->prepare("INSERT INTO ws_backups (id, sub_email, kind, size, note, data, created_by) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$id, $sub, 'manual', strlen($json), $note ?: 'Manual snapshot', $json, $u['name']]);
+        audit($u['name'], 'Workspace backup created', 'system', $id, strlen($json) . ' bytes');
+        json_out(['ok' => true, 'id' => $id, 'size' => strlen($json), 'tables' => array_map(fn($v) => count($v), $snap['_tables'])]);
+    }
+
+    if ($act === 'get') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare("SELECT data FROM ws_backups WHERE id=? AND sub_email=?");
+        $st->execute([$id, $sub]);
+        $data = $st->fetchColumn();
+        if ($data === false) json_out(['ok' => false, 'error' => 'Backup not found.'], 404);
+        json_out(['ok' => true, 'id' => $id, 'data' => json_decode($data, true)]);
+    }
+
+    if ($act === 'restore') {
+        $id = trim($body['id'] ?? '');
+        $src = null;
+        if ($id) {
+            $st = $pdo->prepare("SELECT data FROM ws_backups WHERE id=? AND sub_email=?");
+            $st->execute([$id, $sub]);
+            $data = $st->fetchColumn();
+            if ($data === false) json_out(['ok' => false, 'error' => 'Backup not found.'], 404);
+            $src = json_decode($data, true);
+        } else {
+            $src = $body['data'] ?? null;
+            if (!is_array($src)) json_out(['ok' => false, 'error' => 'data or id required.'], 400);
+        }
+        if (!is_array($src) || ($src['_sub'] ?? '') !== $sub) json_out(['ok' => false, 'error' => 'Backup belongs to a different workspace.'], 403);
+        $pdo->beginTransaction();
+        $done = [];
+        try {
+            foreach (($src['_tables'] ?? []) as $t => $rows) {
+                if (!is_array($rows) || !$rows) { $done[$t] = 0; continue; }
+                $allowed = false;
+                if (isset($DIRECT[$t])) $allowed = true;
+                elseif (isset($CHAIN[$t])) $allowed = true;
+                if (!$allowed) { $done[$t] = 0; continue; }
+                /* reflect actual columns for the table (defends against schema drift) */
+                $cols = [];
+                try {
+                    foreach ($pdo->query("PRAGMA table_info($t)") as $c) $cols[] = $c['name'];
+                } catch (Exception $e) { $cols = array_keys($rows[0]); }
+                $colset = array_intersect($cols, array_keys($rows[0]));
+                $colset = array_values(array_filter($colset, fn($c) => $c !== 'id' || true));
+                if (!$colset) { $done[$t] = 0; continue; }
+                $cnames = implode(',', array_map(fn($c) => '"' . $c . '"', $colset));
+                $ph = implode(',', array_fill(0, count($colset), '?'));
+                $ins = $pdo->prepare("INSERT OR REPLACE INTO $t ($cnames) VALUES ($ph)");
+                $n = 0;
+                foreach ($rows as $r) {
+                    if (!is_array($r)) continue;
+                    /* owner validation per row: direct tables must match sub_email;
+                       chain tables must still resolve to this owner. */
+                    if (isset($DIRECT[$t]) && ($r[$DIRECT[$t]] ?? '') !== $sub) continue;
+                    if (isset($CHAIN[$t])) {
+                        $own = crud_row_owner($pdo, $t, $r['id'] ?? '');
+                        if ($own === false) continue;              // row doesn't exist anywhere → safe insert
+                        if ($own !== '' && $own !== $sub) continue; // belongs to another sub → skip
+                    }
+                    $vals = [];
+                    foreach ($colset as $c) $vals[] = $r[$c] ?? '';
+                    try { $ins->execute($vals); $n++; } catch (Exception $e) { /* skip bad row */ }
+                }
+                $done[$t] = $n;
+            }
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            json_out(['ok' => false, 'error' => 'Restore failed: ' . $e->getMessage()], 500);
+        }
+        audit($u['name'], 'Workspace backup restored', 'system', $id ?: 'upload', json_encode($done));
+        json_out(['ok' => true, 'restored' => $done]);
+    }
+
+    if ($act === 'delete') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare("DELETE FROM ws_backups WHERE id=? AND sub_email=?");
+        $st->execute([$id, $sub]);
+        if ($st->rowCount() === 0) json_out(['ok' => false, 'error' => 'Backup not found.'], 404);
+        audit($u['name'], 'Workspace backup deleted', 'system', $id, '');
+        json_out(['ok' => true]);
+    }
+
+    json_out(['ok' => false, 'error' => 'Unknown action.'], 400);
 }
 
 case 'app-backup': {

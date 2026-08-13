@@ -11179,6 +11179,140 @@ case 'app-community': {
     json_out(['ok' => false, 'error' => 'Unknown community action.'], 400);
 }
 
+/* ── V2.31.5 DELTA: workspace backup/restore console (app-ws-backup) ──
+   Owner/manager scoped JSON snapshot of the subscriber's own rows across
+   direct sub_email tables (properties/units/tenants/partners/team_members)
+   and parent-chain tables (leases/invoices/receipts/payments/tickets/
+   amenities/meter_readings/utility_bills/maintenance_requests).
+   Actions: list | create | get | restore | delete.
+   Restore = INSERT OR REPLACE per row, re-validating ownership via
+   crud_row_owner() so another subscriber's rows are never touched.
+   Migration gate 20260921 adds the ws_backups table. ── */
+case 'app-ws-backup': {
+    $u = require_user();
+    if (($u['kind'] ?? '') !== 'sub') json_out(['ok' => false, 'error' => 'Subscriber account required.'], 403);
+    if (!in_array($u['role'], ['owner', 'property_owner', 'manager', 'superadmin'], true))
+        json_out(['ok' => false, 'error' => 'Owner or manager access required.'], 403);
+    $act = $body['action'] ?? '';
+    $sub = $u['email'];
+    $pdo = db();
+    $DIRECT = ['properties' => 'sub_email', 'units' => 'sub_email', 'tenants' => 'sub_email', 'partners' => 'sub_email', 'team_members' => 'sub_email'];
+    $CHAIN = [
+        'leases'     => "l.id IN (SELECT l2.id FROM leases l2 JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'invoices'   => "i.id IN (SELECT i2.id FROM invoices i2 JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'receipts'   => "r.id IN (SELECT r2.id FROM receipts r2 JOIN invoices i2 ON i2.id=r2.inv JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'payments'   => "p.id IN (SELECT p2.id FROM payments p2 JOIN invoices i2 ON i2.id=p2.inv JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=:sub)",
+        'tickets'    => "t.id IN (SELECT t2.id FROM tickets t2 JOIN units u ON u.id=t2.u WHERE u.sub_email=:sub)",
+        'amenities'  => "a.id IN (SELECT a2.id FROM amenities a2 LEFT JOIN units u ON u.id=a2.unit LEFT JOIN properties p ON p.id=a2.prop WHERE COALESCE(u.sub_email, p.sub_email)=:sub)",
+        'meter_readings' => "m.id IN (SELECT m2.id FROM meter_readings m2 JOIN units u ON u.id=m2.unit WHERE u.sub_email=:sub)",
+        'utility_bills'  => "b.id IN (SELECT b2.id FROM utility_bills b2 JOIN units u ON u.id=b2.unit WHERE u.sub_email=:sub)",
+        'maintenance_requests' => "m.id IN (SELECT m2.id FROM maintenance_requests m2 LEFT JOIN units u ON u.id=m2.unit LEFT JOIN properties p ON p.id=m2.prop WHERE COALESCE(u.sub_email, p.sub_email)=:sub)",
+    ];
+    if ($act === 'list') {
+        $rows = $pdo->prepare("SELECT id, kind, size, note, created_by, ts FROM ws_backups WHERE sub_email=? ORDER BY ts DESC, id DESC LIMIT 50");
+        $rows->execute([$sub]);
+        json_out(['ok' => true, 'backups' => $rows->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+    if ($act === 'create') {
+        $snap = ['_schema' => 1, '_sub' => $sub, '_ts' => gmdate('c'), '_tables' => []];
+        foreach ($DIRECT as $t => $col) {
+            try {
+                $st = $pdo->prepare("SELECT * FROM $t WHERE $col=?");
+                $st->execute([$sub]);
+                $snap['_tables'][$t] = $st->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) { $snap['_tables'][$t] = []; }
+        }
+        foreach ($CHAIN as $t => $where) {
+            try {
+                $st = $pdo->prepare("SELECT $t.* FROM $t WHERE $where");
+                $st->execute([':sub' => $sub]);
+                $snap['_tables'][$t] = $st->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) { $snap['_tables'][$t] = []; }
+        }
+        $json = json_encode($snap, JSON_UNESCAPED_UNICODE);
+        $id = 'WSB-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+        $note = trim($body['note'] ?? '');
+        $pdo->prepare("INSERT INTO ws_backups (id, sub_email, kind, size, note, data, created_by) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$id, $sub, 'manual', strlen($json), $note ?: 'Manual snapshot', $json, $u['name']]);
+        audit($u['name'], 'Workspace backup created', 'system', $id, strlen($json) . ' bytes');
+        json_out(['ok' => true, 'id' => $id, 'size' => strlen($json), 'tables' => array_map(fn($v) => count($v), $snap['_tables'])]);
+    }
+    if ($act === 'get') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare("SELECT data FROM ws_backups WHERE id=? AND sub_email=?");
+        $st->execute([$id, $sub]);
+        $data = $st->fetchColumn();
+        if ($data === false) json_out(['ok' => false, 'error' => 'Backup not found.'], 404);
+        json_out(['ok' => true, 'id' => $id, 'data' => json_decode($data, true)]);
+    }
+    if ($act === 'restore') {
+        $id = trim($body['id'] ?? '');
+        $src = null;
+        if ($id) {
+            $st = $pdo->prepare("SELECT data FROM ws_backups WHERE id=? AND sub_email=?");
+            $st->execute([$id, $sub]);
+            $data = $st->fetchColumn();
+            if ($data === false) json_out(['ok' => false, 'error' => 'Backup not found.'], 404);
+            $src = json_decode($data, true);
+        } else {
+            $src = $body['data'] ?? null;
+            if (!is_array($src)) json_out(['ok' => false, 'error' => 'data or id required.'], 400);
+        }
+        if (!is_array($src) || ($src['_sub'] ?? '') !== $sub) json_out(['ok' => false, 'error' => 'Backup belongs to a different workspace.'], 403);
+        $pdo->beginTransaction();
+        $done = [];
+        try {
+            foreach (($src['_tables'] ?? []) as $t => $rows) {
+                if (!is_array($rows) || !$rows) { $done[$t] = 0; continue; }
+                $allowed = false;
+                if (isset($DIRECT[$t])) $allowed = true;
+                elseif (isset($CHAIN[$t])) $allowed = true;
+                if (!$allowed) { $done[$t] = 0; continue; }
+                $cols = [];
+                try {
+                    foreach ($pdo->query("PRAGMA table_info($t)") as $c) $cols[] = $c['name'];
+                } catch (Exception $e) { $cols = array_keys($rows[0]); }
+                $colset = array_values(array_intersect($cols, array_keys($rows[0])));
+                if (!$colset) { $done[$t] = 0; continue; }
+                $cnames = implode(',', array_map(fn($c) => '"' . $c . '"', $colset));
+                $ph = implode(',', array_fill(0, count($colset), '?'));
+                $ins = $pdo->prepare("INSERT OR REPLACE INTO $t ($cnames) VALUES ($ph)");
+                $n = 0;
+                foreach ($rows as $r) {
+                    if (!is_array($r)) continue;
+                    if (isset($DIRECT[$t]) && ($r[$DIRECT[$t]] ?? '') !== $sub) continue;
+                    if (isset($CHAIN[$t])) {
+                        $own = crud_row_owner($pdo, $t, $r['id'] ?? '');
+                        if ($own === false) continue;
+                        if ($own !== '' && $own !== $sub) continue;
+                    }
+                    $vals = [];
+                    foreach ($colset as $c) $vals[] = $r[$c] ?? '';
+                    try { $ins->execute($vals); $n++; } catch (Exception $e) { /* skip bad row */ }
+                }
+                $done[$t] = $n;
+            }
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            json_out(['ok' => false, 'error' => 'Restore failed: ' . $e->getMessage()], 500);
+        }
+        audit($u['name'], 'Workspace backup restored', 'system', $id ?: 'upload', json_encode($done));
+        json_out(['ok' => true, 'restored' => $done]);
+    }
+    if ($act === 'delete') {
+        $id = trim($body['id'] ?? '');
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare("DELETE FROM ws_backups WHERE id=? AND sub_email=?");
+        $st->execute([$id, $sub]);
+        if ($st->rowCount() === 0) json_out(['ok' => false, 'error' => 'Backup not found.'], 404);
+        audit($u['name'], 'Workspace backup deleted', 'system', $id, '');
+        json_out(['ok' => true]);
+    }
+    json_out(['ok' => false, 'error' => 'Unknown action.'], 400);
+}
+
 default:
     json_out(['ok' => false, 'error' => 'Unknown endpoint.'], 404);
 }

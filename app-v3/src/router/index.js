@@ -67,6 +67,7 @@ const routes = [
   { path: '/accounts', name: 'accounts', component: () => import('../views/AccountsView.vue') },
   // ── Module views (custom) ──
   { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') },
+  { path: '/backup', name: 'backup', component: () => import('../views/BackupView.vue') },
   { path: '/reminders', name: 'reminders', component: () => import('../views/RemindersView.vue') },
   { path: '/wiki', name: 'wiki', component: () => import('../views/WikiView.vue') },
   // V2.27: guided first-login setup for new subscribers (full-screen, no shell chrome)

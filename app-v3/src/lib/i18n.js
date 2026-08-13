@@ -265,6 +265,7 @@ const BN = {
   'New event': 'নতুন ইভেন্ট', 'Event title': 'ইভেন্টের শিরোনাম', 'Event created': 'ইভেন্ট তৈরি হয়েছে',
   'Create event': 'ইভেন্ট তৈরি করুন', Location: 'অবস্থান', Capacity: 'ধারণক্ষমতা', going: 'আসছেন',
   'No events yet': 'এখনো কোনো ইভেন্ট নেই', 'RSVP confirmed': 'আরএসভিপি নিশ্চিত', 'RSVP': 'আরএসভিপি',
+  'Backup & Restore': 'ব্যাকআপ ও রিস্টোর', 'Create a backup': 'নতুন ব্যাকআপ', 'Backup history': 'ব্যাকআপ ইতিহাস',
 }
 
 // t(key) — dictionary lookup with English fallback.
