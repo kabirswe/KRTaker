@@ -373,6 +373,28 @@ const electionWinner = (e, pos) => {
   const seats = seatsOf(e, pos)
   return candsOf(e, pos).slice(0, seats).map(c => c.id)
 }
+// ── V2.39.2: election result charts — per-position donut + per-candidate vote-share bars ──
+const EL_PAL = ['#4f8ef7', '#f0a35a', '#34c07a', '#e0567a', '#a48cf0', '#2ea8c8', '#e8842e', '#7b5ee8']
+const elPosVotes = (e, posName) => candsOf(e, posName).reduce((s, c) => s + (c.votes || 0), 0)
+const elPct = (e, posName, c) => { const tot = elPosVotes(e, posName); return tot ? Math.round((c.votes / tot) * 100) : 0 }
+const elFill = (e, posName, c) => { const i = candsOf(e, posName).indexOf(c); return EL_PAL[Math.max(0, i) % EL_PAL.length] }
+const elBarStyle = (e, posName, c) => {
+  const tot = elPosVotes(e, posName)
+  const w = tot ? Math.max(3, Math.round((c.votes / tot) * 100)) : 0
+  return { width: w + '%', background: elFill(e, posName, c) }
+}
+const elDonut = (e, posName) => {
+  const cs = candsOf(e, posName)
+  const tot = cs.reduce((s, c) => s + (c.votes || 0), 0)
+  if (!tot) return ''
+  let acc = 0, stops = []
+  cs.forEach((c, i) => {
+    const p = (c.votes / tot) * 100
+    stops.push(EL_PAL[i % EL_PAL.length] + ' ' + acc.toFixed(1) + '% ' + (acc + p).toFixed(1) + '%')
+    acc += p
+  })
+  return { background: 'conic-gradient(' + stops.join(',') + ')' }
+}
 async function castElectionVote(e, pos, cand) {
   if (!window.confirm('Vote for ' + (cand.member_name || memberName(cand.member)) + ' as ' + pos + '?')) return
   const r = await apiCall('app-samity', { action: 'vote', election: e.id, position: pos, candidate: cand.id })
@@ -631,7 +653,7 @@ onMounted(() => { loadElections() })
             <button v-if="canManage && ['draft','open'].includes(e.status)" @click="openCandModal(e)" style="margin-left:auto;padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">＋ Candidate</button>
           </div>
           <div v-if="!candsOf(e, pos.name).length" class="c-sub" style="font-size:12.5px;padding:6px 0">No candidates yet.</div>
-          <div v-for="c in candsOf(e, pos.name)" :key="c.id" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;margin-bottom:6px;background:var(--bg-alt);border:1px solid var(--border)">
+          <div v-for="c in candsOf(e, pos.name)" :key="c.id" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;margin-bottom:6px;background:var(--bg-alt);border:1px solid var(--border);flex-wrap:wrap">
             <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff" :style="{ background: avatarColor(c.id) }">{{ initials(c.member_name || memberName(c.member)) }}</div>
             <div style="flex:1;min-width:0">
               <div style="font-weight:800;font-size:13.5px">{{ c.member_name || memberName(c.member) }}</div>
@@ -639,12 +661,30 @@ onMounted(() => { loadElections() })
             </div>
             <div style="text-align:center;min-width:52px">
               <div style="font-weight:800;font-size:15px">{{ c.votes }}</div>
-              <div class="c-sub" style="font-size:10px">votes</div>
+              <div class="c-sub" style="font-size:10px">{{ elPct(e, pos.name, c) }}%</div>
             </div>
             <span v-if="e.status === 'closed' && electionWinner(e, pos.name).includes(c.id)" class="badge b-blue">👑 Winner</span>
             <button v-if="e.status === 'open' && myChoice(e, pos.name) === c.id" class="badge b-green" style="border:none;cursor:default">✅ Your vote</button>
             <button v-else-if="e.status === 'open' && !hasVotedPos(e, pos.name)" @click="castElectionVote(e, pos.name, c)" style="padding:7px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer">🗳 Vote</button>
             <button v-if="canManage && ['draft','open'].includes(e.status)" @click="removeCandidate(c)" class="btn-ghost" title="Remove candidate" style="padding:5px 9px">✕</button>
+            <div v-if="elPosVotes(e, pos.name)" style="flex:1 1 100%;height:6px;border-radius:4px;background:var(--bg,#eef1f6);overflow:hidden;margin-top:2px" :title="c.votes + ' of ' + elPosVotes(e, pos.name) + ' votes'">
+              <div style="height:100%;border-radius:4px;transition:width .4s" :style="elBarStyle(e, pos.name, c)"></div>
+            </div>
+          </div>
+          <div v-if="elPosVotes(e, pos.name)" style="display:flex;align-items:center;gap:12px;padding:8px 10px;margin-top:2px;border:1px dashed var(--border);border-radius:10px">
+            <div style="position:relative;width:56px;height:56px;border-radius:50%;flex-shrink:0" :style="elDonut(e, pos.name)" :title="'Vote share — ' + pos.name">
+              <div style="position:absolute;inset:10px;border-radius:50%;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-direction:column;line-height:1">
+                <span>{{ elPosVotes(e, pos.name) }}</span>
+                <span class="c-sub" style="font-size:8.5px;margin-top:1px">votes</span>
+              </div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">
+              <div v-for="(c,i) in candsOf(e, pos.name)" :key="c.id" style="display:flex;align-items:center;gap:8px;font-size:11.5px">
+                <span style="width:9px;height:9px;border-radius:3px;flex-shrink:0" :style="{ background: EL_PAL[i % EL_PAL.length] }"></span>
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.member_name || memberName(c.member) }}</span>
+                <span style="font-weight:800">{{ c.votes }} · {{ elPct(e, pos.name, c) }}%</span>
+              </div>
+            </div>
           </div>
         </div>
         <div v-if="e.status === 'closed'" style="padding:12px 16px;font-size:12.5px;color:var(--text-mute);background:var(--bg-alt)">
