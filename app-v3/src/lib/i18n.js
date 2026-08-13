@@ -279,6 +279,8 @@ const BN = {
   Threads: 'থ্রেড', Pinned: 'পিন করা', Categories: 'বিভাগ',
   Past: 'অতীত', Upcoming: 'আসন্ন',
   'Total events': 'মোট ইভেন্ট', 'Upcoming events': 'আসন্ন ইভেন্ট', 'Past events': 'অতীত ইভেন্ট', 'Total RSVPs': 'মোট আরএসভিপি',
+  // V2.32.3: Voting donut charts + Events calendar view
+  'List view': 'তালিকা ভিউ', Calendar: 'ক্যালেন্ডার', Today: 'আজ', 'Events on': 'এই তারিখের ইভেন্ট', 'No events this day': 'এই দিনে কোনো ইভেন্ট নেই', more: 'আরও',
   'Backup & Restore': 'ব্যাকআপ ও রিস্টোর', 'Create a backup': 'নতুন ব্যাকআপ', 'Backup history': 'ব্যাকআপ ইতিহাস',
 }
 

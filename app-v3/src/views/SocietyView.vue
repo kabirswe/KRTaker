@@ -226,6 +226,35 @@ const voteStats = computed(() => {
 })
 const pct = (p, i) => p.total_votes ? Math.round((p.tally[i] || 0) / p.total_votes * 100) : 0
 
+// ── V2.32.3: Voting result donut charts ──
+const PAL = ['#4f8ef7', '#f0a35a', '#34c07a', '#e0567a', '#a48cf0', '#2ea8c8', '#e8842e', '#7b5ee8']
+// conic-gradient style string for a poll's vote distribution
+function donutStyle(p) {
+  const t = p.total_votes || 0
+  if (!t) return 'background:#eef0f6'
+  let acc = 0
+  const segs = []
+  ;(p.options || []).forEach((o, i) => {
+    const v = ((p.tally[i] || 0) / t) * 100
+    segs.push(PAL[i % PAL.length] + ' ' + acc.toFixed(1) + '% ' + (acc + v).toFixed(1) + '%')
+    acc += v
+  })
+  return 'background:conic-gradient(' + segs.join(',') + ')'
+}
+// index of the leading option (👑), -1 when nothing has votes
+function winIdx(p) {
+  let wi = -1, mx = -1
+  ;(p.options || []).forEach((o, i) => {
+    const v = p.tally[i] || 0
+    if (v > mx) { mx = v; wi = i }
+  })
+  return wi
+}
+const fillStyle = (p, i) => {
+  const c = PAL[i % PAL.length]
+  return { width: pct(p, i) + '%', background: p.my_vote === i ? c + '55' : c + '33' }
+}
+
 // ── Forums (V2.32.1: category chips + search + stats) ──
 const forumCat = ref('All')
 const forumQ = ref('')
@@ -259,6 +288,41 @@ const evtStats = computed(() => {
   const t = todayStr()
   return { total: all.length, upcoming: all.filter(r => { const d = evtDate(r.date); return d !== '—' && d >= t }).length, past: all.filter(r => { const d = evtDate(r.date); return d !== '—' && d < t }).length, rsvps: all.reduce((s, r) => s + (r.rsvps || 0), 0) }
 })
+
+// ── V2.32.3: Events calendar view ──
+const evtView = ref('list')            // 'list' | 'calendar'
+const calYM = ref({ y: new Date().getFullYear(), m: new Date().getMonth() })
+const calSel = ref(null)               // selected day 'YYYY-MM-DD' (events shown below grid)
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const MONTHS_BN = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর']
+const WDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const WDS_BN = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি']
+const calTitle = computed(() => (lang.value === 'bn' ? MONTHS_BN[calYM.value.m] : MONTHS[calYM.value.m]) + ' ' + calYM.value.y)
+// date → events map (only rows passing the current filter + search)
+const evtByDate = computed(() => {
+  const m = {}
+  evtFiltered.value.forEach(e => {
+    const d = evtDate(e.date)
+    if (d !== '—') (m[d] = m[d] || []).push(e)
+  })
+  return m
+})
+// 42-cell grid (6 weeks × 7 days, Sun-first)
+const calGrid = computed(() => {
+  const { y, m } = calYM.value
+  const first = new Date(y, m, 1)
+  const off = first.getDay()
+  const cells = []
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(y, m, 1 - off + i)
+    const ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+    cells.push({ ds, day: d.getDate(), inMonth: d.getMonth() === m, events: evtByDate.value[ds] || [] })
+  }
+  return cells
+})
+const calPrev = () => { calYM.value = { y: calYM.value.m === 0 ? calYM.value.y - 1 : calYM.value.y, m: calYM.value.m === 0 ? 11 : calYM.value.m - 1 } }
+const calNext = () => { calYM.value = { y: calYM.value.m === 11 ? calYM.value.y + 1 : calYM.value.y, m: calYM.value.m === 11 ? 0 : calYM.value.m + 1 } }
+const calToday = () => { const n = new Date(); calYM.value = { y: n.getFullYear(), m: n.getMonth() }; calSel.value = todayStr() }
 
 // ── V2.31.6: Society KPI strip — live counts per module (incl. Samity) ──
 const stats = ref({ parking: 0, bookings: 0, voting: 0, forums: 0, events: 0, samity: 0 })
@@ -470,19 +534,36 @@ const loadingRow = () => loading.value
         <button v-for="f in ['All', 'Open', 'Closed']" :key="f" class="chip" :class="{ on: voteFilter === f }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="voteFilter = f">{{ f === 'All' ? t('All') : t(f) }}</button>
         <input v-model="voteQ" :placeholder="t('Search') + '…'" style="flex:1;min-width:160px;max-width:280px;margin-left:auto;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px">
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px">
         <div v-for="p in voteFiltered" :key="p.id" class="panel">
           <div class="panel-b">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
-              <div style="font-weight:800;font-size:14px">{{ p.question }}</div>
-              <span class="badge" :class="p.open ? 'b-green' : 'b-gray'">{{ p.open ? t('Open') : t('Closed') }}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">
+              <div style="font-weight:800;font-size:14px;min-width:0">{{ p.question }}</div>
+              <span class="badge" :class="p.open ? 'b-green' : 'b-gray'" style="flex-shrink:0">{{ p.open ? t('Open') : t('Closed') }}</span>
             </div>
             <div class="c-sub" style="font-size:11.5px;margin-bottom:10px">{{ t('Created by') }} {{ p.created_name || '—' }} · {{ fmtTs(p.ts) }}</div>
-            <!-- V2.32.1: result bars -->
-            <div v-for="(o, i) in p.options" :key="i" style="margin-bottom:7px">
+            <!-- V2.32.3: donut chart + legend -->
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+              <div style="position:relative;width:74px;height:74px;border-radius:50%;flex-shrink:0" :style="donutStyle(p)">
+                <div style="position:absolute;inset:11px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center">
+                  <span style="font-weight:900;font-size:15px;line-height:1">{{ p.total_votes || 0 }}</span>
+                  <span class="c-sub" style="font-size:8.5px;font-weight:700">{{ t('votes') }}</span>
+                </div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:5px;min-width:0">
+                <div v-for="(o, i) in p.options" :key="i" style="display:flex;align-items:center;gap:7px;font-size:11.5px">
+                  <span :style="{ background: PAL[i % PAL.length] }" style="width:9px;height:9px;border-radius:50%;flex-shrink:0"></span>
+                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-mute);font-weight:600">{{ o }}</span>
+                  <span style="font-weight:800">{{ p.tally[i] || 0 }} <span class="c-sub" style="font-weight:600">({{ pct(p, i) }}%)</span></span>
+                  <span v-if="winIdx(p) === i && p.total_votes" style="font-size:11px">👑</span>
+                </div>
+              </div>
+            </div>
+            <!-- V2.32.1 result bars → V2.32.3 per-option color -->
+            <div v-for="(o, i) in p.options" :key="'b' + i" style="margin-bottom:7px">
               <button :disabled="p.my_vote !== null || !p.open" @click="castVote(p.id, i)"
                 style="position:relative;width:100%;display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--text);text-align:left;overflow:hidden">
-                <span v-if="p.total_votes" class="vote-fill" :class="{ mine: p.my_vote === i }" :style="{ width: pct(p, i) + '%' }"></span>
+                <span v-if="p.total_votes" class="vote-fill" :style="fillStyle(p, i)"></span>
                 <span style="position:relative;flex-shrink:0">{{ p.my_vote === i ? '✅' : '○' }}</span>
                 <span style="position:relative;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o }}</span>
                 <span v-if="p.total_votes" class="c-sub" style="position:relative;font-size:11px">{{ p.tally[i] || 0 }} · {{ pct(p, i) }}%</span>
@@ -591,12 +672,64 @@ const loadingRow = () => loading.value
         <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">{{ t('Past events') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px;color:var(--text-mute)">{{ evtStats.past }}</div></div>
         <div class="panel" style="padding:12px 14px"><div class="s-label" style="font-size:11px;color:var(--text-mute);font-weight:700;letter-spacing:.3px">✅ {{ t('Total RSVPs') }}</div><div style="font-size:20px;font-weight:800;margin-top:2px">{{ evtStats.rsvps }}</div></div>
       </div>
-      <!-- V2.32.1: filter chips + search -->
+      <!-- V2.32.3: view toggle (List / Calendar) -->
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <button v-for="v in ['list', 'calendar']" :key="v" class="chip" :class="{ on: evtView === v }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="evtView = v">{{ v === 'list' ? '📋 ' + t('List view') : '📅 ' + t('Calendar') }}</button>
         <button v-for="f in ['All', 'Upcoming', 'Past']" :key="f" class="chip" :class="{ on: evtFilter === f }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="evtFilter = f">{{ f === 'All' ? t('All') : t(f) }}</button>
-        <input v-model="evtQ" :placeholder="t('Search') + '…'" style="flex:1;min-width:160px;max-width:280px;margin-left:auto;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px">
+        <input v-if="evtView === 'list'" v-model="evtQ" :placeholder="t('Search') + '…'" style="flex:1;min-width:160px;max-width:280px;margin-left:auto;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px">
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+
+      <!-- V2.32.3: calendar view -->
+      <div v-if="evtView === 'calendar'" class="panel" style="margin-bottom:14px;padding:18px">
+        <!-- month nav -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <button class="btn-ghost" style="padding:6px 12px;font-size:13px" @click="calPrev">◀</button>
+          <div style="font-weight:900;font-size:16px;text-align:center;flex:1">{{ calTitle }}</div>
+          <button class="btn-ghost" style="padding:6px 12px;font-size:13px" @click="calNext">▶</button>
+          <button class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="calToday">{{ t('Today') }}</button>
+        </div>
+        <!-- weekday header -->
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px">
+          <div v-for="(w, i) in WDS" :key="w" style="text-align:center;font-size:11px;font-weight:800;color:var(--text-mute);padding:6px 0">{{ lang === 'bn' ? WDS_BN[i] : w }}</div>
+        </div>
+        <!-- 6x7 grid -->
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+          <div v-for="(c, i) in calGrid" :key="i"
+            @click="calSel = c.ds"
+            style="min-height:58px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);padding:6px 7px;cursor:pointer;box-sizing:border-box"
+            :style="{
+              background: calSel === c.ds ? 'rgba(47,128,237,.12)' : (c.inMonth ? 'var(--bg-alt)' : 'rgba(0,0,0,.02)'),
+              borderColor: calSel === c.ds ? 'var(--primary)' : (c.ds === todayStr() ? 'var(--primary)' : 'var(--border)'),
+              opacity: c.inMonth ? 1 : .45
+            }">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:11.5px;font-weight:800" :style="{ color: c.ds === todayStr() ? 'var(--primary)' : 'var(--text)' }">{{ c.day }}</span>
+              <span v-if="c.events.length" style="font-size:9.5px;font-weight:900;color:#fff;background:var(--primary);border-radius:99px;padding:1px 6px">{{ c.events.length }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div v-for="(e, j) in c.events.slice(0, 2)" :key="e.id" style="font-size:8.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-mute)">{{ e.title }}</div>
+              <div v-if="c.events.length > 2" style="font-size:8.5px;font-weight:800;color:var(--text-mute)">+{{ c.events.length - 2 }} {{ t('more') }}</div>
+            </div>
+          </div>
+        </div>
+        <!-- selected-day events -->
+        <div v-if="calSel" style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
+          <div style="font-weight:800;font-size:13px;margin-bottom:8px">📅 {{ t('Events on') }} {{ calSel }}</div>
+          <div v-if="!(evtByDate[calSel] || []).length" class="c-sub" style="font-size:12px">{{ t('No events this day') }}</div>
+          <div v-for="e in (evtByDate[calSel] || [])" :key="e.id" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border)">
+            <div style="width:32px;height:32px;border-radius:9px;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🎉</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:12.5px">{{ e.title }}</div>
+              <div class="c-sub" style="font-size:10.5px">{{ evtTime(e.time) }} <span v-if="e.location">· {{ e.location }}</span> · {{ e.rsvps || 0 }}/{{ e.capacity || '∞' }} {{ t('going') }}</div>
+            </div>
+            <button v-if="e.my_rsvp" class="btn-ghost" style="padding:5px 11px;font-size:11px;color:var(--ok)" @click="unRsvp(e.id)">✅ {{ t('Going') }}</button>
+            <button v-else class="btn-primary" style="padding:5px 11px;font-size:11px" :disabled="e.full" @click="rsvp(e.id)">{{ e.full ? '🈵' : '✅ ' + t('RSVP') }}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- list view grid -->
+      <div v-if="evtView === 'list'" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
         <div v-for="r in evtFiltered" :key="r.id" class="panel">
           <div class="panel-b">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -636,9 +769,8 @@ const loadingRow = () => loading.value
 <style scoped>
 /* V2.32.0: filter-chip active state + stat card polish (mirrors VendorsView) */
 .chip.on { border-color: var(--primary); color: var(--primary); background: rgba(47,128,237,.08) }
-/* V2.32.1: poll result bar */
+/* V2.32.1 poll result bar → V2.32.3: fill color set inline via fillStyle() */
 .vote-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(47,128,237,.13); border-radius: 8px; transition: width .3s }
-.vote-fill.mine { background: rgba(47,128,237,.24) }
 .s-value { font-size: 24px; font-weight: 800; margin-top: 2px; line-height: 1.1 }
 .s-trend { font-size: 11px; color: var(--text-mute); margin-top: 3px }
 </style>
