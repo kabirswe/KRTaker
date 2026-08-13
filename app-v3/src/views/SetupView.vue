@@ -250,11 +250,9 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
         <div v-if="step === 0" class="ob-center">
           <div class="ob-hero">◆</div>
           <h1 class="ob-title">{{ lang === 'bn' ? 'KRTaker-এ স্বাগতম 👋' : 'Welcome to KRTaker 👋' }}</h1>
-          <p class="ob-sub">
-            {{ lang === 'bn'
+          <p class="ob-sub" v-html="lang === 'bn'
               ? 'আপনার প্রপার্টি ও ফ্যাসিলিটি ম্যানেজমেন্ট কমান্ড সেন্টার প্রস্তুত। আপনার ওয়ার্কস্পেস সেটআপ করি — <b>প্রায় ২ মিনিট, ৫টি দ্রুত ধাপ।</b> যেকোনো ধাপ স্কিপ করে পরে শেষ করতে পারবেন।'
-              : "Your property &amp; facility management command center is ready. Let's set up your workspace — <b>about 2 minutes, 5 quick steps.</b> You can skip any step and finish later." }}
-          </p>
+              : &quot;Your property &amp; facility management command center is ready. Let's set up your workspace — <b>about 2 minutes, 5 quick steps.</b> You can skip any step and finish later.&quot;"></p>
           <div class="ob-actions">
             <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next">{{ lang === 'bn' ? 'শুরু করুন →' : 'Get started →' }}</button>
             <button class="btn-ghost" style="padding:12px 22px;font-size:13.5px" @click="skip">{{ lang === 'bn' ? 'এখনই নয়' : 'Skip for now' }}</button>
@@ -323,7 +321,7 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
         <!-- 3 · NOTIFICATIONS -->
         <div v-else-if="step === 3" class="ob-step-body">
           <h2 class="ob-h">{{ lang === 'bn' ? '🔔 আপনার নোটিফিকেশন বেছে নিন' : '🔔 Choose your notifications' }}</h2>
-          <p class="ob-sub l">{{ lang === 'bn' ? '<b>আপনার</b> ইনবক্সে কী আসবে তা বেছে নিন। প্রতিটি টগল পরে সেটিংস থেকে বদলানো যাবে।' : 'Pick what lands in <b>your</b> inbox. Every toggle can be changed later in Settings.' }}</p>
+          <p class="ob-sub l" v-html="lang === 'bn' ? '<b>আপনার</b> ইনবক্সে কী আসবে তা বেছে নিন। প্রতিটি টগল পরে সেটিংস থেকে বদলানো যাবে।' : 'Pick what lands in <b>your</b> inbox. Every toggle can be changed later in Settings.'"></p>
           <div class="ob-rows">
             <div v-for="r in NOTIFY_ROWS" :key="r.k" class="ob-row" @click="tgl(r.k)">
               <span class="ob-row-ico">{{ r.ico }}</span>
@@ -400,7 +398,7 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           <div class="ob-actions">
             <button class="btn-primary" style="padding:12px 26px;font-size:14px" :disabled="busy" @click="finish">{{ lang === 'bn' ? 'আমার ড্যাশবোর্ড খুলুন →' : 'Open my dashboard →' }}</button>
           </div>
-          <div class="ob-hint">{{ lang === 'bn' ? '📚 টিপ: <b>উইকি ও সাহায্য</b> পেজে প্রতিটি স্ক্রিনের ভিজ্যুয়াল গাইড আছে।' : '📚 Tip: the <b>Wiki &amp; Help</b> page has visual guides for every screen.' }}</div>
+          <div class="ob-hint" v-html="lang === 'bn' ? '📚 টিপ: <b>উইকি ও সাহায্য</b> পেজে প্রতিটি স্ক্রিনের ভিজ্যুয়াল গাইড আছে।' : '📚 Tip: the <b>Wiki &amp; Help</b> page has visual guides for every screen.'"></div>
         </div>
 
         <!-- errors / success -->
