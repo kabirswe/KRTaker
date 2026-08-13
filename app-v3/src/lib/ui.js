@@ -6,10 +6,11 @@ const BADGE_MAP = {
   // green — good / done / active
   Active: 'b-green', Leased: 'b-green', Paid: 'b-green', Success: 'b-green', Verified: 'b-green',
   Approved: 'b-green', Completed: 'b-green', Resolved: 'b-green', Accepted: 'b-green', Published: 'b-green',
-  Delivered: 'b-green', 'Move-in': 'b-green', Collected: 'b-green',
+  Delivered: 'b-green', 'Move-in': 'b-green', Collected: 'b-green', Confirmed: 'b-green',
   // gray — neutral / closed / inactive
   Closed: 'b-gray', Expired: 'b-gray', Ended: 'b-gray', Cancelled: 'b-gray', Refunded: 'b-gray',
   Vacant: 'b-gray', Draft: 'b-gray', 'No Dues': 'b-gray', Inactive: 'b-gray', Archived: 'b-gray',
+  Released: 'b-gray',
   // red — problem
   Open: 'b-red', Overdue: 'b-red', Terminated: 'b-red', Rejected: 'b-red', Failed: 'b-red', Critical: 'b-red',
   // orange — attention / in-between

@@ -67,6 +67,18 @@ function onTab(k) {
 // ── Parking ──
 const parkForm = ref({ show: false, spot: '', type: 'car', vehicle_no: '', name: '', phone: '', prop: '', note: '' })
 const parkBusy = ref(false)
+const parkFilter = ref('All')
+const parkQ = ref('')
+const parkFiltered = computed(() => {
+  let out = rows.value.filter(r => parkFilter.value === 'All' || r.status === parkFilter.value)
+  const q = parkQ.value.trim().toLowerCase()
+  if (q) out = out.filter(r => [r.spot, r.vehicle_no, r.name, r.phone, r.prop].some(v => String(v || '').toLowerCase().includes(q)))
+  return out
+})
+const parkStats = computed(() => {
+  const all = rows.value
+  return { total: all.length, active: all.filter(r => r.status === 'Active').length, released: all.filter(r => r.status === 'Released').length }
+})
 async function saveParking() {
   parkBusy.value = true
   try {
@@ -84,7 +96,20 @@ const parkTypeIco = (x) => x === 'bike' ? '🛵' : x === 'car' ? '🚗' : '🚙'
 // ── Bookings ──
 const bkgForm = ref({ show: false, facility: '', date: '', slot: '', name: '', phone: '', note: '', status: 'Pending' })
 const bkgBusy = ref(false)
+const bkgFilter = ref('All')
+const bkgQ = ref('')
+const bkgFiltered = computed(() => {
+  let out = rows.value.filter(r => bkgFilter.value === 'All' || r.status === bkgFilter.value)
+  const q = bkgQ.value.trim().toLowerCase()
+  if (q) out = out.filter(r => [r.facility, r.date, r.slot, r.name, r.phone].some(v => String(v || '').includes(q)))
+  return out
+})
+const bkgStats = computed(() => {
+  const all = rows.value
+  return { total: all.length, pending: all.filter(r => r.status === 'Pending').length, confirmed: all.filter(r => r.status === 'Confirmed').length, cancelled: all.filter(r => r.status === 'Cancelled').length }
+})
 const FACILITIES = ['Community Hall', 'Rooftop', 'Gym', 'Party Room', 'Guest Room', 'Lawn']
+const FAC_ICONS = { 'Community Hall': '🏛️', Rooftop: '🌇', Gym: '🏋️', 'Party Room': '🎉', 'Guest Room': '🛏️', Lawn: '🌳' }
 async function saveBooking() {
   bkgBusy.value = true
   try {
@@ -239,6 +264,13 @@ const loadingRow = () => loading.value
 
     <!-- ══════════════ PARKING ══════════════ -->
     <template v-if="tab === 'parking'">
+      <!-- V2.32.0: stat cards -->
+      <div class="stats" style="margin-bottom:14px">
+        <div class="stat"><div class="s-label"><span class="s-ico">🅿️</span>{{ t('Parking') }}</div><div class="s-value">{{ parkStats.total }}</div><div class="s-trend">{{ t('Total spots') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🚗</span>{{ t('Active') }}</div><div class="s-value" style="color:var(--ok,#12a150)">{{ parkStats.active }}</div><div class="s-trend">{{ t('Occupied now') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🆓</span>{{ t('Released') }}</div><div class="s-value" style="color:var(--text-mute)">{{ parkStats.released }}</div><div class="s-trend">{{ t('Free spots') }}</div></div>
+      </div>
+
       <div style="display:flex;justify-content:flex-end;margin:14px 0">
         <button class="btn-primary" @click="parkForm.show = !parkForm.show">➕ {{ t('Register vehicle') }}</button>
       </div>
@@ -258,25 +290,35 @@ const loadingRow = () => loading.value
           <button class="btn-primary" style="margin-top:12px" :disabled="parkBusy" @click="saveParking">{{ t('Save') }}</button>
         </div>
       </div>
+
+      <!-- V2.32.0: filter chips + search -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px">
+        <button v-for="f in ['All', 'Active', 'Released']" :key="f" class="chip" :class="{ on: parkFilter === f }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="parkFilter = f">{{ f === 'All' ? t('All') : t(f) }}</button>
+        <div style="flex:1;min-width:160px;max-width:260px;margin-left:auto;position:relative">
+          <input v-model="parkQ" :placeholder="t('Search') + '…'" style="width:100%;padding:7px 12px 7px 30px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12.5px">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.6">🔍</span>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-b" style="padding:0">
           <div class="tbl-wrap">
-            <table class="tbl">
-              <thead><tr><th>{{ t('Spot') }}</th><th>{{ t('Type') }}</th><th>{{ t('Vehicle') }}</th><th>{{ t('Owner') }}</th><th>{{ t('Phone') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
+            <table class="kr">
+              <thead><tr><th>{{ t('Spot') }}</th><th>{{ t('Type') }}</th><th>{{ t('Vehicle') }}</th><th>{{ t('Owner') }}</th><th>{{ t('Phone') }}</th><th>{{ t('Status') }}</th><th style="text-align:right">{{ t('Actions') }}</th></tr></thead>
               <tbody>
-                <tr v-for="r in rows" :key="r.id">
-                  <td><b>{{ r.spot }}</b></td>
+                <tr v-for="r in parkFiltered" :key="r.id">
+                  <td><b style="font-size:13px">{{ r.spot }}</b></td>
                   <td>{{ parkTypeIco(r.type) }} {{ r.type }}</td>
                   <td class="mono">{{ r.vehicle_no }}</td>
                   <td>{{ r.name || '—' }}</td>
                   <td>{{ r.phone || '—' }}</td>
                   <td><span class="badge" :class="badge(r.status)">{{ r.status }}</span></td>
-                  <td style="text-align:right">
-                    <button v-if="r.status === 'Active' && isStaff" class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="releaseParking(r.id)">{{ t('Release') }}</button>
+                  <td style="text-align:right;white-space:nowrap">
+                    <button v-if="r.status === 'Active' && isStaff" class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="releaseParking(r.id)">🆓 {{ t('Release') }}</button>
                     <button v-if="isStaff" class="btn-ghost" style="padding:4px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('parking', r)">✕</button>
                   </td>
                 </tr>
-                <tr v-if="!loading && !rows.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No vehicles registered') }}</td></tr>
+                <tr v-if="!loading && !parkFiltered.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:26px">{{ rows.length ? t('No match') : t('No vehicles registered') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -286,6 +328,14 @@ const loadingRow = () => loading.value
 
     <!-- ══════════════ BOOKINGS ══════════════ -->
     <template v-if="tab === 'bookings'">
+      <!-- V2.32.0: stat cards -->
+      <div class="stats" style="margin-bottom:14px">
+        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>{{ t('Bookings') }}</div><div class="s-value">{{ bkgStats.total }}</div><div class="s-trend">{{ t('Total') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Pending') }}</div><div class="s-value" style="color:#e67e22">{{ bkgStats.pending }}</div><div class="s-trend">{{ t('Awaiting approval') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('Confirmed') }}</div><div class="s-value" style="color:var(--ok,#12a150)">{{ bkgStats.confirmed }}</div><div class="s-trend">{{ t('Approved') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🚫</span>{{ t('Cancelled') }}</div><div class="s-value" style="color:var(--text-mute)">{{ bkgStats.cancelled }}</div><div class="s-trend">{{ t('Declined') }}</div></div>
+      </div>
+
       <div style="display:flex;justify-content:flex-end;margin:14px 0">
         <button class="btn-primary" @click="bkgForm.show = !bkgForm.show">➕ {{ t('New booking') }}</button>
       </div>
@@ -306,25 +356,35 @@ const loadingRow = () => loading.value
           <button class="btn-primary" style="margin-top:12px" :disabled="bkgBusy" @click="saveBooking">{{ t('Save') }}</button>
         </div>
       </div>
+
+      <!-- V2.32.0: filter chips + search -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px">
+        <button v-for="f in ['All', 'Pending', 'Confirmed', 'Cancelled']" :key="f" class="chip" :class="{ on: bkgFilter === f }" style="padding:6px 13px;border:1px solid var(--border);border-radius:20px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer" @click="bkgFilter = f">{{ f === 'All' ? t('All') : t(f) }}</button>
+        <div style="flex:1;min-width:160px;max-width:260px;margin-left:auto;position:relative">
+          <input v-model="bkgQ" :placeholder="t('Search') + '…'" style="width:100%;padding:7px 12px 7px 30px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12.5px">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.6">🔍</span>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-b" style="padding:0">
           <div class="tbl-wrap">
-            <table class="tbl">
-              <thead><tr><th>{{ t('Facility') }}</th><th>{{ t('Date') }}</th><th>{{ t('Slot') }}</th><th>{{ t('Name') }}</th><th>{{ t('Status') }}</th><th v-if="isStaff"></th></tr></thead>
+            <table class="kr">
+              <thead><tr><th>{{ t('Facility') }}</th><th>{{ t('Date') }}</th><th>{{ t('Slot') }}</th><th>{{ t('Name') }}</th><th>{{ t('Status') }}</th><th v-if="isStaff" style="text-align:right">{{ t('Actions') }}</th></tr></thead>
               <tbody>
-                <tr v-for="r in rows" :key="r.id">
-                  <td><b>{{ r.facility }}</b></td>
+                <tr v-for="r in bkgFiltered" :key="r.id">
+                  <td><b style="font-size:13px">{{ FAC_ICONS[r.facility] || '📅' }} {{ r.facility }}</b></td>
                   <td>{{ r.date }}</td>
                   <td>{{ r.slot || '—' }}</td>
                   <td>{{ r.name || '—' }}</td>
                   <td><span class="badge" :class="badge(r.status)">{{ r.status }}</span></td>
-                  <td v-if="isStaff" style="text-align:right">
-                    <template v-if="r.status === 'Pending'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Confirmed')">✓</button></template>
-                    <template v-if="r.status !== 'Cancelled'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Cancelled')">✕</button></template>
+                  <td v-if="isStaff" style="text-align:right;white-space:nowrap">
+                    <template v-if="r.status === 'Pending'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Confirmed')" title="Confirm">✅</button></template>
+                    <template v-if="r.status !== 'Cancelled'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Cancelled')" title="Cancel">✕</button></template>
                     <button class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('bookings', r)">🗑</button>
                   </td>
                 </tr>
-                <tr v-if="!loading && !rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No bookings yet') }}</td></tr>
+                <tr v-if="!loading && !bkgFiltered.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:26px">{{ rows.length ? t('No match') : t('No bookings yet') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -484,3 +544,10 @@ const loadingRow = () => loading.value
     </template>
   </div>
 </template>
+
+<style scoped>
+/* V2.32.0: filter-chip active state + stat card polish (mirrors VendorsView) */
+.chip.on { border-color: var(--primary); color: var(--primary); background: rgba(47,128,237,.08) }
+.s-value { font-size: 24px; font-weight: 800; margin-top: 2px; line-height: 1.1 }
+.s-trend { font-size: 11px; color: var(--text-mute); margin-top: 3px }
+</style>

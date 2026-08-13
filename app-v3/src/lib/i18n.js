@@ -260,6 +260,10 @@ const BN = {
   'New booking': 'নতুন বুকিং', Facility: 'সুবিধা', 'Time slot': 'সময় স্লট', 'No bookings yet': 'এখনো কোনো বুকিং নেই',
   'Community Hall': 'কমিউনিটি হল', Rooftop: 'ছাদের উঠান', Gym: 'জিম', 'Party Room': 'পার্টি রুম', 'Guest Room': 'গেস্ট রুম', Lawn: 'লন',
   Confirmed: 'নিশ্চিত', Cancelled: 'বাতিল',
+  // V2.32.0: Society table redesign — stats, filters, search
+  'Total spots': 'মোট স্পট', 'Occupied now': 'বর্তমানে ব্যবহৃত', 'Free spots': 'খালি স্পট',
+  Active: 'সক্রিয়', Released: 'মুক্ত', 'Awaiting approval': 'অনুমোদনের অপেক্ষায়', Approved: 'অনুমোদিত', Declined: 'বাতিল হয়েছে',
+  'No match': 'কোনো মিল পাওয়া যায়নি',
   'New poll': 'নতুন পোল', 'Poll question': 'পোল প্রশ্ন', Option: 'অপশন', 'Add option': 'অপশন যোগ করুন',
   'Create poll': 'পোল তৈরি করুন', 'Poll created': 'পোল তৈরি হয়েছে', 'Vote recorded': 'ভোট রেকর্ড হয়েছে',
   'Created by': 'তৈরি করেছেন', votes: 'ভোট', 'Close poll': 'পোল বন্ধ করুন', Reopen: 'আবার খুলুন',
