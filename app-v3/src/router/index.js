@@ -136,8 +136,11 @@ router.beforeEach(async (to) => {
 // (or skipped) the guided setup yet. Backed by the server-side `setup_at`
 // marker on the subscriber row (V2.27) — new accounts get an empty marker,
 // existing active accounts were backfilled at migration, and completing the
-// wizard sets it. `krtaker_onboard_skip` is a per-browser convenience so
-// "skip for now" doesn't nag again on the same device.
+// wizard sets it. `krtaker_onboard_done_<email>` / `krtaker_onboard_skip_<email>`
+// are per-ACCOUNT browser convenience flags (V2.34 fix: they were previously
+// global keys, so finishing the wizard for one account suppressed it for every
+// other account on the same device — e.g. registering a second owner after
+// onboarding never showed the wizard again).
 function needsSetup(auth, data) {
   const u = auth.user || {}
   if ((u.kind || '') !== 'sub') return false
@@ -145,8 +148,9 @@ function needsSetup(auth, data) {
   if (auth.isImpersonating) return false
   if (u.setup_at) return false
   try {
-    if (localStorage.getItem('krtaker_onboard_done')) return false
-    if (localStorage.getItem('krtaker_onboard_skip')) return false
+    const k = (u.email || '').toLowerCase()
+    if (localStorage.getItem('krtaker_onboard_done_' + k)) return false
+    if (localStorage.getItem('krtaker_onboard_skip_' + k)) return false
   } catch (e) { return false }
   return true
 }

@@ -35,11 +35,13 @@ const saved = ref('')
 const name = ref(auth.user?.name || '')
 const org = ref(auth.user?.org || '')
 
-// ── Step 2: first property ──
+// ── Step 2: first property + optional first unit ──
 const PROP_TYPES = ['Flat', 'Apartment', 'Building', 'Villa', 'Commercial', 'Office', 'Shop', 'Warehouse', 'Land', 'Other']
 const JURS = ['Dhaka North', 'Dhaka South', 'Chittagong', 'Gazipur', 'Narayanganj', 'Other']
 const prop = ref({ name: '', type: 'Flat', jur: 'Dhaka North', address: '' })
 const createdProp = ref(null)
+const unit = ref({ name: '', floor: '', rent: '' })   // V2.34: optional first unit
+const createdUnit = ref(null)
 
 // ── Step 3: notifications (server-side SETTINGS_DEFAULTS keys) ──
 const prefs = ref({
@@ -72,6 +74,7 @@ const summary = computed(() => {
   const items = []
   if (name.value.trim()) items.push(`Profile saved as “${name.value.trim()}”`)
   if (createdProp.value) items.push(`Property “${createdProp.value.name}” added`)
+  if (createdUnit.value) items.push(`First unit “${createdUnit.value.name}” added`)
   const on = NOTIFY_ROWS.filter(r => prefs.value[r.k]).length
   if (on) items.push(`${on} notification channel${on > 1 ? 's' : ''} on`)
   if (twofaState.value.enabled) items.push('Two-factor authentication enabled')
@@ -103,14 +106,31 @@ async function createProperty() {
     description: '',
   }
   const r = await apiCall('app-crud', { action: 'create', collection: 'properties', data: payload })
-  if (r.ok) {
-    createdProp.value = r.row || { name: payload.name }
-    await data.bootstrap()
-    track('setup_property_created', {})
-    return true
+  if (!r.ok) { err.value = r.error || 'Failed to create property.'; return false }
+  createdProp.value = { name: payload.name, id: r.id || '' }
+  await data.bootstrap()
+  track('setup_property_created', {})
+  // V2.34: optional FIRST UNIT under the new property
+  if (unit.value.name.trim()) {
+    const up = {
+      p: createdProp.value.id || r.id || '',
+      name: unit.value.name.trim(),
+      floor: unit.value.floor.trim(),
+      sqft: 0,
+      rent: parseInt(unit.value.rent, 10) || 0,
+      beds: 0, baths: 0, furnished: '0',
+      status: 'Vacant',
+    }
+    const ur = await apiCall('app-crud', { action: 'create', collection: 'units', data: up })
+    if (ur.ok) {
+      createdUnit.value = { name: up.name, id: ur.id || '' }
+      await data.bootstrap()
+      track('setup_unit_created', {})
+    } else {
+      err.value = ur.error || 'Property added, but the unit could not be created — you can add it from Units later.'
+    }
   }
-  err.value = r.error || 'Failed to create property.'
-  return false
+  return true
 }
 
 async function savePrefs() {
@@ -180,7 +200,12 @@ async function next() {
 function back() { err.value = ''; saved.value = ''; if (step.value > 0) step.value-- }
 
 function skip() {
-  try { localStorage.setItem('krtaker_onboard_skip', '1') } catch (e) {}
+  try {
+    const k = ((auth.user?.email) || '').toLowerCase()
+    localStorage.setItem('krtaker_onboard_skip_' + k, '1')
+    localStorage.removeItem('krtaker_onboard_skip')   // V2.34: old global keys are obsolete
+    localStorage.removeItem('krtaker_onboard_done')
+  } catch (e) {}
   track('setup_skipped', { at: STEPS[step.value].id })
   router.push('/dashboard')
 }
@@ -189,7 +214,12 @@ async function finish() {
   busy.value = true; err.value = ''
   try {
     if (want2fa.value && !twofaState.value.enabled) want2fa.value = false // not completed — do it in Settings later
-    try { localStorage.setItem('krtaker_onboard_done', '1') } catch (e) {}
+    try {
+      const k = ((auth.user?.email) || '').toLowerCase()
+      localStorage.setItem('krtaker_onboard_done_' + k, '1')
+      localStorage.removeItem('krtaker_onboard_done')   // V2.34: old global keys are obsolete
+      localStorage.removeItem('krtaker_onboard_skip')
+    } catch (e) {}
     // Persist the server-side marker so the wizard never reappears on any device.
     const r = await apiCall('app-setup-done', {})
     if (r.ok && auth.user) auth.user.setup_at = new Date().toISOString().slice(0, 19).replace('T', ' ')
@@ -268,6 +298,22 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           </div>
           <label class="ob-lab2" style="margin-top:14px">{{ lang === 'bn' ? 'ঠিকানা' : 'Address' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
           <input v-model="prop.address" :placeholder="t('e.g. House 12, Road 5, Dhanmondi, Dhaka')" class="ob-inp" @keyup.enter="next" />
+          <div class="ob-unit">
+            <div class="ob-unit-h">{{ lang === 'bn' ? '🏠 আপনার প্রথম ইউনিট (ঐচ্ছিক)' : '🏠 Your first unit (optional)' }}</div>
+            <p class="ob-unit-d">{{ lang === 'bn' ? 'একটি ফ্ল্যাট/অ্যাপার্টমেন্ট যোগ করলে পরে ভাড়া ও ভাড়াটিয়া সংযুক্ত করা সহজ হবে। এখনই না দিলে পরে 📦 ইউনিট মেনু থেকে যোগ করতে পারবেন।' : 'Adding a flat/apartment now makes it easy to attach rent and a tenant later. You can skip this and add units from the Units menu any time.' }}</p>
+            <div class="ob-grid2">
+              <div>
+                <label class="ob-lab2">{{ lang === 'bn' ? 'ইউনিটের নাম' : 'Unit name' }} <span class="ob-opt">({{ lang === 'bn' ? 'যেমন: ফ্ল্যাট A' : 'e.g. Flat A' }})</span></label>
+                <input v-model="unit.name" :placeholder="t('e.g. Flat A')" class="ob-inp" />
+              </div>
+              <div>
+                <label class="ob-lab2">{{ t('Floor') }}</label>
+                <input v-model="unit.floor" :placeholder="t('e.g. 3rd')" class="ob-inp" />
+              </div>
+            </div>
+            <label class="ob-lab2" style="margin-top:12px">{{ lang === 'bn' ? 'মাসিক ভাড়া (৳)' : 'Monthly rent (৳)' }} <span class="ob-opt">({{ lang === 'bn' ? 'ঐচ্ছিক' : 'optional' }})</span></label>
+            <input v-model="unit.rent" type="number" min="0" :placeholder="t('e.g. 25000')" class="ob-inp" />
+          </div>
           <div class="ob-foot">
             <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
             <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'তৈরি হচ্ছে…' : 'Creating…') : (lang === 'bn' ? 'তৈরি করুন ও চালিয়ে যান →' : 'Create & continue →') }}</button>
@@ -394,6 +440,10 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
 .ob-inp { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; }
 .ob-inp:focus { border-color: var(--primary); }
 .ob-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.ob-unit { margin-top: 16px; border: 1px dashed var(--border); border-radius: 12px; padding: 14px 16px 16px; background: var(--bg); }
+.ob-unit-h { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.ob-unit-d { font-size: 12px; color: var(--text-mute); line-height: 1.5; margin: 4px 0 10px; }
+@media (max-width: 520px) { .ob-grid2 { grid-template-columns: 1fr; } }
 .ob-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; gap: 10px; }
 .ob-rows { display: flex; flex-direction: column; gap: 2px; }
 .ob-row { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer; }

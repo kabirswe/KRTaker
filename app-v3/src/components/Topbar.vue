@@ -79,8 +79,22 @@ async function backToMe() {
   }
 }
 
-// Subordinates strictly below the CURRENT effective rank (updates after a switch)
-const subs = computed(() => ROLES.filter(r => auth.canSwitchTo(r.id)))
+// Subordinates strictly below the CURRENT effective rank (server-provided V2.34 —
+// only REAL users; empty when none exist, e.g. a fresh owner with no manager/tenant).
+const subs = computed(() => {
+  const list = (auth.user?.subordinates) || []
+  return list.map(s => {
+    const meta = ROLES.find(r => r.id === s.role) || {}
+    return {
+      id: s.role,
+      role: meta.role || roleLabel(s.role),
+      ico: meta.ico || '👤',
+      email: s.email,
+      name: s.name,
+      group: meta.group || 'sub',
+    }
+  })
+})
 // Group the subordinate list (admin sees multiple groups; others see one)
 const subGroups = computed(() => {
   const map = {}
@@ -312,7 +326,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
                 <div v-if="subGroups.length > 1" class="um-label" style="text-transform:uppercase;font-size:10px;letter-spacing:.6px;color:var(--text-mute);padding-top:2px">{{ GROUP_LABEL[g] || g }}</div>
                 <div v-for="r in items" :key="r.id" class="um-item" :class="{ active: r.id === currentRole }" @click="setRole(r)">
                   <span class="um-ic">{{ r.ico }}</span>
-                  <span class="um-t">{{ r.role }}</span>
+                  <div>
+                    <div class="um-t">{{ r.name || r.role }}</div>
+                    <div class="um-s">{{ r.role }}</div>
+                  </div>
                   <span v-if="r.id === currentRole" class="um-cur">✓</span>
                 </div>
               </template>

@@ -5747,6 +5747,55 @@ function sub_info($email) {
     return $st->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+/* V2.34: actual switchable subordinate users for the tb-user 🔀 dropdown.
+   Staff accounts → other active app_users strictly below (three-group rules).
+   Subscriber accounts (owner OR team member) → their own team_members
+   strictly below (same rules). Empty when no such users exist — the UI then
+   shows "No subordinate users" instead of offering roles that would fail. */
+function view_as_targets($u) {
+    $pdo = db();
+    $H = [
+        'superadmin' => ['g' => 'admin', 'r' => 2], 'super_admin' => ['g' => 'admin', 'r' => 2], 'admin' => ['g' => 'admin', 'r' => 1],
+        'owner' => ['g' => 'sub', 'r' => 4], 'property_owner' => ['g' => 'sub', 'r' => 4],
+        'manager' => ['g' => 'sub', 'r' => 3], 'property_manager' => ['g' => 'sub', 'r' => 3],
+        'tenant' => ['g' => 'sub', 'r' => 2], 'building_staff' => ['g' => 'sub', 'r' => 1],
+        'hr' => ['g' => 'bo', 'r' => 4], 'hr_admin' => ['g' => 'bo', 'r' => 4],
+        'legal' => ['g' => 'bo', 'r' => 4], 'legal_counsel' => ['g' => 'bo', 'r' => 4],
+        'accountant' => ['g' => 'bo', 'r' => 4],
+        'crm' => ['g' => 'bo', 'r' => 3], 'crm_helpdesk' => ['g' => 'bo', 'r' => 3],
+        'svc_mgr' => ['g' => 'bo', 'r' => 3], 'service_manager' => ['g' => 'bo', 'r' => 3],
+        'partner' => ['g' => 'bo', 'r' => 2], 'service_partner' => ['g' => 'bo', 'r' => 2],
+        'service_staff' => ['g' => 'bo', 'r' => 1],
+    ];
+    $me = $H[$u['role'] ?? ''] ?? null;
+    if (!$me) return [];
+    $out = [];
+    if (($u['kind'] ?? '') === 'staff') {
+        foreach ($pdo->query("SELECT name,email,role FROM app_users WHERE active=1") as $r) {
+            if (strtolower((string)$r['email']) === strtolower((string)$u['email'])) continue;
+            $them = $H[$r['role']] ?? null;
+            if (!$them) continue;
+            $ok = $me['g'] === 'admin'
+                ? !($them['g'] === 'admin' && $them['r'] >= $me['r'])
+                : ($me['g'] === $them['g'] && $them['r'] < $me['r']);
+            if ($ok) $out[] = ['name' => $r['name'], 'email' => $r['email'], 'role' => $r['role'], 'kind' => 'staff'];
+        }
+    } else {
+        /* subscriber (owner or team member): team members under the SAME subscriber, strictly below */
+        $subEmail = strtolower(trim((string)$u['email']));
+        $st = $pdo->prepare("SELECT name,email,role FROM team_members WHERE lower(sub_email)=? AND status='active'");
+        $st->execute([$subEmail]);
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (strtolower((string)$r['email']) === $subEmail) continue;
+            $them = $H[$r['role']] ?? null;
+            if (!$them) continue;
+            if ($me['g'] === $them['g'] && $them['r'] < $me['r'])
+                $out[] = ['name' => $r['name'], 'email' => $r['email'], 'role' => $r['role'], 'kind' => 'team'];
+        }
+    }
+    return $out;
+}
+
 function user_payload($u) {
     $mods = effective_modules($u);
     $rmap = [];
@@ -5779,6 +5828,7 @@ function user_payload($u) {
     if (!empty($u['team_member'])) {
         $p['team_member'] = true;   /* SA1 v20: sub-account of the subscriber workspace */
     }
+    $p['subordinates'] = view_as_targets($u);   /* V2.34: real switchable users for the 🔀 dropdown */
     return $p;
 }
 
@@ -11559,17 +11609,33 @@ case 'app-view-as': {
     $target = strtolower(trim($body['email'] ?? ''));
     if ($target === '') json_out(['ok' => false, 'error' => 'email required.'], 400);
     if ($target === strtolower($u['email'])) json_out(['ok' => false, 'error' => 'Cannot view as yourself.'], 400);
-    $st = $pdo->prepare("SELECT id, name, email, role FROM subscribers WHERE lower(email)=? AND status='active'");
+    /* V2.34: lookup order subscribers → app_users → team_members (real per-subscriber subordinates) */
+    $st = $pdo->prepare("SELECT id, name, email, role, sub_email FROM subscribers WHERE lower(email)=? AND status='active'");
     $st->execute([$target]);
     $t = $st->fetch(PDO::FETCH_ASSOC);
     $kind = 'sub';
     if (!$t) {
-        $st = $pdo->prepare('SELECT id, name, email, role FROM app_users WHERE lower(email)=? AND active=1');
+        $st = $pdo->prepare('SELECT id, name, email, role, "" AS sub_email FROM app_users WHERE lower(email)=? AND active=1');
         $st->execute([$target]);
         $t = $st->fetch(PDO::FETCH_ASSOC);
         $kind = 'staff';
     }
+    if (!$t) {
+        $st = $pdo->prepare("SELECT id, name, email, role, sub_email FROM team_members WHERE lower(email)=? AND status='active'");
+        $st->execute([$target]);
+        $t = $st->fetch(PDO::FETCH_ASSOC);
+        $kind = 'team';
+    }
     if (!$t) json_out(['ok' => false, 'error' => 'No active user with that email.'], 404);
+    /* same-org guard: subscriber/team switchers may only view-as users under THEIR subscriber */
+    if (($u['kind'] ?? '') === 'sub') {
+        $mySub = strtolower(trim((string)($u['sub_email'] ?? $u['email'])));
+        $theirSub = $kind === 'sub' ? strtolower(trim((string)$t['email'])) : strtolower(trim((string)($t['sub_email'] ?? '')));
+        if ($theirSub !== $mySub) {
+            audit($u['name'], 'View-as denied', 'system', $t['email'], 'different subscriber account');
+            json_out(['ok' => false, 'error' => 'Not allowed — different subscriber account.'], 403);
+        }
+    }
     $me = $H[$u['role']] ?? null;
     $them = $H[$t['role']] ?? null;
     $deny = false; $reason = '';
@@ -11912,35 +11978,65 @@ case 'app-bootstrap': {
     $full = in_array($role, ['superadmin', 'owner', 'manager', 'svc_mgr', 'legal', 'crm', 'accountant', 'hr'], true);
 
     if ($full) {
+        /* V2.34: subscriber owners see ONLY their own workspace rows (sub_email-scoped);
+           staff/demo roles keep the full org dataset. Fresh accounts start clean. */
+        $scope = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : '';
+        $S = $scope ? ' WHERE sub_email=' . $pdo->quote($scope) : '';
         $data = [
-            'properties' => $q('SELECT * FROM properties'),
-            'units'      => $q('SELECT * FROM units'),
-            'tenants'    => $q('SELECT * FROM tenants'),
-            'leases'     => $q('SELECT * FROM leases'),
-            'invoices'   => $q('SELECT * FROM invoices'),
-            'receipts'   => $q('SELECT * FROM receipts'),
-            'payments'   => $q('SELECT * FROM payments'),
-            'tickets'    => $q('SELECT * FROM tickets'),
-            'partners'   => $q('SELECT * FROM partners'),
+            'properties' => $q('SELECT * FROM properties' . $S),
+            'units'      => $q('SELECT * FROM units' . $S),
+            'tenants'    => $q('SELECT * FROM tenants' . $S),
+            'leases'     => $scope
+                ? $q('SELECT l.* FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=?', [$scope])
+                : $q('SELECT * FROM leases'),
+            'invoices'   => $scope
+                ? $q('SELECT i.* FROM invoices i JOIN leases l ON l.id=i.l JOIN units u ON u.id=l.u WHERE u.sub_email=?', [$scope])
+                : $q('SELECT * FROM invoices'),
+            'receipts'   => $scope
+                ? $q('SELECT r.* FROM receipts r JOIN invoices i2 ON i2.id=r.inv JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=?', [$scope])
+                : $q('SELECT * FROM receipts'),
+            'payments'   => $scope
+                ? $q('SELECT p.* FROM payments p JOIN invoices i2 ON i2.id=p.inv JOIN leases l2 ON l2.id=i2.l JOIN units u ON u.id=l2.u WHERE u.sub_email=?', [$scope])
+                : $q('SELECT * FROM payments'),
+            'tickets'    => $scope
+                ? $q('SELECT t.* FROM tickets t JOIN units u ON u.id=t.u WHERE u.sub_email=?', [$scope])
+                : $q('SELECT * FROM tickets'),
+            'partners'   => $q('SELECT * FROM partners' . $S),
             'staff'      => $q('SELECT * FROM staff'),
             'support'    => $q('SELECT * FROM support'),
             'cases'      => $q('SELECT * FROM cases'),
             'gateway_tx' => $q('SELECT * FROM gateway_tx ORDER BY created_at DESC'),
-            'ticket_thread' => $q('SELECT * FROM ticket_thread ORDER BY id'),
-            'documents'  => $q('SELECT * FROM documents ORDER BY ts DESC'),
+            'ticket_thread' => $scope
+                ? $q('SELECT * FROM ticket_thread WHERE ticket IN (SELECT t.id FROM tickets t JOIN units u ON u.id=t.u WHERE u.sub_email=?) ORDER BY id', [$scope])
+                : $q('SELECT * FROM ticket_thread ORDER BY id'),
+            'documents'  => $scope
+                ? $q('SELECT * FROM documents WHERE ref IN (SELECT l.id FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=?) ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM documents ORDER BY ts DESC'),
             'notices'    => $q('SELECT * FROM notices ORDER BY pinned DESC, ts DESC'),
-            'referrals'  => $q('SELECT * FROM referrals ORDER BY ts DESC'),
-            'property_rent' => $q('SELECT * FROM property_rent'),
-            'amenities'  => $q('SELECT * FROM amenities ORDER BY prop, unit'),
+            'referrals'  => $scope
+                ? $q('SELECT * FROM referrals WHERE user_email=? ORDER BY ts DESC', [$scope])
+                : $q('SELECT * FROM referrals ORDER BY ts DESC'),
+            'property_rent' => $scope
+                ? $q('SELECT * FROM property_rent WHERE prop IN (SELECT id FROM properties WHERE sub_email=?)', [$scope])
+                : $q('SELECT * FROM property_rent'),
+            'amenities'  => $scope
+                ? $q('SELECT * FROM amenities WHERE prop IN (SELECT id FROM properties WHERE sub_email=?) OR unit IN (SELECT id FROM units WHERE sub_email=?) ORDER BY prop, unit', [$scope, $scope])
+                : $q('SELECT * FROM amenities ORDER BY prop, unit'),
             'caretaker_invoices' => $q('SELECT * FROM caretaker_invoices ORDER BY month DESC'),
             'insurance_policies' => $q('SELECT * FROM insurance_policies ORDER BY ts DESC'),
-            'maintenance_requests' => $q('SELECT * FROM maintenance_requests ORDER BY ts DESC'),
+            'maintenance_requests' => $scope
+                ? $q('SELECT * FROM maintenance_requests WHERE unit IN (SELECT id FROM units WHERE sub_email=?) OR prop IN (SELECT id FROM properties WHERE sub_email=?) ORDER BY ts DESC', [$scope, $scope])
+                : $q('SELECT * FROM maintenance_requests ORDER BY ts DESC'),
             'leads' => $q('SELECT * FROM leads ORDER BY ts DESC'),
             'statement_payouts' => $q('SELECT * FROM statement_payouts ORDER BY month DESC'),
             'compliance_items' => $q('SELECT * FROM compliance_items ORDER BY expiry_date'),
             'renewal_requests' => $q('SELECT * FROM renewal_requests ORDER BY ts DESC'),
-            'meter_readings' => $q('SELECT * FROM meter_readings ORDER BY month DESC'),
-            'utility_bills' => $q('SELECT * FROM utility_bills ORDER BY month DESC'),
+            'meter_readings' => $scope
+                ? $q('SELECT * FROM meter_readings WHERE unit IN (SELECT id FROM units WHERE sub_email=?) ORDER BY month DESC', [$scope])
+                : $q('SELECT * FROM meter_readings ORDER BY month DESC'),
+            'utility_bills' => $scope
+                ? $q('SELECT * FROM utility_bills WHERE unit IN (SELECT id FROM units WHERE sub_email=?) ORDER BY month DESC', [$scope])
+                : $q('SELECT * FROM utility_bills ORDER BY month DESC'),
             'utility_tariffs' => $q('SELECT * FROM utility_tariffs'),
             'partner_invoices' => $q('SELECT * FROM partner_invoices ORDER BY ts DESC'),
             'vendor_payouts' => $q('SELECT * FROM vendor_payouts ORDER BY month DESC'),
