@@ -7917,11 +7917,47 @@ function trust_tenant_id($pdo, $u) {
     }
     return '';
 }
-function nv_rows($pdo, $tenant = '') {
+/* V2.38: subscriber (kind=sub) may only touch trust rows whose tenant belongs to them.
+   scope==='' (staff/demo) bypasses. Demo/shared tenants (sub_email='') are blocked for subscribers. */
+function trust_guard_scope($pdo, $scope, $tenant) {
+    if ($scope === '') return;
+    $st = $pdo->prepare('SELECT sub_email FROM tenants WHERE id=?'); $st->execute([$tenant]);
+    $own = (string)$st->fetchColumn();
+    if (strtolower(trim($own)) !== $scope)
+        json_out(['ok' => false, 'error' => 'This tenant belongs to another account.'], 403);
+}
+/* V2.38: ensure a nid_verifications row exists for a tenant (create 'unverified' when no NID yet,
+   or run the checksum and upsert when a NID is supplied). Called from tenant create/update + NRB approval. */
+function nid_ensure_for_tenant($pdo, $tid, $nid = '', $dob = '', $verifiedBy = '') {
+    $nid = trim((string)$nid);
+    $st = $pdo->prepare("SELECT id FROM nid_verifications WHERE tenant=? ORDER BY ts DESC LIMIT 1"); $st->execute([$tid]);
+    $ex = (string)$st->fetchColumn();
+    if ($ex !== '') {
+        if ($nid === '') return $ex;   /* existing record stays untouched */
+        $v = nid_validate($nid);
+        $ageOk = 1;
+        if ($dob !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) $ageOk = ((int)date('Ymd') - (int)str_replace('-', '', $dob)) >= 180000 ? 1 : 0;
+        $status = $v['ok'] ? 'verified' : 'unverified';
+        $pdo->prepare("UPDATE nid_verifications SET nid=?, dob=?, status=?, method='checksum', checksum_ok=?, age_ok=?, notes=?, verified_by=?, verified_at=datetime('now') WHERE id=?")
+            ->execute([$nid, $dob, $status, $v['ok'] ? 1 : 0, $ageOk, $v['reason'], $verifiedBy, $ex]);
+        return $ex;
+    }
+    $v = $nid !== '' ? nid_validate($nid) : ['ok' => false, 'reason' => ''];
+    $ageOk = 1;
+    if ($dob !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) $ageOk = ((int)date('Ymd') - (int)str_replace('-', '', $dob)) >= 180000 ? 1 : 0;
+    $status = ($nid !== '' && $v['ok']) ? 'verified' : 'unverified';
+    $notes = $nid !== '' ? $v['reason'] : 'NID not provided at creation — pending verification.';
+    $id = nv_next_id($pdo);
+    $pdo->prepare('INSERT INTO nid_verifications (id, tenant, nid, dob, status, method, checksum_ok, age_ok, notes, verified_by, verified_at) VALUES (?,?,?,?,?,?,?,?,?,?,datetime(\'now\'))')
+        ->execute([$id, $tid, $nid, $dob, $status, 'checksum', ($nid !== '' && $v['ok']) ? 1 : 0, $ageOk, $notes, $verifiedBy]);
+    return $id;
+}
+function nv_rows($pdo, $tenant = '', $scope = '') {
     $sql = "SELECT v.*, t.name AS tenant_name, t.phone AS tenant_phone, t.kind AS tenant_kind
         FROM nid_verifications v LEFT JOIN tenants t ON t.id = v.tenant";
     $args = [];
-    if ($tenant !== '') { $sql .= ' WHERE v.tenant=?'; $args[] = $tenant; }
+    if ($scope !== '') { $sql .= ' WHERE v.tenant IN (SELECT id FROM tenants WHERE sub_email=?)'; $args[] = $scope; }
+    elseif ($tenant !== '') { $sql .= ' WHERE v.tenant=?'; $args[] = $tenant; }
     $sql .= ' ORDER BY v.ts DESC';
     $st = $pdo->prepare($sql); $st->execute($args);
     $rows = [];
@@ -7931,7 +7967,7 @@ function nv_rows($pdo, $tenant = '') {
     }
     return $rows;
 }
-function tf_rows($pdo, $tenant = '') {
+function tf_rows($pdo, $tenant = '', $scope = '') {
     $sql = "SELECT f.*, t.name AS tenant_name, t.phone AS tenant_phone,
         u.name AS unit_name, p.name AS property_name
         FROM thana_forms f
@@ -7939,7 +7975,8 @@ function tf_rows($pdo, $tenant = '') {
         LEFT JOIN units u ON u.id = f.unit
         LEFT JOIN properties p ON p.id = f.prop";
     $args = [];
-    if ($tenant !== '') { $sql .= ' WHERE f.tenant=?'; $args[] = $tenant; }
+    if ($scope !== '') { $sql .= ' WHERE f.tenant IN (SELECT id FROM tenants WHERE sub_email=?)'; $args[] = $scope; }
+    elseif ($tenant !== '') { $sql .= ' WHERE f.tenant=?'; $args[] = $tenant; }
     $sql .= ' ORDER BY f.ts DESC';
     $st = $pdo->prepare($sql); $st->execute($args);
     $rows = [];
@@ -8612,6 +8649,8 @@ function nrb_vacancy_approve($pdo, $u, $vc) {
     $temail = trim($cand['email'] ?? '');
     $pdo->prepare('INSERT INTO tenants (id, name, phone, email, nid, nrb, kind, sub_email) VALUES (?,?,?,?,?,0,?,?)')
         ->execute([$tid, $cand['name'], trim($cand['phone'] ?? ''), $temail, trim($cand['nid'] ?? ''), 'Individual', $temail ?: null]);
+    /* V2.38: approved NRB candidates also auto-get a NID verification record */
+    nid_ensure_for_tenant($pdo, $tid, $cand['nid'] ?? '', '', $u['name']);
     $start = trim($cand['start'] ?? '') ?: date('Y-m-d');
     $d = new DateTime($start);
     $d->modify('+' . max(1, min(36, (int)($cand['months'] ?? 12))) . ' months');
@@ -14506,6 +14545,8 @@ case 'app-crud': {
         $pdo->prepare('INSERT INTO ' . $collection . ' (id, ' . implode(',', $keys) . ') VALUES (?, ' . implode(',', array_fill(0, count($keys), '?')) . ')')
             ->execute(array_merge([$id], array_values($data)));
         audit($u['name'], 'Created', $collection, $id);
+        /* V2.38: tenants auto-get a NID verification record so they appear in 🪪 NID & Trust */
+        if ($collection === 'tenants') nid_ensure_for_tenant($pdo, $id, $data['nid'] ?? '', '', $u['name']);
         json_out(['ok' => true, 'id' => $id]);
     }
 
@@ -14535,6 +14576,8 @@ case 'app-crud': {
     $sets = implode(',', array_map(fn($k) => "$k=?", array_keys($data)));
     $pdo->prepare('UPDATE ' . $collection . " SET $sets WHERE id=?")->execute(array_merge(array_values($data), [$id]));
     audit($u['name'], 'Updated', $collection, $id, json_encode($data) ?: '');
+    /* V2.38: keep NID verification in sync when a tenant's NID is edited */
+    if ($collection === 'tenants' && isset($data['nid'])) nid_ensure_for_tenant($pdo, $id, $data['nid'], '', $u['name']);
     json_out(['ok' => true, 'id' => $id]);
 }
 
@@ -17988,6 +18031,9 @@ case 'app-trust': {
     $isStaff = in_array($u['role'], ['superadmin', 'owner', 'manager', 'legal', 'accountant', 'svc_mgr'], true);
     $isAdmin = in_array($u['role'], ['superadmin', 'super_admin', 'admin', 'owner', 'manager'], true);
     $myTid = trust_tenant_id($pdo, $u);
+    /* V2.38: subscriber accounts (kind=sub) see ONLY their own tenants' trust rows,
+       even when their role is owner/manager (staff demo accounts keep the full dataset). */
+    $scope = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : '';
     if (!$isStaff && !$myTid) json_out(['ok' => false, 'error' => 'No tenant profile for this account.'], 403);
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
     if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'summary' : '';
@@ -18003,6 +18049,19 @@ case 'app-trust': {
             $tfStatus = (string)$st->fetchColumn();
             json_out(['ok' => true, 'scoped' => true,
                 'nid_verified' => $mineNv ? 1 : 0, 'nid_total' => $mineNv,
+                'tf_draft' => $tfStatus === 'Draft' ? 1 : 0, 'tf_submitted' => $tfStatus === 'Submitted' ? 1 : 0,
+                'tf_verified' => $tfStatus === 'Verified' ? 1 : 0, 'forms_total' => $mineTf,
+                'tenants_with_lease' => 1, 'needs_form' => $mineTf ? 0 : 1]);
+        }
+        /* V2.38: subscriber org-wide summary (owner/manager subscriber accounts) */
+        if ($scope !== '') {
+            $st = $pdo->prepare('SELECT COUNT(*) FROM nid_verifications v JOIN tenants t ON t.id=v.tenant WHERE t.sub_email=?'); $st->execute([$scope]); $mineNv = (int)$st->fetchColumn();
+            $st = $pdo->prepare('SELECT COUNT(*) FROM nid_verifications v JOIN tenants t ON t.id=v.tenant WHERE t.sub_email=? AND v.status=?'); $st->execute([$scope, 'verified']); $mineNvVerified = (int)$st->fetchColumn();
+            $st = $pdo->prepare('SELECT COUNT(*) FROM thana_forms f JOIN tenants t ON t.id=f.tenant WHERE t.sub_email=?'); $st->execute([$scope]); $mineTf = (int)$st->fetchColumn();
+            $st = $pdo->prepare("SELECT status FROM thana_forms f JOIN tenants t ON t.id=f.tenant WHERE t.sub_email=? ORDER BY f.ts DESC LIMIT 1"); $st->execute([$scope]);
+            $tfStatus = (string)$st->fetchColumn();
+            json_out(['ok' => true, 'scoped' => true,
+                'nid_verified' => $mineNvVerified ? 1 : 0, 'nid_total' => $mineNv,
                 'tf_draft' => $tfStatus === 'Draft' ? 1 : 0, 'tf_submitted' => $tfStatus === 'Submitted' ? 1 : 0,
                 'tf_verified' => $tfStatus === 'Verified' ? 1 : 0, 'forms_total' => $mineTf,
                 'tenants_with_lease' => 1, 'needs_form' => $mineTf ? 0 : 1]);
@@ -18023,9 +18082,9 @@ case 'app-trust': {
         json_out(['ok' => true, 'valid' => $v['ok'], 'len' => $v['len'], 'reason' => $v['reason'], 'age_ok' => $ageOk]);
     }
 
-    /* nid-list — staff all / tenant own */
+    /* nid-list — staff all / tenant own / subscriber org-scoped */
     if ($action === 'nid-list') {
-        json_out(['ok' => true, 'items' => nv_rows($pdo, $isStaff ? '' : $myTid)]);
+        json_out(['ok' => true, 'items' => nv_rows($pdo, ($isStaff && $scope === '') ? '' : $myTid, $scope)]);
     }
 
     /* nid-save — staff only (tenant self-registration uses tif-save) */
@@ -18037,6 +18096,7 @@ case 'app-trust': {
         if (!$tid || !$nid) json_out(['ok' => false, 'error' => 'tenant and nid required.'], 400);
         $st = $pdo->prepare('SELECT COUNT(*) FROM tenants WHERE id=?'); $st->execute([$tid]);
         if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
+        trust_guard_scope($pdo, $scope, $tid);
         $v = nid_validate($nid);
         $ageOk = 1;
         if ($dob !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
@@ -18070,14 +18130,15 @@ case 'app-trust': {
         $st = $pdo->prepare('SELECT * FROM nid_verifications WHERE id=?'); $st->execute([$id]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Verification not found.'], 404);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         $pdo->prepare("UPDATE nid_verifications SET status=?, verified_by=?, verified_at=datetime('now') WHERE id=?")->execute([$status, $u['name'], $id]);
         audit($u['name'], 'NID status → ' . $status, 'trust', $id, $row['tenant']);
         json_out(['ok' => true]);
     }
 
-    /* tif-list — staff all / tenant own */
+    /* tif-list — staff all / tenant own / subscriber org-scoped */
     if ($action === 'tif-list') {
-        json_out(['ok' => true, 'items' => tf_rows($pdo, $isStaff ? '' : $myTid)]);
+        json_out(['ok' => true, 'items' => tf_rows($pdo, ($isStaff && $scope === '') ? '' : $myTid, $scope)]);
     }
 
     /* tif-create — staff or tenant self */
@@ -18086,6 +18147,7 @@ case 'app-trust': {
         if (!$tid) json_out(['ok' => false, 'error' => 'tenant required.'], 400);
         $st = $pdo->prepare('SELECT COUNT(*) FROM tenants WHERE id=?'); $st->execute([$tid]);
         if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
+        trust_guard_scope($pdo, $scope, $tid);
         $payload = tif_default_payload($pdo, $tid);
         $unit = trim($body['unit'] ?? $payload['unit'] ?? '');
         $prop = trim($body['prop'] ?? $payload['prop'] ?? '');
@@ -18106,6 +18168,7 @@ case 'app-trust': {
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
         if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         $row['payload'] = json_decode($row['payload'], true) ?: [];
         json_out(['ok' => true, 'form' => $row]);
     }
@@ -18118,6 +18181,7 @@ case 'app-trust': {
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
         if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         if ($row['status'] === 'Verified') json_out(['ok' => false, 'error' => 'Verified forms are locked.'], 409);
         $payload = tif_save_payload($pdo, $id, $body);
         json_out(['ok' => true, 'payload' => $payload]);
@@ -18131,6 +18195,7 @@ case 'app-trust': {
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
         if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         if ($row['status'] !== 'Draft') json_out(['ok' => false, 'error' => 'Only Draft forms can be submitted.'], 409);
         $pdo->prepare("UPDATE thana_forms SET status='Submitted', submitted_at=datetime('now') WHERE id=?")->execute([$id]);
         audit($u['name'], 'Thana form submitted', 'trust', $id, $row['tenant']);
@@ -18146,6 +18211,7 @@ case 'app-trust': {
         $st = $pdo->prepare('SELECT * FROM thana_forms WHERE id=?'); $st->execute([$id]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         if ($row['status'] !== 'Submitted') json_out(['ok' => false, 'error' => 'Only Submitted forms can be verified.'], 409);
         $new = $verdict === 'approve' ? 'Verified' : 'Draft';
         $pdo->prepare('UPDATE thana_forms SET status=?, verified_by=?, verified_at=datetime(\'now\') WHERE id=?')->execute([$new, $u['name'], $id]);
@@ -18161,6 +18227,7 @@ case 'app-trust': {
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
         if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         $row['payload'] = json_decode($row['payload'], true) ?: [];
         $cfg = tif_print_cfg_effective($pdo, $row['payload']);
         $html = tif_print_html($row, $cfg);
@@ -18178,6 +18245,7 @@ case 'app-trust': {
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
         if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         $payload = json_decode($row['payload'], true) ?: [];
         $local = isset($payload['_print']) && is_array($payload['_print']) ? $payload['_print'] : [];
         json_out(['ok' => true, 'cfg' => tif_print_cfg_effective($pdo, $payload), 'override' => $local, 'defaults' => tif_print_cfg_defaults(), 'global' => tif_print_cfg_global($pdo)]);
@@ -18192,6 +18260,7 @@ case 'app-trust': {
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Form not found.'], 404);
         if (!$isStaff && $row['tenant'] !== $myTid) json_out(['ok' => false, 'error' => 'Not your form.'], 403);
+        trust_guard_scope($pdo, $scope, $row['tenant']);
         $payload = json_decode($row['payload'], true) ?: [];
         $cfg = tif_print_cfg_sanitize($body['cfg'] ?? []);
         if ($cfg) $payload['_print'] = $cfg; else unset($payload['_print']);

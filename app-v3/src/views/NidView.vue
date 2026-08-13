@@ -73,6 +73,37 @@ function detailFields(row) {
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
 
+// ── record / verify a NID check (staff) — V2.38: tenants now auto-appear, this closes the loop ──
+const nvForm = ref({ tenant: '', nid: '', dob: '' })
+const nvSaving = ref(false)
+const nvErr = ref('')
+async function runNidCheck() {
+  if (!nvForm.value.tenant || !nvForm.value.nid.trim()) { nvErr.value = 'Select a tenant and enter the NID.'; return }
+  nvSaving.value = true; nvErr.value = ''
+  try {
+    const r = await apiCall('app-trust', { action: 'nid-save', tenant: nvForm.value.tenant, nid: nvForm.value.nid.trim(), dob: nvForm.value.dob.trim() })
+    if (!r.ok) { nvErr.value = r.error || 'Check failed.'; return }
+    await data.bootstrap()
+    const fresh = data.list('nid_verifications').find(v => v.tenant === nvForm.value.tenant)
+    if (fresh) openDetail(fresh)
+    toast?.(r.valid ? '✅ NID check passed — tenant verified' : '⚠️ NID check failed — verify manually', r.valid ? 'ok' : 'error')
+    nvForm.value = { tenant: '', nid: '', dob: '' }
+  } catch (e) { nvErr.value = e.message }
+  finally { nvSaving.value = false }
+}
+async function setNidStatus(v, status) {
+  if (!confirm(`Mark ${v.id} as ${status}?`)) return
+  nvErr.value = ''
+  try {
+    const r = await apiCall('app-trust', { action: 'nid-status', id: v.id, status })
+    if (!r.ok) { nvErr.value = r.error || 'Update failed.'; return }
+    await data.bootstrap()
+    const fresh = data.list('nid_verifications').find(x => x.id === v.id)
+    if (fresh) openDetail(fresh)
+    toast?.('NID status → ' + status, 'ok')
+  } catch (e) { nvErr.value = e.message }
+}
+
 // ══ DMP Thana / Tenant Information Forms (app-trust tif-*) ══
 const tab = ref('nid')
 const tfItems = ref([])
@@ -307,6 +338,19 @@ function defaultPrintCfg() {
       <button @click="tab = 'thana'; loadTf()" :style="tab === 'thana' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 16px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">📋 Thana Forms</button>
     </div>
 
+    <!-- New NID check bar (staff) — V2.38: verify a tenant's NID right from this section -->
+    <div v-if="isStaff" class="panel" style="padding:14px 18px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="font-weight:800;font-size:13.5px">＋ New NID check</div>
+      <select v-model="nvForm.tenant" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:180px">
+        <option value="">Select tenant…</option>
+        <option v-for="t in data.list('tenants')" :key="t.id" :value="t.id">{{ t.name }} ({{ t.id }})</option>
+      </select>
+      <input v-model="nvForm.nid" placeholder="NID number (10/17 digits)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
+      <input v-model="nvForm.dob" placeholder="DOB YYYY-MM-DD (optional)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:170px">
+      <button @click="runNidCheck" :disabled="nvSaving" style="padding:9px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">Verify {{ nvSaving ? '…' : '' }}</button>
+    </div>
+    <div v-if="nvErr" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ nvErr }}</div>
+
     <div class="stats">
       <div v-for="k in kpis" :key="k.label" class="stat">
         <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
@@ -417,6 +461,11 @@ function defaultPrintCfg() {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0">
             <span class="badge" :class="okBadge(sel.checksum_ok)">{{ sel.checksum_ok ? '✅ Check digit valid' : '❌ Check digit mismatch' }}</span>
             <span class="badge" :class="okBadge(sel.age_ok)">{{ sel.age_ok ? '✅ Age OK' : '❌ Age check failed' }}</span>
+          </div>
+          <div v-if="isStaff" style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px">
+            <button class="btn-ghost" style="padding:7px 12px;font-size:12px;color:var(--ok,#12a150)" @click="setNidStatus(sel,'verified')">✅ Mark verified</button>
+            <button class="btn-ghost" style="padding:7px 12px;font-size:12px;color:var(--danger)" @click="setNidStatus(sel,'mismatch')">🚨 Mark mismatch</button>
+            <button class="btn-ghost" style="padding:7px 12px;font-size:12px" @click="setNidStatus(sel,'unverified')">⚠️ Mark unverified</button>
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
