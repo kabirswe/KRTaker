@@ -8038,6 +8038,25 @@ function tenant_provision_account($pdo, $tid, $actor) {
     } catch (Exception $e) { $mailErr = ' (mail error: ' . $e->getMessage() . ')'; }
     return ['ok' => true, 'provisioned' => true, 'temp_password' => $temp, 'email' => $email, 'mail' => $mailErr];
 }
+/* V2.39.1: sweep — provision portal accounts for every subscriber-owned tenant that
+   has an email but no app_users login yet (self-healing backfill; skips demo/test
+   tenants whose owner is not an active subscriber). */
+function tenant_account_sync($pdo, $actor) {
+    $provisioned = []; $skipped = []; $errors = [];
+    $rows = $pdo->query("SELECT id FROM tenants WHERE email <> '' AND lower(email) NOT IN (SELECT lower(email) FROM app_users) AND sub_email <> '' AND sub_email IN (SELECT email FROM subscribers WHERE status IN ('active','trial')) ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as $r) {
+        $res = tenant_provision_account($pdo, $r['id'], $actor);
+        if (!empty($res['ok']) && !empty($res['provisioned'])) {
+            $provisioned[] = ['tenant' => $r['id'], 'email' => $res['email'], 'temp_password' => $res['temp_password'], 'mail' => $res['mail'] ?? ''];
+        } elseif (!empty($res['ok']) && !empty($res['already'])) {
+            $skipped[] = ['tenant' => $r['id'], 'email' => $res['email'], 'reason' => 'already'];
+        } else {
+            $errors[] = ['tenant' => $r['id'], 'reason' => $res['error'] ?? 'unknown'];
+        }
+    }
+    audit($actor ?: 'system', 'Tenant account sync', 'tenants', 'sweep', count($provisioned) . ' provisioned, ' . count($skipped) . ' skipped, ' . count($errors) . ' errors');
+    return ['ok' => true, 'provisioned' => $provisioned, 'skipped' => $skipped, 'errors' => $errors];
+}
 function nv_rows($pdo, $tenant = '', $scope = '') {
     $sql = "SELECT v.*, t.name AS tenant_name, t.phone AS tenant_phone, t.kind AS tenant_kind
         FROM nid_verifications v LEFT JOIN tenants t ON t.id = v.tenant";
@@ -14976,6 +14995,18 @@ case 'app-export': {
     }
     audit($svcExport ? 'service-key' : $u['name'], 'JSON export', 'system', 'db', count($tables) . ' tables');
     json_out($out);
+}
+
+case 'app-tenant-sync': {
+    /* superadmin only (or service key) — backfill portal accounts for subscriber-owned
+       tenants that have an email but no login yet (self-healing sweep). */
+    $svcSync = service_authed();
+    if (!$svcSync) {
+        $u = require_user();
+        if ($u['role'] !== 'superadmin' && $u['email'] !== ADMIN_EMAIL) json_out(['ok' => false, 'error' => 'Super admin only.'], 403);
+    }
+    $pdo = db();
+    json_out(tenant_account_sync($pdo, $svcSync ? 'service-key' : ($u['name'] ?? '')));
 }
 
 case 'app-audit': {
@@ -21955,6 +21986,10 @@ case 'app-admin': {
 
     if ($action === 'users') {
         json_out(['ok' => true, 'users' => $q('SELECT id, name, email, role, dept, avatar, is_staff, active, last_login, phone, title, employee_id, joined_at, address, notes FROM app_users ORDER BY id')]);
+    }
+    if ($action === 'sync-tenant-accounts') {
+        /* V2.39.1: backfill portal accounts for subscriber-owned tenants missing logins */
+        json_out(tenant_account_sync($pdo, $u['name']));
     }
     if ($action === 'user-save') {
         $id = (int)($body['id'] ?? 0);

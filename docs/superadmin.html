@@ -1127,7 +1127,7 @@ async function packageAssignSave(){
 /* ── Users ── */
 let USRS=[];
 async function renderUsers(){
-  pageHead('Platform staff & system user management',`<button class="btn-primary" onclick="userForm()">＋ Add user</button>`);
+  pageHead('Platform staff & system user management',`<button class="btn-primary" onclick="userForm()">＋ Add user</button> <button class="btn-ghost" onclick="syncTenantAccounts()" title="Create portal logins for tenants that have an email but no account yet">🔁 Sync tenant accounts</button>`);
   load('pageBody','<div class="empty">Loading…</div>');
   const d=await admin({action:'users'});
   if(!d.ok){load('pageBody',`<div class="empty">${esc(d.error||'Failed')}</div>`);return}
@@ -1167,6 +1167,22 @@ async function userDelete(id){
   if(!confirm('Delete user #'+id+'?'))return;
   const d=await admin({action:'user-delete',id});
   if(d.ok){toast('User deleted','ok');renderUsers();}else toast(d.error||'Failed','error');
+}
+/* V2.39.1: backfill portal logins for subscriber-owned tenants that have an email but no account */
+async function syncTenantAccounts(){
+  if(!confirm('Create portal accounts for every tenant that has an email but no login yet? (welcome email with a temp password is sent to each)'))return;
+  const d=await admin({action:'sync-tenant-accounts'});
+  if(!d.ok){toast(d.error||'Sync failed','error');return}
+  const prov=d.provisioned||[], sk=d.skipped||[], errs=d.errors||[];
+  let html=`<div class="c-sub" style="margin-bottom:12px">${prov.length} account(s) created · ${sk.length} already had one · ${errs.length} error(s)</div>`;
+  if(prov.length){
+    html+=`<table class="tbl"><tr><th>Tenant</th><th>Email</th><th>Temp password</th><th>Mail</th></tr>`+
+      prov.map(p=>`<tr><td>${esc(p.tenant)}</td><td>${esc(p.email)}</td><td><code>${esc(p.temp_password||'')}</code></td><td class="c-sub">${esc((p.mail||'').trim()||'sent')}</td></tr>`).join('');
+  }
+  if(errs.length){
+    html+=`<div style="margin-top:12px" class="c-sub">${errs.map(e=>esc(e.tenant+': '+(e.reason||'?'))).join('<br>')}</div>`;
+  }
+  openDrawer('🔁 Tenant account sync', html, `<div class="dr-actions"><button class="btn-primary" onclick="closeDrawer();renderUsers()">Done</button></div>`);
 }
 /* ── Providers ── */
 let PROVS=[];
