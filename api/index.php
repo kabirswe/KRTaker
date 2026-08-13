@@ -14734,9 +14734,13 @@ case 'app-community': {
         $order = $mod === 'events' ? 'ORDER BY date, time' : ($mod === 'bookings' ? 'ORDER BY date DESC, ts DESC' : 'ORDER BY ts DESC');
         $rows = $pdo->query("SELECT * FROM $table $order")->fetchAll(PDO::FETCH_ASSOC);
         if ($mod === 'events') {
+            $myR = $pdo->prepare('SELECT event FROM community_rsvps WHERE event=? AND name=?');
             foreach ($rows as &$r) {
                 $st = $pdo->prepare('SELECT COUNT(*) FROM community_rsvps WHERE event=?'); $st->execute([$r['id']]);
                 $r['rsvps'] = (int)$st->fetchColumn();
+                $myR->execute([$r['id'], $actor['name']]);
+                $r['my_rsvp'] = $myR->fetchColumn() !== false;
+                $r['full'] = (int)$r['capacity'] > 0 && $r['rsvps'] >= (int)$r['capacity'];
             }
         }
         json_out(['ok' => true, 'rows' => $rows]);
@@ -14751,6 +14755,13 @@ case 'app-community': {
         if ($mod === 'parking') $vals['status'] = $vals['status'] !== '' ? $vals['status'] : 'Active';
         if ($mod === 'events') { $vals['created_by'] = $actor['email']; $vals['created_name'] = $actor['name']; }
         elseif ($mod === 'bookings') { $vals['created_by'] = $actor['email']; }
+        /* V2.31.8: booking conflict check — same facility + date + slot must not
+           double-book (slot empty → only facility+date conflict). */
+        if ($mod === 'bookings') {
+            $conflict = $pdo->prepare("SELECT COUNT(*) FROM community_bookings WHERE facility=? AND date=? AND status NOT IN ('Cancelled') AND (?='' OR slot=?)");
+            $conflict->execute([$vals['facility'], $vals['date'], $vals['slot'], $vals['slot']]);
+            if ((int)$conflict->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'That facility is already booked for ' . $vals['date'] . ($vals['slot'] !== '' ? ' at ' . $vals['slot'] : '') . '.'], 409);
+        }
         $id = $gen($table, $mod === 'parking' ? 'PRK' : ($mod === 'bookings' ? 'BKG' : 'EVT'));
         $cols = array_merge(['id'], array_keys($vals));
         $ph = implode(',', array_fill(0, count($cols), '?'));
@@ -14775,6 +14786,8 @@ case 'app-community': {
     if ($action === 'delete') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can delete.'], 403);
         $id = trim($body['id'] ?? '');
+        /* V2.31.8: cascade child rows (RSVPs) so capacity counts never go phantom. */
+        if ($mod === 'events') $pdo->prepare('DELETE FROM community_rsvps WHERE event=?')->execute([$id]);
         $pdo->prepare("DELETE FROM $table WHERE id=?")->execute([$id]);
         json_out(['ok' => true]);
     }
@@ -14782,14 +14795,28 @@ case 'app-community': {
         $id = trim($body['id'] ?? '');
         $name = trim($body['name'] ?? $actor['name']);
         $guests = max(0, (int)($body['guests'] ?? 0));
-        $st = $pdo->prepare('SELECT COUNT(*) FROM community_events WHERE id=?'); $st->execute([$id]);
-        if (!(int)$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Event not found.'], 404);
+        $st = $pdo->prepare('SELECT * FROM community_events WHERE id=?'); $st->execute([$id]);
+        $evt = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$evt) json_out(['ok' => false, 'error' => 'Event not found.'], 404);
         $st = $pdo->prepare('SELECT COUNT(*) FROM community_rsvps WHERE event=? AND name=?');
         $st->execute([$id, $name]);
         if ((int)$st->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'Already RSVPed.'], 400);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM community_rsvps WHERE event=?'); $st->execute([$id]);
+        $going = (int)$st->fetchColumn();
+        $cap = (int)$evt['capacity'];
+        if ($cap > 0 && $going + $guests + 1 > $cap) json_out(['ok' => false, 'error' => 'Event is full (' . $going . '/' . $cap . ').'], 400);
         $pdo->prepare('INSERT INTO community_rsvps (id, event, name, phone, guests) VALUES (?,?,?,?,?)')
             ->execute([$gen('community_rsvps', 'RSV'), $id, $name, trim($body['phone'] ?? ''), $guests]);
         audit($u['name'], 'RSVP to event', 'events', $id, $name);
+        json_out(['ok' => true]);
+    }
+    if ($mod === 'events' && $action === 'rsvp-remove') {
+        /* V2.31.8: cancel my attendance (un-RSVP). */
+        $id = trim($body['id'] ?? '');
+        $name = trim($body['name'] ?? $actor['name']);
+        $st = $pdo->prepare('DELETE FROM community_rsvps WHERE event=? AND name=?');
+        $st->execute([$id, $name]);
+        audit($u['name'], 'RSVP cancelled', 'events', $id, $name);
         json_out(['ok' => true]);
     }
     json_out(['ok' => false, 'error' => 'Unknown community action.'], 400);
@@ -20574,6 +20601,11 @@ case 'app-samity': {
         $st = $pdo->prepare('SELECT * FROM samity_bills WHERE id=?'); $st->execute([$id]);
         return $st->fetch(PDO::FETCH_ASSOC);
     };
+    if ($action === 'list') {
+        /* V2.31.8: the default POST action (and the Society KPI strip) calls
+           'list' — previously missing, so the Samity KPI card always showed 0. */
+        json_out(['ok' => true, 'members' => samity_member_rows($pdo, $u), 'bills' => array_map(fn($b) => samity_bill_enrich($pdo, $b), samity_bill_rows($pdo, $u)), 'collections' => samity_collection_rows($pdo, $u), 'expenses' => samity_expense_rows($pdo, $u)]);
+    }
     if ($action === 'summary') {
         $members = samity_member_rows($pdo, $u);
         $bills = array_map(fn($b) => samity_bill_enrich($pdo, $b), samity_bill_rows($pdo, $u));

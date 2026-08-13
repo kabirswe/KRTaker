@@ -42,6 +42,7 @@ const BN = {
   'Voting open': 'ভোট চলছে', Draft: 'খসড়া', Closed: 'সমাপ্ত', Candidate: 'প্রার্থী', Candidates: 'প্রার্থীগণ',
   Vote: 'ভোট', 'Vote recorded': 'ভোট সংরক্ষিত', 'You voted': 'আপনি ভোট দিয়েছেন', Winner: 'বিজয়ী',
   'Open voting': 'ভোট শুরু করুন', 'Close & tally': 'বন্ধ ও গণনা', 'Add candidate': 'প্রার্থী যোগ করুন',
+  Going: 'যাচ্ছেন', Full: 'পূর্ণ', 'RSVP cancelled': 'আরএসভিপি বাতিল', Deleted: 'মুছে ফেলা হয়েছে',
   'Switch role': 'ভূমিকা পরিবর্তন', 'Back to my account': 'আমার অ্যাকাউন্টে ফিরুন', Logout: 'লগআউট', 'Sign out': 'সাইন আউট',
   Search: 'খুঁজুন', 'Global search': 'গ্লোবাল সার্চ', 'Dark': 'ডার্ক', 'Light': 'লাইট',
   'Welcome back': 'আবারও স্বাগতম', 'Log in': 'লগ ইন', 'Create an account': 'অ্যাকাউন্ট তৈরি করুন',

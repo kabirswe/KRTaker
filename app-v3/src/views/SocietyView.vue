@@ -173,6 +173,16 @@ async function rsvp(id) {
   const r = await post('events', { action: 'rsvp', id, name: me.value || 'Resident' })
   if (r.ok) { toast(t('RSVP confirmed'), 'ok'); await load('events') } else toast(r.error || t('Failed'), 'error')
 }
+// V2.31.8: un-RSVP (remove my attendance) + staff delete for community rows
+async function unRsvp(id) {
+  const r = await post('events', { action: 'rsvp-remove', id, name: me.value || 'Resident' })
+  if (r.ok) { toast(t('RSVP cancelled'), 'ok'); await load('events') } else toast(r.error || t('Failed'), 'error')
+}
+async function delRow(mod, row) {
+  if (!window.confirm('Delete this ' + mod.slice(0, -1) + ' (' + (row.title || row.spot || row.facility || row.id) + ')?')) return
+  const r = await post(mod, { action: 'delete', id: row.id })
+  if (r.ok) { toast(t('Deleted'), 'ok'); await load(mod); loadStats() } else toast(r.error || t('Failed'), 'error')
+}
 const evtDate = (d) => d ? String(d).slice(0, 10) : '—'
 const evtTime = (x) => x || '—'
 
@@ -263,6 +273,7 @@ const loadingRow = () => loading.value
                   <td><span class="badge" :class="badge(r.status)">{{ r.status }}</span></td>
                   <td style="text-align:right">
                     <button v-if="r.status === 'Active' && isStaff" class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="releaseParking(r.id)">{{ t('Release') }}</button>
+                    <button v-if="isStaff" class="btn-ghost" style="padding:4px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('parking', r)">✕</button>
                   </td>
                 </tr>
                 <tr v-if="!loading && !rows.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No vehicles registered') }}</td></tr>
@@ -310,6 +321,7 @@ const loadingRow = () => loading.value
                   <td v-if="isStaff" style="text-align:right">
                     <template v-if="r.status === 'Pending'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Confirmed')">✓</button></template>
                     <template v-if="r.status !== 'Cancelled'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Cancelled')">✕</button></template>
+                    <button class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('bookings', r)">🗑</button>
                   </td>
                 </tr>
                 <tr v-if="!loading && !rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No bookings yet') }}</td></tr>
@@ -442,7 +454,10 @@ const loadingRow = () => loading.value
           <div class="panel-b">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
               <div style="font-weight:800;font-size:14px">{{ r.title }}</div>
-              <span class="badge b-blue">{{ r.rsvps || 0 }} {{ t('going') }}</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="badge" :class="r.full ? 'b-red' : 'b-blue'">{{ r.rsvps || 0 }}/{{ r.capacity || '∞' }} {{ t('going') }}</span>
+                <button v-if="isStaff" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('events', r)">🗑</button>
+              </div>
             </div>
             <div class="c-sub" style="font-size:12px;margin:6px 0 10px">
               📅 {{ evtDate(r.date) }} <span v-if="evtTime(r.time) !== '—'">· 🕐 {{ evtTime(r.time) }}</span>
@@ -452,7 +467,10 @@ const loadingRow = () => loading.value
             <div v-if="r.desc" style="font-size:13px;color:var(--text-mute);line-height:1.55;margin-bottom:10px">{{ r.desc }}</div>
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span class="c-sub" style="font-size:11px">{{ r.created_name || '' }}</span>
-              <button class="btn-primary" style="padding:7px 14px;font-size:12.5px" @click="rsvp(r.id)">✅ {{ t('RSVP') }}</button>
+              <div style="display:flex;gap:8px">
+                <button v-if="r.my_rsvp" class="btn-ghost" style="padding:7px 14px;font-size:12.5px;color:var(--ok)" @click="unRsvp(r.id)">✅ {{ t('Going') }}</button>
+                <button v-else class="btn-primary" style="padding:7px 14px;font-size:12.5px" :disabled="r.full" @click="rsvp(r.id)">{{ r.full ? '🈵 ' + t('Full') : '✅ ' + t('RSVP') }}</button>
+              </div>
             </div>
           </div>
         </div>
