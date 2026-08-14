@@ -33,6 +33,8 @@ window.__krToast = toast
 // Mirrors the legacy dashboard-v2.html gatewayReturn() so bKash/SSLCommerz/Nagad redirects
 // (and the old /dashboard-v2.html?gw=…&sid=… links from in-flight checkouts) keep working.
 // Fires once, after the persisted token has been validated (i.e. the shell is live).
+// V2.40: on failure/cancel → toast + offer retry (deep link to the invoice pay modal);
+// when the gateway hasn't returned a reference yet (IPN lag) → poll app-payment-status.
 let gwHandled = false
 // Fire when validation completes AND the gw/sid query is present. Watching the
 // query too matters on the login flow: validated flips while still on /login,
@@ -42,15 +44,43 @@ watch(() => [auth.validated, route.query.gw, route.query.sid], async ([v, gw, si
   if (!gw || !sid) return
   gwHandled = true
   const ref = route.query.val_id || route.query.paymentID || route.query.order_id || route.query.tran_id || ''
-  const status = route.query.status || ''
-  if (status && !['Completed', 'VALID', 'Success', 'success', 'CANCELLED'].includes(String(status))) {
-    toast('Payment was not completed (' + status + ')')
+  const status = String(route.query.status || '').toLowerCase()
+  const isFail = status && !['completed', 'valid', 'success', 'cancelled'].includes(status)
+  // Explicit failure from the gateway → tell the user + retry link
+  if (isFail) {
+    toast('Payment was not completed (' + route.query.status + '). You can retry from the invoice.')
+    router.replace({ query: {} }).catch(() => {})
     return
   }
-  if (!ref) { toast('Gateway did not return a reference — contact support with session ' + sid); return }
+  // No gateway reference yet → the IPN may still be landing. Poll the session
+  // (up to ~30s) so the user sees a real success/pending/failed outcome.
+  if (!ref) {
+    let tries = 0
+    const poll = async () => {
+      tries++
+      const s = await apiCall('app-payment-status', { session_id: sid })
+      if (s.ok && s.paid) {
+        toast('Payment received — invoice ' + s.invoice_id, 'ok')
+        router.replace({ query: {} }).catch(() => {})
+        return
+      }
+      if (s.ok && ['failed', 'cancelled', 'expired'].includes(s.status)) {
+        toast('Payment was not completed (' + s.status + '). You can retry from the invoice.', 'error')
+        router.replace({ query: {} }).catch(() => {})
+        return
+      }
+      if (tries < 15) setTimeout(poll, 2000)
+      else {
+        toast('Payment is still being confirmed — check your invoices in a minute.')
+        router.replace({ query: {} }).catch(() => {})
+      }
+    }
+    poll()
+    return
+  }
   const d = await apiCall('app-payment-confirm', { session_id: sid, gateway_ref: ref })
   if (d.ok) toast('Payment ' + d.payment + ' recorded · receipt ' + d.receipt, 'ok')
-  else toast(d.error || 'Verification failed', 'error')
+  else toast(d.error || 'Verification failed — you can retry from the invoice.', 'error')
   router.replace({ query: {} }).catch(() => {})
 }, { immediate: true })
 

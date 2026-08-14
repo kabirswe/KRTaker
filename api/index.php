@@ -1167,6 +1167,10 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
         try { $pdo->exec('PRAGMA user_version=20260922'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
+        /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
+           inserts make it idempotent; needed so NEW template ids (e.g.
+           payment_failed) reach already-migrated live DBs. */
+        seed_templates($pdo);
         /* ── V2.39 (unconditional): tenant acknowledgment columns on handover checklists ── */
         $hcols = [];
         foreach ($pdo->query('PRAGMA table_info(handover_checklists)') as $c) $hcols[] = $c['name'];
@@ -2288,6 +2292,45 @@ function gateway_confirm_session($pdo, $sid, $gref, $actor) {
     audit($actor, 'Gateway payment confirmed', 'payments', $pid, $tx['invoice_id'] . ' ' . $tx['amount'] . ' via ' . $tx['method']);
     return ['ok' => true, 'payment' => $pid, 'receipt' => $rid, 'gateway' => $tx['method']];
 }
+
+/* ── Payment-failed notification (V2.40): email the payer + push the owner when a
+   gateway session fails or is cancelled. Mirrors the receipt/push semantics —
+   invoice stays unpaid, no money deducted, retry link included. ── */
+function notify_payment_failed($pdo, $sid, $reason) {
+    try {
+        $st = $pdo->prepare('SELECT * FROM gateway_tx WHERE id=?'); $st->execute([$sid]);
+        $tx = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$tx) return;
+        $amt = (int)$tx['amount'];
+        $pay_url = 'https://krtaker.com/app-v3/#/invoices?open=' . rawurlencode($tx['invoice_id']) . '&pay=1';
+        /* who pays? tenant on the invoice's lease (portal payer), else the invoice owner */
+        $payer = '';
+        $st = $pdo->prepare('SELECT t.email, t.name FROM invoices i LEFT JOIN leases l ON l.id=i.l LEFT JOIN tenants t ON t.id=l.t WHERE i.id=?');
+        $st->execute([$tx['invoice_id']]); $pt = $st->fetch(PDO::FETCH_ASSOC);
+        if ($pt) { $payer = $pt['email']; $pname = $pt['name'] ?: 'there'; }
+        else { $payer = ''; $pname = 'there'; }
+        if ($payer === '') {
+            $st = $pdo->prepare('SELECT COALESCE(u.sub_email, p.sub_email, \'\') FROM invoices i LEFT JOIN leases l ON l.id=i.l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE i.id=?');
+            $st->execute([$tx['invoice_id']]); $payer = (string)$st->fetchColumn(); $pname = 'there';
+        }
+        if ($payer !== '' && mail_switch($pdo, 'docs')) {
+            list($s, $h) = email_render('payment_failed', [
+                'name' => $pname, 'amount' => number_format($amt), 'invoice_id' => $tx['invoice_id'],
+                'method' => $tx['method'], 'reason' => $reason, 'pay_url' => $pay_url,
+            ]);
+            send_mail($payer, $s, $h, null, true);   /* queued — respects the mail worker */
+            audit('system', 'Payment-failed email queued', 'payments', $sid, $tx['invoice_id'] . ' ' . $amt . ' ' . $tx['method']);
+        }
+        /* push the property owner so they can follow up (payer != owner) */
+        $st = $pdo->prepare('SELECT COALESCE(u.sub_email, p.sub_email, \'\') FROM invoices i LEFT JOIN leases l ON l.id=i.l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE i.id=?');
+        $st->execute([$tx['invoice_id']]); $own = (string)$st->fetchColumn();
+        if ($own !== '' && strcasecmp($own, $payer) !== 0)
+            push_to_user($pdo, $own, '⚠️ Payment failed — ' . $tx['invoice_id'],
+                'A payment of ৳' . number_format($amt) . ' via ' . $tx['method'] . ' was not completed (' . $reason . ').',
+                '/app-v3/#/invoices?open=' . rawurlencode($tx['invoice_id']));
+    } catch (Exception $e) {}
+}
+
 function invoice_owner_check($u, $inv) {
     /* tenant may only pay invoices on their own leases; staff may pay any */
     if ($u['role'] !== 'tenant') return true;
@@ -3851,6 +3894,24 @@ HTML,
 </div>
 HTML,
 ],
+'payment_failed' => [
+'⚠️ Payment failed — {{invoice_id}} ({{amount}} BDT)',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#E74C3C,#B03A2E);padding:22px 32px">
+    <div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">⚠️ Payment failed<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+  </div>
+  <div style="padding:32px">
+    <p style="margin:0 0 14px;color:#475467;font-size:14px">Dear {{name}},</p>
+    <p style="margin:0 0 14px;color:#475467;font-size:14px;line-height:1.7">Your payment of <b>৳{{amount}}</b> for invoice <b>{{invoice_id}}</b> ({{method}}) was <b>not completed</b>. {{reason}}</p>
+    <div style="background:#FDECEA;border:1px solid #F5C6C0;border-radius:12px;padding:14px 18px;font-size:13px;color:#7F1D1D;margin-bottom:16px">No money has been deducted. Your invoice remains unpaid — you can retry whenever you're ready.</div>
+    <div style="margin:0 0 16px"><a href="{{pay_url}}" style="display:inline-block;background:#E74C3C;color:#ffffff;padding:13px 26px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none">💳 Retry payment — ৳{{amount}}</a></div>
+    <p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, your AI caretaker 🇧🇩</p>
+  </div>
+  <div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
 'receipt' => [
 'Payment receipt {{receipt_id}} — KRTaker',
 <<<'HTML'
@@ -4171,7 +4232,7 @@ function seed_templates($pdo) {
                 ->execute([$id, $n[0], $n[1], $n[2], $body, 'system', $n[3]]);
         }
     }
-    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en'], 'tenant_welcome' => ['Tenant Portal Welcome Email', 'en'], 'setup_nudge' => ['First Property Setup Nudge', 'en']];
+    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en'], 'tenant_welcome' => ['Tenant Portal Welcome Email', 'en'], 'setup_nudge' => ['First Property Setup Nudge', 'en'], 'payment_failed' => ['Payment Failed Notice', 'en']];
     foreach ($emails as $id => $em) {
         list($subj, $body) = seed_email_tpl($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM email_templates WHERE id=?'); $st->execute([$id]);
@@ -11590,7 +11651,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -13913,7 +13974,13 @@ case 'app-payment-confirm': {
     if (!invoice_owner_check($u, $tx['invoice_id'])) json_out(['ok' => false, 'error' => 'Not your invoice.'], 403);
     $gref = trim($body['gateway_ref'] ?? '');
     $res = gateway_confirm_session($pdo, $sid, $gref, $u['name']);
-    if (empty($res['ok'])) json_out(['ok' => false, 'error' => $res['error'] ?? 'Failed.'], $res['code'] ?? 400);
+    if (empty($res['ok'])) {
+        /* V2.40: mark the session failed and tell the payer + owner — invoice
+           stays unpaid; the UI shows a retry state with the same pay_url. */
+        $pdo->prepare("UPDATE gateway_tx SET status='failed', updated_at=datetime('now') WHERE id=? AND status IN ('pending','redirecting')")->execute([$sid]);
+        notify_payment_failed($pdo, $sid, $res['error'] ?? 'gateway could not verify the payment');
+        json_out(['ok' => false, 'error' => $res['error'] ?? 'Failed.'], $res['code'] ?? 400);
+    }
     /* SA1 v19: push the property owner that rent was received (payer is the tenant) */
     if (empty($res['idempotent'])) {
         try {
@@ -13936,9 +14003,37 @@ case 'app-payment-cancel': {
     $sid = trim($body['session_id'] ?? '');
     if (!$sid) json_out(['ok' => false, 'error' => 'session_id required.'], 400);
     $pdo = db();
-    $pdo->prepare("UPDATE gateway_tx SET status='failed', updated_at=datetime('now') WHERE id=? AND status='pending'")->execute([$sid]);
+    $pdo->prepare("UPDATE gateway_tx SET status='cancelled', updated_at=datetime('now') WHERE id=? AND status='pending'")->execute([$sid]);
     audit($u['name'], 'Gateway checkout cancelled', 'payments', $sid);
+    notify_payment_failed($pdo, $sid, 'cancelled by the payer');
     json_out(['ok' => true]);
+}
+
+case 'app-payment-status': {
+    /* V2.40: poll a gateway session — drives the "payment pending" state after a
+       gateway redirect (IPN may lag). Returns status + invoice so the UI can show
+       success / still-pending / failed and offer retry. */
+    $u = require_user();
+    require_module($u, 'payments');
+    $sid = trim($_GET['session_id'] ?? $body['session_id'] ?? '');
+    if (!$sid) json_out(['ok' => false, 'error' => 'session_id required.'], 400);
+    $pdo = db();
+    $st = $pdo->prepare('SELECT * FROM gateway_tx WHERE id=?'); $st->execute([$sid]);
+    $tx = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$tx) json_out(['ok' => false, 'error' => 'Checkout session not found.'], 404);
+    if (!invoice_owner_check($u, $tx['invoice_id'])) json_out(['ok' => false, 'error' => 'Not your invoice.'], 403);
+    $paid = $tx['status'] === 'paid';
+    json_out([
+        'ok' => true,
+        'session_id' => $sid,
+        'status' => $tx['status'],
+        'paid' => $paid,
+        'invoice_id' => $tx['invoice_id'],
+        'amount' => (int)$tx['amount'],
+        'method' => $tx['method'],
+        'due' => $paid ? 0 : (int)invoice_due($pdo, $tx['invoice_id'])['due'],
+        'pay_url' => 'https://krtaker.com/app-v3/#/invoices?open=' . rawurlencode($tx['invoice_id']) . '&pay=1',
+    ]);
 }
 
 /* ── Payment proof (bharakhata parity): attach/view/remove evidence (screenshot/PDF)
