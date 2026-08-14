@@ -1187,6 +1187,14 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             }
         }
     } catch (Exception $e) { /* non-fatal */ }
+    /* ── V2.39.4 (unconditional): owner scoping for community + elections ── */
+    try {
+        foreach (['community_parking', 'community_bookings', 'community_votes', 'community_threads', 'community_events'] as $ct) {
+            $ccols = [];
+            foreach ($pdo->query("PRAGMA table_info($ct)") as $c) $ccols[] = $c['name'];
+            if (!in_array('owner_email', $ccols, true)) $pdo->exec("ALTER TABLE $ct ADD COLUMN owner_email TEXT DEFAULT ''");
+        }
+    } catch (Exception $e) { /* non-fatal */ }
     return $pdo;
 }
 
@@ -1935,6 +1943,19 @@ function tenant_owner_plan($email) {
     $st->execute([strtolower(trim((string)$email))]);
     $plan = $st->fetchColumn();
     return $plan ? strtolower(trim((string)$plan)) : '';
+}
+/* V2.39.4: org key — sub → own email; tenant/staff → the parent subscriber's
+   email (tenants resolve through the tenants table; team members inherit sub).
+   Returns '' for superadmin/unowned (callers treat '' as "see everything"). */
+function org_key_for($pdo, $u) {
+    if (($u['kind'] ?? '') === 'sub') return strtolower(trim((string)$u['email']));
+    if (($u['role'] ?? '') === 'tenant') {
+        $st = $pdo->prepare('SELECT sub_email FROM tenants WHERE lower(email)=? LIMIT 1');
+        $st->execute([strtolower(trim((string)($u['email'] ?? '')))]);
+        $se = $st->fetchColumn();
+        if ($se) return strtolower(trim((string)$se));
+    }
+    return strtolower(trim((string)($u['sub_email'] ?? '')));
 }
 function effective_limits($u) {
     $def = ['property_limit'=>9999,'unit_limit'=>99999,'seats'=>1,'kr_ai'=>true,'api_access'=>false,'reports'=>true];
@@ -9696,19 +9717,23 @@ function samity_next_id($pdo, $prefix) {
     return $prefix . str_pad((string)($mx + 1), 3, '0', STR_PAD_LEFT);
 }
 function samity_member_rows($pdo, $u) {
-    if ($u['role'] === 'owner') { $st = $pdo->prepare("SELECT * FROM samity_members WHERE owner_email=? OR owner_email='' ORDER BY ts DESC"); $st->execute([$u['email']]); return $st->fetchAll(PDO::FETCH_ASSOC); }
+    $org = org_key_for($pdo, $u);
+    if ($u['role'] !== 'superadmin' && $org !== '') { $st = $pdo->prepare("SELECT * FROM samity_members WHERE owner_email=? OR owner_email='' ORDER BY ts DESC"); $st->execute([$org]); return $st->fetchAll(PDO::FETCH_ASSOC); }
     return $pdo->query('SELECT * FROM samity_members ORDER BY ts DESC')->fetchAll(PDO::FETCH_ASSOC);
 }
 function samity_bill_rows($pdo, $u) {
-    if ($u['role'] === 'owner') { $st = $pdo->prepare("SELECT * FROM samity_bills WHERE owner_email=? OR owner_email='' ORDER BY month DESC, ts DESC"); $st->execute([$u['email']]); return $st->fetchAll(PDO::FETCH_ASSOC); }
+    $org = org_key_for($pdo, $u);
+    if ($u['role'] !== 'superadmin' && $org !== '') { $st = $pdo->prepare("SELECT * FROM samity_bills WHERE owner_email=? OR owner_email='' ORDER BY month DESC, ts DESC"); $st->execute([$org]); return $st->fetchAll(PDO::FETCH_ASSOC); }
     return $pdo->query('SELECT * FROM samity_bills ORDER BY month DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
 }
 function samity_collection_rows($pdo, $u) {
-    if ($u['role'] === 'owner') { $st = $pdo->prepare("SELECT * FROM samity_collections WHERE owner_email=? OR owner_email='' ORDER BY collected_at DESC, ts DESC"); $st->execute([$u['email']]); return $st->fetchAll(PDO::FETCH_ASSOC); }
+    $org = org_key_for($pdo, $u);
+    if ($u['role'] !== 'superadmin' && $org !== '') { $st = $pdo->prepare("SELECT * FROM samity_collections WHERE owner_email=? OR owner_email='' ORDER BY collected_at DESC, ts DESC"); $st->execute([$org]); return $st->fetchAll(PDO::FETCH_ASSOC); }
     return $pdo->query('SELECT * FROM samity_collections ORDER BY collected_at DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
 }
 function samity_expense_rows($pdo, $u) {
-    if ($u['role'] === 'owner') { $st = $pdo->prepare("SELECT * FROM samity_expenses WHERE owner_email=? OR owner_email='' ORDER BY exp_date DESC, ts DESC"); $st->execute([$u['email']]); return $st->fetchAll(PDO::FETCH_ASSOC); }
+    $org = org_key_for($pdo, $u);
+    if ($u['role'] !== 'superadmin' && $org !== '') { $st = $pdo->prepare("SELECT * FROM samity_expenses WHERE owner_email=? OR owner_email='' ORDER BY exp_date DESC, ts DESC"); $st->execute([$org]); return $st->fetchAll(PDO::FETCH_ASSOC); }
     return $pdo->query('SELECT * FROM samity_expenses ORDER BY exp_date DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
 }
 function samity_unit_label($pdo, $unit) {
@@ -15201,10 +15226,27 @@ case 'app-community': {
     if (!isset($t[$mod])) json_out(['ok' => false, 'error' => 'Unknown community module.'], 400);
     $table = $t[$mod];
 
+    /* V2.39.4: owner scoping — sub → own email; team/tenant → parent subscriber's
+       email (same convention as notices). Superadmin sees everything; legacy rows
+       with empty owner_email stay visible to all (samity convention). */
+    $orgKey = org_key_for($pdo, $u);
+    $isSuper = $u['role'] === 'superadmin';
+    $owned = function ($ownerEmail) use ($orgKey, $isSuper) {
+        if ($isSuper) return true;
+        $oe = strtolower(trim((string)$ownerEmail));
+        return $oe === $orgKey || $oe === '';
+    };
+    $scoped = function ($sql, $order) use ($pdo, $orgKey, $isSuper) {
+        if ($isSuper || $orgKey === '') return $pdo->query("SELECT * FROM $sql $order")->fetchAll(PDO::FETCH_ASSOC);
+        $st = $pdo->prepare("SELECT * FROM $sql WHERE owner_email=? OR owner_email='' $order");
+        $st->execute([$orgKey]);
+        return $st->fetchAll(PDO::FETCH_ASSOC);
+    };
+
     /* ── voting: ballots are separate; forums: posts are separate ── */
     if ($mod === 'voting') {
         if ($action === 'list') {
-            $rows = $pdo->query('SELECT * FROM community_votes ORDER BY open DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $scoped('community_votes', 'ORDER BY open DESC, ts DESC');
             $st = $pdo->prepare('SELECT vote, option, voter FROM community_ballots WHERE voter=?');
             $st->execute([$u['email']]);
             $mine = [];
@@ -15229,8 +15271,8 @@ case 'app-community': {
             $opts = array_values(array_filter(array_map('trim', (array)($body['options'] ?? []))));
             if ($q === '' || count($opts) < 2) json_out(['ok' => false, 'error' => 'Question and at least 2 options are required.'], 400);
             $id = $gen('community_votes', 'VOT');
-            $pdo->prepare('INSERT INTO community_votes (id, question, options, created_by, created_name) VALUES (?,?,?,?,?)')
-                ->execute([$id, $q, json_encode($opts), $actor['email'], $actor['name']]);
+            $pdo->prepare('INSERT INTO community_votes (id, question, options, created_by, created_name, owner_email) VALUES (?,?,?,?,?,?)')
+                ->execute([$id, $q, json_encode($opts), $actor['email'], $actor['name'], $orgKey]);
             audit($u['name'], 'Community poll created', 'voting', $id, $q);
             json_out(['ok' => true, 'id' => $id]);
         }
@@ -15240,6 +15282,7 @@ case 'app-community': {
             $st = $pdo->prepare('SELECT * FROM community_votes WHERE id=?'); $st->execute([$id]);
             $row = $st->fetch(PDO::FETCH_ASSOC);
             if (!$row) json_out(['ok' => false, 'error' => 'Poll not found.'], 404);
+            if (!$owned($row['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Poll not found.'], 404);
             if ((int)$row['open'] !== 1) json_out(['ok' => false, 'error' => 'Poll closed.'], 400);
             $opts = json_decode($row['options'], true) ?: [];
             if ($opt < 0 || $opt >= count($opts)) json_out(['ok' => false, 'error' => 'Invalid option.'], 400);
@@ -15255,6 +15298,10 @@ case 'app-community': {
             if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can open/close polls.'], 403);
             $id = trim($body['id'] ?? '');
             $open = (int)($body['open'] ?? 0);
+            $st = $pdo->prepare('SELECT owner_email FROM community_votes WHERE id=?'); $st->execute([$id]);
+            $prow = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$prow) json_out(['ok' => false, 'error' => 'Poll not found.'], 404);
+            if (!$owned($prow['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Poll not found.'], 404);
             $pdo->prepare('UPDATE community_votes SET open=? WHERE id=?')->execute([$open, $id]);
             json_out(['ok' => true]);
         }
@@ -15263,7 +15310,7 @@ case 'app-community': {
 
     if ($mod === 'forums') {
         if ($action === 'list') {
-            $rows = $pdo->query('SELECT * FROM community_threads ORDER BY pinned DESC, ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $scoped('community_threads', 'ORDER BY pinned DESC, ts DESC');
             $out = [];
             foreach ($rows as $r) {
                 $st = $pdo->prepare('SELECT COUNT(*) FROM community_posts WHERE thread=?'); $st->execute([$r['id']]);
@@ -15277,6 +15324,7 @@ case 'app-community': {
             $st = $pdo->prepare('SELECT * FROM community_threads WHERE id=?'); $st->execute([$id]);
             $row = $st->fetch(PDO::FETCH_ASSOC);
             if (!$row) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
+            if (!$owned($row['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
             $ps = $pdo->prepare('SELECT * FROM community_posts WHERE thread=? ORDER BY ts');
             $ps->execute([$id]);
             json_out(['ok' => true, 'thread' => $row, 'posts' => $ps->fetchAll(PDO::FETCH_ASSOC)]);
@@ -15286,8 +15334,8 @@ case 'app-community': {
             $bodyTxt = trim($body['body'] ?? '');
             if ($title === '') json_out(['ok' => false, 'error' => 'Title required.'], 400);
             $id = $gen('community_threads', 'THR');
-            $pdo->prepare('INSERT INTO community_threads (id, title, body, cat, author, author_name) VALUES (?,?,?,?,?,?)')
-                ->execute([$id, $title, $bodyTxt, trim($body['cat'] ?? 'General'), $actor['email'], $actor['name']]);
+            $pdo->prepare('INSERT INTO community_threads (id, title, body, cat, author, author_name, owner_email) VALUES (?,?,?,?,?,?,?)')
+                ->execute([$id, $title, $bodyTxt, trim($body['cat'] ?? 'General'), $actor['email'], $actor['name'], $orgKey]);
             audit($u['name'], 'Forum thread created', 'forums', $id, $title);
             json_out(['ok' => true, 'id' => $id]);
         }
@@ -15295,8 +15343,10 @@ case 'app-community': {
             $thread = trim($body['id'] ?? '');
             $bodyTxt = trim($body['body'] ?? '');
             if ($bodyTxt === '') json_out(['ok' => false, 'error' => 'Reply body required.'], 400);
-            $st = $pdo->prepare('SELECT COUNT(*) FROM community_threads WHERE id=?'); $st->execute([$thread]);
-            if (!(int)$st->fetchColumn()) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
+            $st = $pdo->prepare('SELECT owner_email FROM community_threads WHERE id=?'); $st->execute([$thread]);
+            $trow = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$trow) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
+            if (!$owned($trow['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
             $pdo->prepare('INSERT INTO community_posts (id, thread, author, author_name, body) VALUES (?,?,?,?,?)')
                 ->execute([$gen('community_posts', 'PST'), $thread, $actor['email'], $actor['name'], $bodyTxt]);
             json_out(['ok' => true]);
@@ -15305,6 +15355,10 @@ case 'app-community': {
             if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can pin.'], 403);
             $id = trim($body['id'] ?? '');
             $pin = (int)($body['pin'] ?? 0);
+            $st = $pdo->prepare('SELECT owner_email FROM community_threads WHERE id=?'); $st->execute([$id]);
+            $trow = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$trow) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
+            if (!$owned($trow['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Thread not found.'], 404);
             $pdo->prepare('UPDATE community_threads SET pinned=? WHERE id=?')->execute([$pin, $id]);
             json_out(['ok' => true]);
         }
@@ -15320,7 +15374,7 @@ case 'app-community': {
 
     if ($action === 'list') {
         $order = $mod === 'events' ? 'ORDER BY date, time' : ($mod === 'bookings' ? 'ORDER BY date DESC, ts DESC' : 'ORDER BY ts DESC');
-        $rows = $pdo->query("SELECT * FROM $table $order")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $scoped($table, $order);
         if ($mod === 'events') {
             $myR = $pdo->prepare('SELECT event FROM community_rsvps WHERE event=? AND name=?');
             foreach ($rows as &$r) {
@@ -15351,6 +15405,7 @@ case 'app-community': {
             if ((int)$conflict->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'That facility is already booked for ' . $vals['date'] . ($vals['slot'] !== '' ? ' at ' . $vals['slot'] : '') . '.'], 409);
         }
         $id = $gen($table, $mod === 'parking' ? 'PRK' : ($mod === 'bookings' ? 'BKG' : 'EVT'));
+        $vals['owner_email'] = $orgKey;
         $cols = array_merge(['id'], array_keys($vals));
         $ph = implode(',', array_fill(0, count($cols), '?'));
         $pdo->prepare("INSERT INTO $table (" . implode(',', $cols) . ") VALUES ($ph)")
@@ -15361,6 +15416,10 @@ case 'app-community': {
     if ($action === 'update') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can edit.'], 403);
         $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare("SELECT owner_email FROM $table WHERE id=?"); $st->execute([$id]);
+        $urow = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$urow) json_out(['ok' => false, 'error' => 'Not found.'], 404);
+        if (!$owned($urow['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Not found.'], 404);
         $fields = array_slice($schema, 1);
         $sets = []; $vals = [];
         foreach ($fields as $f) {
@@ -15374,6 +15433,10 @@ case 'app-community': {
     if ($action === 'delete') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only owners can delete.'], 403);
         $id = trim($body['id'] ?? '');
+        $st = $pdo->prepare("SELECT owner_email FROM $table WHERE id=?"); $st->execute([$id]);
+        $urow = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$urow) json_out(['ok' => false, 'error' => 'Not found.'], 404);
+        if (!$owned($urow['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Not found.'], 404);
         /* V2.31.8: cascade child rows (RSVPs) so capacity counts never go phantom. */
         if ($mod === 'events') $pdo->prepare('DELETE FROM community_rsvps WHERE event=?')->execute([$id]);
         $pdo->prepare("DELETE FROM $table WHERE id=?")->execute([$id]);
@@ -15386,6 +15449,7 @@ case 'app-community': {
         $st = $pdo->prepare('SELECT * FROM community_events WHERE id=?'); $st->execute([$id]);
         $evt = $st->fetch(PDO::FETCH_ASSOC);
         if (!$evt) json_out(['ok' => false, 'error' => 'Event not found.'], 404);
+        if (!$owned($evt['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Event not found.'], 404);
         $st = $pdo->prepare('SELECT COUNT(*) FROM community_rsvps WHERE event=? AND name=?');
         $st->execute([$id, $name]);
         if ((int)$st->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'Already RSVPed.'], 400);
@@ -21213,6 +21277,20 @@ case 'app-samity': {
         json_out(['ok' => false, 'error' => 'Kalyan Samity is for owners and managers.'], 403);
     $action = trim($body['action'] ?? $_GET['action'] ?? '');
     if ($action === '') $action = (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') ? 'summary' : 'list';
+    /* V2.39.4: org key — sub → own email; team/tenant → parent subscriber's email.
+       Used to scope elections + community rows so org A never sees org B's data. */
+    $orgKey = org_key_for($pdo, $u);
+    $owned = function ($ownerEmail) use ($orgKey, $u) {
+        if ($u['role'] === 'superadmin') return true;
+        $oe = strtolower(trim((string)$ownerEmail));
+        return $oe === $orgKey || $oe === '';
+    };
+    $scopedElections = function ($where = '') use ($pdo, $orgKey, $u) {
+        if ($u['role'] === 'superadmin' || $orgKey === '') return $pdo->query("SELECT * FROM samity_elections $where ORDER BY ts DESC")->fetchAll(PDO::FETCH_ASSOC);
+        $st = $pdo->prepare("SELECT * FROM samity_elections WHERE (owner_email=? OR owner_email='') $where ORDER BY ts DESC");
+        $st->execute([$orgKey]);
+        return $st->fetchAll(PDO::FETCH_ASSOC);
+    };
     $ownerOk = function ($email) use ($u) {
         if ($u['role'] === 'owner') return $email === $u['email'] || $email === '';
         return true;
@@ -21459,12 +21537,14 @@ case 'app-samity': {
     $canAdminElection = function () use ($u) {
         return in_array($u['role'], ['superadmin', 'owner', 'manager'], true);
     };
-    $getElection = function ($id) use ($pdo) {
+    $getElection = function ($id) use ($pdo, $owned) {
         $st = $pdo->prepare('SELECT * FROM samity_elections WHERE id=?'); $st->execute([$id]);
-        return $st->fetch(PDO::FETCH_ASSOC);
+        $e = $st->fetch(PDO::FETCH_ASSOC);
+        if ($e && !$owned($e['owner_email'] ?? '')) return null;   /* V2.39.4: hide other orgs' elections */
+        return $e;
     };
     if ($action === 'election-list') {
-        $rows = $pdo->query('SELECT * FROM samity_elections ORDER BY ts DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $scopedElections();
         $out = [];
         foreach ($rows as $e) {
             $e['positions'] = json_decode($e['positions'], true) ?: [];
@@ -21501,8 +21581,9 @@ case 'app-samity': {
         }
         if (!$clean) json_out(['ok' => false, 'error' => 'Add at least one position.'], 400);
         $id = samity_next_id($pdo, 'ELE-');
+        $ownerEmail = ($u['role'] === 'superadmin') ? trim($body['owner_email'] ?? '') : (($u['role'] === 'owner') ? $u['email'] : ($orgKey !== '' ? $orgKey : trim($body['owner_email'] ?? '')));
         $pdo->prepare('INSERT INTO samity_elections (id, owner_email, title, status, positions, starts_at, ends_at, created_by, created_name) VALUES (?,?,?,?,?,?,?,?,?)')
-            ->execute([$id, ($u['role'] === 'owner') ? $u['email'] : trim($body['owner_email'] ?? ''), $title, 'draft', json_encode($clean), trim($body['starts_at'] ?? ''), trim($body['ends_at'] ?? ''), $u['email'], $u['name']]);
+            ->execute([$id, $ownerEmail, $title, 'draft', json_encode($clean), trim($body['starts_at'] ?? ''), trim($body['ends_at'] ?? ''), $u['email'], $u['name']]);
         audit($u['name'], 'election-create', 'samity', $id, $title);
         json_out(['ok' => true, 'id' => $id]);
     }
@@ -21602,10 +21683,11 @@ case 'app-samity': {
     }
     if ($action === 'candidate-remove') {
         if (!$canAdminElection()) json_out(['ok' => false, 'error' => 'Only owners and managers can manage candidates.'], 403);
-        $st = $pdo->prepare('SELECT c.*, e.status AS estatus FROM samity_candidates c JOIN samity_elections e ON e.id=c.election WHERE c.id=?');
+        $st = $pdo->prepare('SELECT c.*, e.status AS estatus, e.owner_email AS owner_email FROM samity_candidates c JOIN samity_elections e ON e.id=c.election WHERE c.id=?');
         $st->execute([trim($body['id'] ?? '')]);
         $c = $st->fetch(PDO::FETCH_ASSOC);
         if (!$c) json_out(['ok' => false, 'error' => 'Candidate not found.'], 404);
+        if (!$owned($c['owner_email'] ?? '')) json_out(['ok' => false, 'error' => 'Candidate not found.'], 404);   /* V2.39.4 */
         if (!in_array($c['estatus'], ['draft', 'open'], true)) json_out(['ok' => false, 'error' => 'Candidates can only be removed from draft or open elections.'], 400);
         $pdo->prepare('DELETE FROM samity_ballots WHERE candidate=?')->execute([$c['id']]);
         $pdo->prepare('DELETE FROM samity_candidates WHERE id=?')->execute([$c['id']]);
