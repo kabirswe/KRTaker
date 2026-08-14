@@ -1,15 +1,16 @@
-function make_token($uid, $kind, $impersonator = '', $ttl = TOKEN_TTL) {
-    $tok = bin2hex(random_bytes(24));
-    $pdo = db();
-    /* V2.17: session registry — record where/from-what this session was created */
-    $ip = substr((string)client_ip(), 0, 45);
-    $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
-    $pdo->prepare('INSERT INTO app_tokens (token, user_id, kind, expires_at, impersonator, ip, ua) VALUES (?,?,?,?,?,?,?)')
-        ->execute([hash('sha256', $tok), $uid, $kind, gmdate('Y-m-d H:i:s', time() + $ttl), $impersonator, $ip, $ua]);
-    /* SA1 v21: opportunistic prune of expired tokens so app_tokens can't grow unbounded */
-    if (random_int(1, 64) === 1) {
-        try { $pdo->prepare("DELETE FROM app_tokens WHERE expires_at < datetime('now')")->execute(); } catch (Exception $e) {}
-    }
-    return $tok;
+function ROLE_MODULES() {
+    return [
+        'superadmin' => ['dashboard','subscriptions','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','packages','parking','bookings','voting','forums','events','insurance','backup','support'],
+        'owner'      => ['dashboard','subscriptions','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','insurance','backup','support','parking','bookings','voting','forums','events'],
+        'manager'    => ['dashboard','properties','units','tenants','leases','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','onboarding','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','referrals','recon','templates','insurance','backup','support','parking','bookings','voting','forums','events'],
+        'tenant'     => ['dashboard','portal','invoices','receipts','payments','maintenance','legal','trust','ai','notices','documents','analytics','insurance','support','parking','bookings','voting','forums','events'],
+        'partner'    => ['dashboard','maintenance','vendors','invoices','payments','ai','notices','documents','referrals','support'],
+        'svc_mgr'    => ['dashboard','maintenance','vendors','compliance','legal','cases','trust','land','nrb','concierge','smarthome','health','build','gate','firesafety','systems','staffwatch','staff','attendance','payroll','meter','utilities','samity','ai','analytics','notices','documents','support','parking','bookings','forums','events'],
+        'legal'      => ['dashboard','compliance','leases','legal','cases','trust','nrb','concierge','smarthome','health','ai','notices','documents','templates','support'],
+        'crm'        => ['dashboard','maintenance','leads','onboarding','concierge','smarthome','health','ai','notices','documents','referrals','support'],
+        'accountant' => ['dashboard','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','legal','cases','nrb','concierge','smarthome','health','ai','analytics','notices','documents','recon','templates','support'],
+        'hr'         => ['dashboard','staffwatch','staff','attendance','payroll','ai','notices','documents','support'],
+    ];
 }
 
+/* Resolve Bearer token → [user array, kind] or null */

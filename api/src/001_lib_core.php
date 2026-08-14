@@ -67,6 +67,11 @@ define('ADMIN_EMAIL', krenv('ADMIN_EMAIL', ''));
 define('APP_SETUP_KEY', krenv('APP_SETUP_KEY', ''));
 define('TOKEN_TTL', 7 * 86400);
 define('SERVICE_KEY', krenv('SERVICE_KEY', ''));
+define('PUSH_VAPID_PRIV', "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEINAMzyf4F2LECO2jSdIXoze9KUzs6RZdKsEDkwMbVSKOoAoGCCqGSM49\nAwEHoUQDQgAEVx8DZ+SF2RkROcNz/9eeD/wdoyjDpzVUGkcTWW7A0IJcql+W/nKX\nR/Ql+pQzPFNPnUqokoIWPwa+Mfyw2CyI3w==\n-----END EC PRIVATE KEY-----");
+define('PUSH_VAPID_PUB', "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVx8DZ+SF2RkROcNz/9eeD/wdoyjD\npzVUGkcTWW7A0IJcql+W/nKXR/Ql+pQzPFNPnUqokoIWPwa+Mfyw2CyI3w==\n-----END PUBLIC KEY-----");
+define('PUSH_VAPID_SUB', 'mailto:owner@krtaker.com');
+
+
 $SMTP = is_array($__env['SMTP'] ?? null) ? $__env['SMTP'] : ['host' => '', 'port' => 587, 'user' => '', 'pass' => '', 'from' => ''];
 
 function json_out($data, $code = 200) {
@@ -98,7 +103,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260920) {
+        if ($__sv < 20260922) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -509,6 +514,25 @@ function db() {
             ts TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_mr_unit ON maintenance_requests(unit, status)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_mr_prop ON maintenance_requests(prop, status)");
+        /* Phase 17: service ecosystem — vendor categories + RFQ board (service_jobs + job_offers) */
+        $pcols = array_column($pdo->query('PRAGMA table_info(partners)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('cat', $pcols, true)) $pdo->exec("ALTER TABLE partners ADD COLUMN cat TEXT DEFAULT ''");
+        if (!in_array('phone', $pcols, true)) $pdo->exec("ALTER TABLE partners ADD COLUMN phone TEXT DEFAULT ''");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS service_jobs (
+            id TEXT PRIMARY KEY, title TEXT NOT NULL, desc TEXT DEFAULT '', cat TEXT DEFAULT 'General / Other',
+            unit TEXT DEFAULT '', prop TEXT DEFAULT '', requester TEXT DEFAULT '', requester_role TEXT DEFAULT 'manager',
+            status TEXT DEFAULT 'pending', budget_type TEXT DEFAULT 'quote', budget_amount INTEGER DEFAULT 0,
+            deadline TEXT DEFAULT '', created_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')),
+            approved_by TEXT DEFAULT '', approved_at TEXT DEFAULT '',
+            awarded_partner TEXT DEFAULT '', awarded_amount INTEGER DEFAULT 0, wo_no TEXT DEFAULT '', wo_at TEXT DEFAULT '',
+            mt_id TEXT DEFAULT '', notes TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sj_status ON service_jobs(status, created_at)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sj_cat ON service_jobs(cat)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS job_offers (
+            id TEXT PRIMARY KEY, job TEXT NOT NULL, partner TEXT DEFAULT '', partner_name TEXT DEFAULT '',
+            amount INTEGER DEFAULT 0, kind TEXT DEFAULT 'accept', note TEXT DEFAULT '',
+            status TEXT DEFAULT 'pending', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_jo_job ON job_offers(job, status)");
         /* ── Phase 31: leasing pipeline (leads) ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS leads (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT DEFAULT '', email TEXT DEFAULT '',
@@ -641,7 +665,7 @@ function db() {
             direction TEXT DEFAULT 'out', body TEXT NOT NULL, voice_note INTEGER DEFAULT 0,
             ts TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_krw_user ON kr_wa_msgs(user_key, id)");
-        /* ── Phase 41: portfolio analytics — saved board reports ── */
+        
         $pdo->exec("CREATE TABLE IF NOT EXISTS board_reports (
             id TEXT PRIMARY KEY, month TEXT NOT NULL, kind TEXT DEFAULT 'board',
             payload TEXT NOT NULL, created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
@@ -904,6 +928,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT DEFAULT '',
             author TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')), pinned INTEGER DEFAULT 0)");
         $ncols = array_column($pdo->query('PRAGMA table_info(notices)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('sub_email', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN sub_email TEXT DEFAULT ''");
         if (!in_array('emailed', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN emailed INTEGER DEFAULT 0");
         if (!in_array('email_count', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_count INTEGER DEFAULT 0");
         if (!in_array('email_ts', $ncols, true)) $pdo->exec("ALTER TABLE notices ADD COLUMN email_ts TEXT DEFAULT ''");
@@ -943,7 +968,13 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_templates (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL,
             updated_by TEXT DEFAULT '', updated_at TEXT DEFAULT (datetime('now')))");
+        /* Phase 16: template language support (en/bn) */
+        $dtCols = array_column($pdo->query('PRAGMA table_info(doc_templates)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('lang', $dtCols, true)) $pdo->exec("ALTER TABLE doc_templates ADD COLUMN lang TEXT DEFAULT 'en'");
+        $etCols = array_column($pdo->query('PRAGMA table_info(email_templates)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('lang', $etCols, true)) $pdo->exec("ALTER TABLE email_templates ADD COLUMN lang TEXT DEFAULT 'en'");
         seed_templates($pdo);
+        seed_vendor_flow($pdo);
         /* ── Phase 5: KR AI — legal knowledge base + FTS ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS legal_docs (
             id INTEGER PRIMARY KEY AUTOINCREMENT, cat TEXT, title TEXT, body TEXT, kw TEXT)");
@@ -1067,7 +1098,32 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         $pdo->exec("CREATE TABLE IF NOT EXISTS community_rsvps (
             id TEXT PRIMARY KEY, event TEXT NOT NULL, name TEXT NOT NULL, phone TEXT DEFAULT '',
             guests INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')), UNIQUE(event, name))");
-        try { $pdo->exec('PRAGMA user_version=20260920'); } catch (Exception $e) {}
+        /* V2.31.7: samity committee elections — members elect the committee by voting.
+           Elections hold positions (JSON: [{name, seats}]), candidates link samity_members
+           to a position, ballots are one row per (election, voter, position). */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS samity_elections (
+            id TEXT PRIMARY KEY, owner_email TEXT DEFAULT '', title TEXT NOT NULL,
+            status TEXT DEFAULT 'draft', positions TEXT NOT NULL DEFAULT '[]',
+            starts_at TEXT DEFAULT '', ends_at TEXT DEFAULT '',
+            created_by TEXT DEFAULT '', created_name TEXT DEFAULT '',
+            closed_at TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sel_status ON samity_elections(owner_email, status)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS samity_candidates (
+            id TEXT PRIMARY KEY, election TEXT NOT NULL, member TEXT NOT NULL,
+            position TEXT NOT NULL, manifesto TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_scd_election ON samity_candidates(election, position)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS samity_ballots (
+            id TEXT PRIMARY KEY, election TEXT NOT NULL, voter TEXT NOT NULL,
+            position TEXT NOT NULL, candidate TEXT NOT NULL,
+            ts TEXT DEFAULT (datetime('now')), UNIQUE(election, voter, position))");
+        /* V2.31.5: workspace backup/restore console — JSON snapshots of the
+           owner's scoped data (sub_email chain), one row per backup. */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS ws_backups (
+            id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
+            size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
+            created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        try { $pdo->exec('PRAGMA user_version=20260922'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
     }
     return $pdo;

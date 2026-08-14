@@ -21,11 +21,12 @@ const STEPS = [
   { id: 'welcome', ico: '👋', label: 'Welcome' },
   { id: 'profile', ico: '🧑‍💼', label: 'Profile' },
   { id: 'property', ico: '🏢', label: 'Property' },
+  { id: 'tenant', ico: '👤', label: 'Tenant' },
   { id: 'notify', ico: '🔔', label: 'Notifications' },
   { id: 'security', ico: '🛡️', label: 'Security' },
   { id: 'done', ico: '🎉', label: 'Done' },
 ]
-const STEPS_BN = { welcome: 'স্বাগতম', profile: 'প্রোফাইল', property: 'প্রপার্টি', notify: 'নোটিফিকেশন', security: 'নিরাপত্তা', done: 'সম্পন্ন' }
+const STEPS_BN = { welcome: 'স্বাগতম', profile: 'প্রোফাইল', property: 'প্রপার্টি', tenant: 'ভাড়াটিয়া', notify: 'নোটিফিকেশন', security: 'নিরাপত্তা', done: 'সম্পন্ন' }
 const step = ref(0)
 const busy = ref(false)
 const err = ref('')
@@ -43,7 +44,11 @@ const createdProp = ref(null)
 const unit = ref({ name: '', floor: '', rent: '' })   // V2.34: optional first unit
 const createdUnit = ref(null)
 
-// ── Step 3: notifications (server-side SETTINGS_DEFAULTS keys) ──
+// ── Step 3: optional first tenant (GO-LIVE 4.1 — walk the owner through tenant creation) ──
+const tenant = ref({ name: '', phone: '', email: '', nid: '', rent: '' })
+const createdTenant = ref(null)
+
+// ── Step 4: notifications (server-side SETTINGS_DEFAULTS keys) ──
 const prefs = ref({
   notify_rent: true,
   notify_collections: true,
@@ -75,6 +80,7 @@ const summary = computed(() => {
   if (name.value.trim()) items.push(`Profile saved as “${name.value.trim()}”`)
   if (createdProp.value) items.push(`Property “${createdProp.value.name}” added`)
   if (createdUnit.value) items.push(`First unit “${createdUnit.value.name}” added`)
+  if (createdTenant.value) items.push(`Tenant “${createdTenant.value.name}” added`)
   const on = NOTIFY_ROWS.filter(r => prefs.value[r.k]).length
   if (on) items.push(`${on} notification channel${on > 1 ? 's' : ''} on`)
   if (twofaState.value.enabled) items.push('Two-factor authentication enabled')
@@ -130,6 +136,27 @@ async function createProperty() {
       err.value = ur.error || 'Property added, but the unit could not be created — you can add it from Units later.'
     }
   }
+  return true
+}
+
+async function createTenant() {
+  // Optional step — skip when the owner left every field empty.
+  if (!tenant.value.name.trim() && !tenant.value.phone.trim() && !tenant.value.email.trim()) return true
+  if (!tenant.value.name.trim()) { err.value = 'Give your tenant a name (or clear the fields to skip this step).'; return false }
+  const payload = {
+    name: tenant.value.name.trim(),
+    phone: tenant.value.phone.trim(),
+    email: tenant.value.email.trim(),
+    nid: tenant.value.nid.trim(),
+    nrb: 0,
+    kind: 'Individual',
+    sub_email: (auth.user?.email || '').trim(),
+  }
+  const r = await apiCall('app-crud', { action: 'create', collection: 'tenants', data: payload })
+  if (!r.ok) { err.value = r.error || 'Failed to create the tenant — you can add them later from Tenants.'; return false }
+  createdTenant.value = { name: payload.name, id: r.id || '' }
+  await data.bootstrap()
+  track('setup_tenant_created', {})
   return true
 }
 
@@ -192,7 +219,8 @@ async function next() {
   // Step actions run when LEAVING the step (except Done, which runs on enter).
   if (step.value === 1) { busy.value = true; try { if (!await saveProfile()) return } finally { busy.value = false } }
   if (step.value === 2) { busy.value = true; try { if (!await createProperty()) return } finally { busy.value = false } }
-  if (step.value === 3) { busy.value = true; try { if (!await savePrefs()) return } finally { busy.value = false } }
+  if (step.value === 3) { busy.value = true; try { if (!await createTenant()) return } finally { busy.value = false } }
+  if (step.value === 4) { busy.value = true; try { if (!await savePrefs()) return } finally { busy.value = false } }
   step.value++
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -251,10 +279,10 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           <div class="ob-hero">◆</div>
           <h1 class="ob-title">{{ lang === 'bn' ? 'KRTaker-এ স্বাগতম 👋' : 'Welcome to KRTaker 👋' }}</h1>
           <p class="ob-sub" v-html="lang === 'bn'
-              ? 'আপনার প্রপার্টি ও ফ্যাসিলিটি ম্যানেজমেন্ট কমান্ড সেন্টার প্রস্তুত। আপনার ওয়ার্কস্পেস সেটআপ করি — <b>প্রায় ২ মিনিট, ৫টি দ্রুত ধাপ।</b> যেকোনো ধাপ স্কিপ করে পরে শেষ করতে পারবেন।'
-              : &quot;Your property &amp; facility management command center is ready. Let's set up your workspace — <b>about 2 minutes, 5 quick steps.</b> You can skip any step and finish later.&quot;"></p>
+              ? 'আপনার প্রপার্টি ও ফ্যাসিলিটি ম্যানেজমেন্ট কমান্ড সেন্টার প্রস্তুত। আপনার ওয়ার্কস্পেস সেটআপ করি — <b>প্রায় ২ মিনিট, ৬টি দ্রুত ধাপ।</b> যেকোনো ধাপ স্কিপ করে পরে শেষ করতে পারবেন।'
+              : &quot;Your property &amp; facility management command center is ready. Let's set up your workspace — <b>about 2 minutes, 6 quick steps.</b> You can skip any step and finish later.&quot;"></p>
           <div class="ob-actions">
-            <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next" title="Begin the guided workspace setup — about 2 minutes, 5 quick steps">{{ lang === 'bn' ? 'শুরু করুন →' : 'Get started →' }}</button>
+            <button class="btn-primary" style="padding:12px 26px;font-size:14px" @click="next" title="Begin the guided workspace setup — about 2 minutes, 6 quick steps">{{ lang === 'bn' ? 'শুরু করুন →' : 'Get started →' }}</button>
             <button class="btn-ghost" style="padding:12px 22px;font-size:13.5px" @click="skip" title="Skip the wizard — finish setting up later from Settings"> {{ lang === 'bn' ? 'এখনই নয়' : 'Skip for now' }}</button>
           </div>
           <div class="ob-hint">{{ lang === 'bn' ? 'সবকিছু পরে ⚙️ সেটিংস থেকে পরিবর্তন করতে পারবেন।' : 'You can change everything later in ⚙️ Settings.' }}</div>
@@ -318,8 +346,47 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           </div>
         </div>
 
-        <!-- 3 · NOTIFICATIONS -->
+        <!-- 3 · TENANT (GO-LIVE 4.1: walk the owner through the first tenant) -->
         <div v-else-if="step === 3" class="ob-step-body">
+          <h2 class="ob-h">{{ lang === 'bn' ? '👤 আপনার প্রথম ভাড়াটিয়া (ঐচ্ছিক)' : '👤 Add your first tenant (optional)' }}</h2>
+          <p class="ob-sub l">{{ lang === 'bn' ? 'ভাড়াটিয়ার নাম, ফোন ও NID দিলে তাদের পোর্টাল অ্যাকাউন্ট স্বয়ংক্রিয় তৈরি হয় — ইনভয়েস, রসিদ ও রিমাইন্ডার তাদের কাছে সরাসরি যায়। এখনই না চাইলে ধাপটি খালি রেখে Skip করতে পারেন।' : 'Add a tenant’s name, phone & NID and their portal account is created automatically — invoices, receipts and reminders go straight to them. Skip the step by leaving the fields empty.' }}</p>
+          <label class="ob-lab2">{{ lang === 'bn' ? 'নাম *' : 'Name *' }} <span class="ob-opt">({{ lang === 'bn' ? 'যেমন: মোঃ রফিকুল ইসলাম' : 'e.g. Md. Rofiqul Islam' }})</span></label>
+          <input v-model="tenant.name" :placeholder="t('e.g. Md. Rofiqul Islam')" class="ob-inp" @keyup.enter="next" title="Tenant full name — required if you add a tenant" />
+          <div class="ob-grid2">
+            <div>
+              <label class="ob-lab2">{{ lang === 'bn' ? 'ফোন নম্বর' : 'Phone' }}</label>
+              <input v-model="tenant.phone" :placeholder="t('e.g. 01712-345678')" class="ob-inp" title="Tenant phone number (used for rent reminders)" />
+            </div>
+            <div>
+              <label class="ob-lab2">{{ lang === 'bn' ? 'ইমেইল' : 'Email' }}</label>
+              <input v-model="tenant.email" :placeholder="t('e.g. tenant@email.com')" class="ob-inp" title="Tenant email — creates their portal login" />
+            </div>
+          </div>
+          <div class="ob-grid2" style="margin-top:12px">
+            <div>
+              <label class="ob-lab2">{{ lang === 'bn' ? 'NID নম্বর' : 'NID number' }}</label>
+              <input v-model="tenant.nid" :placeholder="t('e.g. 1990123456789')" class="ob-inp" title="National ID number (optional but recommended)" />
+            </div>
+            <div>
+              <label class="ob-lab2">{{ lang === 'bn' ? 'মাসিক ভাড়া (৳)' : 'Monthly rent (৳)' }}</label>
+              <input v-model="tenant.rent" type="number" min="0" :placeholder="t('e.g. 25000')" class="ob-inp" title="Agreed monthly rent — used when you create the first invoice" />
+            </div>
+          </div>
+          <div class="ob-unit" style="margin-top:14px">
+            <div class="ob-unit-h">{{ lang === 'bn' ? 'ℹ️ এটা কী করে?' : 'ℹ️ What this does' }}</div>
+            <p class="ob-unit-d" style="margin:6px 0 0">{{ lang === 'bn' ? 'ভাড়াটিয়া তৈরি হলে তাদের ইমেইলে একটি পোর্টাল অ্যাকাউন্ট যায়। পরে ইউনিট ও লিজ যুক্ত করে ইনভয়েস চালু করবেন — সবকিছু সেটিংস থেকে পরিবর্তনযোগ্য।' : 'Creating the tenant sends a portal account to their email. You attach a unit & lease later and start invoicing — everything stays editable in Settings.' }}</p>
+          </div>
+          <div class="ob-foot">
+            <button class="btn-ghost" @click="back">← {{ t('Back') }}</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn-ghost" @click="tenant.name = ''; tenant.phone = ''; tenant.email = ''; tenant.nid = ''; tenant.rent = ''; next()">{{ lang === 'bn' ? 'এড়িয়ে যান' : 'Skip' }}</button>
+              <button class="btn-primary" :disabled="busy" @click="next">{{ busy ? (lang === 'bn' ? 'সেভ হচ্ছে…' : 'Saving…') : (lang === 'bn' ? 'যোগ করুন ও চালিয়ে যান →' : 'Add & continue →') }}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 · NOTIFICATIONS -->
+        <div v-else-if="step === 4" class="ob-step-body">
           <h2 class="ob-h">{{ lang === 'bn' ? '🔔 আপনার নোটিফিকেশন বেছে নিন' : '🔔 Choose your notifications' }}</h2>
           <p class="ob-sub l" v-html="lang === 'bn' ? '<b>আপনার</b> ইনবক্সে কী আসবে তা বেছে নিন। প্রতিটি টগল পরে সেটিংস থেকে বদলানো যাবে।' : 'Pick what lands in <b>your</b> inbox. Every toggle can be changed later in Settings.'"></p>
           <div class="ob-rows">
@@ -338,8 +405,8 @@ function tgl(k) { prefs.value[k] = !prefs.value[k] }
           </div>
         </div>
 
-        <!-- 4 · SECURITY -->
-        <div v-else-if="step === 4" class="ob-step-body">
+        <!-- 5 · SECURITY -->
+        <div v-else-if="step === 5" class="ob-step-body">
           <h2 class="ob-h">{{ lang === 'bn' ? '🛡️ নিরাপত্তা ও ডিভাইস অ্যালার্ট' : '🛡️ Security &amp; on-device alerts' }}</h2>
           <p class="ob-sub l">{{ lang === 'bn' ? 'দুটি ঐচ্ছিক ধাপ যা আপনার অ্যাকাউন্ট অনেক বেশি নিরাপদ করবে। দুটোই পরে সেটিংস থেকে করা যাবে।' : 'Two optional steps that make your account much safer. Both can be done later from Settings.' }}</p>
 

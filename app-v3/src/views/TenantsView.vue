@@ -735,6 +735,10 @@ const provisionInfo = ref(null)   // V2.39: temp portal credentials after creati
 // ── CSV import (GO-LIVE 4.1) ──
 const showImport = ref(false)
 function openImport() { showImport.value = true }
+// GO-LIVE 4.1: /tenants?import=1 opens the CSV import wizard directly (empty-state CTA)
+watch(() => route.query.import, (v) => {
+  if (String(v) === '1') showImport.value = true
+}, { immediate: true })
 function refreshAll() { data.bootstrap() }
 function openAdd() {
   form.value = { name: '', phone: '', email: '', nid: '', nrb: false, kind: 'Individual', sub_email: '' }

@@ -107,6 +107,11 @@ function closeDetail() { sel.value = null }
 watch(() => route.query.open, (id) => {
   if (id) { const u = unitsAll.value.find(x => x.id === id); if (u) openDetail(u) }
 }, { immediate: true })
+// GO-LIVE 4.1: /units?import=1 opens the CSV import wizard directly (empty-state CTA)
+// deferred: showImport const is initialized later in setup, so an immediate call would throw
+watch(() => route.query.import, (v) => {
+  if (String(v) === '1') setTimeout(() => { showImport.value = true }, 0)
+}, { immediate: true })
 const selLease = computed(() => sel.value ? activeLease(sel.value) : null)
 const selInvoices = computed(() => sel.value ? invoicesOfUnit(sel.value) : [])
 const selTickets = computed(() => sel.value ? ticketsOfUnit(sel.value) : [])

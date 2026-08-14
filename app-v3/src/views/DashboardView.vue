@@ -125,6 +125,18 @@ const actions = computed(() => {
 })
 
 function refresh() { data.bootstrap() }
+
+// ── GO-LIVE 4.1: first-run setup checklist (shown on the 0-property empty state) ──
+const setupChecklist = computed(() => {
+  const has = (k) => total(k) > 0
+  const bn = lang.value === 'bn'
+  return [
+    { k: 'p', ico: '🏢', label: bn ? 'প্রথম প্রপার্টি যোগ করুন' : 'Add your first property', hint: bn ? 'বিল্ডিং বা জমি যা আপনি ম্যানেজ করেন' : 'The building or land you manage', done: has('properties') },
+    { k: 'u', ico: '🚪', label: bn ? 'একটি ইউনিট যোগ করুন' : 'Add your first unit', hint: bn ? 'ফ্ল্যাট, দোকান বা অফিস — ভাড়া যার সাথে সংযুক্ত' : 'Flat, shop or office that rent attaches to', done: has('units') },
+    { k: 't', ico: '👤', label: bn ? 'প্রথম ভাড়াটিয়া যোগ করুন' : 'Add your first tenant', hint: bn ? 'নাম, ফোন ও NID — তাদের পোর্টাল অ্যাকাউন্ট স্বয়ংক্রিয়' : 'Name, phone & NID — their portal account is auto-created', done: has('tenants') },
+    { k: 'r', ico: '🧾', label: bn ? 'প্রথম ভাড়া আদায় করুন' : 'Collect your first rent', hint: bn ? 'ইনভয়েস তৈরি → পেমেন্ট রেকর্ড করুন' : 'Create an invoice and record the payment', done: has('payments') },
+  ]
+})
 </script>
 
 <template>
@@ -162,8 +174,51 @@ function refresh() { data.bootstrap() }
       </router-link>
     </div>
 
+    <!-- ── EMPTY STATE (staff/owner with zero properties) — GO-LIVE 4.1 ── -->
+    <template v-if="isStaff && !total('properties')">
+      <div class="panel" style="padding:38px 30px;text-align:center;background:linear-gradient(180deg,var(--bg-alt),var(--card));border:1.5px dashed var(--border);border-radius:18px">
+        <div style="font-size:46px;margin-bottom:12px">🏗️</div>
+        <h2 style="margin:0 0 6px;font-size:21px;font-weight:800;letter-spacing:-.3px">{{ lang === 'bn' ? 'আপনার পোর্টফোলিও এখন খালি' : 'Your portfolio is empty — let’s set it up' }}</h2>
+        <p style="margin:0 auto 22px;max-width:460px;font-size:13.5px;color:var(--text-soft);line-height:1.6">
+          {{ lang === 'bn'
+            ? '৩টি দ্রুত ধাপে প্রথম প্রপার্টি, ইউনিট ও ভাড়াটিয়া যোগ করুন — অথবা পুরনো তালিকা থাকলে CSV দিয়ে একসাথে ইমপোর্ট করুন।'
+            : 'Add your first property, unit and tenant in 3 quick steps — or, if you already run a ledger, import everything from CSV in one go.' }}
+        </p>
+
+        <!-- setup checklist -->
+        <div style="max-width:520px;margin:0 auto 24px;text-align:left;display:flex;flex-direction:column;gap:8px">
+          <div v-for="s in setupChecklist" :key="s.k" style="display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 15px">
+            <div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;background:var(--bg-alt);color:var(--text-mute)">{{ s.ico }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:700">{{ s.label }}</div>
+              <div style="font-size:11.5px;color:var(--text-mute)">{{ s.hint }}</div>
+            </div>
+            <span v-if="s.done" class="badge b-green" style="flex-shrink:0">✓ done</span>
+            <span v-else class="badge b-orange" style="flex-shrink:0">todo</span>
+          </div>
+        </div>
+
+        <!-- CTAs -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+          <router-link to="/properties?add=1" class="chip" style="display:inline-flex;align-items:center;gap:7px;padding:11px 20px;background:var(--grad);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:700;text-decoration:none;box-shadow:0 8px 20px rgba(47,128,237,.28)">
+            🏢 {{ lang === 'bn' ? 'প্রথম প্রপার্টি যোগ করুন' : 'Add your first property' }}
+          </router-link>
+          <router-link to="/units?import=1" class="chip" style="display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border:1px solid var(--border);border-radius:12px;background:var(--card);font-size:13.5px;font-weight:700;color:var(--text);text-decoration:none">
+            ⬆ {{ lang === 'bn' ? 'CSV ইমপোর্ট' : 'Import from CSV' }}
+          </router-link>
+          <router-link to="/setup" class="chip" style="display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border:1px solid var(--border);border-radius:12px;background:var(--card);font-size:13.5px;font-weight:700;color:var(--text);text-decoration:none">
+            🎬 {{ lang === 'bn' ? 'ট্যুর দেখুন' : 'Watch the tour' }}
+          </router-link>
+        </div>
+
+        <div style="margin-top:20px;font-size:12px;color:var(--text-mute)">
+          {{ lang === 'bn' ? 'আরও সাহায্য দরকার? ⚙️ সেটিংস → সাহায্য, অথবা 🤖 Ask AI' : 'Need a hand? Visit ⚙️ Settings → Help, or just 🤖 Ask AI.' }}
+        </div>
+      </div>
+    </template>
+
     <!-- ── STAFF / OWNER PORTFOLIO VIEW ── -->
-    <template v-if="isStaff">
+    <template v-else-if="isStaff">
       <div class="stats">
         <div v-for="s in stats" :key="s.label" class="stat">
           <div class="s-label"><span class="s-ico">{{ s.ico }}</span>{{ s.label }}</div>

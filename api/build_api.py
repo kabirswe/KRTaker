@@ -7,6 +7,6 @@ parts = []
 for fn in sorted(os.listdir(SRC)):
     if fn.endswith('.php'):
         parts.append(open(os.path.join(SRC, fn), encoding='utf-8').read())
-out = ''.join(parts).rstrip('\n') + '\n'
+out = '\n'.join(parts).rstrip('\n') + '\n'
 open(OUT, 'w', encoding='utf-8').write(out)
 print('wrote', OUT, len(out), 'bytes')

@@ -141,6 +141,11 @@ function closeDetail() { sel.value = null }
 watch(() => route.query.open, (id) => {
   if (id) { const p = propsAll.value.find(x => x.id === id); if (p) openDetail(p) }
 }, { immediate: true })
+// GO-LIVE 4.1: /properties?add=1 opens the add-property modal directly (empty-state CTA)
+// deferred: modal/form consts are initialized later in setup, so an immediate call would throw
+watch(() => route.query.add, (v) => {
+  if (String(v) === '1') setTimeout(openAdd, 0)
+}, { immediate: true })
 const detailTabs = [
   { id: 'units', label: 'Units', ico: '🚪' },
   { id: 'leases', label: 'Leases', ico: '📄' },
