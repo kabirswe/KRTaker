@@ -10285,6 +10285,71 @@ function analytics_maintenance($pdo, $scope = '') {
         'total_cost' => $totalCost, 'estimated_open' => $estOpen, 'open_count' => $openCount, 'done_count' => $doneCount,
         'avg_resolve_days' => round($avgResolve, 1), 'aging' => $aging];
 }
+/* V2.39.5: portfolio deadline calendar — leases ending, compliance expiries,
+   open maintenance, pending renewals, unpaid invoices. Scoped exactly like the
+   other analytics actions; used by the Analytics Overview calendar card. */
+function analytics_calendar($pdo, $scope = '') {
+    $events = [];
+    $leaseSc = $scope ? " AND u.sub_email=" . $pdo->quote($scope) : '';
+    $allSc  = $scope ? " AND (COALESCE(u.sub_email,'')=" . $pdo->quote($scope)
+        . " OR COALESCE(p.sub_email,'')=" . $pdo->quote($scope)
+        . " OR COALESCE(t.sub_email,'')=" . $pdo->quote($scope) . ")" : '';
+    $maintSc = $scope ? " AND (COALESCE(u.sub_email,'')=" . $pdo->quote($scope)
+        . " OR COALESCE(p.sub_email,'')=" . $pdo->quote($scope) . ")" : '';
+    /* lease endings (next 120 days, active leases) */
+    $ls = $pdo->query("SELECT l.id, l.u, l.t, l.end, u.name AS unit, p.name AS prop, t.name AS tenant, t.phone AS tphone
+        FROM leases l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p LEFT JOIN tenants t ON t.id=l.t
+        WHERE l.status IN ('Active','active') AND l.end<>'' AND l.end>=date('now')
+        AND l.end<=date('now','+120 days')" . $leaseSc . " ORDER BY l.end")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($ls as $r) {
+        $events[] = ['date' => $r['end'], 'kind' => 'lease', 'title' => 'Lease ends · ' . ($r['unit'] ?: $r['id']),
+            'sub' => ($r['tenant'] ?: '') . ($r['unit'] ? ' · ' . $r['unit'] : '') . ($r['prop'] ? ' · ' . $r['prop'] : ''),
+            'days' => (int)ceil((strtotime($r['end']) - time()) / 86400), 'ref' => $r['id']];
+    }
+    /* compliance expiries (next 120 days, not resolved) */
+    $cs = $pdo->query("SELECT c.*, p.name AS prop, u.name AS unit, t.name AS tenant FROM compliance_items c
+        LEFT JOIN properties p ON p.id=c.entity_id LEFT JOIN units u ON u.id=c.entity_id LEFT JOIN tenants t ON t.id=c.entity_id
+        WHERE c.expiry_date<>'' AND c.expiry_date>=date('now') AND c.expiry_date<=date('now','+120 days')
+        AND c.status NOT IN ('Resolved','Closed','Done')" . $allSc . " ORDER BY c.expiry_date")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($cs as $r) {
+        $events[] = ['date' => $r['expiry_date'], 'kind' => 'compliance', 'title' => $r['label'],
+            'sub' => ($r['item'] ?: '') . (($r['prop'] ?: $r['unit'] ?: $r['tenant']) ? ' · ' . ($r['prop'] ?: $r['unit'] ?: $r['tenant']) : ''),
+            'days' => (int)ceil((strtotime($r['expiry_date']) - time()) / 86400), 'ref' => $r['id']];
+    }
+    /* open maintenance (aging in days) */
+    $ms = $pdo->query("SELECT m.id, m.title, m.status, m.priority, m.ts, u.name AS unit, p.name AS prop, m.cost_estimate
+        FROM maintenance_requests m LEFT JOIN units u ON u.id=m.unit LEFT JOIN properties p ON p.id=m.prop
+        WHERE m.status NOT IN ('Closed','Cancelled','Done')" . $maintSc . " ORDER BY m.ts LIMIT 15")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($ms as $r) {
+        $days = (int)floor((time() - strtotime($r['ts'])) / 86400);
+        $events[] = ['date' => substr((string)$r['ts'], 0, 10), 'kind' => 'maintenance', 'title' => '🛠 ' . $r['title'],
+            'sub' => ($r['unit'] ?: $r['prop'] ?: '') . ' · ' . $r['status'] . ($days > 0 ? ' · ' . $days . 'd open' : ''),
+            'days' => $days, 'ref' => $r['id']];
+    }
+    /* pending renewals */
+    $rs = $pdo->query("SELECT r.id, r.lease, r.months, r.new_rent, r.status, l.end, u.name AS unit, t.name AS tenant
+        FROM renewal_requests r LEFT JOIN leases l ON l.id=r.lease LEFT JOIN units u ON u.id=l.u LEFT JOIN tenants t ON t.id=l.t
+        WHERE r.status IN ('Pending','pending','Approved','approved')" . $leaseSc . " ORDER BY r.ts")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rs as $r) {
+        $events[] = ['date' => $r['end'] ?: substr((string)$r['ts'], 0, 10), 'kind' => 'renewal', 'title' => 'Renewal · ' . ($r['tenant'] ?: ''),
+            'sub' => ($r['unit'] ?: '') . ' · ' . $r['status'] . ($r['months'] ? ' · +' . $r['months'] . 'mo' : '') . ($r['new_rent'] ? ' · ৳' . number_format((float)$r['new_rent']) : ''),
+            'days' => $r['end'] ? (int)ceil((strtotime($r['end']) - time()) / 86400) : 0, 'ref' => $r['id']];
+    }
+    /* unpaid invoices (current + past month) */
+    $invSc = $scope ? " AND l.id IN (SELECT l2.id FROM leases l2 JOIN units u2 ON u2.id=l2.u WHERE u2.sub_email=" . $pdo->quote($scope) . ")" : '';
+    $is = $pdo->query("SELECT i.id, i.m, i.net, i.status, l.u, u.name AS unit, t.name AS tenant
+        FROM invoices i LEFT JOIN leases l ON l.id=i.l LEFT JOIN units u ON u.id=l.u LEFT JOIN tenants t ON t.id=l.t
+        WHERE i.status NOT IN ('Paid','Waived','Cancelled') AND i.m>=date('now','-1 month','start of month')" . $invSc . " ORDER BY i.m")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($is as $r) {
+        $events[] = ['date' => $r['m'] . '-01', 'kind' => 'invoice', 'title' => 'Invoice ' . $r['m'] . ' · ' . ($r['tenant'] ?: ''),
+            'sub' => ($r['unit'] ?: '') . ' · ' . $r['status'] . ' · ৳' . number_format((float)$r['net']),
+            'days' => 0, 'ref' => $r['id']];
+    }
+    usort($events, fn($a, $b) => strcmp($a['date'], $b['date']));
+    $byKind = [];
+    foreach ($events as $e) $byKind[$e['kind']] = ($byKind[$e['kind']] ?? 0) + 1;
+    return ['events' => $events, 'by_kind' => $byKind, 'month' => date('Y-m')];
+}
 function board_report_md($pdo, $month, $scope = '') {
     $pnl = analytics_pnl($pdo, $month, $scope);
     $tr = analytics_trends($pdo, 6, $scope);
@@ -19064,6 +19129,7 @@ case 'app-analytics': {
     if ($action === 'scores') json_out(['ok' => true] + analytics_scores($pdo, $scope));
     if ($action === 'occupancy') json_out(['ok' => true] + analytics_occupancy($pdo, $scope));
     if ($action === 'maintenance') json_out(['ok' => true] + analytics_maintenance($pdo, $scope));
+    if ($action === 'calendar') json_out(['ok' => true] + analytics_calendar($pdo, $scope));
     if ($action === 'board') {
         /* V2.23: board report generation persists a row — service key stays read-only */
         if ($svc) json_out(['ok' => false, 'error' => 'Service key cannot generate board reports.'], 403);

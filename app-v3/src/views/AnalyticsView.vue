@@ -166,9 +166,49 @@ function viewBoard(b) {
   })
 }
 
+// ── Calendar (V2.39.5): portfolio deadlines on the Overview tab ──
+const cal = ref(null)
+const calMonth = ref(new Date().toISOString().slice(0, 7))
+async function loadCalendar() {
+  const r = await apiCall('app-analytics', { action: 'calendar' })
+  if (r.ok) cal.value = r
+}
+const calEvents = computed(() => cal.value?.events || [])
+const KIND_ICON = { lease: '🔑', compliance: '📜', maintenance: '🛠', renewal: '🔄', invoice: '🧾' }
+const calByDate = computed(() => {
+  const m = {}
+  for (const e of calEvents.value) { (m[e.date] = m[e.date] || []).push(e) }
+  return m
+})
+const WDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const calGrid = computed(() => {
+  const [y, mm] = calMonth.value.split('-').map(Number)
+  const first = new Date(y, mm - 1, 1)
+  const startDay = first.getDay()
+  const daysInMonth = new Date(y, mm, 0).getDate()
+  const cells = []
+  for (let i = 0; i < startDay; i++) cells.push({ ds: '', day: '', inMonth: false, events: [] })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${String(mm).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    cells.push({ ds, day: d, inMonth: true, events: calByDate.value[ds] || [] })
+  }
+  while (cells.length % 7 !== 0) cells.push({ ds: '', day: '', inMonth: false, events: [] })
+  return cells
+})
+const calTitle = computed(() => {
+  const [y, mm] = calMonth.value.split('-').map(Number)
+  const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  return names[mm - 1] + ' ' + y
+})
+const calToday = () => { calMonth.value = new Date().toISOString().slice(0, 7) }
+const calPrev = () => { const [y, m] = calMonth.value.split('-').map(Number); calMonth.value = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
+const calNext = () => { const [y, m] = calMonth.value.split('-').map(Number); calMonth.value = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}` }
+const calUpcoming = computed(() => calEvents.value.filter((e) => e.date >= new Date().toISOString().slice(0, 10)).slice(0, 12))
+const calKindCount = (k) => cal.value?.by_kind?.[k] || 0
+
 // ── loaders ──
 const LOADERS = {
-  overview: () => Promise.allSettled([loadPnl(), loadCashflow(), loadAging(), loadOccupancy(), loadCollections(), loadForecast()]),
+  overview: () => Promise.allSettled([loadPnl(), loadCashflow(), loadAging(), loadOccupancy(), loadCollections(), loadForecast(), loadCalendar()]),
   cashflow: loadCashflow, collections: loadCollections, expenses: loadExpenses, maintenance: loadMaintenance,
   tenants: loadScores, aging: loadAging, vacancy: loadVacancy, forecast: loadForecast, board: loadBoards,
 }
@@ -384,6 +424,54 @@ function printReport() {
         <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>Vacancy loss</div><div class="s-value" style="color:var(--danger)">{{ money(occupancy?.vacancy_loss ?? vacancy?.monthly_loss) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Arrears</div><div class="s-value" style="color:var(--danger)">{{ money(agingTotal) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">💸</span>12-mo net flow</div><div class="s-value" :style="kpiStyle((cashflow?.total_net || 0) >= 0 ? C.green : C.red)">{{ money(cashflow?.total_net) }}</div></div>
+      </div>
+      <!-- V2.39.5: portfolio deadline calendar card -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-h">
+          <div class="t"><span class="pi">📅</span>Deadline calendar · upcoming portfolio dates</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:700;color:var(--text-mute)">🔑 {{ calKindCount('lease') }} · 📜 {{ calKindCount('compliance') }} · 🛠 {{ calKindCount('maintenance') }} · 🔄 {{ calKindCount('renewal') }} · 🧾 {{ calKindCount('invoice') }}</span>
+            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="calToday">Today</button>
+          </div>
+        </div>
+        <div class="panel-b">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                <button class="btn-ghost" style="padding:5px 11px;font-size:12px" @click="calPrev">◀</button>
+                <div style="font-weight:900;font-size:14px;text-align:center;flex:1">{{ calTitle }}</div>
+                <button class="btn-ghost" style="padding:5px 11px;font-size:12px" @click="calNext">▶</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px">
+                <div v-for="w in WDS" :key="w" style="text-align:center;font-size:10px;font-weight:800;color:var(--text-mute);padding:4px 0">{{ w }}</div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+                <div v-for="(c, i) in calGrid" :key="i" style="min-height:44px;border-radius:8px;border:1px solid var(--border);background:var(--bg-alt);padding:4px 5px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:1"
+                  :style="{ opacity: c.inMonth ? 1 : .35, borderColor: c.ds === new Date().toISOString().slice(0,10) ? 'var(--primary)' : 'var(--border)' }">
+                  <span style="font-size:10.5px;font-weight:800" :style="{ color: c.ds === new Date().toISOString().slice(0,10) ? 'var(--primary)' : 'var(--text)' }">{{ c.day }}</span>
+                  <div v-if="c.events.length" style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center">
+                    <span v-for="e in c.events.slice(0,3)" :key="e.ref + e.kind" :title="e.title" style="font-size:8px">{{ KIND_ICON[e.kind] || '•' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font-weight:800;font-size:12.5px;margin-bottom:8px">⏭ Upcoming</div>
+              <div v-if="!calUpcoming.length" class="c-sub" style="font-size:12px">No upcoming dates in the next 120 days.</div>
+              <div v-for="e in calUpcoming" :key="e.kind + e.ref + e.date" style="display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px dashed var(--border)">
+                <div style="width:34px;height:34px;border-radius:9px;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">{{ KIND_ICON[e.kind] || '📌' }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:800;font-size:12px">{{ e.title }}</div>
+                  <div class="c-sub" style="font-size:10.5px">{{ e.sub }}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                  <div style="font-size:10px;font-weight:800;color:var(--text-mute)">{{ e.date }}</div>
+                  <div v-if="e.kind !== 'invoice' && e.days > 0" style="font-size:10px;font-weight:900" :style="{ color: e.days <= 14 ? 'var(--danger)' : (e.days <= 45 ? 'var(--warn, #f6a609)' : 'var(--text-mute)') }">{{ e.days }}d</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="panel">
         <div class="panel-h">
