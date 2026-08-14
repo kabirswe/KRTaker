@@ -8,6 +8,7 @@ import { apiCall, apiUpload, apiBlob } from '../api/client'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import CompactFilters from '../components/CompactFilters.vue'
+import ImportWizard from '../components/ImportWizard.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -730,6 +731,11 @@ const form = ref({})
 const saving = ref(false)
 const formErr = ref('')
 const provisionInfo = ref(null)   // V2.39: temp portal credentials after creating a tenant
+
+// ── CSV import (GO-LIVE 4.1) ──
+const showImport = ref(false)
+function openImport() { showImport.value = true }
+function refreshAll() { data.bootstrap() }
 function openAdd() {
   form.value = { name: '', phone: '', email: '', nid: '', nrb: false, kind: 'Individual', sub_email: '' }
   formErr.value = ''; modal.value = { mode: 'add' }
@@ -800,6 +806,7 @@ async function delTenant(t) {
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Register a new tenant">＋ New tenant</button>
+        <button v-if="canManage" @click="openImport" class="btn-ghost" style="padding:9px 16px;font-weight:700" title="Bulk import tenants from CSV">⬆ Import</button>
       </div>
     </div>
 
@@ -1865,6 +1872,8 @@ async function delTenant(t) {
       </div>
     </div>
   </div>
+
+  <ImportWizard v-if="showImport" collection="tenants" :on-done="refreshAll" @close="showImport = false" />
 </template>
 
 <style scoped>

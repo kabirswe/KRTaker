@@ -9,6 +9,7 @@ import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import CompactFilters from '../components/CompactFilters.vue'
 import ScrollTabs from '../components/ScrollTabs.vue'
+import ImportWizard from '../components/ImportWizard.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -134,6 +135,11 @@ const saving = ref(false)
 const formErr = ref('')
 const furnOpts = ['', '0', '1']
 
+// ── CSV import (GO-LIVE 4.1) ──
+const showImport = ref(false)
+function openImport() { showImport.value = true }
+function refreshAll() { data.bootstrap() }
+
 function openAdd() {
   form.value = { name: '', p: propsAll.value[0]?.id || '', floor: '', sqft: '', rent: '', status: 'Vacant', beds: '', baths: '', furnished: '' }
   formErr.value = ''; modal.value = { mode: 'add' }
@@ -206,6 +212,7 @@ async function setStatus(u, st) {
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Add a new unit (flat/shop) to a property">＋ New unit</button>
+        <button v-if="canManage" @click="openImport" class="btn-ghost" style="padding:9px 16px;font-weight:700" title="Bulk import units from CSV">⬆ Import</button>
       </div>
     </div>
 
@@ -435,6 +442,8 @@ async function setStatus(u, st) {
         </div>
       </div>
     </template>
+
+    <ImportWizard v-if="showImport" collection="units" :on-done="refreshAll" @close="showImport = false" />
   </div>
 </template>
 

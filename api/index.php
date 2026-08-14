@@ -17147,6 +17147,138 @@ case 'app-setup-nudge': {
     json_out(['ok' => false, 'error' => 'action must be preview|run.'], 400);
 }
 
+case 'app-import': {
+    /* CSV import wizard (GO-LIVE 4.1): owners with existing portfolios can bulk
+       import units or tenants. Three modes: template (CSV with headers+example),
+       preview (parse + validate, no writes), commit (insert valid rows).
+       Mirrors app-crud rules: subscriber ownership stamped, plan limits enforced,
+       NID record + tenant portal provisioning for tenants with an email. */
+    $u = require_user();
+    if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true))
+        json_out(['ok' => false, 'error' => 'Your role cannot import records.'], 403);
+    $pdo = db();
+    $action = trim($body['action'] ?? '');
+    $collection = trim($body['collection'] ?? '');
+    if (!in_array($collection, ['units', 'tenants'], true))
+        json_out(['ok' => false, 'error' => 'Import supports units or tenants only.'], 400);
+    if (!can_crud($u['role'], $collection))
+        json_out(['ok' => false, 'error' => 'Access denied — no CRUD on ' . $collection . '.'], 403);
+    $isSub = (($u['kind'] ?? '') === 'sub');
+    $email = strtolower(trim($u['email']));
+    $lim = $isSub ? effective_limits($u) : null;
+
+    if ($action === 'template') {
+        if ($collection === 'units') {
+            $csv = "p,name,floor,sqft,rent,status\n"
+                 . "P-001,Flat 3B,3rd Floor,1250,32000,Occupied\n"
+                 . "P-001,Shop 1,Ground Floor,900,45000,Vacant";
+            $cols = ['p' => 'Property ID (e.g. P-001) — must be yours', 'name' => 'Unit name/label (required)', 'floor' => 'Floor (optional)', 'sqft' => 'Area in sqft (optional)', 'rent' => 'Monthly rent in ৳ (optional)', 'status' => 'Vacant | Occupied | Reserved (optional)'];
+        } else {
+            $csv = "name,phone,email,nid,kind,nrb\n"
+                 . "Sultana Rahman,01712-334455,sultana@gmail.com,1990123456789012,Individual,0\n"
+                 . "Rahim Steel,01718-998877,rahim@steel.com,1995112233445566,Corporate,1";
+            $cols = ['name' => 'Tenant name (required)', 'phone' => 'Phone (optional)', 'email' => 'Email — creates portal login (optional)', 'nid' => 'NID number (optional)', 'kind' => 'Individual | Corporate (optional)', 'nrb' => '0 = local, 1 = NRB (optional)'];
+        }
+        json_out(['ok' => true, 'collection' => $collection, 'csv' => $csv, 'columns' => $cols]);
+    }
+
+    if ($action === 'preview' || $action === 'commit') {
+        $csv = (string)($body['csv'] ?? '');
+        $csv = str_replace(["\r\n", "\r"], "\n", trim($csv));
+        if ($csv === '') json_out(['ok' => false, 'error' => 'CSV is empty.'], 400);
+        $lines = array_values(array_filter(explode("\n", $csv), fn($l) => trim($l) !== ''));
+        if (count($lines) < 2) json_out(['ok' => false, 'error' => 'CSV needs a header row + at least one data row.'], 400);
+        $header = str_getcsv($lines[0]);
+        $header = array_map(fn($h) => strtolower(trim($h)), $header);
+        $expected = $collection === 'units' ? ['p', 'name', 'floor', 'sqft', 'rent', 'status'] : ['name', 'phone', 'email', 'nid', 'kind', 'nrb'];
+        $unknown = array_diff($header, $expected);
+        if ($unknown) json_out(['ok' => false, 'error' => 'Unknown column(s): ' . implode(', ', $unknown) . '. Expected: ' . implode(', ', $expected) . '.'], 400);
+
+        /* property ownership map (units only) — cache so each row is one lookup */
+        $propOwn = [];
+        if ($collection === 'units') {
+            foreach ($pdo->query('SELECT id, sub_email FROM properties') as $pr) $propOwn[$pr['id']] = (string)$pr['sub_email'];
+        }
+        $rows = [];
+        foreach (array_slice($lines, 1) as $i => $line) {
+            $f = str_getcsv($line);
+            if (count($f) < count($expected)) $f = array_pad($f, count($expected), '');
+            $rec = array_combine($expected, array_slice($f, 0, count($expected)));
+            foreach ($rec as $k => $v) $rec[$k] = trim((string)$v);
+            $no = $i + 2;   /* line number = data index + header */
+            $errs = [];
+            if ($collection === 'units') {
+                if ($rec['p'] === '') $errs[] = 'property (p) is required';
+                elseif (!isset($propOwn[$rec['p']])) $errs[] = 'property ' . $rec['p'] . ' not found';
+                elseif ($isSub && strtolower($propOwn[$rec['p']]) !== $email) $errs[] = 'property ' . $rec['p'] . ' belongs to another account';
+                if ($rec['name'] === '') $errs[] = 'unit name is required';
+                if ($rec['rent'] !== '' && !is_numeric($rec['rent'])) $errs[] = 'rent must be a number';
+                if ($rec['sqft'] !== '' && !is_numeric($rec['sqft'])) $errs[] = 'sqft must be a number';
+                if ($rec['status'] !== '' && !in_array($rec['status'], ['Vacant', 'Occupied', 'Reserved'], true)) $errs[] = 'status must be Vacant|Occupied|Reserved';
+            } else {
+                if ($rec['name'] === '') $errs[] = 'tenant name is required';
+                if ($rec['nrb'] !== '' && !in_array($rec['nrb'], ['0', '1'], true)) $errs[] = 'nrb must be 0 or 1';
+                if ($rec['kind'] !== '' && !in_array($rec['kind'], ['Individual', 'Corporate'], true)) $errs[] = 'kind must be Individual|Corporate';
+            }
+            $rows[] = ['line' => $no, 'data' => $rec, 'ok' => empty($errs), 'errors' => $errs];
+        }
+        $valid = array_values(array_filter($rows, fn($r) => $r['ok']));
+        $invalid = array_values(array_filter($rows, fn($r) => !$r['ok']));
+
+        /* plan-limit check for subscribers (units only — tenants have no limit) */
+        $limitErr = null;
+        if ($collection === 'units' && $isSub) {
+            $owned = count(array_filter($valid, function ($r) use ($propOwn, $email) {
+                return strtolower((string)($propOwn[$r['data']['p']] ?? '')) === $email;
+            }));
+            $cnt = (int)$pdo->query('SELECT COUNT(*) FROM units WHERE sub_email=' . $pdo->quote($email))->fetchColumn();
+            $cap = (int)($lim['unit_limit'] ?? 99999);
+            if ($cnt + $owned > $cap) {
+                $limitErr = "Plan limit reached: $cnt existing + $owned new = " . ($cnt + $owned) . " units (limit $cap). Upgrade to lift limits.";
+            }
+        }
+
+        if ($action === 'preview') {
+            json_out(['ok' => true, 'collection' => $collection, 'total' => count($rows), 'valid' => count($valid), 'invalid' => count($invalid), 'rows' => $rows, 'limit_error' => $limitErr]);
+        }
+
+        /* commit — insert only valid rows; stop everything if the plan cap would be exceeded */
+        if ($limitErr) json_out(['ok' => false, 'error' => $limitErr], 403);
+        $created = 0; $provisioned = 0; $createdIds = [];
+        foreach ($valid as $r) {
+            $d = $r['data'];
+            if ($collection === 'units') {
+                $id = next_id('units', 'U-', 3);
+                $data = ['p' => $d['p'], 'name' => $d['name'], 'floor' => $d['floor'], 'sqft' => (int)$d['sqft'], 'rent' => (int)$d['rent'], 'status' => $d['status'] !== '' ? $d['status'] : 'Vacant'];
+                if ($isSub) $data['sub_email'] = $email;
+                $keys = array_keys($data);
+                $pdo->prepare('INSERT INTO units (id, ' . implode(',', $keys) . ') VALUES (?, ' . implode(',', array_fill(0, count($keys), '?')) . ')')
+                    ->execute(array_merge([$id], array_values($data)));
+                $createdIds[] = $id;
+                $created++;
+            } else {
+                $id = next_id('tenants', 'T-', 3);
+                $data = ['name' => $d['name'], 'phone' => $d['phone'], 'email' => $d['email'], 'nid' => $d['nid'], 'kind' => $d['kind'] !== '' ? $d['kind'] : 'Individual', 'nrb' => (int)$d['nrb']];
+                if ($isSub) $data['sub_email'] = $email;
+                $keys = array_keys($data);
+                $pdo->prepare('INSERT INTO tenants (id, ' . implode(',', $keys) . ') VALUES (?, ' . implode(',', array_fill(0, count($keys), '?')) . ')')
+                    ->execute(array_merge([$id], array_values($data)));
+                nid_ensure_for_tenant($pdo, $id, $d['nid'], '', $u['name']);
+                if ($d['email'] !== '') {
+                    $pv = tenant_provision_account($pdo, $id, $u['name']);
+                    if (!empty($pv['provisioned'])) $provisioned++;
+                }
+                $createdIds[] = $id;
+                $created++;
+            }
+        }
+        audit($u['name'], 'Import ' . $collection, $collection, 'csv', 'created=' . $created . ' invalid=' . count($invalid));
+        json_out(['ok' => true, 'collection' => $collection, 'created' => $created, 'provisioned' => $provisioned, 'invalid' => count($invalid), 'created_ids' => $createdIds, 'invalid_rows' => $invalid]);
+    }
+
+    json_out(['ok' => false, 'error' => 'action must be template|preview|commit.'], 400);
+}
+
 case 'app-compliance': {
     $u = require_user();
     if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'svc_mgr', 'legal'], true))
