@@ -12069,7 +12069,7 @@ case 'app-view-as': {
     if ($target === '') json_out(['ok' => false, 'error' => 'email required.'], 400);
     if ($target === strtolower($u['email'])) json_out(['ok' => false, 'error' => 'Cannot view as yourself.'], 400);
     /* V2.34: lookup order subscribers → app_users → team_members (real per-subscriber subordinates) */
-    $st = $pdo->prepare("SELECT id, name, email, role, sub_email FROM subscribers WHERE lower(email)=? AND status='active'");
+    $st = $pdo->prepare("SELECT id, name, email, role FROM subscribers WHERE lower(email)=? AND status='active'");
     $st->execute([$target]);
     $t = $st->fetch(PDO::FETCH_ASSOC);
     $kind = 'sub';
