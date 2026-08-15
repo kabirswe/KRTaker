@@ -115,9 +115,9 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 ## 4. Onboarding, support & launch ops
 
 ### 4.1 First-run experience
-- [ ] Demo/onboarding tour: after signup, walk the owner through adding their first property + unit + tenant (the seed data helps).
-- [ ] Empty-state design: dashboard with 0 properties should feel intentional (there are already seeded demo properties — decide whether new subscribers start clean or with demo data they can delete).
-- [ ] Import wizard: owners often have existing tenants/ledgers — CSV import for units/tenants/dues (build if not present).
+- [x] Demo/onboarding tour: after signup, walk the owner through adding their first property + unit + tenant (the seed data helps). (SetupView wizard `/setup` — auto-redirect on first login, 7 steps: welcome → profile → property+unit → tenant → notifications → security → done; skip supported.)
+- [x] Empty-state design: dashboard with 0 properties should feel intentional (there are already seeded demo properties — decide whether new subscribers start clean or with demo data they can delete). (V2.39.8 + V2.42.1: dashboard empty state w/ 4-step checklist + CTAs; list views (properties/units/tenants/invoices) get bilingual empty states with contextual CTAs; new subscribers start clean — registration creates no demo data.)
+- [x] Import wizard: owners often have existing tenants/ledgers — CSV import for units/tenants/dues (build if not present). (ImportWizard wired into Units (units), Tenants (tenants), Invoices (dues) — V2.39.7 + V2.40.7; empty-state CTAs deep-link `?import=1`.)
 - [x] Welcome email sequence: welcome → set up property → invite tenant (app already has tenant-facing portal) → first rent reminder. (V2.42.0: welcome fires at OTP verify; setup nudge + tenant nudge daily cron `krtaker-setup-nudge` 08:00, both idempotent; rent reminders via `krtaker-rent-reminder-scheduler` 03:00.)
 
 ### 4.2 Support
