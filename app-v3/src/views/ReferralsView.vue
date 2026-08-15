@@ -27,11 +27,11 @@ const kpis = computed(() => {
   const months = new Set(rs.map(r => String(r.ts || '').slice(0, 7)).filter(Boolean)).size
   return [
     { label: 'Referrals', ico: '🤝', value: rs.length, trend: 'refer-a-tenant programme' },
-    { label: 'Total reward', ico: '💰', value: money(reward), trend: 'committed rewards' },
-    { label: 'Paid out', ico: '💵', value: paidAmt ? money(paidAmt) : '—', trend: paid.length + ' paid', ok: paid.length > 0 },
+    { label: t('Total reward'), ico: '💰', value: money(reward), trend: 'committed rewards' },
+    { label: t('Paid out'), ico: '💵', value: paidAmt ? money(paidAmt) : '—', trend: paid.length + ' paid', ok: paid.length > 0 },
     { label: 'Signed up', ico: '📝', value: signed, trend: signed ? 'converted' : 'none', ok: signed > 0 },
     { label: 'Pending', ico: '⏳', value: rs.length - paid.length - signed, trend: 'awaiting conversion' },
-    { label: 'Avg reward', ico: '📊', value: rs.length ? money(Math.round(reward / rs.length)) : '—', trend: months + ' months active' },
+    { label: t('Avg reward'), ico: '📊', value: rs.length ? money(Math.round(reward / rs.length)) : '—', trend: months + ' months active' },
   ]
 })
 
@@ -195,7 +195,7 @@ function detailFields(row) {
             <span class="badge" :class="stCls(sel.status)">{{ sel.status || '—' }}</span>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

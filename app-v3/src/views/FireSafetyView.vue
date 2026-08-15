@@ -33,21 +33,21 @@ const propName = (pid) => propsAll.value.find(p => p.id === pid)?.name || pid ||
 const propOptions = computed(() => propsAll.value.map(p => ({ id: p.id, name: p.name })))
 
 const ASSET_TYPES = [
-  { v: 'extinguisher', l: 'Fire extinguisher' },
-  { v: 'detector', l: 'Smoke detector' },
-  { v: 'alarm', l: 'Fire alarm' },
-  { v: 'sprinkler', l: 'Sprinkler system' },
-  { v: 'hose', l: 'Hose reel' },
-  { v: 'blanket', l: 'Fire blanket' },
-  { v: 'exit', l: 'Emergency exit' },
-  { v: 'other', l: 'Other' },
+  { v: 'extinguisher', l: t('Fire extinguisher') },
+  { v: 'detector', l: t('Smoke detector') },
+  { v: 'alarm', l: t('Fire alarm') },
+  { v: 'sprinkler', l: t('Sprinkler system') },
+  { v: 'hose', l: t('Hose reel') },
+  { v: 'blanket', l: t('Fire blanket') },
+  { v: 'exit', l: t('Emergency exit') },
+  { v: 'other', l: t('Other') },
 ]
 const assetTypeLabel = (t) => ASSET_TYPES.find(x => x.v === t)?.l || t || '—'
 
 const INCIDENT_TYPES = ['fire', 'electrical', 'gas', 'smoke', 'other']
 const SEVERITIES = ['low', 'medium', 'high', 'critical']
 const sevCls = (s) => s === 'critical' || s === 'high' ? 'b-red' : s === 'medium' ? 'b-orange' : 'b-gray'
-const fireCap = (s) => s ? String(s).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()) : '—'
+const fireCap = (s) => s ? t(String(s).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())) : '—'
 
 const fmtDate = (d) => { if (!d) return '—'; const t = new Date(String(d).slice(0, 10) + 'T00:00:00'); return isNaN(t) ? String(d).slice(0, 10) : t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }
 
@@ -76,12 +76,12 @@ const kpis = computed(() => {
   const overdue = a.filter(x => x.inspection_overdue).length
   const incOpen = incidents.value.filter(i => !['Resolved', 'Closed'].includes(i.status || '')).length
   return [
-    { label: 'Assets', ico: '🧯', value: a.length, trend: active + ' active' },
-    { label: 'Expired', ico: '⚠️', value: expired, trend: 'need replacement', ok: expired === 0 },
-    { label: 'Expiring', ico: '⏳', value: expiring, trend: 'within ' + (cfg.value.expiry_alert_days || 60) + 'd', ok: expiring === 0 },
-    { label: 'Inspection', ico: '🔍', value: overdue, trend: 'overdue', ok: overdue === 0 },
-    { label: 'Open incidents', ico: '🚨', value: incOpen, trend: 'in progress', ok: incOpen === 0 },
-    { label: 'Plans', ico: '🗺️', value: plans.value.length, trend: (sm.value.plans_active || 0) + ' active' },
+    { label: t('Assets'), ico: '🧯', value: a.length, trend: active + ' active' },
+    { label: t('Expired'), ico: '⚠️', value: expired, trend: 'need replacement', ok: expired === 0 },
+    { label: t('Expiring'), ico: '⏳', value: expiring, trend: 'within ' + (cfg.value.expiry_alert_days || 60) + 'd', ok: expiring === 0 },
+    { label: t('Inspection'), ico: '🔍', value: overdue, trend: 'overdue', ok: overdue === 0 },
+    { label: t('Open incidents'), ico: '🚨', value: incOpen, trend: 'in progress', ok: incOpen === 0 },
+    { label: t('Plans'), ico: '🗺️', value: plans.value.length, trend: (sm.value.plans_active || 0) + ' active' },
   ]
 })
 
@@ -129,20 +129,20 @@ async function saveAsset() {
   if (!f.location.trim()) { alert('Location is required.'); return }
   const payload = { action: editingAsset.value ? 'asset-save' : 'asset-create', id: editingAsset.value?.id, asset_type: f.asset_type, location: f.location.trim(), prop: f.prop, model: f.model.trim(), serial_no: f.serial_no.trim(), install_date: f.install_date, expiry_date: f.expiry_date, status: f.status, notes: f.notes.trim() }
   const r = await apiCall('app-firesafety', payload)
-  if (!r.ok) { alert(r.error || 'Save failed'); return }
+  if (!r.ok) { alert(r.error || t('Save failed')); return }
   showAssetForm.value = false
   await load()
 }
 async function inspectAsset(a) {
   if (!confirm(`Mark ${a.id} as inspected?`)) return
   const r = await apiCall('app-firesafety', { action: 'asset-inspect', id: a.id })
-  if (!r.ok) { alert(r.error || 'Inspect failed'); return }
+  if (!r.ok) { alert(r.error || t('Inspect failed')); return }
   await load()
 }
 async function deleteAsset(a) {
   if (!confirm(`Delete ${a.id} (${a.model || assetTypeLabel(a.asset_type)})? This cannot be undone.`)) return
   const r = await apiCall('app-firesafety', { action: 'asset-delete', id: a.id })
-  if (!r.ok) { alert(r.error || 'Delete failed'); return }
+  if (!r.ok) { alert(r.error || t('Delete failed')); return }
   await load()
 }
 
@@ -157,13 +157,13 @@ async function saveIncident() {
   if (!f.location.trim()) { alert('Location is required.'); return }
   const payload = { action: editingIncident.value ? 'incident-save' : 'incident-create', id: editingIncident.value?.id, incident_type: f.incident_type, severity: f.severity, location: f.location.trim(), prop: f.prop, description: f.description.trim() }
   const r = await apiCall('app-firesafety', payload)
-  if (!r.ok) { alert(r.error || 'Save failed'); return }
+  if (!r.ok) { alert(r.error || t('Save failed')); return }
   showIncidentForm.value = false
   await load()
 }
 async function advanceIncident(i) {
   const r = await apiCall('app-firesafety', { action: 'incident-status', id: i.id })
-  if (!r.ok) { alert(r.error || 'Advance failed'); return }
+  if (!r.ok) { alert(r.error || t('Advance failed')); return }
   await load()
 }
 const showIncidentEvent = ref(false)
@@ -173,14 +173,14 @@ function openEventForm(i) { eventFor.value = i; eventNote.value = ''; showIncide
 async function saveEvent() {
   if (!eventNote.value.trim()) return
   const r = await apiCall('app-firesafety', { action: 'incident-event', id: eventFor.value.id, note: eventNote.value.trim() })
-  if (!r.ok) { alert(r.error || 'Add event failed'); return }
+  if (!r.ok) { alert(r.error || t('Add event failed')); return }
   showIncidentEvent.value = false
   await load()
 }
 async function deleteIncident(i) {
   if (!confirm(`Delete incident ${i.id}? This cannot be undone.`)) return
   const r = await apiCall('app-firesafety', { action: 'incident-delete', id: i.id })
-  if (!r.ok) { alert(r.error || 'Delete failed'); return }
+  if (!r.ok) { alert(r.error || t('Delete failed')); return }
   await load()
 }
 function timelineOf(i) {

@@ -37,8 +37,8 @@ const kpis = computed(() => {
   return [
     { label: 'Payouts', ico: '💰', value: ps.length, trend: 'vendor payments' },
     { label: 'Total', ico: '💸', value: money(total), trend: 'all-time payouts' },
-    { label: 'Paid', ico: '✅', value: paid, trend: paid ? money(paidAmt) + ' settled' : 'none paid', ok: paid > 0 },
-    { label: 'Scheduled', ico: '📅', value: sched, trend: sched ? 'awaiting transfer' : 'nothing scheduled', ok: sched === 0 },
+    { label: 'Paid', ico: '✅', value: paid, trend: paid ? money(paidAmt) + t(' settled') : t('none paid'), ok: paid > 0 },
+    { label: 'Scheduled', ico: '📅', value: sched, trend: sched ? t('awaiting transfer') : t('nothing scheduled'), ok: sched === 0 },
     { label: 'Months', ico: '🗓️', value: months, trend: 'billing months covered' },
     { label: 'Largest', ico: '🐘', value: money(top), trend: 'single payout' },
   ]
@@ -100,7 +100,7 @@ function detailFields(row) {
         </select>
         <select v-model="methodFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">{{ t('All methods') }}</option>
-          <option v-for="m in methodOptions" :key="m" :value="m">{{ m }}</option>
+          <option v-for="m in methodOptions" :key="m" :value="m">{{ t(m) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
@@ -212,7 +212,7 @@ function detailFields(row) {
             </div>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-top:9px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

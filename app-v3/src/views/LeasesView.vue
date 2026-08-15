@@ -41,7 +41,7 @@ const tenantKind = (tid) => tenantsAll.value.find(t => t.id === tid)?.kind || '�
 function daysLeft(l) { if (!l?.end) return null; return Math.round((new Date(l.end) - Date.now()) / 86400000) }
 function invPaid(inv) { return paymentsAll.value.filter(p => p.inv === inv.id && String(p.status).toLowerCase() === 'success').reduce((s, p) => s + (p.amount || 0), 0) }
 function invDue(inv) { return Math.max(0, (inv.net || 0) - invPaid(inv)) }
-function invStatusRow(inv) { return invDue(inv) <= 0 ? 'Paid' : (invPaid(inv) > 0 ? 'Partial' : 'Unpaid') }
+function invStatusRow(inv) { return invDue(inv) <= 0 ? t('Paid') : (invPaid(inv) > 0 ? t('Partial') : t('Unpaid')) }
 const renewalsOf = (l) => renewalsAll.value.filter(r => r.lease === l.id).sort((a, b) => String(b.ts).localeCompare(String(a.ts)))
 const docsOfLease = (l) => docsAll.value.filter(d => d.kind === 'lease' && d.ref === l.id)
 
@@ -55,12 +55,12 @@ const kpis = computed(() => {
   const adv = leasesAll.value.reduce((s, l) => s + (l.adv || 0), 0)
   const unreg = leasesAll.value.filter(l => !(l.res == 1) && !l.reg_office).length
   return [
-    { label: 'Leases', ico: '📄', value: leasesAll.value.length, trend: `${active.length} active` },
+    { label: t('Leases'), ico: '📄', value: leasesAll.value.length, trend: `${active.length} active` },
     { label: 'Active rent roll', ico: '💵', value: money(rentRoll) + '/mo', trend: `${active.length} active leases` },
-    { label: 'Pending registration', ico: '📋', value: pending.length, trend: pending.length ? 'needs reg' : 'all clear', ok: pending.length === 0 },
-    { label: 'Expiring ≤ 90d', ico: '⏳', value: expiring.length, trend: expiring.length ? 'renew soon' : 'none', ok: expiring.length === 0 },
-    { label: 'Unregistered', ico: '🪪', value: unreg, trend: unreg ? 'TPA §107' : 'all registered', ok: unreg === 0 },
-    { label: 'Deposits held', ico: '🏦', value: money(adv), trend: 'advance / security' },
+    { label: t('Pending registration'), ico: '📋', value: pending.length, trend: pending.length ? 'needs reg' : t('all clear'), ok: pending.length === 0 },
+    { label: t('Expiring ≤ 90d'), ico: '⏳', value: expiring.length, trend: expiring.length ? 'renew soon' : 'none', ok: expiring.length === 0 },
+    { label: t('Unregistered'), ico: '🪪', value: unreg, trend: unreg ? 'TPA §107' : t('all registered'), ok: unreg === 0 },
+    { label: t('Deposits held'), ico: '🏦', value: money(adv), trend: 'advance / security' },
   ]
 })
 
@@ -143,12 +143,12 @@ function openOffer() {
 async function submitOffer() {
   const m = offerModal.value
   if (!m.months || m.months <= 0) { window.__krToast?.('Enter months', 'error'); return }
-  if (!m.new_rent || m.new_rent <= 0) { window.__krToast?.('Enter new rent', 'error'); return }
+  if (!m.new_rent || m.new_rent <= 0) { window.__krToast?.(t('Enter new rent'), 'error'); return }
   offerSaving.value = true
   try {
     const r = await apiCall('app-renewal-offer', { lease: m.lease, months: m.months, new_rent: Math.round(m.new_rent), note: m.note })
     if (r.ok) { window.__krToast?.(`🔄 ${r.id} offered to tenant`, 'ok'); offerModal.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Offer failed', 'error')
+    else window.__krToast?.(r.error || t('Offer failed'), 'error')
   } finally { offerSaving.value = false }
 }
 
@@ -167,7 +167,7 @@ function openEdit(l) {
 async function saveLease() {
   const f = form.value
   if (!f.t || !f.u) { formErr.value = 'Tenant and unit are required.'; return }
-  if (!f.start || !f.end || !f.rent) { formErr.value = 'Start, end and rent are required.'; return }
+  if (!f.start || !f.end || !f.rent) { formErr.value = t('Start, end and rent are required.'); return }
   saving.value = true
   try {
     const payload = { ...f, rent: Math.round(f.rent), adv: Math.round(f.adv || 0), res: f.res ? 1 : 0 }
@@ -175,14 +175,14 @@ async function saveLease() {
       ? await apiCall('app-crud', { action: 'update', collection: 'leases', id: sel.value.id, data: payload })
       : await apiCall('app-crud', { action: 'create', collection: 'leases', data: payload })
     if (r.ok) { window.__krToast?.(sel.value ? '📄 Lease updated' : `📄 ${r.id || 'Lease'} created`, 'ok'); form.value = null; await data.bootstrap(); if (!sel.value) openDetail(leasesAll.value.find(l => l.id === r.id) || leasesAll.value[0]) }
-    else formErr.value = r.error || 'Save failed.'
+    else formErr.value = r.error || t('Save failed.')
   } finally { saving.value = false }
 }
 async function delLease(l) {
   if (!confirm(`Delete ${l.id}? This cannot be undone (invoices/documents may reference it).`)) return
   const r = await apiCall('app-crud', { action: 'delete', collection: 'leases', id: l.id, data: {} })
   if (r.ok) { window.__krToast?.(`🗑️ ${l.id} deleted`, 'ok'); if (sel.value?.id === l.id) closeDetail(); await data.bootstrap() }
-  else window.__krToast?.(r.error || 'Delete failed', 'error')
+  else window.__krToast?.(r.error || t('Delete failed'), 'error')
 }
 
 // ── payment modal ──
@@ -197,7 +197,7 @@ async function submitPay() {
   try {
     const r = await apiCall('app-invoice-pay', { invoice_id: m.inv.id, amount: Math.round(m.amount), date: m.date, method: m.method, sig: m.sig })
     if (r.ok) { window.__krToast?.(`💳 ${m.inv.id} → ${r.status} (paid ৳${(r.paid || 0).toLocaleString('en-IN')})`, 'ok'); payModal.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Payment failed', 'error')
+    else window.__krToast?.(r.error || t('Payment failed'), 'error')
   } finally { paySaving.value = false }
 }
 
@@ -211,7 +211,7 @@ const DOC_TYPES = [
   { id: 'community', label: '🏘 Community / society' },
   { id: 'other', label: '📁 Other' },
 ]
-const docTypeLabel = (id) => (DOC_TYPES.find(t => t.id === id) || {}).label || id || '—'
+const docTypeLabel = (id) => t((DOC_TYPES.find(t => t.id === id) || {}).label || id || '—')
 async function onDocPick(e) {
   const f = e.target.files && e.target.files[0]
   e.target.value = ''
@@ -222,24 +222,24 @@ async function onDocPick(e) {
   try {
     const r = await apiUpload('app-doc-upload', fd)
     if (r.ok) { window.__krToast?.('📎 Agreement attached to ' + sel.value.id, 'ok'); await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Upload failed', 'error')
+    else window.__krToast?.(r.error || t('Upload failed'), 'error')
   } finally { docUploading.value = false }
 }
 async function viewDoc(d) {
   const url = await apiBlob('app-doc-view?id=' + encodeURIComponent(d.id))
   if (url) window.open(url, '_blank')
-  else window.__krToast?.('Could not open document', 'error')
+  else window.__krToast?.(t('Could not open document'), 'error')
 }
 async function downloadDoc(d) {
   const url = await apiBlob('app-doc-download?id=' + encodeURIComponent(d.id))
   if (url) { const a = document.createElement('a'); a.href = url; a.download = d.name || d.id; a.click() }
-  else window.__krToast?.('Could not download document', 'error')
+  else window.__krToast?.(t('Could not download document'), 'error')
 }
 async function delDoc(d) {
   if (!confirm(`Delete document "${d.name}"?`)) return
   const r = await apiCall('app-doc-delete', { id: d.id })
   if (r.ok) { window.__krToast?.('🗑️ Document deleted', 'ok'); await data.bootstrap() }
-  else window.__krToast?.(r.error || 'Delete failed', 'error')
+  else window.__krToast?.(r.error || t('Delete failed'), 'error')
 }
 </script>
 
@@ -259,7 +259,7 @@ async function delDoc(d) {
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">{{ t('All statuses') }}</option>
-          <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
+          <option v-for="s in statusOptions" :key="s" :value="s">{{ t(s) }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="id">{{ t('Sort: ID') }}</option>
@@ -383,7 +383,7 @@ async function delDoc(d) {
 
           <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
             <ScrollTabs style="gap:6px;border-bottom:none;margin-bottom:0">
-            <button v-for="t in [{id:'overview',label:'Overview',ico:'🏠'},{id:'payments',label:'Payments',ico:'💳'},{id:'documents',label:'Documents',ico:'📎'},{id:'handover',label:'Handover',ico:'📦'}]" :key="t.id" @click="tab = t.id"
+            <button v-for="t in [{id:'overview',label:t('Overview'),ico:'🏠'},{id:'payments',label:t('Payments'),ico:'💳'},{id:'documents',label:t('Documents'),ico:'📎'},{id:'handover',label:'Handover',ico:'📦'}]" :key="t.id" @click="tab = t.id"
               style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)"
               :style="tab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">
               {{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? 2 : t.id === 'payments' ? selInvoices.length : t.id === 'documents' ? selDocs.length : hovoList.length }})</span>
@@ -584,7 +584,7 @@ async function delDoc(d) {
           <div>
             <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Status') }}</label>
             <select v-model="form.status" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <option v-for="s in LEASE_STATUSES" :key="s" :value="s">{{ s }}</option>
+              <option v-for="s in LEASE_STATUSES" :key="s" :value="s">{{ t(s) }}</option>
             </select>
           </div>
           <div>

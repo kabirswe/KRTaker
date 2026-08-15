@@ -18,8 +18,8 @@ const suggestions = [
   'What is the total outstanding rent?',
   'Which lease is expiring next?',
   'Summarize open maintenance tickets',
-  'How many units are vacant?',
-  'What did we collect this month?',
+  t('How many units are vacant?'),
+  t('What did we collect this month?'),
 ]
 
 async function loadQuota() {
@@ -44,14 +44,14 @@ async function ask(text) {
     if (r && r.quota && !r.ok) {
       // V2.40.5: usage guardrail hit — show the block + stop sending
       blocked.value = r.quota
-      blockMsg.value = r.error || 'AI usage limit reached.'
+      blockMsg.value = r.error || t('AI usage limit reached.')
       msgs.value.push({ role: 'ai', text: blockMsg.value })
       return
     }
-    msgs.value.push({ role: 'ai', text: (r.ok ? (r.reply || r.answer || JSON.stringify(r).slice(0, 600)) : ('AI error: ' + (r.error || 'no reply'))) })
+    msgs.value.push({ role: 'ai', text: (r.ok ? (r.reply || r.answer || JSON.stringify(r).slice(0, 600)) : (t('AI error: ') + (r.error || t('no reply')))) })
     if (r.ok) loadQuota()
   } catch (e) {
-    msgs.value.push({ role: 'ai', text: 'Network error.' })
+    msgs.value.push({ role: 'ai', text: t('Network error.') })
   } finally {
     busy.value = false
     scroll()

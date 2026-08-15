@@ -35,9 +35,9 @@ const kpis = computed(() => {
   return [
     { label: 'Invoices', ico: '🧾', value: ps.length, trend: 'vendor invoices' },
     { label: 'Total', ico: '💰', value: money(total), trend: 'across ' + partners + ' partner(s)' },
-    { label: 'Pending', ico: '⏳', value: pending, trend: pending ? money(pendingAmt) + ' awaiting decision' : 'none pending', ok: pending === 0 },
-    { label: 'Approved', ico: '✅', value: approved, trend: approved ? 'ready for payout' : 'none approved' },
-    { label: 'Paid', ico: '💸', value: paid, trend: paid ? 'settled' : 'no payments yet' },
+    { label: 'Pending', ico: '⏳', value: pending, trend: pending ? money(pendingAmt) + t(' awaiting decision') : t('none pending'), ok: pending === 0 },
+    { label: 'Approved', ico: '✅', value: approved, trend: approved ? t('ready for payout') : t('none approved') },
+    { label: 'Paid', ico: '💸', value: paid, trend: paid ? t('settled') : t('no payments yet') },
     { label: 'Avg', ico: '📊', value: money(avg), trend: 'per invoice' },
   ]
 })
@@ -217,7 +217,7 @@ function detailFields(row) {
             </div>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-top:9px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

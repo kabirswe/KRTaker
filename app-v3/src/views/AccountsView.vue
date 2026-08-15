@@ -22,7 +22,8 @@ const money = (n) => '৳' + Math.round(n || 0).toLocaleString('en-IN')
 const sign = (t) => ['receive', 'deposit'].includes(t) ? '+' : '−'
 const typeColor = (t) => ['receive', 'deposit'].includes(t) ? '#12a150' : 'var(--danger,#e74c3c)'
 const typeIco = (t) => ({ receive: '📥', expense: '📤', withdraw: '🏧', deposit: '🏦' }[t] || '💱')
-const typeLabel = (t) => ({ receive: 'Receive', expense: 'Expense', withdraw: 'Withdraw', deposit: 'Deposit' }[t] || t)
+const typeLabel = (ty) => ({ receive: 'Receive', expense: 'Expense', withdraw: 'Withdraw', deposit: 'Deposit' }[ty] || ty)
+const typeLabelT = (ty) => t(typeLabel(ty))
 const acctTypeLabel = (t) => ({ cash: '💵 Cash', bank: '🏦 Bank', mobile: '📱 Mobile' }[t] || t)
 
 // ── summary (accounts + totals + recent) ──
@@ -36,7 +37,7 @@ async function loadSummary() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-accounts', { action: 'summary' })
-    if (!r.ok) { err.value = r.error || 'Failed to load accounts.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load accounts.'); return }
     accounts.value = r.accounts || []
     totals.value = r.totals || { inflow: 0, outflow: 0, balance: 0, count: 0 }
     byType.value = r.by_type || []
@@ -60,7 +61,7 @@ async function delTx(t) {
   if (!confirm(`Delete transaction ${t.id} (${t.label})?`)) return
   err.value = ''
   const r = await apiCall('app-accounts', { action: 'delete', id: t.id })
-  if (!r.ok) { err.value = r.error || 'Delete failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Delete failed.'); return }
   toast.value = `🗑️ ${t.id} deleted`
   setTimeout(() => toast.value = '', 4000)
   await Promise.all([loadSummary(), loadTx(), loadRecon()])
@@ -72,10 +73,10 @@ const postForm = ref({ account: '', cat: 'other', label: '', amount: '', method:
 const postBusy = ref(false)
 
 const CATS = {
-  receive: [['rent', 'Rent'], ['service_charge', 'Service charge'], ['utility', 'Utility'], ['parking', 'Parking'], ['advance', 'Advance / deposit'], ['refund', 'Refund received'], ['other_income', 'Other income']],
-  expense: [['maintenance', 'Maintenance'], ['utility', 'Utility bill'], ['salary', 'Salary / staff'], ['tax', 'Tax / govt fee'], ['marketing', 'Marketing'], ['travel', 'Travel'], ['transport', 'Transport'], ['office', 'Office / admin'], ['misc', 'Miscellaneous']],
-  withdraw: [['cash', 'Cash withdrawal'], ['transfer', 'Transfer out']],
-  deposit: [['cash', 'Cash deposit'], ['transfer', 'Transfer in']],
+  receive: [['rent', 'Rent'], ['service_charge', t('Service charge')], ['utility', 'Utility'], ['parking', 'Parking'], ['advance', t('Advance / deposit')], ['refund', t('Refund received')], ['other_income', t('Other income')]],
+  expense: [['maintenance', 'Maintenance'], ['utility', t('Utility bill')], ['salary', t('Salary / staff')], ['tax', t('Tax / govt fee')], ['marketing', 'Marketing'], ['travel', 'Travel'], ['transport', 'Transport'], ['office', t('Office / admin')], ['misc', 'Miscellaneous']],
+  withdraw: [['cash', t('Cash withdrawal')], ['transfer', t('Transfer out')]],
+  deposit: [['cash', t('Cash deposit')], ['transfer', t('Transfer in')]],
 }
 
 function openPost(type) {
@@ -89,7 +90,7 @@ function openPost(type) {
 }
 async function submitPost() {
   const type = tab.value   // the form only renders on its own tab — the active tab IS the type
-  if (!postForm.value.label.trim() || !(+postForm.value.amount > 0)) { err.value = 'Label and positive amount are required.'; return }
+  if (!postForm.value.label.trim() || !(+postForm.value.amount > 0)) { err.value = t('Label and positive amount are required.'); return }
   postBusy.value = true; err.value = ''
   try {
     const body = {
@@ -105,8 +106,8 @@ async function submitPost() {
       date: postForm.value.date,
     }
     const r = await apiCall('app-accounts', body)
-    if (!r.ok) { err.value = r.error || 'Post failed.'; return }
-    toast.value = `✅ ${typeLabel(type)} posted — ${r.id}`
+    if (!r.ok) { err.value = r.error || t('Post failed.'); return }
+    toast.value = `✅ ${typeLabelT(type)} posted — ${r.id}`
     setTimeout(() => toast.value = '', 5000)
     await Promise.all([loadSummary(), loadTx(), loadRecon()])
   } catch (e) { err.value = e.message }
@@ -127,7 +128,7 @@ async function createAcct() {
   acctBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-accounts', { action: 'account-create', name: acctForm.value.name.trim(), type: acctForm.value.type, opening_balance: +acctForm.value.opening_balance || 0, notes: acctForm.value.notes.trim() })
-    if (!r.ok) { err.value = r.error || 'Create failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Create failed.'); return }
     acctOpen.value = false
     toast.value = `✅ Account created — ${r.id}`
     setTimeout(() => toast.value = '', 4000)
@@ -139,14 +140,14 @@ async function toggleAcct(a) {
   if (!confirm(`Set account ${a.name} (${a.id}) to ${a.status === 'active' ? 'inactive' : 'active'}?`)) return
   err.value = ''
   const r = await apiCall('app-accounts', { action: 'account-toggle', id: a.id })
-  if (!r.ok) { err.value = r.error || 'Toggle failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Toggle failed.'); return }
   await loadSummary()
 }
 async function delAcct(a) {
   if (!confirm(`Delete account ${a.name} (${a.id})? ALL its transactions will be deleted too.`)) return
   err.value = ''
   const r = await apiCall('app-accounts', { action: 'account-delete', id: a.id })
-  if (!r.ok) { err.value = r.error || 'Delete failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Delete failed.'); return }
   toast.value = `🗑️ ${a.id} deleted`
   setTimeout(() => toast.value = '', 4000)
   await loadSummary()
@@ -203,7 +204,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
 
     <!-- Tabs -->
     <ScrollTabs>
-      <button v-for="[k, l] in [['transactions','💱 Transactions'],['receive','📥 Receive'],['expense','📤 Expense'],['withdraw','🏧 Withdraw'],['deposit','🏦 Deposit'],['reconcile','🔁 Reconcile']]" :key="k" @click="tab = k" :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">{{ l }}</button>
+      <button v-for="[k, l] in [['transactions','💱 Transactions'],['receive','📥 Receive'],['expense','📤 Expense'],['withdraw','🏧 Withdraw'],['deposit','🏦 Deposit'],['reconcile','🔁 Reconcile']]" :key="k" @click="tab = k" :style="tab === k ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'">{{ t(l) }}</button>
     </ScrollTabs>
 
     <!-- ══ TRANSACTIONS ══ -->
@@ -264,7 +265,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
                   <td style="font-weight:700;white-space:nowrap">{{ t.id }}</td>
                   <td class="c-sub" style="white-space:nowrap">{{ t.tx_date }}</td>
                   <td class="c-sub" style="white-space:nowrap">{{ t.account_name || t.account || '—' }}</td>
-                  <td><span class="badge" :class="badge(t.type)">{{ typeIco(t.type) }} {{ typeLabel(t.type) }}</span></td>
+                  <td><span class="badge" :class="badge(t.type)">{{ typeIco(t.type) }} {{ typeLabelT(t.type) }}</span></td>
                   <td class="c-sub">{{ t.cat }}</td>
                   <td style="font-weight:600">{{ t.label }}</td>
                   <td class="c-sub">{{ t.payee || '—' }}</td>
@@ -286,7 +287,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
         <div class="panel" style="padding:16px 18px;margin-top:14px">
           <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">{{ t('By type') }}</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <span v-for="b in byType" :key="b.type" class="badge" :class="badge(b.type)" style="font-size:12.5px;padding:6px 12px">{{ typeLabel(b.type) }}: {{ b.n }} · {{ money(b.total) }}</span>
+            <span v-for="b in byType" :key="b.type" class="badge" :class="badge(b.type)" style="font-size:12.5px;padding:6px 12px">{{ typeLabelT(b.type) }}: {{ b.n }} · {{ money(b.total) }}</span>
           </div>
         </div>
       </template>
@@ -295,7 +296,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
     <!-- ══ POST FORMS (receive / expense / withdraw / deposit) ══ -->
     <template v-if="['receive', 'expense', 'withdraw', 'deposit'].includes(tab)">
       <div class="panel" style="padding:20px;max-width:720px;margin-bottom:16px">
-        <div style="font-weight:800;font-size:15px;margin-bottom:4px">{{ typeIco(tab) }} {{ typeLabel(tab) }} money</div>
+        <div style="font-weight:800;font-size:15px;margin-bottom:4px">{{ typeIco(tab) }} {{ typeLabelT(tab) }} money</div>
         <div class="c-sub" style="font-size:12.5px;margin-bottom:16px">{{ tab === 'receive' ? 'Money in — rent, service charge, deposits, other income' : (tab === 'expense' ? 'Money out — maintenance, salaries, taxes, bills' : (tab === 'withdraw' ? 'Withdraw cash from a bank / mobile account' : 'Deposit cash into a bank / mobile account')) }}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-field"><label>Account *</label>
@@ -305,14 +306,14 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
           </div>
           <div class="form-field"><label>{{ t('Category') }}</label>
             <select v-model="postForm.cat" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-              <option v-for="[v, l] in CATS[tab] || []" :key="v" :value="v">{{ l }}</option>
+              <option v-for="[v, l] in CATS[tab] || []" :key="v" :value="v">{{ t(l) }}</option>
             </select>
           </div>
           <div class="form-field" style="grid-column:1/-1"><label>Label *</label><input v-model="postForm.label" placeholder="e.g. June rent — Unit 7B" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
           <div class="form-field"><label>Amount (৳) *</label><input v-model="postForm.amount" type="number" min="1" placeholder="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
           <div class="form-field"><label>{{ t('Method') }}</label>
             <select v-model="postForm.method" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-              <option v-for="m in METHODS" :key="m" :value="m">{{ m }}</option>
+              <option v-for="m in METHODS" :key="m" :value="m">{{ t(m) }}</option>
             </select>
           </div>
           <div class="form-field"><label>{{ t('Reference') }}</label><input v-model="postForm.ref" placeholder="trx ID, cheque no…" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
@@ -320,12 +321,12 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
           <div class="form-field" style="grid-column:1/-1"><label>{{ t('Date / time') }}</label><input v-model="postForm.date" type="datetime-local" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:16px">
-          <button @click="submitPost" :disabled="postBusy" style="padding:11px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer">{{ typeIco(tab) }} Post {{ typeLabel(tab) }} {{ postBusy ? '…' : '' }}</button>
+          <button @click="submitPost" :disabled="postBusy" style="padding:11px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer">{{ typeIco(tab) }} Post {{ typeLabelT(tab) }} {{ postBusy ? '…' : '' }}</button>
         </div>
       </div>
 
       <div class="panel" style="overflow:hidden">
-        <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">🕓</span>Recent {{ typeLabel(tab) }}s</div></div>
+        <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">🕓</span>Recent {{ typeLabelT(tab) }}s</div></div>
         <div class="tbl-wrap">
           <table class="kr">
             <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Label') }}</th><th>{{ t('Payee') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Recon') }}</th></tr></thead>
@@ -339,7 +340,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
                 <td style="text-align:right;font-weight:800" :style="{ color: typeColor(t.type) }">{{ sign(t.type) }} {{ money(t.amount) }}</td>
                 <td><span class="badge" :class="reconBadge(t)">{{ t.reconciled == 1 ? '✓' : '—' }}</span></td>
               </tr>
-              <tr v-if="!recent.filter(x => x.type === tab).length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:26px">No {{ typeLabel(tab) }}s yet.</td></tr>
+              <tr v-if="!recent.filter(x => x.type === tab).length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:26px">No {{ typeLabelT(tab) }}s yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -363,7 +364,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
                 <td style="font-weight:700">{{ t.id }}</td>
                 <td class="c-sub">{{ t.tx_date }}</td>
                 <td class="c-sub">{{ t.account_name || '—' }}</td>
-                <td><span class="badge" :class="badge(t.type)">{{ typeLabel(t.type) }}</span></td>
+                <td><span class="badge" :class="badge(t.type)">{{ typeLabelT(t.type) }}</span></td>
                 <td style="font-weight:600">{{ t.label }}</td>
                 <td style="text-align:right;font-weight:800" :style="{ color: typeColor(t.type) }">{{ sign(t.type) }} {{ money(t.amount) }}</td>
                 <td style="width:200px"><input v-model="reconRefs[t.id]" placeholder="e.g. statement Jul 2026" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none"></td>

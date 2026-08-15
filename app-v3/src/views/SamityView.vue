@@ -81,9 +81,9 @@ const kpis = computed(() => {
   return [
     { label: 'Members', ico: '🏘️', value: ms.length, trend: 'samity roster' },
     { label: 'Active', ico: '✅', value: active, trend: active === ms.length ? 'all active' : active + ' of ' + ms.length, ok: active === ms.length },
-    { label: 'Office bearers', ico: '⭐', value: bearers, trend: 'chairman · secretary · treasurer' },
-    { label: 'Flat owners', ico: '🏠', value: flats, trend: 'resident members' },
-    { label: 'Bill balance', ico: '🧾', value: money(billsDue), trend: 'unpaid society bills', ok: billsDue === 0 },
+    { label: t('Office bearers'), ico: '⭐', value: bearers, trend: 'chairman · secretary · treasurer' },
+    { label: t('Flat owners'), ico: '🏠', value: flats, trend: 'resident members' },
+    { label: t('Bill balance'), ico: '🧾', value: money(billsDue), trend: 'unpaid society bills', ok: billsDue === 0 },
     { label: 'Since', ico: '📅', value: since.length ? since[0] : '—', trend: propFilter.value ? propName(propFilter.value) : 'earliest membership' },
   ]
 })
@@ -121,7 +121,7 @@ async function saveMember() {
   await data.bootstrap()
 }
 async function delMember(m) {
-  if (!window.confirm('Delete member ' + m.name + '?')) return
+  if (!window.confirm(t('Delete member ') + m.name + '?')) return
   const r = await apiCall('app-samity', { action: 'member-delete', id: m.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('🗑 Deleted')
@@ -197,7 +197,7 @@ async function addBill() {
   await data.bootstrap()
 }
 async function delBill(b) {
-  if (!window.confirm('Delete bill ' + b.id + '?')) return
+  if (!window.confirm(t('Delete bill ') + b.id + '?')) return
   const r = await apiCall('app-samity', { action: 'bill-delete', id: b.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('🗑 Deleted')
@@ -228,7 +228,7 @@ async function addCollection() {
   await data.bootstrap()
 }
 async function delCollection(c) {
-  if (!window.confirm('Delete collection ' + c.id + '?')) return
+  if (!window.confirm(t('Delete collection ') + c.id + '?')) return
   const r = await apiCall('app-samity', { action: 'collection-delete', id: c.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('🗑 Deleted')
@@ -290,7 +290,7 @@ async function addExpense() {
   await data.bootstrap()
 }
 async function delExpense(e) {
-  if (!window.confirm('Delete expense ' + e.id + ' — ' + (e.title || '') + '?')) return
+  if (!window.confirm(t('Delete expense ') + e.id + ' — ' + (e.title || '') + '?')) return
   const r = await apiCall('app-samity', { action: 'expense-delete', id: e.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('🗑 Deleted')
@@ -358,12 +358,12 @@ async function loadElections() {
   elLoading.value = true; elErr.value = ''
   try {
     const r = await apiCall('app-samity', { action: 'election-list' })
-    if (r && r.ok === false) elErr.value = r.error || 'Failed to load elections.'
+    if (r && r.ok === false) elErr.value = r.error || t('Failed to load elections.')
     else elections.value = (r && r.elections) || []
   } catch (e) { elErr.value = e.message || 'Network error.' }
   finally { elLoading.value = false }
 }
-const statusMeta = (s) => ({ draft: { ico: '📝', cls: 'b-gray', label: 'Draft' }, open: { ico: '🗳️', cls: 'b-green', label: 'Voting open' }, closed: { ico: '🏆', cls: 'b-blue', label: 'Closed' } }[s] || { ico: '—', cls: 'b-gray', label: s })
+const statusMeta = (s) => ({ draft: { ico: '📝', cls: 'b-gray', label: t('Draft') }, open: { ico: '🗳️', cls: 'b-green', label: t('Voting open') }, closed: { ico: '🏆', cls: 'b-blue', label: t('Closed') } }[s] || { ico: '—', cls: 'b-gray', label: t(s) })
 const memberName = (id) => memAll.value.find(m => m.id === id)?.name || id || '—'
 const seatsOf = (e, pos) => (e.positions.find(p => p.name === pos)?.seats) || 1
 const candsOf = (e, pos) => e.candidates.filter(c => c.position === pos).sort((a, b) => b.votes - a.votes)
@@ -464,7 +464,7 @@ async function addCandidate() {
   await loadElections()
 }
 async function removeCandidate(c) {
-  if (!window.confirm('Remove ' + (c.member_name || memberName(c.member)) + ' from the ballot?')) return
+  if (!window.confirm(t('Remove') + ' ' + (c.member_name || memberName(c.member)) + t(' from the ballot?'))) return
   const r = await apiCall('app-samity', { action: 'candidate-remove', id: c.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('🗑 Removed')
@@ -1205,7 +1205,7 @@ onMounted(() => { loadElections() })
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

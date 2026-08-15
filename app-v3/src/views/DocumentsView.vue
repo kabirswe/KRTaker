@@ -21,15 +21,15 @@ const canUpload = computed(() => ['superadmin', 'owner', 'manager', 'tenant', 'l
 const docsAll = computed(() => data.list('documents'))
 
 const CATS = [
-  { v: 'agreement', l: 'Agreement & lease' },
-  { v: 'utility', l: 'Utility papers' },
-  { v: 'legal', l: 'Legal documents' },
-  { v: 'tax', l: 'Tax & khajna' },
-  { v: 'community', l: 'Community / society' },
-  { v: 'other', l: 'Other' },
+  { v: 'agreement', l: t('Agreement & lease') },
+  { v: 'utility', l: t('Utility papers') },
+  { v: 'legal', l: t('Legal documents') },
+  { v: 'tax', l: t('Tax & khajna') },
+  { v: 'community', l: t('Community / society') },
+  { v: 'other', l: t('Other') },
 ]
 const KINDS = ['lease', 'tenant', 'property', 'ticket', 'other']
-const kindLabel = (k) => ({ lease: 'Lease', tenant: 'Tenant', property: 'Property', ticket: 'Ticket', other: 'Other' }[k] || k || '—')
+const kindLabel = (k) => ({ lease: t('Lease'), tenant: t('Tenant'), property: t('Property'), ticket: t('Ticket'), other: t('Other') }[k] || k || '—')
 
 function fileIco(d) {
   const m = (d.mime || '').toLowerCase()
@@ -48,10 +48,10 @@ const kpis = computed(() => {
   const thisM = new Date().toISOString().slice(0, 7)
   const mCount = ds.filter(d => (d.ts || '').startsWith(thisM)).length
   return [
-    { label: 'Documents', ico: '📁', value: ds.length, trend: 'files in the vault' },
+    { label: t('Documents'), ico: '📁', value: ds.length, trend: 'files in the vault' },
     { label: 'Storage', ico: '💾', value: fmtSize(totalB), trend: 'total vault size' },
     { label: 'Kinds', ico: '🗂️', value: kinds, trend: 'lease · tenant · property …' },
-    { label: 'This month', ico: '📅', value: mCount, trend: 'uploaded in ' + thisM.slice(0, 7) },
+    { label: t('This month'), ico: '📅', value: mCount, trend: 'uploaded in ' + thisM.slice(0, 7) },
     { label: 'Largest', ico: '🐘', value: ds.length ? fmtSize(Math.max(...ds.map(d => d.size || 0))) : '—', trend: ds.length ? (ds.find(d => d.size === Math.max(...ds.map(x => x.size || 0)))?.name || '') : '' },
     { label: 'Vault', ico: '🔒', value: ds.length ? 'Live' : '—', trend: 'synced with server' },
   ]
@@ -94,7 +94,7 @@ async function viewDoc(d) {
   try {
     const url = await apiBlob('app-doc-view?id=' + encodeURIComponent(d.id))
     if (url) window.open(url, '_blank')
-    else window.__krToast?.('Preview unavailable', 'error')
+    else window.__krToast?.(t('Preview unavailable'), 'error')
   } finally { busyDoc.value = '' }
 }
 async function downloadDoc(d) {
@@ -109,7 +109,7 @@ async function downloadDoc(d) {
     a.download = d.name || (d.id + ext)
     document.body.appendChild(a); a.click(); a.remove()
     URL.revokeObjectURL(a.href)
-  } catch (e) { window.__krToast?.('Network error', 'error') } finally { busyDoc.value = '' }
+  } catch (e) { window.__krToast?.(t('Network error'), 'error') } finally { busyDoc.value = '' }
 }
 
 // ── ref deep link ──
@@ -132,7 +132,7 @@ const upRef = ref('')
 const upCat = ref('agreement')
 function pickFile(e) { upFile.value = e.target.files[0] || null }
 async function submitUpload() {
-  if (!upFile.value) { window.__krToast?.('Choose a file first', 'error'); return }
+  if (!upFile.value) { window.__krToast?.(t('Choose a file first'), 'error'); return }
   if (!upRef.value.trim()) { window.__krToast?.('Reference is required (e.g. L-007)', 'error'); return }
   uploading.value = true
   try {
@@ -143,7 +143,7 @@ async function submitUpload() {
     fd.append('cat', upCat.value)
     const r = await apiUpload('app-doc-upload', fd)
     if (r.ok) { window.__krToast?.(`📁 ${r.id} uploaded`, 'ok'); upModal.value = false; upFile.value = null; upRef.value = ''; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Upload failed', 'error')
+    else window.__krToast?.(r.error || t('Upload failed'), 'error')
   } finally { uploading.value = false }
 }
 </script>

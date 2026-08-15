@@ -37,12 +37,12 @@ const kpis = computed(() => {
   const mNew = ls.filter(l => (l.ts || '').startsWith(thisM) && l.status === 'New').length
   const conv = ls.length ? Math.round((won / ls.length) * 100) : 0
   return [
-    { label: 'Leads', ico: '📥', value: ls.length, trend: 'total captured' },
-    { label: 'New', ico: '🆕', value: fresh, trend: fresh ? 'awaiting first contact' : 'all worked', ok: fresh <= 3 },
-    { label: 'Active', ico: '🔄', value: active, trend: 'contacted · viewing · applied' },
+    { label: t('Leads'), ico: '📥', value: ls.length, trend: 'total captured' },
+    { label: t('New'), ico: '🆕', value: fresh, trend: fresh ? 'awaiting first contact' : t('all worked'), ok: fresh <= 3 },
+    { label: t('Active'), ico: '🔄', value: active, trend: 'contacted · viewing · applied' },
     { label: 'Leased', ico: '✅', value: won, trend: conv + '% conversion' },
-    { label: 'Lost', ico: '❌', value: lost, trend: lost ? 'did not convert' : 'none lost', ok: lost === 0 },
-    { label: 'New this mo', ico: '📅', value: mNew, trend: 'captured in ' + thisM.slice(0, 7) },
+    { label: 'Lost', ico: '❌', value: lost, trend: lost ? 'did not convert' : t('none lost'), ok: lost === 0 },
+    { label: t('New this mo'), ico: '📅', value: mNew, trend: 'captured in ' + thisM.slice(0, 7) },
   ]
 })
 
@@ -109,7 +109,7 @@ async function setStatus(l, status) {
   try {
     const r = await apiCall('app-leads', { action: 'status', id: l.id, status })
     if (r.ok) { window.__krToast?.(`${l.id} → ${status}`, 'ok'); await data.bootstrap(); if (sel.value) sel.value = leadsAll.value.find(x => x.id === sel.value.id) || sel.value }
-    else window.__krToast?.(r.error || 'Update failed', 'error')
+    else window.__krToast?.(r.error || t('Update failed'), 'error')
   } finally { busy.value = '' }
 }
 async function assignLead(l) {
@@ -117,7 +117,7 @@ async function assignLead(l) {
   try {
     const r = await apiCall('app-leads', { action: 'assign', id: l.id, assigned_to: l.assigned_to || '', notes: l.notes || '' })
     if (r.ok) { window.__krToast?.(`${l.id} assigned`, 'ok'); await data.bootstrap(); if (sel.value) sel.value = leadsAll.value.find(x => x.id === sel.value.id) || sel.value }
-    else window.__krToast?.(r.error || 'Assign failed', 'error')
+    else window.__krToast?.(r.error || t('Assign failed'), 'error')
   } finally { busy.value = '' }
 }
 
@@ -299,14 +299,14 @@ function detailFields(row) {
             </div>
             <div style="margin-top:13px;display:flex;gap:8px;align-items:center">
               <input v-model="sel.assigned_to" :placeholder="t('Assign to (e.g. Arif Chowdhury)')" style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <button class="btn-primary" style="padding:8px 14px;font-size:12px" :disabled="busy === sel.id + ':assign'" @click="assignLead(sel)">{{ busy === sel.id + ':assign' ? 'Saving…' : 'Save' }}</button>
+              <button class="btn-primary" style="padding:8px 14px;font-size:12px" :disabled="busy === sel.id + ':assign'" @click="assignLead(sel)">{{ busy === sel.id + ':assign' ? t('Saving…') : t('Save') }}</button>
             </div>
             <input v-model="sel.notes" :placeholder="t('Notes…')" style="width:100%;margin-top:8px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
             <button v-if="propRef(sel)" class="btn-ghost" style="padding:7px 12px;font-size:12px;margin-top:10px" @click="go(propRef(sel).path, propRef(sel).query)">↗ {{ propName(sel.prop) }}</button>
           </div>
 
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-top:9px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

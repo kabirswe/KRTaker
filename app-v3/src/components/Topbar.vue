@@ -28,7 +28,7 @@ function toggleTheme() {
 function toggleLang() {
   const next = lang.value === 'bn' ? 'en' : 'bn'
   setLang(next)
-  window.__krToast?.(next === 'bn' ? 'বাংলা ভাষা নির্বাচিত' : 'Language: English')
+  window.__krToast?.(t('Language: English'))
 }
 
 function toggleMenu() { menuOpen.value = !menuOpen.value }
@@ -52,13 +52,13 @@ async function setRole(r) {
   try {
     const res = await auth.viewAs(r.email)
     if (!res.ok) {
-      window.__krToast?.('❌ ' + (res.error || 'Switch failed'))
+      window.__krToast?.('❌ ' + (res.error || t('Switch failed')))
       closeMenu()
       return
     }
     await data.bootstrap()
     data.setPreviewRole(r.id)
-    window.__krToast?.(auth.isImpersonating ? `👁 Viewing as ${r.role}` : 'Switched to ' + r.role)
+    window.__krToast?.(auth.isImpersonating ? `👁 ${t('Viewing as')} ${r.role}` : t('Switched to ') + r.role)
   } catch (e) {
     window.__krToast?.('❌ Switch failed — try again')
   } finally {

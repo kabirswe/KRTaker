@@ -26,7 +26,7 @@ async function loadTemplate() {
   busy.value = true; err.value = ''
   try {
     const r = await apiCall('app-import', { action: 'template', collection: props.collection })
-    if (!r.ok) { err.value = r.error || 'Failed to load template.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load template.'); return }
     tpl.value = r.csv || ''
     csv.value = r.csv || ''
     columns.value = r.columns || {}
@@ -48,7 +48,7 @@ async function doPreview() {
   busy.value = true; err.value = ''
   try {
     const r = await apiCall('app-import', { action: 'preview', collection: props.collection, csv: csv.value })
-    if (!r.ok) { err.value = r.error || 'Preview failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Preview failed.'); return }
     preview.value = r
     step.value = 'preview'
   } catch (e) { err.value = e.message }
@@ -59,7 +59,7 @@ async function doCommit() {
   busy.value = true; err.value = ''
   try {
     const r = await apiCall('app-import', { action: 'commit', collection: props.collection, csv: csv.value })
-    if (!r.ok) { err.value = r.error || 'Commit failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Commit failed.'); return }
     result.value = r
     step.value = 'done'
     if (props.onDone) props.onDone()

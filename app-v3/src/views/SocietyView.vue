@@ -49,8 +49,8 @@ async function load(mod) {
   try {
     const r = await apiCall('app-community?mod=' + mod + '&action=list')
     if (r.ok) rows.value = r.rows || []
-    else err.value = r.error || 'Failed to load.'
-  } catch (e) { err.value = e.message || 'Network error.' }
+    else err.value = r.error || t('Failed to load.')
+  } catch (e) { err.value = e.message || t('Network error.') }
   finally { loading.value = false }
 }
 async function post(mod, payload) {
@@ -170,7 +170,7 @@ async function openThreadView(id) {
     const r = await apiCall('app-community?mod=forums&action=thread&id=' + encodeURIComponent(id))
     if (r.ok) { openThread.value = r.thread; openPosts.value = r.posts || [] }
     else toast(r.error || t('Failed'), 'error')
-  } catch (e) { toast(e.message || 'Network error.', 'error') }
+  } catch (e) { toast(e.message || t('Network error.'), 'error') }
 }
 async function sendReply() {
   if (!replyBody.value.trim()) return
@@ -207,7 +207,7 @@ async function unRsvp(id) {
   if (r.ok) { toast(t('RSVP cancelled'), 'ok'); await load('events') } else toast(r.error || t('Failed'), 'error')
 }
 async function delRow(mod, row) {
-  if (!window.confirm('Delete this ' + mod.slice(0, -1) + ' (' + (row.title || row.spot || row.facility || row.id) + ')?')) return
+  if (!window.confirm(t('Delete this ') + mod.slice(0, -1) + ' (' + (row.title || row.spot || row.facility || row.id) + ')?')) return
   const r = await post(mod, { action: 'delete', id: row.id })
   if (r.ok) { toast(t('Deleted'), 'ok'); await load(mod); loadStats() } else toast(r.error || t('Failed'), 'error')
 }
@@ -381,7 +381,7 @@ const anBkg = computed(() => {
   const all = an.value.bookings
   const by = {}
   all.forEach(r => {
-    const f = r.facility || 'Other'
+    const f = r.facility || t('Other')
     by[f] = by[f] || { facility: f, total: 0, pending: 0, confirmed: 0, cancelled: 0 }
     by[f].total++
     by[f][String(r.status || 'pending').toLowerCase()] = (by[f][String(r.status || 'pending').toLowerCase()] || 0) + 1
@@ -401,7 +401,7 @@ const anForum = computed(() => {
   const all = an.value.forums
   const cats = {}
   all.forEach(r => {
-    const c = r.cat || 'General'
+    const c = r.cat || t('General')
     cats[c] = (cats[c] || 0) + 1
   })
   const pinned = all.filter(r => r.pinned).length
@@ -420,7 +420,7 @@ const anSamity = computed(() => {
   const all = an.value.samity
   const roles = {}
   all.forEach(r => {
-    const role = r.role || 'Member'
+    const role = r.role || t('Member')
     roles[role] = (roles[role] || 0) + 1
   })
   const office = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer'].filter(x => roles[x]).map(x => ({ role: x, name: (all.find(r => r.role === x) || {}).name || '—' }))
@@ -923,7 +923,7 @@ const loadingRow = () => loading.value
               <div style="font-weight:800;font-size:14px;margin-bottom:14px">💬 {{ t('Forum categories') }}</div>
               <div v-if="!anForum.cats.length" class="c-sub" style="font-size:12px">{{ t('No threads yet') }}</div>
               <div v-for="([c, n], i) in anForum.cats" :key="c" style="margin-bottom:10px">
-                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span>{{ c }}</span><span>{{ n }}</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span>{{ t(c) }}</span><span>{{ n }}</span></div>
                 <div style="height:8px;background:var(--bg-alt);border-radius:99px;overflow:hidden">
                   <div style="height:100%;border-radius:99px" :style="{ width: Math.round(n / Math.max(anForum.cats[0][1], 1) * 100) + '%', background: PAL[i % PAL.length] }"></div>
                 </div>
@@ -959,7 +959,7 @@ const loadingRow = () => loading.value
                   <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7b7bf0,#5a5ae6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0">{{ String(o.name || '?').slice(0, 1).toUpperCase() }}</div>
                   <div style="flex:1;min-width:0">
                     <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
-                    <div class="c-sub" style="font-size:10.5px">{{ o.role }}</div>
+                    <div class="c-sub" style="font-size:10.5px">{{ t(o.role) }}</div>
                   </div>
                 </div>
               </div>

@@ -263,7 +263,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
           </div>
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Description') }}</div>
-            <RichEditor v-model="raiseForm.desc" :placeholder="t('What\'s the issue?')" :min-height="'120px'" style="margin-top:5px" />
+            <RichEditor v-model="raiseForm.desc" :placeholder="t('What\u0027s the issue?')" :min-height="'120px'" style="margin-top:5px" />
           </div>
           <button @click="submitRaise" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">＋ Raise request</button>
         </div>

@@ -26,7 +26,7 @@ async function load() {
   try {
     const q = tid.value ? '?t=' + encodeURIComponent(tid.value) : ''
     const r = await apiCall('app-portal' + q)
-    if (!r.ok) { err.value = r.error || 'Failed to load portal.'; portal.value = null; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load portal.'); portal.value = null; return }
     portal.value = r
   } catch (e) { err.value = e.message || 'Network error.' }
   finally { loading.value = false }
@@ -78,9 +78,9 @@ const ticketStatus = (s) => s === 'Closed' ? { c: 'b-green', l: lang.value === '
 async function downloadAgreement(leaseId) {
   try {
     const url = await apiBlob('app-portal-agreement?lease=' + encodeURIComponent(leaseId))
-    if (!url) { window.__krToast?.('Failed to load agreement.', 'error'); return }
+    if (!url) { window.__krToast?.(t('Failed to load agreement.'), 'error'); return }
     window.open(url, '_blank')
-  } catch (e) { window.__krToast?.('Failed to load agreement.', 'error') }
+  } catch (e) { window.__krToast?.(t('Failed to load agreement.'), 'error') }
 }
 function goPay(inv) {
   router.push({ path: '/invoices', query: { open: inv.id, pay: '1' } })
@@ -161,7 +161,7 @@ async function uploadPhoto(e) {
     const fd = new FormData(); fd.append('file', f)
     const r = await apiUpload('app-photo?action=user-upload', fd)
     if (r.ok) { window.__krToast?.('📸 Profile photo updated', 'ok'); load() }
-    else { window.__krToast?.(r.error || 'Photo upload failed', 'error'); photoPreview.value = '' }
+    else { window.__krToast?.(r.error || t('Photo upload failed'), 'error'); photoPreview.value = '' }
   } finally { profileBusy.value = '' }
 }
 async function uploadNid(e) {
@@ -176,7 +176,7 @@ async function uploadNid(e) {
     fd.append('file', f); fd.append('kind', 'tenant'); fd.append('ref', tenant.value.id)
     const r = await apiUpload('app-doc-upload', fd)
     if (r.ok) { window.__krToast?.('🪪 NID copy uploaded', 'ok'); load() }
-    else { window.__krToast?.(r.error || 'Upload failed', 'error'); nidPreview.value = '' }
+    else { window.__krToast?.(r.error || t('Upload failed'), 'error'); nidPreview.value = '' }
   } finally { profileBusy.value = '' }
 }
 async function saveFamily() {
@@ -185,7 +185,7 @@ async function saveFamily() {
     const clean = family.value.filter(m => m && (m.name || m.relation))
     const r = await apiCall('app-portal', { action: 'family-save', family: clean })
     if (r.ok) { window.__krToast?.('👨‍👩‍👧 Family info saved', 'ok'); load() }
-    else window.__krToast?.(r.error || 'Save failed', 'error')
+    else window.__krToast?.(r.error || t('Save failed'), 'error')
   } finally { famSaving.value = false }
 }
 async function ackMoveIn(h) {
@@ -194,7 +194,7 @@ async function ackMoveIn(h) {
   try {
     const r = await apiCall('app-portal', { action: 'movein-ack', id: h.id })
     if (r.ok) { window.__krToast?.('✅ Move-in checklist acknowledged', 'ok'); load() }
-    else window.__krToast?.(r.error || 'Acknowledge failed', 'error')
+    else window.__krToast?.(r.error || t('Acknowledge failed'), 'error')
   } finally { profileBusy.value = '' }
 }
 async function viewDoc(d) {

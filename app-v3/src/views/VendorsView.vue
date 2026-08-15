@@ -80,10 +80,10 @@ const kpis = computed(() => {
   const pendingInvoices = invoices.value.filter(i => i.status === 'Submitted').length
   return [
     { label: 'Partners', ico: '🛠️', value: ps.length, trend: active.length + ' active' },
-    { label: 'Open jobs', ico: '🔧', value: openJobs, trend: 'need action', ok: openJobs === 0 },
-    { label: 'Pending invoices', ico: '🧾', value: pendingInvoices, trend: 'awaiting decision' },
-    { label: 'Avg rating', ico: '⭐', value: avgRate, trend: 'of 5.0' },
-    { label: 'Total jobs', ico: '📈', value: totJobs, trend: 'all-time' },
+    { label: t('Open jobs'), ico: '🔧', value: openJobs, trend: 'need action', ok: openJobs === 0 },
+    { label: t('Pending invoices'), ico: '🧾', value: pendingInvoices, trend: 'awaiting decision' },
+    { label: t('Avg rating'), ico: '⭐', value: avgRate, trend: 'of 5.0' },
+    { label: t('Total jobs'), ico: '📈', value: totJobs, trend: 'all-time' },
     { label: 'Payouts', ico: '💰', value: money(totPaid), trend: 'paid to vendors' },
   ]
 })
@@ -99,14 +99,14 @@ const statusOptions = computed(() => [...new Set(partners.value.map(p => p.statu
 const catOptions = computed(() => cats.value.length ? cats.value : [...new Set(partners.value.map(p => p.cat).filter(Boolean))].sort())
 const catCounts = computed(() => {
   const m = {}
-  partners.value.forEach(p => { const c = p.cat || 'General / Other'; m[c] = (m[c] || 0) + 1 })
+  partners.value.forEach(p => { const c = p.cat || t('General / Other'); m[c] = (m[c] || 0) + 1 })
   return m
 })
 const filteredPartners = computed(() => {
   let out = partners.value
   const s = q.value.trim().toLowerCase()
   if (s) out = out.filter(p => p.id.toLowerCase().includes(s) || p.name.toLowerCase().includes(s) || (p.trade || '').toLowerCase().includes(s) || (p.cat || '').toLowerCase().includes(s))
-  if (catFilter.value) out = out.filter(p => (p.cat || 'General / Other') === catFilter.value)
+  if (catFilter.value) out = out.filter(p => (p.cat || t('General / Other')) === catFilter.value)
   if (tradeFilter.value) out = out.filter(p => p.trade === tradeFilter.value)
   if (statusFilter.value) out = out.filter(p => p.status === statusFilter.value)
   return [...out].sort((a, b) => (b.jobs || 0) - (a.jobs || 0))
@@ -116,12 +116,12 @@ const filteredPartners = computed(() => {
 const bq = ref('')
 const bCat = ref('')
 const STATUS_META = {
-  pending: { l: '⏳ Pending', ico: '🕐', color: '#E67E22', hint: 'Awaiting owner approval' },
-  open: { l: '📢 Open RFQ', ico: '📢', color: '#2F80ED', hint: 'Partners can quote' },
-  offers: { l: '💬 Offers', ico: '💬', color: '#8E44AD', hint: 'Quotes received' },
-  awarded: { l: '📋 Work Order', ico: '📋', color: '#16A085', hint: 'Awarded — start work' },
-  in_progress: { l: '🔧 In Progress', ico: '🔧', color: '#D35400', hint: 'Work underway' },
-  resolved: { l: '✅ Resolved', ico: '✅', color: '#27AE60', hint: 'Ready to close' },
+  pending: { l: '⏳ Pending', ico: '🕐', color: '#E67E22', hint: t('Awaiting owner approval') },
+  open: { l: '📢 Open RFQ', ico: '📢', color: '#2F80ED', hint: t('Partners can quote') },
+  offers: { l: '💬 Offers', ico: '💬', color: '#8E44AD', hint: t('Quotes received') },
+  awarded: { l: '📋 Work Order', ico: '📋', color: '#16A085', hint: t('Awarded — start work') },
+  in_progress: { l: '🔧 In Progress', ico: '🔧', color: '#D35400', hint: t('Work underway') },
+  resolved: { l: '✅ Resolved', ico: '✅', color: '#27AE60', hint: t('Ready to close') },
   closed: { l: '🏁 Closed', ico: '🏁', color: '#7F8C8D', hint: 'Done' },
   cancelled: { l: '🚫 Cancelled', ico: '🚫', color: '#C0392B', hint: 'Cancelled' },
 }
@@ -137,11 +137,11 @@ const colJobs = (st) => filteredSvc.value.filter(j => j.status === st)
 const boardKpis = computed(() => {
   const all = svcJobs.value
   return [
-    { l: 'Pending approval', v: all.filter(j => j.status === 'pending').length, c: '#E67E22' },
-    { l: 'Open RFQ', v: all.filter(j => j.status === 'open').length, c: '#2F80ED' },
-    { l: 'Offers in', v: all.filter(j => j.status === 'offers').length, c: '#8E44AD' },
-    { l: 'Active work orders', v: all.filter(j => ['awarded', 'in_progress'].includes(j.status)).length, c: '#16A085' },
-    { l: 'Budget exposure', v: money(all.filter(j => j.budget_amount > 0).reduce((s, j) => s + j.budget_amount, 0)), c: '#1A2433' },
+    { l: t('Pending approval'), v: all.filter(j => j.status === 'pending').length, c: '#E67E22' },
+    { l: t('Open RFQ'), v: all.filter(j => j.status === 'open').length, c: '#2F80ED' },
+    { l: t('Offers in'), v: all.filter(j => j.status === 'offers').length, c: '#8E44AD' },
+    { l: t('Active work orders'), v: all.filter(j => ['awarded', 'in_progress'].includes(j.status)).length, c: '#16A085' },
+    { l: t('Budget exposure'), v: money(all.filter(j => j.budget_amount > 0).reduce((s, j) => s + j.budget_amount, 0)), c: '#1A2433' },
     { l: 'Completed', v: all.filter(j => ['resolved', 'closed'].includes(j.status)).length, c: '#27AE60' },
   ]
 })
@@ -161,7 +161,7 @@ async function openJob(j) {
   drawerLoading.value = true; err.value = ''
   try {
     const r = await apiCall('app-vendors', { action: 'rfq-get', id: j.id })
-    if (!r.ok) { err.value = r.error || 'Failed to load.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load.'); return }
     selJob.value = r.job; selOffers.value = r.offers || []; selMt.value = r.mt || null
     offerForm.value = { kind: 'accept', amount: r.job.budget_amount > 0 ? r.job.budget_amount : '', note: '' }
     drawerOpen.value = true
@@ -237,7 +237,7 @@ const unitsList = computed(() => data.list('units').map(u => ({ id: u.id, name: 
 const propsList = computed(() => data.list('properties').map(p => ({ id: p.id, name: p.name })))
 const mtCandidates = computed(() => jobs.value.filter(j => j.status === 'Open' && !j.vendor).map(j => ({ id: j.id, title: j.title })))
 function openNew() {
-  newForm.value = { title: '', cat: cats.value[0] || 'General / Other', desc: '', unit: '', prop: '', budget_type: 'tentative', budget_amount: '', deadline: '', notes: '', from_mt: '' }
+  newForm.value = { title: '', cat: cats.value[0] || t('General / Other'), desc: '', unit: '', prop: '', budget_type: 'tentative', budget_amount: '', deadline: '', notes: '', from_mt: '' }
   newOpen.value = true
 }
 async function createJob() {
@@ -250,7 +250,7 @@ async function createJob() {
     deadline: f.deadline, notes: f.notes.trim(), from_mt: f.from_mt || undefined,
   })
   if (!r.ok) { notify('⚠️ ' + (r.error || 'Create failed')); return }
-  notify(`✅ ${r.id} created — ${r.status === 'open' ? 'posted for quotation' : 'pending owner approval'}`)
+  notify(`✅ ${r.id} ${t('created')} — ${r.status === 'open' ? t('posted for quotation') : t('pending owner approval')}`)
   newOpen.value = false
   await load()
 }
@@ -380,7 +380,7 @@ async function openPartner(p) {
   partnerLoading.value = true; err.value = ''
   try {
     const r = await apiCall('app-vendors', { action: 'partner-get', id: p.id })
-    if (!r.ok) { err.value = r.error || 'Failed to load partner.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load partner.'); return }
     selPartner.value = r.partner || p
     pJobs.value = r.jobs || []
     pInvoices.value = r.invoices || []
@@ -527,7 +527,7 @@ function exportCsv(kind) {
             <tbody>
               <tr v-for="p in filteredPartners" :key="p.id" style="cursor:pointer" @click="openPartner(p)">
                 <td style="white-space:nowrap"><b>{{ p.name }}</b><div class="c-sub" style="font-size:11.5px">{{ p.id }}<template v-if="p.sub_email"> · {{ p.sub_email }}</template></div></td>
-                <td style="white-space:nowrap"><span class="badge b-blue">{{ p.cat || 'General / Other' }}</span></td>
+                <td style="white-space:nowrap"><span class="badge b-blue">{{ t(p.cat) || t('General / Other') }}</span></td>
                 <td style="white-space:nowrap" class="c-sub">{{ p.trade || '—' }}</td>
                 <td style="white-space:nowrap" class="c-sub">{{ p.phone || '—' }}</td>
                 <td style="white-space:nowrap"><span class="badge" :class="badge(p.status)">{{ p.status }}</span></td>

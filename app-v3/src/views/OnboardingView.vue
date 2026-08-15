@@ -32,10 +32,10 @@ const kpis = computed(() => {
   const units = new Set(as.map(a => a.unit).filter(Boolean)).size
   return [
     { label: 'Applications', ico: '📋', value: as.length, trend: 'tenant onboarding' },
-    { label: 'Completed', ico: '✅', value: done, trend: done ? 'tenants moved in' : 'none yet', ok: done > 0 },
+    { label: 'Completed', ico: '✅', value: done, trend: done ? t('tenants moved in') : t('none yet'), ok: done > 0 },
     { label: 'Submitted', ico: '📤', value: submitted, trend: submitted ? 'KYC review pending' : 'none', ok: submitted === 0 },
     { label: 'Started', ico: '📝', value: started, trend: started ? 'draft applications' : 'none', ok: started === 0 },
-    { label: 'Pipeline rent', ico: '💰', value: money(pipeline), trend: 'monthly rent in progress' },
+    { label: t('Pipeline rent'), ico: '💰', value: money(pipeline), trend: 'monthly rent in progress' },
     { label: 'Units', ico: '🚪', value: units, trend: months + ' lease-months total' },
   ]
 })
@@ -222,7 +222,7 @@ function detailFields(row) {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

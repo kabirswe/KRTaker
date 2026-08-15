@@ -84,7 +84,7 @@ const summary = computed(() => {
   const on = NOTIFY_ROWS.filter(r => prefs.value[r.k]).length
   if (on) items.push(`${on} notification channel${on > 1 ? 's' : ''} on`)
   if (twofaState.value.enabled) items.push('Two-factor authentication enabled')
-  if (pushState.value.enabled) items.push('Browser push notifications on')
+  if (pushState.value.enabled) items.push(t('Browser push notifications on'))
   return items
 })
 
@@ -93,12 +93,12 @@ async function saveProfile() {
   body.org = org.value || auth.user?.org || ''
   const r = await apiCall('app-profile', body)
   if (r.ok) { auth.user = r.user || auth.user; return true }
-  err.value = r.error || 'Failed to save profile.'
+  err.value = r.error || t('Failed to save profile.')
   return false
 }
 
 async function createProperty() {
-  if (!prop.value.name.trim()) { err.value = 'Give your first property a name.'; return false }
+  if (!prop.value.name.trim()) { err.value = t('Give your first property a name.'); return false }
   const payload = {
     name: prop.value.name.trim(),
     type: prop.value.type,
@@ -112,7 +112,7 @@ async function createProperty() {
     description: '',
   }
   const r = await apiCall('app-crud', { action: 'create', collection: 'properties', data: payload })
-  if (!r.ok) { err.value = r.error || 'Failed to create property.'; return false }
+  if (!r.ok) { err.value = r.error || t('Failed to create property.'); return false }
   createdProp.value = { name: payload.name, id: r.id || '' }
   await data.bootstrap()
   track('setup_property_created', {})
@@ -133,7 +133,7 @@ async function createProperty() {
       await data.bootstrap()
       track('setup_unit_created', {})
     } else {
-      err.value = ur.error || 'Property added, but the unit could not be created — you can add it from Units later.'
+      err.value = ur.error || t('Property added, but the unit could not be created — you can add it from Units later.')
     }
   }
   return true
@@ -153,7 +153,7 @@ async function createTenant() {
     sub_email: (auth.user?.email || '').trim(),
   }
   const r = await apiCall('app-crud', { action: 'create', collection: 'tenants', data: payload })
-  if (!r.ok) { err.value = r.error || 'Failed to create the tenant — you can add them later from Tenants.'; return false }
+  if (!r.ok) { err.value = r.error || t('Failed to create the tenant — you can add them later from Tenants.'); return false }
   createdTenant.value = { name: payload.name, id: r.id || '' }
   await data.bootstrap()
   track('setup_tenant_created', {})
@@ -163,7 +163,7 @@ async function createTenant() {
 async function savePrefs() {
   const r = await apiCall('app-settings-save', { settings: prefs.value })
   if (r.ok) { track('setup_prefs_saved', {}); return true }
-  err.value = r.error || 'Failed to save preferences.'
+  err.value = r.error || t('Failed to save preferences.')
   return false
 }
 
@@ -172,17 +172,17 @@ async function sendTwofa() {
   try {
     const r = await apiCall('app-2fa-send', {})
     if (r.ok) twofaState.value.sent = true
-    else err.value = r.error || 'Could not send the code.'
+    else err.value = r.error || t('Could not send the code.')
   } finally { busy.value = false }
 }
 
 async function enableTwofa() {
-  if (!twofaCode.value.trim()) { err.value = 'Enter the 6-digit code from your email.'; return }
+  if (!twofaCode.value.trim()) { err.value = t('Enter the 6-digit code from your email.'); return }
   busy.value = true; err.value = ''
   try {
     const r = await apiCall('app-2fa-enable', { method: 'email', code: twofaCode.value.trim() })
     if (r.ok) { twofaState.value.enabled = true; track('setup_2fa_enabled', {}); }
-    else err.value = r.error || 'Code did not match — try again.'
+    else err.value = r.error || t('Code did not match — try again.')
   } finally { busy.value = false }
 }
 
@@ -190,13 +190,13 @@ async function enablePush() {
   busy.value = true; err.value = ''
   try {
     if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
-      err.value = 'Push is not supported in this browser — you can enable it later from Settings.'
+      err.value = t('Push is not supported in this browser — you can enable it later from Settings.')
       return
     }
     if (pushState.value.notifPermission !== 'granted') {
       const perm = await Notification.requestPermission()
       pushState.value.notifPermission = perm
-      if (perm !== 'granted') { err.value = 'Permission denied — you can enable push later from Settings.'; return }
+      if (perm !== 'granted') { err.value = t('Permission denied — you can enable push later from Settings.'); return }
     }
     const reg = await navigator.serviceWorker.ready
     if (!pushState.value.vapid) {
@@ -208,9 +208,9 @@ async function enablePush() {
     const json = sub.toJSON()
     const r = await apiCall('app-push', { action: 'save', endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, ua: navigator.userAgent.slice(0, 200) })
     if (r.ok) { pushState.value.enabled = true; track('setup_push_enabled', {}); }
-    else err.value = r.error || 'Failed to save push subscription.'
+    else err.value = r.error || t('Failed to save push subscription.')
   } catch (e) {
-    err.value = 'Could not subscribe: ' + (e && e.message ? e.message : e)
+    err.value = t('Could not subscribe: ') + (e && e.message ? e.message : e)
   } finally { busy.value = false }
 }
 

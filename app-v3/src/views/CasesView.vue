@@ -25,7 +25,7 @@ const TYPE_META = {
   eviction: { ico: '🚪', label: 'Eviction', cls: 'b-red' },
   arrears: { ico: '💰', label: 'Rent arrears', cls: 'b-orange' },
   dispute: { ico: '⚖️', label: 'Dispute', cls: 'b-blue' },
-  default: { ico: '⚖️', label: 'Legal', cls: 'b-gray' },
+  default: { ico: '⚖️', label: t('Legal'), cls: 'b-gray' },
 }
 const typeMeta = (t) => TYPE_META[t] || TYPE_META.default
 const daysUntil = (d) => { if (!d) return null; const t = new Date(String(d).slice(0, 10) + 'T00:00:00'); if (isNaN(t)) return null; return Math.round((t - Date.now()) / 86400000) }
@@ -33,9 +33,9 @@ const fmtDate = (d) => { if (!d) return '—'; const t = new Date(String(d).slic
 const hearingNote = (c) => {
   const n = daysUntil(c.next_hearing)
   if (n === null) return ''
-  if (n < 0) return 'overdue by ' + (-n) + 'd'
-  if (n === 0) return 'today'
-  return n + 'd away'
+  if (n < 0) return t('overdue by ') + (-n) + 'd'
+  if (n === 0) return t('today')
+  return n + t('d away')
 }
 
 // ── KPIs ──
@@ -48,11 +48,11 @@ const kpis = computed(() => {
   const next = hearings[0] || ''
   const n = daysUntil(next)
   return [
-    { label: 'Cases', ico: '⚖️', value: cs.length, trend: 'legal matters tracked' },
-    { label: 'Open', ico: '🟥', value: open, trend: open === cs.length ? 'all active' : open + ' of ' + cs.length, ok: open <= 2 },
+    { label: t('Cases'), ico: '⚖️', value: cs.length, trend: 'legal matters tracked' },
+    { label: t('Open'), ico: '🟥', value: open, trend: open === cs.length ? 'all active' : open + ' of ' + cs.length, ok: open <= 2 },
     { label: 'Types', ico: '🗂️', value: types, trend: 'eviction · arrears · dispute' },
     { label: 'Lawyers', ico: '👨‍⚖️', value: lawyers, trend: 'counsel assigned' },
-    { label: 'Next hearing', ico: '📅', value: next ? fmtDate(next) : '—', trend: next ? (n !== null ? (n < 0 ? 'overdue by ' + (-n) + 'd' : (n === 0 ? 'today' : n + 'd away')) : '') : 'none scheduled' },
+    { label: t('Next hearing'), ico: '📅', value: next ? fmtDate(next) : '—', trend: next ? (n !== null ? (n < 0 ? t('overdue by ') + (-n) + 'd' : (n === 0 ? t('today') : n + t('d away'))) : '') : 'none scheduled' },
     { label: 'Stages', ico: '🔄', value: cs.length ? 'Active' : '—', trend: 'case pipeline live' },
   ]
 })
@@ -117,7 +117,7 @@ async function submitCase() {
   const f = caseForm.value
   if (!f.ref_lease) { window.__krToast?.('❌ Select a lease'); return }
   const r = await apiCall('app-legal', { action: 'case-create', ref_lease: f.ref_lease, type: f.type, title: f.title.trim(), stage: f.stage.trim(), lawyer: f.lawyer.trim(), next_hearing: f.next_hearing, notes: f.notes.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   caseModal.value = false
   window.__krToast?.('✅ ' + (r.id || 'Case') + ' opened', 'ok')
   await data.bootstrap()
@@ -129,7 +129,7 @@ function openUpdate(c) {
 async function saveUpdate() {
   const f = updForm.value
   const r = await apiCall('app-legal', { action: 'case-update', id: sel.value.id, stage: f.stage.trim(), status: f.status, lawyer: f.lawyer.trim(), next_hearing: f.next_hearing, notes: f.notes.trim(), note: f.note.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ ' + sel.value.id + ' updated', 'ok')
   await data.bootstrap()
   refreshSel()
@@ -139,7 +139,7 @@ async function addEvent() {
   const f = evForm.value
   if (!f.body.trim()) { window.__krToast?.('❌ Event body is required'); return }
   const r = await apiCall('app-legal', { action: 'case-event', id: sel.value.id, ev_type: f.ev_type, body: f.body.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   evForm.value = { ev_type: 'note', body: '' }
   window.__krToast?.('✅ Timeline event added', 'ok')
   await data.bootstrap()
@@ -331,7 +331,7 @@ function refreshSel() {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65" v-html="sel.notes"></div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <template v-if="canManage">

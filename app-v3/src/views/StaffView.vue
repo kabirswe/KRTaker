@@ -32,7 +32,7 @@ const ROLE_META = {
 const roleMeta = (r) => ROLE_META[r] || ROLE_META.other
 const SHIFT_META = { day: '☀️ Day', night: '🌙 Night', rotating: '🔄 Rotating' }
 const stCls = (s) => s === 'active' ? 'b-green' : (s === 'on_leave' ? 'b-orange' : (s === 'terminated' ? 'b-red' : 'b-gray'))
-const stLabel = (s) => s === 'active' ? 'Active' : (s === 'on_leave' ? 'On leave' : (s === 'terminated' ? 'Terminated' : (s || '—')))
+const stLabel = (s) => s === 'active' ? t('Active') : (s === 'on_leave' ? t('On leave') : (s === 'terminated' ? t('Terminated') : (s || '—')))
 
 // ── property scoping ──
 const propFilter = ref('')
@@ -49,10 +49,10 @@ const kpis = computed(() => {
   return [
     { label: 'Staff', ico: '👥', value: ss.length, trend: 'building team roster' },
     { label: 'Active', ico: '✅', value: active, trend: active === ss.length ? 'all on duty' : active + ' of ' + ss.length, ok: active >= ss.length * 0.6 },
-    { label: 'On leave', ico: '🏖️', value: leave, trend: leave ? 'away from post' : 'none', ok: leave === 0 },
+    { label: t('On leave'), ico: '🏖️', value: leave, trend: leave ? 'away from post' : 'none', ok: leave === 0 },
     { label: 'Terminated', ico: '⛔', value: term, trend: term ? 'removed' : 'none', ok: term === 0 },
     { label: 'Roles', ico: '🧑‍💼', value: roles, trend: 'positions covered' },
-    { label: 'Avg salary', ico: '💰', value: avg ? money(avg) : '—', trend: 'per month' },
+    { label: t('Avg salary'), ico: '💰', value: avg ? money(avg) : '—', trend: 'per month' },
   ]
 })
 
@@ -349,7 +349,7 @@ function detailFields(row) {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

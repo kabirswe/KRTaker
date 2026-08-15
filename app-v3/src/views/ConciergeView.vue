@@ -31,22 +31,22 @@ const holdings = ref([])
 const cfg = ref({})
 
 const SERVICES = [
-  { v: 'namjari', l: 'Namjari / Mutation', ico: '🔄' },
+  { v: 'namjari', l: t('Namjari / Mutation'), ico: '🔄' },
   { v: 'e_porcha', l: 'e-Porcha', ico: '📜' },
-  { v: 'khatian', l: 'Khatian', ico: '🧾' },
-  { v: 'holding_tax', l: 'Holding Tax', ico: '🏛️' },
-  { v: 'registration', l: 'Registration', ico: '📝' },
+  { v: 'khatian', l: t('Khatian'), ico: '🧾' },
+  { v: 'holding_tax', l: t('Holding Tax'), ico: '🏛️' },
+  { v: 'registration', l: t('Registration'), ico: '📝' },
 ]
 const DOC_KINDS = [
   { v: 'application', l: 'Application', ico: '📄' },
   { v: 'porcha', l: 'Porcha', ico: '🗺️' },
-  { v: 'khatian', l: 'Khatian', ico: '🧾' },
-  { v: 'mutation_cert', l: 'Mutation cert', ico: '📜' },
-  { v: 'holding_bill', l: 'Holding bill', ico: '🏛️' },
-  { v: 'nid', l: 'NID', ico: '🪪' },
-  { v: 'other', l: 'Other', ico: '📎' },
+  { v: 'khatian', l: t('Khatian'), ico: '🧾' },
+  { v: 'mutation_cert', l: t('Mutation cert'), ico: '📜' },
+  { v: 'holding_bill', l: t('Holding bill'), ico: '🏛️' },
+  { v: 'nid', l: t('NID'), ico: '🪪' },
+  { v: 'other', l: t('Other'), ico: '📎' },
 ]
-const docKind = (k) => DOC_KINDS.find(x => x.v === k) || { v: k, l: k || 'Other', ico: '📎' }
+const docKind = (k) => DOC_KINDS.find(x => x.v === k) || { v: k, l: k || t('Other'), ico: '📎' }
 // Fee/est-days preview from concierge config (keys: namjari_fee, e_porcha_fee, khatian_fee, holding_tax_fee, registration_fee + *_days)
 const feePreview = computed(() => {
   const f = form.value.service
@@ -55,12 +55,12 @@ const feePreview = computed(() => {
   if (fee === undefined && days === undefined) return null
   return { fee: fee !== undefined ? money(fee) : null, days: days !== undefined ? days + ' days' : null }
 })
-const svc = (s) => SERVICES.find(x => x.v === s) || { v: s, l: s || 'Service', ico: '🛎️' }
+const svc = (s) => SERVICES.find(x => x.v === s) || { v: s, l: s || t('Service'), ico: '🛎️' }
 const svcBadgeCls = (s) => ({ namjari: 'b-blue', e_porcha: 'b-orange', khatian: 'b-gray', holding_tax: 'b-blue', registration: 'b-purple' }[s] || 'b-gray')
 
 const STATUSES = ['Submitted', 'Under_Review', 'Docs_Requested', 'In_Progress', 'Awaiting_Fee', 'Completed', 'Rejected', 'Cancelled']
 const stCls = (s) => s === 'Completed' ? 'b-green' : (s === 'In_Progress' || s === 'Under_Review' || s === 'Docs_Requested' ? 'b-blue' : (s === 'Awaiting_Fee' ? 'b-orange' : (s === 'Rejected' || s === 'Cancelled' ? 'b-red' : 'b-gray')))
-const stLabel = (s) => String(s || '—').replace(/_/g, ' ')
+const stLabel = (s) => t(String(s || '—').replace(/_/g, ' '))
 const parseTimeline = (r) => {
   const t = r && r.timeline
   if (Array.isArray(t)) return t
@@ -72,7 +72,7 @@ async function load() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-concierge', { action: 'summary' })
-    if (!r.ok) { err.value = r.error || 'Failed to load concierge data.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load concierge data.'); return }
     reqAll.value = (r.requests && r.requests.rows) || r.requests || []
     holdings.value = (r.holdings && r.holdings.rows) || r.holdings || []
     cfg.value = r.config || {}
@@ -90,11 +90,11 @@ const kpis = computed(() => {
   const pendingHt = holdings.value.filter(h => h.status === 'Due' || h.status === 'Overdue').length
   return [
     { label: 'Requests', ico: '🛎️', value: rs.length, trend: 'legal concierge services' },
-    { label: 'In progress', ico: '⏳', value: active, trend: active ? 'under review / working' : 'none', ok: active === 0 },
-    { label: 'Awaiting fee', ico: '🧾', value: awaitFee.length, trend: awaitFee.length ? money(awaitFee.reduce((s, r) => s + (r.fee || 0), 0)) + ' pending' : 'none', ok: awaitFee.length === 0 },
-    { label: 'Completed', ico: '✅', value: done, trend: done ? 'delivered' : 'none yet', ok: done > 0 },
-    { label: 'Fees collected', ico: '💵', value: money(collected), trend: 'paid service fees' },
-    { label: 'Holding taxes', ico: '🏛️', value: holdings.value.length, trend: pendingHt ? pendingHt + ' due/overdue' : 'all settled', ok: pendingHt === 0 },
+    { label: t('In progress'), ico: '⏳', value: active, trend: active ? 'under review / working' : 'none', ok: active === 0 },
+    { label: t('Awaiting fee'), ico: '🧾', value: awaitFee.length, trend: awaitFee.length ? money(awaitFee.reduce((s, r) => s + (r.fee || 0), 0)) + ' pending' : 'none', ok: awaitFee.length === 0 },
+    { label: t('Completed'), ico: '✅', value: done, trend: done ? 'delivered' : t('none yet'), ok: done > 0 },
+    { label: t('Fees collected'), ico: '💵', value: money(collected), trend: 'paid service fees' },
+    { label: t('Holding taxes'), ico: '🏛️', value: holdings.value.length, trend: pendingHt ? pendingHt + ' due/overdue' : t('all settled'), ok: pendingHt === 0 },
   ]
 })
 
@@ -131,7 +131,7 @@ async function createRequest() {
   const f = form.value
   const payload = { action: 'request-create', service: f.service, parcel: f.parcel, prop: f.prop, district: f.district.trim(), upazila: f.upazila.trim(), mouza: f.mouza.trim(), khatian: f.khatian.trim(), dag: f.dag.trim(), notes: f.notes.trim() }
   const r = await apiCall('app-concierge', payload)
-  if (!r.ok) { alert(r.error || 'Create failed'); return }
+  if (!r.ok) { alert(r.error || t('Create failed')); return }
   showForm.value = false
   await load()
 }
@@ -174,7 +174,7 @@ function openEventForm() { eventNote.value = ''; showEventForm.value = true }
 async function addEvent() {
   if (!eventNote.value.trim()) return
   const res = await apiCall('app-concierge', { action: 'request-event', id: sel.value.id, note: eventNote.value.trim() })
-  if (!res.ok) { alert(res.error || 'Add event failed'); return }
+  if (!res.ok) { alert(res.error || t('Add event failed')); return }
   showEventForm.value = false
   await load()
 }
@@ -197,25 +197,25 @@ async function loadDocs(id) {
 async function openDetail(r) { sel.value = r; await loadDocs(r.id) }
 function openDocForm() { docKindVal.value = 'other'; docFile.value = null; showDocForm.value = true }
 async function uploadDoc() {
-  if (!docFile.value) { alert('Choose a file first.'); return }
+  if (!docFile.value) { alert(t('Choose a file first.')); return }
   const fd = new FormData()
   fd.append('request', sel.value.id)
   fd.append('kind', docKindVal.value)
   fd.append('file', docFile.value)
   const r = await apiUpload('app-concierge?action=doc-upload', fd)
-  if (!r.ok) { alert(r.error || 'Upload failed'); return }
+  if (!r.ok) { alert(r.error || t('Upload failed')); return }
   showDocForm.value = false
   await loadDocs(sel.value.id)
 }
 async function removeDoc(d) {
   if (!confirm(`Remove ${d.id} (${d.name})?`)) return
   const r = await apiCall('app-concierge', { action: 'doc-remove', id: d.id })
-  if (!r.ok) { alert(r.error || 'Remove failed'); return }
+  if (!r.ok) { alert(r.error || t('Remove failed')); return }
   await loadDocs(sel.value.id)
 }
 function downloadDoc(d) {
   apiBlob('app-concierge?action=doc-download&id=' + d.id).then(url => {
-    if (!url) { alert('Download failed.'); return }
+    if (!url) { alert(t('Download failed.')); return }
     const a = document.createElement('a')
     a.href = url; a.download = d.name || d.id; a.click()
     setTimeout(() => URL.revokeObjectURL(url), 4000)
@@ -231,7 +231,7 @@ async function createHolding() {
   const f = htForm.value
   if (!f.holding_no.trim() || !f.fy.trim()) { alert('Holding no and FY are required.'); return }
   const r = await apiCall('app-concierge', { action: 'holding-create', city_corp: f.city_corp, ward: f.ward.trim(), holding_no: f.holding_no.trim(), fy: f.fy.trim(), annual_value: +f.annual_value || 0, rate_pct: +f.rate_pct || 0, due_date: f.due_date })
-  if (!r.ok) { alert(r.error || 'Create failed'); return }
+  if (!r.ok) { alert(r.error || t('Create failed')); return }
   showHtForm.value = false
   await load()
 }
@@ -242,7 +242,7 @@ function openPayForm(h) { payFor.value = h; payReceipt.value = ''; showPayForm.v
 async function payHolding() {
   if (!payReceipt.value.trim()) return
   const r = await apiCall('app-concierge', { action: 'holding-pay', id: payFor.value.id, receipt_no: payReceipt.value.trim() })
-  if (!r.ok) { alert(r.error || 'Pay failed'); return }
+  if (!r.ok) { alert(r.error || t('Pay failed')); return }
   showPayForm.value = false
   await load()
 }
@@ -477,7 +477,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
             </div>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

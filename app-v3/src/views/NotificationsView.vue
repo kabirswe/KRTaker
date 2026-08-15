@@ -18,10 +18,10 @@ const timeAgo = (ts) => {
   const d = new Date(String(ts).replace(' ', 'T'))
   if (isNaN(d)) return String(ts).slice(0, 10)
   const s = (Date.now() - d.getTime()) / 1000
-  if (s < 60) return 'just now'
-  if (s < 3600) return Math.max(1, Math.floor(s / 60)) + 'm ago'
-  if (s < 86400) return Math.floor(s / 3600) + 'h ago'
-  if (s < 604800) return Math.floor(s / 86400) + 'd ago'
+  if (s < 60) return t('just now')
+  if (s < 3600) return Math.max(1, Math.floor(s / 60)) + t('m ago')
+  if (s < 86400) return Math.floor(s / 3600) + t('h ago')
+  if (s < 604800) return Math.floor(s / 86400) + t('d ago')
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -38,7 +38,7 @@ const typeCounts = computed(() => {
   return m
 })
 const typePills = computed(() => {
-  const pills = [{ type: 'all', label: lang.value === 'bn' ? 'সব' : 'All', count: alerts.value.length }]
+  const pills = [{ type: 'all', label: t('All'), count: alerts.value.length }]
   Object.keys(typeCounts.value).forEach(t => {
     const meta = notifMeta(t)
     pills.push({ type: t, label: lang.value === 'bn' ? (meta.bn || meta.label) : meta.label, count: typeCounts.value[t] })
@@ -97,15 +97,15 @@ onMounted(load)
   <div>
     <div class="page-head">
       <div>
-        <h1>🔔 {{ lang === 'bn' ? 'নোটিফিকেশন' : 'Notifications' }}</h1>
+        <h1>🔔 {{ t('Notifications') }}</h1>
         <div class="sub">
           <template v-if="alerts.length">{{ alerts.length }} notification{{ alerts.length === 1 ? '' : 's' }} · <span :style="unread ? 'color:var(--danger);font-weight:800' : ''">{{ unread }} unread</span></template>
           <template v-else>{{ t('Your inbox is quiet') }}</template>
         </div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" :disabled="busy || !unread" @click="markAllRead" style="padding:9px 14px;font-size:12.5px">✓ {{ lang === 'bn' ? 'সব পঠিত করুন' : 'Mark all read' }}</button>
-        <button class="btn-ghost" :disabled="busy || !alerts.length" @click="dismissAll" style="padding:9px 14px;font-size:12.5px">🗑 {{ lang === 'bn' ? 'সব মুছুন' : 'Clear all' }}</button>
+        <button class="btn-ghost" :disabled="busy || !unread" @click="markAllRead" style="padding:9px 14px;font-size:12.5px">✓ {{ t('Mark all read') }}</button>
+        <button class="btn-ghost" :disabled="busy || !alerts.length" @click="dismissAll" style="padding:9px 14px;font-size:12.5px">🗑 {{ t('Clear all') }}</button>
       </div>
     </div>
 

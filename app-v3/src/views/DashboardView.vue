@@ -19,7 +19,7 @@ const isResident = computed(() => isTenant.value || isPartner.value)
 const isStaff = computed(() => !isResident.value)
 
 const roleLabel = computed(() => {
-  const m = { superadmin: 'Super Admin', owner: 'Owner', manager: 'Property Manager', staff: 'Staff', tenant: 'Tenant', partner: 'Partner' }
+  const m = { superadmin: t('Super Admin'), owner: t('Owner'), manager: t('Property Manager'), staff: t('Staff'), tenant: t('Tenant'), partner: t('Partner') }
   return m[role.value] || role.value
 })
 
@@ -73,7 +73,7 @@ const expiring = computed(() => list('leases')
   .filter(l => l._days >= 0 && l._days <= 90)
   .sort((a, b) => a._days - b._days)
   .slice(0, 5))
-const daysLabel = (d) => d === 0 ? 'today' : d === 1 ? 'tomorrow' : `${d} days`
+const daysLabel = (d) => d === 0 ? t('today') : d === 1 ? 'tomorrow' : `${d} days`
 const unitName = (id) => list('units').find(u => u.id === id)?.name || id || '—'
 const tenantName = (id) => list('tenants').find(t => t.id === id)?.name || id || '—'
 
@@ -90,7 +90,7 @@ const myOpenTickets = computed(() => myTickets.value.filter(t => t.status === 'O
 const myMaint = computed(() => list('maintenance_requests'))
 const myMaintOpen = computed(() => myMaint.value.filter(m => m.status !== 'Closed'))
 const maintBadge = (s) => {
-  const m = { Open: ['b-red', 'Open'], 'In Progress': ['b-orange', 'In progress'], Pending: ['b-orange', 'Pending'], Completed: ['b-green', 'Completed'], Closed: ['b-green', 'Closed'] }
+  const m = { Open: ['b-red', t('Open')], 'In Progress': ['b-orange', t('In progress')], Pending: ['b-orange', t('Pending')], Completed: ['b-green', t('Completed')], Closed: ['b-green', t('Closed')] }
   const r = m[s] || ['b-gray', s || '—']
   return { cls: r[0], label: r[1] }
 }
@@ -106,13 +106,13 @@ const actions = computed(() => {
     { label: lang.value === 'bn' ? 'ভাড়া পরিশোধ' : 'Pay rent', ico: '💳', to: '/invoices' },
     { label: lang.value === 'bn' ? 'টিকেট তৈরি' : 'Raise ticket', ico: '🔧', to: '/maintenance' },
     { label: lang.value === 'bn' ? 'আমার লিজ' : 'My lease', ico: '📄', to: '/leases' },
-    { label: 'Ask AI', ico: '🤖', to: '/ai' },
+    { label: t('Ask AI'), ico: '🤖', to: '/ai' },
   ]
   if (isPartner.value) return [
     { label: lang.value === 'bn' ? 'আমার টিকেট' : 'My tickets', ico: '🔧', to: '/maintenance' },
     { label: lang.value === 'bn' ? 'ইনভয়েস' : 'Invoices', ico: '🧾', to: '/partner-invoices' },
     { label: lang.value === 'bn' ? 'পেআউট' : 'Payouts', ico: '💰', to: '/vendor-payouts' },
-    { label: 'Ask AI', ico: '🤖', to: '/ai' },
+    { label: t('Ask AI'), ico: '🤖', to: '/ai' },
   ]
   return [
     { label: lang.value === 'bn' ? 'নতুন ইনভয়েস' : 'New invoice', ico: '🧾', to: '/invoices' },
@@ -120,7 +120,7 @@ const actions = computed(() => {
     { label: lang.value === 'bn' ? 'মেইনটেন্যান্স' : 'Maintenance', ico: '🔧', to: '/maintenance' },
     { label: lang.value === 'bn' ? 'রিপোর্ট' : 'Reports', ico: '📈', to: '/analytics' },
     { label: lang.value === 'bn' ? 'লিগ্যাল' : 'Legal', ico: '⚖️', to: '/legal' },
-    { label: 'Ask AI', ico: '🤖', to: '/ai' },
+    { label: t('Ask AI'), ico: '🤖', to: '/ai' },
   ]
 })
 

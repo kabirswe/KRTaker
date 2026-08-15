@@ -18,13 +18,13 @@ const data = useDataStore()
 const auth = useAuthStore()
 const canManage = computed(() => ['superadmin', 'owner', 'manager'].includes(auth.user?.role || ''))
 
-const KIND_META = { renovation: { ico: '🛠️', label: 'Renovation', cls: 'b-blue' }, construction: { ico: '🏗️', label: 'Construction', cls: 'b-orange' }, repair: { ico: '🔧', label: 'Repair', cls: 'b-green' }, default: { ico: '🏗️', label: 'Project', cls: 'b-gray' } }
+const KIND_META = { renovation: { ico: '🛠️', label: 'Renovation', cls: 'b-blue' }, construction: { ico: '🏗️', label: 'Construction', cls: 'b-orange' }, repair: { ico: '🔧', label: 'Repair', cls: 'b-green' }, default: { ico: '🏗️', label: t('Project'), cls: 'b-gray' } }
 const kindMeta = (k) => KIND_META[k] || KIND_META.default
 const KIND_OPTS = ['construction', 'renovation', 'repair']
 const stCls = (s) => s === 'In_Progress' ? 'b-blue' : (s === 'Completed' ? 'b-green' : (s === 'Pending' ? 'b-orange' : (s === 'On_Hold' ? 'b-gray' : 'b-gray')))
-const stLabel = (s) => String(s || '—').replace(/_/g, ' ')
-const PHASES = { foundation: 'Foundation', structure: 'Structure', electrical: 'Electrical', plumbing: 'Plumbing', finishing: 'Finishing', handover: 'Handover' }
-const EXP_CATS = { material: { ico: '🧱', label: 'Material' }, labour: { ico: '👷', label: 'Labour' }, permit: { ico: '📜', label: 'Permit' }, design: { ico: '📐', label: 'Design' }, other: { ico: '📋', label: 'Other' } }
+const stLabel = (s) => t(String(s || '—').replace(/_/g, ' '))
+const PHASES = { foundation: 'Foundation', structure: 'Structure', electrical: t('Electrical'), plumbing: t('Plumbing'), finishing: 'Finishing', handover: 'Handover' }
+const EXP_CATS = { material: { ico: '🧱', label: 'Material' }, labour: { ico: '👷', label: 'Labour' }, permit: { ico: '📜', label: 'Permit' }, design: { ico: '📐', label: 'Design' }, other: { ico: '📋', label: t('Other') } }
 const MEDIA_KINDS = { photo: { ico: '📷', label: 'Photo' }, video: { ico: '🎬', label: 'Video' }, doc: { ico: '📄', label: 'Document' } }
 const daysTo = (d) => { if (!d) return null; const t = new Date(String(d).slice(0, 10) + 'T00:00:00'); if (isNaN(t)) return null; return Math.round((t - Date.now()) / 86400000) }
 const fmtDate = (d) => { if (!d) return '—'; const t = new Date(String(d).slice(0, 10) + 'T00:00:00'); return isNaN(t) ? String(d).slice(0, 10) : t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }
@@ -34,9 +34,9 @@ const endNote = (p) => {
   const n = daysTo(p.target_end)
   if (n === null) return ''
   if (p.status === 'Completed') return 'completed'
-  if (n < 0) return 'overdue by ' + (-n) + 'd'
-  if (n === 0) return 'due today'
-  return n + 'd left'
+  if (n < 0) return t('overdue by ') + (-n) + 'd'
+  if (n === 0) return t('due today')
+  return n + t('d left')
 }
 
 // ── data loading (enriched summary from API, bootstrap fallback) ──
@@ -79,11 +79,11 @@ const kpis = computed(() => {
   const overdue = ps.filter(p => p.status === 'In_Progress' && daysTo(p.target_end) !== null && daysTo(p.target_end) < 0).length
   return [
     { label: 'Projects', ico: '🏗️', value: ps.length, trend: 'build works tracked' },
-    { label: 'In progress', ico: '🔵', value: prog, trend: prog ? 'active sites' : 'none active' },
-    { label: 'Completed', ico: '✅', value: done, trend: done ? 'finished' : 'none yet' },
-    { label: 'Budget', ico: '💰', value: money(budget), trend: 'total planned spend' },
-    { label: 'Spent', ico: '🧾', value: money(spent), trend: budget ? Math.round(spent / budget * 100) + '% of budget used' : 'no spend yet' },
-    { label: 'Overdue', ico: '⏰', value: overdue, trend: overdue ? 'past target end' : 'on schedule', ok: overdue === 0 },
+    { label: t('In progress'), ico: '🔵', value: prog, trend: prog ? 'active sites' : t('none active') },
+    { label: t('Completed'), ico: '✅', value: done, trend: done ? 'finished' : t('none yet') },
+    { label: t('Budget'), ico: '💰', value: money(budget), trend: 'total planned spend' },
+    { label: t('Spent'), ico: '🧾', value: money(spent), trend: budget ? Math.round(spent / budget * 100) + '% of budget used' : t('no spend yet') },
+    { label: t('Overdue'), ico: '⏰', value: overdue, trend: overdue ? 'past target end' : t('on schedule'), ok: overdue === 0 },
   ]
 })
 
@@ -126,7 +126,7 @@ async function saveProject() {
   if (f.prop) body.prop = f.prop
   if (editing) body.id = f._id
   const r = await apiCall('app-build', body)
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   projModal.value = false
   window.__krToast?.('✅ ' + (editing ? f._id : r.id) + ' saved', 'ok')
   await afterMutation()
@@ -135,20 +135,20 @@ async function saveProject() {
 
 // ── project status / delete / report ──
 const PROJ_NEXT = { Planning: ['In_Progress'], In_Progress: ['On_Hold', 'Completed', 'Cancelled'], On_Hold: ['In_Progress', 'Completed', 'Cancelled'], Completed: [], Cancelled: [] }
-const NEXT_BTN = { In_Progress: { ico: '▶', label: 'Start work' }, On_Hold: { ico: '⏸', label: 'Hold' }, Completed: { ico: '✅', label: 'Complete' }, Cancelled: { ico: '✖', label: 'Cancel' }, }
+const NEXT_BTN = { In_Progress: { ico: '▶', label: 'Start work' }, On_Hold: { ico: '⏸', label: 'Hold' }, Completed: { ico: '✅', label: 'Complete' }, Cancelled: { ico: '✖', label: t('Cancel') }, }
 const nextStatuses = (p) => (PROJ_NEXT[p.status] || []).map(s => ({ to: s, ...NEXT_BTN[s] }))
 async function setStatus(p, to) {
-  if (to === 'Completed' && !confirm('Mark ' + p.id + ' as Completed?')) return
-  if (to === 'Cancelled' && !confirm('Cancel project ' + p.id + '?')) return
+  if (to === 'Completed' && !confirm('Mark ' + p.id + t(' as Completed?'))) return
+  if (to === 'Cancelled' && !confirm(t('Cancel project ') + p.id + '?')) return
   const r = await apiCall('app-build', { action: 'status', id: p.id, status: to })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ ' + p.id + ' → ' + stLabel(to), 'ok')
   await afterMutation()
 }
 async function askDeleteProject(p) {
-  if (!confirm('Delete project ' + p.id + ' (' + p.title + ')?\nThis removes its milestones, expenses and media too.')) return
+  if (!confirm(t('Delete project ') + p.id + ' (' + p.title + ')?\nThis removes its milestones, expenses and media too.')) return
   const r = await apiCall('app-build', { action: 'delete', id: p.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   closeDetail()
   window.__krToast?.('🗑 ' + p.id + ' deleted')
   await load()
@@ -219,23 +219,23 @@ async function saveMilestone() {
   const body = { action: editing ? 'milestone-save' : 'milestone-create', title: f.title.trim(), phase: f.phase, target_date: f.target_date, cost: parseInt(f.cost) || 0, paid: f.paid ? 1 : 0, notes: f.notes.trim() }
   if (editing) body.id = f._id; else body.project = sel.value.id
   const r = await apiCall('app-build', body)
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   msModal.value = false
-  window.__krToast?.('✅ ' + (r.id || 'Milestone') + ' saved', 'ok')
+  window.__krToast?.('✅ ' + (r.id || t('Milestone')) + ' saved', 'ok')
   await afterMutation()
 }
 const MS_NEXT = { Pending: ['In_Progress', 'Skipped'], In_Progress: ['Completed'], Completed: [], Skipped: [] }
-const MS_BTN = { In_Progress: { ico: '▶', label: 'Start' }, Skipped: { ico: '⏭', label: 'Skip' }, Completed: { ico: '✅', label: 'Done' } }
+const MS_BTN = { In_Progress: { ico: '▶', label: t('Start') }, Skipped: { ico: '⏭', label: t('Skip') }, Completed: { ico: '✅', label: t('Done') } }
 async function msStatus(m, to) {
   const r = await apiCall('app-build', { action: 'milestone-status', id: m.id, status: to })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ ' + m.id + ' → ' + stLabel(to), 'ok')
   await afterMutation()
 }
 async function askDeleteMilestone(m) {
-  if (!confirm('Delete milestone ' + m.id + ' (' + m.title + ')?')) return
+  if (!confirm(t('Delete milestone ') + m.id + ' (' + m.title + ')?')) return
   const r = await apiCall('app-build', { action: 'milestone-delete', id: m.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 ' + m.id + ' deleted')
   await afterMutation()
 }
@@ -253,21 +253,21 @@ async function saveExpense() {
   const body = { action: editing ? 'expense-save' : 'expense-add', label: f.label.trim(), amount: parseInt(f.amount) || 0, category: f.category, spent_on: f.spent_on, paid: f.paid ? 1 : 0, notes: f.notes.trim() }
   if (editing) body.id = f._id; else body.project = sel.value.id
   const r = await apiCall('app-build', body)
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   expModal.value = false
-  window.__krToast?.('✅ ' + (r.id || 'Expense') + ' saved', 'ok')
+  window.__krToast?.('✅ ' + (r.id || t('Expense')) + ' saved', 'ok')
   await afterMutation()
 }
 async function togglePaid(x) {
   const r = await apiCall('app-build', { action: 'expense-save', id: x.id, label: x.label, amount: x.amount, category: x.category, spent_on: x.spent_on, paid: x.paid ? 0 : 1, notes: x.notes || '' })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
-  window.__krToast?.('✅ ' + x.id + ' ' + (x.paid ? 'marked unpaid' : 'marked paid'), 'ok')
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
+  window.__krToast?.('✅ ' + x.id + ' ' + (x.paid ? 'marked unpaid' : t('marked paid')), 'ok')
   await afterMutation()
 }
 async function askDeleteExpense(x) {
-  if (!confirm('Delete expense ' + x.id + ' (' + x.label + ')?')) return
+  if (!confirm(t('Delete expense ') + x.id + ' (' + x.label + ')?')) return
   const r = await apiCall('app-build', { action: 'expense-delete', id: x.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 ' + x.id + ' deleted')
   await afterMutation()
 }
@@ -278,7 +278,7 @@ const uploadFile = ref(null)
 const fileInput = ref(null)
 function pickFile(e) { uploadFile.value = e.target.files?.[0] || null; if (uploadFile.value && !uploadForm.value.name) uploadForm.value.name = uploadFile.value.name }
 async function uploadMedia() {
-  if (!uploadFile.value) { window.__krToast?.('❌ Choose a file first'); return }
+  if (!uploadFile.value) { window.__krToast?.('❌ ' + t('Choose a file first')); return }
   const fd = new FormData()
   fd.append('project', sel.value.id)
   fd.append('kind', uploadForm.value.kind)
@@ -287,16 +287,16 @@ async function uploadMedia() {
   fd.append('captured_at', toTs(uploadForm.value.captured_at) || '')
   if (uploadForm.value.geo.trim()) fd.append('geo', uploadForm.value.geo.trim())
   const r = await apiUpload('app-build?action=media-upload', fd)
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Upload failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Upload failed'))); return }
   uploadFile.value = null
   uploadForm.value = { kind: 'photo', name: '', captured_at: nowLocal(), geo: '' }
-  window.__krToast?.('✅ ' + (r.id || 'Media') + ' uploaded', 'ok')
+  window.__krToast?.('✅ ' + (r.id || t('Media')) + ' uploaded', 'ok')
   await afterMutation()
 }
 async function askDeleteMedia(md) {
   if (!confirm('Delete ' + md.id + ' (' + md.name + ')?')) return
   const r = await apiCall('app-build', { action: 'media-delete', id: md.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   delete blobMap[md.id]
   window.__krToast?.('🗑 ' + md.id + ' deleted')
   await afterMutation()
@@ -308,7 +308,7 @@ const cfgForm = ref({})
 function openCfg() { cfgForm.value = { milestone_alert_days: cfg.value.milestone_alert_days, budget_overrun_pct: cfg.value.budget_overrun_pct, default_contractor: cfg.value.default_contractor || '' }; cfgModal.value = true }
 async function saveCfg() {
   const r = await apiCall('app-build', { action: 'config-save', milestone_alert_days: parseInt(cfgForm.value.milestone_alert_days) || 14, budget_overrun_pct: parseInt(cfgForm.value.budget_overrun_pct) || 10, default_contractor: cfgForm.value.default_contractor.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   cfgModal.value = false
   window.__krToast?.('✅ Settings saved', 'ok')
   await load()
@@ -769,8 +769,8 @@ load()
                     <td style="white-space:nowrap" class="c-sub">{{ fmtDate(e.spent_on) }}</td>
                     <td style="white-space:nowrap;font-weight:700">{{ money(e.amount) }}</td>
                     <td style="white-space:nowrap">
-                      <button v-if="canManage" @click="togglePaid(e)" style="padding:3px 9px;border:none;border-radius:7px;font-size:10.5px;font-weight:800;cursor:pointer;background:var(--bg-alt);color:var(--text)"><span :class="e.paid ? 'b-green' : 'b-red'">{{ e.paid ? '✅ Paid' : '⏳ Unpaid' }}</span></button>
-                      <span v-else class="badge" :class="e.paid ? 'b-green' : 'b-red'">{{ e.paid ? 'Paid' : 'Unpaid' }}</span>
+                      <button v-if="canManage" @click="togglePaid(e)" style="padding:3px 9px;border:none;border-radius:7px;font-size:10.5px;font-weight:800;cursor:pointer;background:var(--bg-alt);color:var(--text)"><span :class="e.paid ? 'b-green' : 'b-red'">{{ e.paid ? '✅ ' + t('Paid') : '⏳ ' + t('Unpaid') }}</span></button>
+                      <span v-else class="badge" :class="e.paid ? 'b-green' : 'b-red'">{{ e.paid ? t('Paid') : t('Unpaid') }}</span>
                     </td>
                     <td v-if="canManage" style="white-space:nowrap">
                       <div style="display:flex;gap:4px;align-items:center">
@@ -820,7 +820,7 @@ load()
           </div>
 
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-top:9px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

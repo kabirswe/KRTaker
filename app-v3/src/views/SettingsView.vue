@@ -36,12 +36,12 @@ async function enablePush() {
   pushBusy.value = true; err.value = ''; saved.value = ''
   try {
     if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
-      err.value = 'Push notifications are not supported in this browser.'; return
+      err.value = t('Push notifications are not supported in this browser.'); return
     }
     if (pushState.value.notifPermission !== 'granted') {
       const perm = await Notification.requestPermission()
       pushState.value.notifPermission = perm
-      if (perm !== 'granted') { err.value = 'Permission denied — enable notifications in your browser settings to continue.'; return }
+      if (perm !== 'granted') { err.value = t('Permission denied — enable notifications in your browser settings to continue.'); return }
     }
     // make sure the SW is ready (it handles push events)
     const reg = await navigator.serviceWorker.ready
@@ -54,10 +54,10 @@ async function enablePush() {
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushState.value.vapid })
     const json = sub.toJSON()
     const r = await apiCall('app-push', { action: 'save', endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, ua: navigator.userAgent.slice(0, 200) })
-    if (r.ok) { saved.value = 'Push notifications enabled for this device.'; await loadPushState() }
-    else err.value = r.error || 'Failed to save subscription.'
+    if (r.ok) { saved.value = t('Push notifications enabled for this device.'); await loadPushState() }
+    else err.value = r.error || t('Failed to save subscription.')
   } catch (e) {
-    err.value = 'Could not subscribe: ' + (e && e.message ? e.message : e)
+    err.value = t('Could not subscribe: ') + (e && e.message ? e.message : e)
   } finally { pushBusy.value = false }
 }
 
@@ -65,9 +65,9 @@ async function testPush() {
   pushBusy.value = true; err.value = ''; saved.value = ''
   try {
     const r = await apiCall('app-push', { action: 'test' })
-    if (r.ok) saved.value = 'Test notification ' + (r.sent > 0 ? 'sent to your device(s).' : '— ' + (r.detail || 'no devices.'))
-    else err.value = r.error || 'Test failed.'
-  } catch (e) { err.value = 'Network error.' }
+    if (r.ok) saved.value = t('Test notification ') + (r.sent > 0 ? 'sent to your device(s).' : '— ' + (r.detail || 'no devices.'))
+    else err.value = r.error || t('Test failed.')
+  } catch (e) { err.value = t('Network error.') }
   finally { pushBusy.value = false }
 }
 
@@ -82,8 +82,8 @@ async function disablePush() {
     }
     if (ep) await apiCall('app-push', { action: 'remove', endpoint: ep })
     pushState.value.enabled = false; pushState.value.devices = 0
-    saved.value = 'Push notifications disabled.'
-  } catch (e) { err.value = 'Could not unsubscribe.' }
+    saved.value = t('Push notifications disabled.')
+  } catch (e) { err.value = t('Could not unsubscribe.') }
   finally { pushBusy.value = false }
 }
 
@@ -127,12 +127,12 @@ async function sendTwofaCode() {
   twofaBusy.value = true
   try {
     const r = await apiCall('app-2fa-send', {})
-    if (r.ok) { twofaState.value.email_hint = r.email_hint || twofaState.value.email_hint; toast('Code sent to ' + twofaState.value.email_hint, 'ok') }
-    else toast(r.error || 'Failed to send code.', 'error')
+    if (r.ok) { twofaState.value.email_hint = r.email_hint || twofaState.value.email_hint; toast(t('Code sent to ') + twofaState.value.email_hint, 'ok') }
+    else toast(r.error || t('Failed to send code.'), 'error')
   } finally { twofaBusy.value = false }
 }
 async function enableEmail2fa() {
-  if (!twofaCode.value) { toast('Enter the code from your email.', 'error'); return }
+  if (!twofaCode.value) { toast(t('Enter the code from your email.'), 'error'); return }
   twofaBusy.value = true
   try {
     const r = await apiCall('app-2fa-enable', { method: 'email', code: twofaCode.value })
@@ -145,11 +145,11 @@ async function setupTotp() {
   try {
     const r = await apiCall('app-2fa-setup', {})
     if (r.ok) { twofaSetup.value = { secret: r.secret, uri: r.uri }; twofaStep.value = 'totp-code' }
-    else toast(r.error || 'Setup failed.', 'error')
+    else toast(r.error || t('Setup failed.'), 'error')
   } finally { twofaBusy.value = false }
 }
 async function enableTotp2fa() {
-  if (!twofaCode.value) { toast('Enter the 6-digit code from your authenticator app.', 'error'); return }
+  if (!twofaCode.value) { toast(t('Enter the 6-digit code from your authenticator app.'), 'error'); return }
   twofaBusy.value = true
   try {
     const r = await apiCall('app-2fa-enable', { method: 'totp', code: twofaCode.value })
@@ -158,7 +158,7 @@ async function enableTotp2fa() {
   } finally { twofaBusy.value = false }
 }
 async function disable2fa() {
-  if (!twofaCode.value || !twofaPw.value) { toast('Enter the verification code and your password.', 'error'); return }
+  if (!twofaCode.value || !twofaPw.value) { toast(t('Enter the verification code and your password.'), 'error'); return }
   twofaBusy.value = true
   try {
     const r = await apiCall('app-2fa-disable', { code: twofaCode.value, password: twofaPw.value })
@@ -176,28 +176,28 @@ async function saveProfile() {
   if (isStaff.value) { body.dept = dept.value; body.avatar = avatar.value }
   else { body.org = auth.user?.org || '' }
   const r = await apiCall('app-profile', body)
-  if (r.ok) { saved.value = 'Profile saved.'; auth.user = r.user || auth.user }
-  else err.value = r.error || 'Failed to save.'
+  if (r.ok) { saved.value = t('Profile saved.'); auth.user = r.user || auth.user }
+  else err.value = r.error || t('Failed to save.')
 }
 
 async function changePassword() {
   err.value = ''; saved.value = ''
   if (!oldPw.value || !newPw.value) { err.value = 'Current and new password are required.'; return }
-  if (newPw.value.length < 6) { err.value = 'New password must be at least 6 characters.'; return }
+  if (newPw.value.length < 6) { err.value = t('New password must be at least 6 characters.'); return }
   const r = await apiCall('app-profile', { old_password: oldPw.value, new_password: newPw.value })
-  if (r.ok) { saved.value = 'Password changed.'; oldPw.value = ''; newPw.value = '' }
+  if (r.ok) { saved.value = t('Password changed.'); oldPw.value = ''; newPw.value = '' }
   else err.value = r.error || 'Failed to change password.'
 }
 
 async function saveSettings() {
   err.value = ''; saved.value = ''
   const r = await apiCall('app-settings-save', { settings: prefs.value })
-  if (r.ok) saved.value = 'Preferences saved.'
-  else err.value = r.error || 'Failed to save.'
+  if (r.ok) saved.value = t('Preferences saved.')
+  else err.value = r.error || t('Failed to save.')
 }
 
 const roleLabel = computed(() => {
-  const m = { superadmin: 'Super Admin', owner: 'Owner', manager: 'Property Manager', staff: 'Staff', tenant: 'Tenant', partner: 'Partner' }
+  const m = { superadmin: t('Super Admin'), owner: t('Owner'), manager: t('Property Manager'), staff: t('Staff'), tenant: t('Tenant'), partner: t('Partner') }
   return m[data.previewRole || auth.user?.role] || auth.user?.role || '—'
 })
 
@@ -233,8 +233,8 @@ async function saveSecurity() {
   secSaving.value = true
   try {
     const r = await apiCall('app-security', { action: 'config-save', ...secForm.value })
-    if (r.ok) { saved.value = 'Security settings saved.'; await loadSecurity() }
-    else err.value = r.error || 'Failed to save security settings.'
+    if (r.ok) { saved.value = t('Security settings saved.'); await loadSecurity() }
+    else err.value = r.error || t('Failed to save security settings.')
   } finally { secSaving.value = false }
 }
 
@@ -251,10 +251,10 @@ function fmtAgo(d) {
   const t = new Date(String(d).replace(' ', 'T') + 'Z').getTime()
   if (isNaN(t)) return String(d).slice(0, 16)
   const s = Math.max(0, (Date.now() - t) / 1000)
-  if (s < 60) return 'just now'
-  if (s < 3600) return Math.floor(s / 60) + 'm ago'
-  if (s < 86400) return Math.floor(s / 3600) + 'h ago'
-  if (s < 604800) return Math.floor(s / 86400) + 'd ago'
+  if (s < 60) return t('just now')
+  if (s < 3600) return Math.floor(s / 60) + t('m ago')
+  if (s < 86400) return Math.floor(s / 3600) + t('h ago')
+  if (s < 604800) return Math.floor(s / 86400) + t('d ago')
   return new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
 }
 function fmtDate(d) {
@@ -291,7 +291,7 @@ async function revokeSession(id) {
       }
       saved.value = 'Device signed out.'
       await loadSessions()
-    } else err.value = r.error || 'Failed to revoke session.'
+    } else err.value = r.error || t('Failed to revoke session.')
   } finally { sessionsBusy.value = false }
 }
 async function revokeOthers() {
@@ -317,8 +317,8 @@ async function saveSecAlerts() {
   sessionsBusy.value = true; err.value = ''; saved.value = ''
   try {
     const r = await apiCall('app-security', { action: 'config-save', sec_login_alerts: secAlerts.value })
-    if (r.ok) saved.value = 'New sign-in alerts ' + (secAlerts.value ? 'enabled for this workspace.' : 'turned off for this workspace.')
-    else err.value = r.error || 'Failed to save.'
+    if (r.ok) saved.value = t('New sign-in alerts ') + (secAlerts.value ? t('enabled for this workspace.') : t('turned off for this workspace.'))
+    else err.value = r.error || t('Failed to save.')
   } finally { sessionsBusy.value = false }
 }
 
@@ -330,7 +330,7 @@ async function loadAudit() {
   try {
     const r = await apiCall('app-audit', { limit: 50, offset: 0 })
     if (r.ok) auditEntries.value = r.entries || []
-    else err.value = r.error || 'Failed to load audit log.'
+    else err.value = r.error || t('Failed to load audit log.')
   } catch (e) { err.value = e.message }
   finally { auditLoading.value = false }
 }
@@ -351,8 +351,8 @@ async function downloadBackup() {
     if (!res.ok) { err.value = 'Backup failed (HTTP ' + res.status + ')'; return }
     const blob = await res.blob()
     saveBlob(blob, 'krtaker_' + new Date().toISOString().slice(0, 10) + '.db')
-    saved.value = 'DB snapshot downloaded.'
-  } catch (e) { err.value = 'Backup failed: ' + e.message }
+    saved.value = t('DB snapshot downloaded.')
+  } catch (e) { err.value = t('Backup failed: ') + e.message }
   finally { backupBusy.value = '' }
 }
 async function downloadExport() {
@@ -362,8 +362,8 @@ async function downloadExport() {
     if (!res.ok) { err.value = 'Export failed (HTTP ' + res.status + ')'; return }
     const blob = await res.blob()
     saveBlob(blob, 'krtaker_export_' + new Date().toISOString().slice(0, 10) + '.json')
-    saved.value = 'Full JSON export downloaded.'
-  } catch (e) { err.value = 'Export failed: ' + e.message }
+    saved.value = t('Full JSON export downloaded.')
+  } catch (e) { err.value = t('Export failed: ') + e.message }
   finally { backupBusy.value = '' }
 }
 </script>

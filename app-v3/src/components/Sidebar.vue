@@ -50,14 +50,14 @@ const emit = defineEmits(['close'])
 // V2.0.7: Portfolio, BMS, Community, Legal, Safety&Security all merged into hub dashboards with tabs.
 // V2.37: each menu item carries a detailed tooltip (desc) shown on hover.
 const GROUPS = [
-  { id: 'overview', label: 'Overview', items: [['portal', '🏠', 'My Portal', 'Tenant-facing portal: leases, invoices, payments, tickets and documents for your rental units'], ['dashboard', '📊', 'Overview', 'Key metrics at a glance — occupancy, collections, dues, maintenance and alerts for your portfolio'], ['analytics', '📈', 'Analytics', 'Business intelligence: P&L, cashflow, occupancy, aging, expenses, maintenance and board reports'], ['ai', '🤖', 'AI Caretaker (KR)', 'Ask KR anything — vacancy checks, rent summaries, notices, renewals and portfolio insights in plain language'], ['wiki', '📚', 'Wiki & Help', 'Product guide, feature walkthroughs, FAQs and troubleshooting help'], ['backup', '💾', 'Backup & Restore', 'Download a full JSON backup of your workspace data or restore from a previous export']] },
-  { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio', 'All properties, units, tenants, leases, insurance, leads, documents and templates in one hub']] },
-  { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance', 'Invoices, receipts, payments, taxes, remittances, statements, subscriptions and accounts in one hub']] },
-  { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS', 'Building management: maintenance, staff, attendance, payroll, meters, utilities and gate access']] },
-  { id: 'community', label: 'Community', items: [['community', '📢', 'Community', 'Notices, referrals, NID trust, support tickets and society features for your residents'], ['society', '🏘️', 'Society', 'Society management: parking, bookings, voting, forums, events and samity accounts']] },
-  { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal', 'Compliance, legal cases, concierge services and NID verifications in one hub']] },
-  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors', 'Manage service vendors, vendor payouts, ratings and maintenance contracts']] },
-  { id: 'secure', label: 'Safety & Security', items: [['secure', '🏠', 'Safety & Security', 'Smart locks, CCTV, land records, construction, fire safety, health and building systems']] },
+  { id: 'overview', label: 'Overview', items: [['portal', '🏠', t('My Portal'), t('Tenant-facing portal: leases, invoices, payments, tickets and documents for your rental units')], ['dashboard', '📊', 'Overview', t('Key metrics at a glance — occupancy, collections, dues, maintenance and alerts for your portfolio')], ['analytics', '📈', 'Analytics', t('Business intelligence: P&L, cashflow, occupancy, aging, expenses, maintenance and board reports')], ['ai', '🤖', 'AI Caretaker (KR)', t('Ask KR anything — vacancy checks, rent summaries, notices, renewals and portfolio insights in plain language')], ['wiki', '📚', t('Wiki & Help'), t('Product guide, feature walkthroughs, FAQs and troubleshooting help')], ['backup', '💾', t('Backup & Restore'), t('Download a full JSON backup of your workspace data or restore from a previous export')]] },
+  { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio', t('All properties, units, tenants, leases, insurance, leads, documents and templates in one hub')]] },
+  { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance', t('Invoices, receipts, payments, taxes, remittances, statements, subscriptions and accounts in one hub')]] },
+  { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS', t('Building management: maintenance, staff, attendance, payroll, meters, utilities and gate access')]] },
+  { id: 'community', label: 'Community', items: [['community', '📢', 'Community', t('Notices, referrals, NID trust, support tickets and society features for your residents')], ['society', '🏘️', 'Society', t('Society management: parking, bookings, voting, forums, events and samity accounts')]] },
+  { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal', t('Compliance, legal cases, concierge services and NID verifications in one hub')]] },
+  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors', t('Manage service vendors, vendor payouts, ratings and maintenance contracts')]] },
+  { id: 'secure', label: t('Safety & Security'), items: [['secure', '🏠', t('Safety & Security'), t('Smart locks, CCTV, land records, construction, fire safety, health and building systems')]] },
 ]
 
 const VIEW_ROUTES = {
@@ -133,7 +133,7 @@ async function backToMe() {
     await auth.backToMe()
     await data.bootstrap()
     data.setPreviewRole(auth.user?.role || 'owner')
-    window.__krToast?.('Back to ' + roleLabel(auth.user?.role))
+    window.__krToast?.(t('Back to ') + roleLabel(auth.user?.role))
   } finally {
     switching.value = false
   }

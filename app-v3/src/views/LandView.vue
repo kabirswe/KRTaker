@@ -34,7 +34,7 @@ const kpis = computed(() => {
   return [
     { label: 'Parcels', ico: '🛰️', value: ps.length, trend: 'land parcels tracked' },
     { label: 'Secure', ico: '✅', value: secure, trend: 'no concerns' },
-    { label: 'Needs review', ico: '⚠️', value: review, trend: review ? 'field check needed' : 'none', ok: review === 0 },
+    { label: t('Needs review'), ico: '⚠️', value: review, trend: review ? 'field check needed' : 'none', ok: review === 0 },
     { label: 'Encroached', ico: '🚨', value: encroached, trend: encroached ? 'HIGH PRIORITY' : 'none', ok: encroached === 0 },
     { label: 'Area', ico: '📐', value: totalArea ? totalArea + ' dec' : '—', trend: 'total declared' },
     { label: 'Districts', ico: '🗺️', value: districts, trend: 'jurisdictions' },
@@ -215,7 +215,7 @@ function detailFields(row) {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">

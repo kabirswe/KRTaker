@@ -24,7 +24,7 @@ async function loadCollections() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-collections-summary')
-    if (!r.ok) { err.value = r.error || 'Failed to load collections.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load collections.'); return }
     col.value = r
   } catch (e) { err.value = e.message }
   finally { loading.value = false }
@@ -38,11 +38,11 @@ const byTenant = computed(() => {
 })
 
 async function dryRun() {
-  if (!confirm('Preview the collections run? No emails will be sent.')) return
+  if (!confirm(t('Preview the collections run? No emails will be sent.'))) return
   running.value = true; err.value = ''
   try {
     const r = await apiCall('app-collections-run', { send: false })
-    if (!r.ok) { err.value = r.error || 'Dry-run failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Dry-run failed.'); return }
     dry.value = r
   } catch (e) { err.value = e.message }
   finally { running.value = false }
@@ -53,7 +53,7 @@ async function runCampaign() {
   running.value = true; err.value = ''
   try {
     const r = await apiCall('app-collections-run', { send: true })
-    if (!r.ok) { err.value = r.error || 'Collections run failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Collections run failed.'); return }
     dry.value = r
     toast.value = `✅ Sent ${r.sent} · failed ${r.failed} · suppressed ${r.suppressed}`
     setTimeout(() => toast.value = '', 5000)
@@ -68,7 +68,7 @@ async function loadRecon() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-payment-recon')
-    if (!r.ok) { err.value = r.error || 'Failed to load reconciliation.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load reconciliation.'); return }
     rec.value = r
   } catch (e) { err.value = e.message }
   finally { loading.value = false }
@@ -84,7 +84,7 @@ async function doRefund() {
   if (!confirm(`Refund payment ${refundFor.value}? This marks it Refunded (no money moves).`)) return
   err.value = ''
   const r = await apiCall('app-refund', { payment_id: refundFor.value, reason: refundReason.value.trim() })
-  if (!r.ok) { err.value = r.error || 'Refund failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Refund failed.'); return }
   refundFor.value = null; refundReason.value = ''
   toast.value = '✅ Payment refunded'
   setTimeout(() => toast.value = '', 4000)
@@ -95,7 +95,7 @@ async function cleanupStale() {
   if (!confirm(`Expire ${rec.value?.stale_sessions?.length || 0} stale pending gateway session(s)?`)) return
   err.value = ''
   const r = await apiCall('app-gateway-cleanup', {})
-  if (!r.ok) { err.value = r.error || 'Cleanup failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Cleanup failed.'); return }
   toast.value = `✅ ${r.expired} stale session(s) expired`
   setTimeout(() => toast.value = '', 4000)
   await loadRecon()
@@ -110,9 +110,9 @@ const remSaving = ref(false)
 // editable config (deep copy so we only submit on Save) — seeded with full tiers so the
 // editor never binds against undefined even if the API load fails
 const emptyTiers = () => ({
-  '1': { label: 'Day 1 · gentle', min_days: 0, max_days: 6, note: '' },
-  '2': { label: 'Day 7 · follow-up', min_days: 7, max_days: 13, note: '' },
-  '3': { label: 'Day 15 · final', min_days: 14, max_days: 999, note: '' },
+  '1': { label: t('Day 1 · gentle'), min_days: 0, max_days: 6, note: '' },
+  '2': { label: t('Day 7 · follow-up'), min_days: 7, max_days: 13, note: '' },
+  '3': { label: t('Day 15 · final'), min_days: 14, max_days: 999, note: '' },
 })
 const remCfg = ref({ enabled: true, late_fee: '', tiers: emptyTiers() })
 
@@ -123,8 +123,8 @@ async function loadReminders() {
       apiCall('app-reminder-config'),
       apiCall('app-reminder-summary'),
     ])
-    if (!c.ok) { err.value = c.error || 'Failed to load reminder config.'; return }
-    if (!s.ok) { err.value = s.error || 'Failed to load reminder summary.'; return }
+    if (!c.ok) { err.value = c.error || t('Failed to load reminder config.'); return }
+    if (!s.ok) { err.value = s.error || t('Failed to load reminder summary.'); return }
     rem.value = c
     remPlan.value = s
     const cfg = c.config || {}
@@ -147,7 +147,7 @@ async function saveReminders() {
   remSaving.value = true; err.value = ''
   try {
     const r = await apiCall('app-reminder-save', { config: remCfg.value })
-    if (!r.ok) { err.value = r.error || 'Failed to save config.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to save config.'); return }
     toast.value = '✅ Reminder config saved'
     setTimeout(() => toast.value = '', 4000)
     await loadReminders()
@@ -160,7 +160,7 @@ async function runReminders(send) {
   remRunning.value = true; err.value = ''
   try {
     const r = await apiCall('app-reminder-run', { send })
-    if (!r.ok) { err.value = r.error || 'Reminder run failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Reminder run failed.'); return }
     remRun.value = r
     toast.value = send
       ? `✅ Sent ${r.sent} · stamped ${r.stamped} · suppressed ${r.suppressed} · failed ${r.errors?.length || 0}`
@@ -205,7 +205,7 @@ async function saveSms() {
   smsSaving.value = true; err.value = ''
   try {
     const r = await apiCall('app-sms', { action: 'config-save', ...smsForm.value })
-    if (!r.ok) { err.value = r.error || 'Failed to save SMS config.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to save SMS config.'); return }
     toast.value = '✅ SMS config saved'
     setTimeout(() => toast.value = '', 4000)
     await loadSms()
@@ -255,7 +255,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
     <!-- ══ COLLECTIONS TAB ══ -->
     <template v-if="tab === 'collections'">
-      <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
+      <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">{{ t('Loading…') }}</div>
       <template v-else>
         <!-- KPIs -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
@@ -332,14 +332,14 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
     <!-- ══ RECON TAB ══ -->
     <template v-if="tab === 'recon'">
-      <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
+      <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">{{ t('Loading…') }}</div>
       <template v-else>
         <!-- KPIs -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
           <div class="panel chip" style="padding:16px">
             <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Payments') }}</div>
             <div style="font-size:24px;font-weight:900;margin-top:4px">{{ rec?.payments?.count || 0 }}</div>
-            <div style="font-size:12px;color:var(--text-mute)">{{ money(rec?.payments?.total) }} collected</div>
+            <div style="font-size:12px;color:var(--text-mute)">{{ money(rec?.payments?.total) }} {{ t('collected') }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
             <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Receipts') }}</div>
@@ -405,7 +405,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
     <!-- ══ REMINDERS TAB ══ -->
     <template v-if="tab === 'reminders'">
-      <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
+      <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">{{ t('Loading…') }}</div>
       <template v-else>
         <!-- Escalation plan KPIs -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
@@ -489,7 +489,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
         <!-- SMS gateway -->
         <div class="panel" style="padding:18px;margin-bottom:16px">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-            <div style="font-weight:800;font-size:14px">📱 SMS gateway <span v-if="sms" class="badge" :class="smsForm.enabled ? 'b-green' : 'b-gray'" style="margin-left:6px">{{ smsForm.enabled ? 'Enabled' : 'Disabled' }}</span></div>
+            <div style="font-weight:800;font-size:14px">📱 SMS gateway <span v-if="sms" class="badge" :class="smsForm.enabled ? 'b-green' : 'b-gray'" style="margin-left:6px">{{ smsForm.enabled ? t('Enabled') : 'Disabled' }}</span></div>
             <span class="c-sub" style="font-size:11.5px">{{ t('Rent reminders get an SMS leg when a tenant has a phone · provider:') }} <b>{{ smsForm.provider }}</b></span>
           </div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">

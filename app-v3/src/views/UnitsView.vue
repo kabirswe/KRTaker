@@ -61,10 +61,10 @@ const kpis = computed(() => {
   return [
     { label: 'Units', ico: '🚪', value: unitsAll.value.length, trend: `${propsAll.value.length} properties` },
     { label: 'Occupancy', ico: '📈', value: leased + ' / ' + unitsAll.value.length, trend: occ + '% leased', ok: occ >= 70 },
-    { label: 'Vacant', ico: '🈳', value: vacant, trend: maint ? maint + ' in maintenance' : 'all clear', ok: vacant === 0 },
-    { label: 'Rent roll / mo', ico: '💵', value: money(rentRoll), trend: 'leased units' },
-    { label: 'Avg size', ico: '📐', value: avgSqft.toLocaleString('en-IN') + ' sqft', trend: 'per unit' },
-    { label: 'Open tickets', ico: '🔧', value: open, trend: open ? 'need attention' : 'all clear', ok: open === 0 },
+    { label: 'Vacant', ico: '🈳', value: vacant, trend: maint ? maint + t(' in maintenance') : t('all clear'), ok: vacant === 0 },
+    { label: t('Rent roll / mo'), ico: '💵', value: money(rentRoll), trend: 'leased units' },
+    { label: t('Avg size'), ico: '📐', value: avgSqft.toLocaleString('en-IN') + ' sqft', trend: t('per unit') },
+    { label: t('Open tickets'), ico: '🔧', value: open, trend: open ? t('need attention') : t('all clear'), ok: open === 0 },
   ]
 })
 
@@ -170,19 +170,19 @@ async function submitForm() {
     if (r.ok) {
       window.__krToast?.(modal.value.mode === 'edit' ? `✏️ ${modal.value.u.id} updated` : '✅ Unit created', 'ok')
       closeModal(); await data.bootstrap()
-    } else formErr.value = r.error || 'Save failed.'
+    } else formErr.value = r.error || t('Save failed.')
   } finally { saving.value = false }
 }
 async function delUnit(u) {
   if (!confirm(`Delete ${u.name} (${u.id})? This cannot be undone.`)) return
   const r = await apiCall('app-crud', { action: 'delete', collection: 'units', id: u.id, data: {} })
   if (r.ok) { window.__krToast?.(`🗑️ ${u.id} deleted`, 'ok'); if (sel.value?.id === u.id) closeDetail(); await data.bootstrap() }
-  else window.__krToast?.(r.error || 'Delete failed', 'error')
+  else window.__krToast?.(r.error || t('Delete failed'), 'error')
 }
 async function setStatus(u, st) {
   const r = await apiCall('app-crud', { action: 'update', collection: 'units', id: u.id, data: { status: st } })
   if (r.ok) { u.status = st; window.__krToast?.(`${u.id} → ${st}`, 'ok') }
-  else window.__krToast?.(r.error || 'Update failed', 'error')
+  else window.__krToast?.(r.error || t('Update failed'), 'error')
 }
 </script>
 

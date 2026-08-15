@@ -31,11 +31,11 @@ const kpis = computed(() => {
   const tenants = new Set(vs.map(v => v.tenant).filter(Boolean)).size
   return [
     { label: 'Verifications', ico: '🪪', value: vs.length, trend: 'NID checks run' },
-    { label: 'Verified', ico: '✅', value: verified, trend: verified ? 'identity confirmed' : 'none', ok: verified > 0 },
-    { label: 'Unverified', ico: '⚠️', value: unverified, trend: unverified ? 'pending manual check' : 'none', ok: unverified === 0 },
+    { label: 'Verified', ico: '✅', value: verified, trend: verified ? t('identity confirmed') : t('none'), ok: verified > 0 },
+    { label: 'Unverified', ico: '⚠️', value: unverified, trend: unverified ? t('pending manual check') : t('none'), ok: unverified === 0 },
     { label: 'Mismatch', ico: '🚨', value: mismatch, trend: mismatch ? 'check-digit failures' : 'none', ok: mismatch === 0 },
-    { label: 'Checksum OK', ico: '🧮', value: ck, trend: 'valid check digits' },
-    { label: 'Age OK', ico: '🎂', value: age, trend: tenants + ' tenants screened' },
+    { label: t('Checksum OK'), ico: '🧮', value: ck, trend: 'valid check digits' },
+    { label: t('Age OK'), ico: '🎂', value: age, trend: tenants + ' tenants screened' },
   ]
 })
 
@@ -82,7 +82,7 @@ async function runNidCheck() {
   nvSaving.value = true; nvErr.value = ''
   try {
     const r = await apiCall('app-trust', { action: 'nid-save', tenant: nvForm.value.tenant, nid: nvForm.value.nid.trim(), dob: nvForm.value.dob.trim() })
-    if (!r.ok) { nvErr.value = r.error || 'Check failed.'; return }
+    if (!r.ok) { nvErr.value = r.error || t('Check failed.'); return }
     await data.bootstrap()
     const fresh = data.list('nid_verifications').find(v => v.tenant === nvForm.value.tenant)
     if (fresh) openDetail(fresh)
@@ -96,11 +96,11 @@ async function setNidStatus(v, status) {
   nvErr.value = ''
   try {
     const r = await apiCall('app-trust', { action: 'nid-status', id: v.id, status })
-    if (!r.ok) { nvErr.value = r.error || 'Update failed.'; return }
+    if (!r.ok) { nvErr.value = r.error || t('Update failed.'); return }
     await data.bootstrap()
     const fresh = data.list('nid_verifications').find(x => x.id === v.id)
     if (fresh) openDetail(fresh)
-    toast?.('NID status → ' + status, 'ok')
+    toast?.(t('NID status → ') + status, 'ok')
   } catch (e) { nvErr.value = e.message }
 }
 
@@ -116,7 +116,7 @@ async function loadTf() {
   tfLoading.value = true; tfErr.value = ''
   try {
     const r = await apiCall('app-trust', { action: 'tif-list' })
-    if (!r.ok) { tfErr.value = r.error || 'Failed to load thana forms.'; return }
+    if (!r.ok) { tfErr.value = r.error || t('Failed to load thana forms.'); return }
     tfItems.value = r.items || []
   } catch (e) { tfErr.value = e.message }
   finally { tfLoading.value = false }
@@ -132,7 +132,7 @@ async function createTf() {
     const body = { action: 'tif-create' }
     if (isStaff.value) body.tenant = tfTenant.value
     const r = await apiCall('app-trust', body)
-    if (!r.ok) { tfErr.value = r.error || 'Create failed.'; return }
+    if (!r.ok) { tfErr.value = r.error || t('Create failed.'); return }
     await loadTf()
     // open the edit form with the default payload
     const f = tfItems.value.find(x => x.id === r.id)
@@ -152,14 +152,14 @@ function openTfEdit(f) {
   }
 }
 const TF_FIELDS = [
-  ['name', 'Full name'], ['nid', 'NID'], ['dob', 'Date of birth'], ['phone', 'Phone'],
+  ['name', t('Full name')], ['nid', 'NID'], ['dob', t('Date of birth')], ['phone', 'Phone'],
   ['father', "Father's name"], ['mother', "Mother's name"], ['profession', 'Profession'], ['employer', 'Employer'],
-  ['present_flat', 'Present flat'], ['present_road', 'Present road'], ['present_area', 'Present area'],
-  ['permanent_address', 'Permanent address'], ['spouse', 'Spouse name'], ['spouse_phone', 'Spouse phone'],
-  ['family_count', 'Family members'], ['ref1_name', 'Referee 1 name'], ['ref1_phone', 'Referee 1 phone'],
-  ['ref1_address', 'Referee 1 address'], ['ref2_name', 'Referee 2 name'], ['ref2_phone', 'Referee 2 phone'],
-  ['ref2_address', 'Referee 2 address'], ['landlord_name', 'Landlord name'], ['landlord_nid', 'Landlord NID'],
-  ['landlord_phone', 'Landlord phone'], ['move_in', 'Move-in date'], ['lease_term', 'Lease term'],
+  ['present_flat', t('Present flat')], ['present_road', t('Present road')], ['present_area', t('Present area')],
+  ['permanent_address', t('Permanent address')], ['spouse', t('Spouse name')], ['spouse_phone', t('Spouse phone')],
+  ['family_count', t('Family members')], ['ref1_name', t('Referee 1 name')], ['ref1_phone', t('Referee 1 phone')],
+  ['ref1_address', t('Referee 1 address')], ['ref2_name', t('Referee 2 name')], ['ref2_phone', t('Referee 2 phone')],
+  ['ref2_address', t('Referee 2 address')], ['landlord_name', t('Landlord name')], ['landlord_nid', t('Landlord NID')],
+  ['landlord_phone', t('Landlord phone')], ['move_in', t('Move-in date')], ['lease_term', t('Lease term')],
   ['vehicle', 'Vehicle'], ['remarks', 'Remarks'],
 ]
 async function saveTf() {
@@ -169,7 +169,7 @@ async function saveTf() {
     const body = { action: 'tif-save', id: tfEdit.value.id, thana: tfEdit.value.thana, district: tfEdit.value.district }
     for (const [k] of TF_FIELDS) body[k] = tfEdit.value.payload[k] || ''
     const r = await apiCall('app-trust', body)
-    if (!r.ok) { tfErr.value = r.error || 'Save failed.'; return }
+    if (!r.ok) { tfErr.value = r.error || t('Save failed.'); return }
     tfEdit.value = null
     await loadTf()
   } catch (e) { tfErr.value = e.message }
@@ -179,14 +179,14 @@ async function submitTf(f) {
   if (!confirm(`Submit form ${f.id} to the thana? Status will move to Submitted (locked for verification).`)) return
   tfErr.value = ''
   const r = await apiCall('app-trust', { action: 'tif-submit', id: f.id })
-  if (!r.ok) { tfErr.value = r.error || 'Submit failed.'; return }
+  if (!r.ok) { tfErr.value = r.error || t('Submit failed.'); return }
   await loadTf()
 }
 async function verifyTf(f, verdict) {
   if (!confirm(`${verdict === 'approve' ? 'Approve' : 'Reject'} form ${f.id}?`)) return
   tfErr.value = ''
   const r = await apiCall('app-trust', { action: 'tif-verify', id: f.id, verdict })
-  if (!r.ok) { tfErr.value = r.error || 'Verification failed.'; return }
+  if (!r.ok) { tfErr.value = r.error || t('Verification failed.'); return }
   await loadTf()
 }
 async function printTf(f) {
@@ -200,7 +200,7 @@ async function printTf(f) {
     const html = await res.text()
     if (!html || html.startsWith('{')) { tfErr.value = 'Print failed.'; return }
     const w = window.open('', '_blank')
-    if (!w) { tfErr.value = 'Pop-up blocked — allow pop-ups for print.'; return }
+    if (!w) { tfErr.value = t('Pop-up blocked — allow pop-ups for print.'); return }
     w.document.write(html); w.document.close(); w.focus()
     setTimeout(() => { try { w.print() } catch (e) {} }, 600)
   } catch (e) { tfErr.value = e.message }
@@ -236,7 +236,7 @@ async function openPrintCfg() {
   tfCfgDirty.value = false
   try {
     const r = await apiCall('app-trust', { action: 'tif-print-cfg-global' })
-    if (!r.ok) { tfCfgErr.value = r.error || 'Failed to load print settings.'; return }
+    if (!r.ok) { tfCfgErr.value = r.error || t('Failed to load print settings.'); return }
     tfCfgForm.value = { ...(r.global || r.defaults || {}) }
     tfCfgDefaults.value = r.defaults || null
     // fetch a live preview of the official form with a sample tenant's data
@@ -255,7 +255,7 @@ async function openPrintCfg() {
       } catch (e) { previewErr.value = e.message }
       finally { previewLoading.value = false }
     } else {
-      previewErr.value = 'No forms yet — create one to see the preview.'
+      previewErr.value = t('No forms yet — create one to see the preview.')
     }
   } catch (e) { tfCfgErr.value = e.message }
 }
@@ -288,10 +288,10 @@ async function savePrintCfg() {
   tfCfgSaving.value = true; tfCfgErr.value = ''
   try {
     const r = await apiCall('app-trust', { action: 'tif-print-cfg-global', mode: 'save', cfg: tfCfgForm.value })
-    if (!r.ok) { tfCfgErr.value = r.error || 'Failed to save settings.'; return }
+    if (!r.ok) { tfCfgErr.value = r.error || t('Failed to save settings.'); return }
     tfCfgDirty.value = false
     tfCfg.value = false
-    toast?.('Print settings saved — applies to all DMP Thana forms')
+    toast?.(t('Print settings saved — applies to all DMP Thana forms'))
   } catch (e) { tfCfgErr.value = e.message }
   finally { tfCfgSaving.value = false }
 }
@@ -469,7 +469,7 @@ function defaultPrintCfg() {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

@@ -22,7 +22,7 @@ const canPost = computed(() => ['superadmin', 'owner', 'manager', 'svc_mgr', 'cr
 const noticesAll = computed(() => data.list('notices'))
 
 const fmtTs = (ts) => { if (!ts) return '—'; const d = new Date(String(ts).replace(' ', 'T')); if (isNaN(d)) return String(ts).slice(0, 10); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }
-const timeAgo = (ts) => { if (!ts) return ''; const d = new Date(String(ts).replace(' ', 'T')); if (isNaN(d)) return ''; const s = (Date.now() - d.getTime()) / 1000; if (s < 3600) return Math.max(1, Math.floor(s / 60)) + 'm ago'; if (s < 86400) return Math.floor(s / 3600) + 'h ago'; if (s < 604800) return Math.floor(s / 86400) + 'd ago'; return fmtTs(ts) }
+const timeAgo = (ts) => { if (!ts) return ''; const d = new Date(String(ts).replace(' ', 'T')); if (isNaN(d)) return ''; const s = (Date.now() - d.getTime()) / 1000; if (s < 3600) return Math.max(1, Math.floor(s / 60)) + t('m ago'); if (s < 86400) return Math.floor(s / 3600) + t('h ago'); if (s < 604800) return Math.floor(s / 86400) + t('d ago'); return fmtTs(ts) }
 
 // ── KPIs ──
 const kpis = computed(() => {
@@ -32,12 +32,12 @@ const kpis = computed(() => {
   const mCount = ns.filter(n => (n.ts || '').startsWith(thisM)).length
   const authors = new Set(ns.map(n => n.author).filter(Boolean)).size
   return [
-    { label: 'Notices', ico: '📢', value: ns.length, trend: 'total posted' },
-    { label: 'Pinned', ico: '📌', value: pinned.length, trend: pinned.length ? 'shown on tenant boards' : 'none pinned', ok: pinned.length > 0 },
-    { label: 'This month', ico: '📅', value: mCount, trend: 'posted in ' + thisM.slice(0, 7) },
+    { label: t('Notices'), ico: '📢', value: ns.length, trend: 'total posted' },
+    { label: t('Pinned'), ico: '📌', value: pinned.length, trend: pinned.length ? 'shown on tenant boards' : t('none pinned'), ok: pinned.length > 0 },
+    { label: t('This month'), ico: '📅', value: mCount, trend: 'posted in ' + thisM.slice(0, 7) },
     { label: 'Authors', ico: '👤', value: authors, trend: 'staff contributors' },
     { label: 'Latest', ico: '🕒', value: ns.length ? timeAgo(ns[0].ts) : '—', trend: ns.length ? fmtTs(ns[0].ts) : '' },
-    { label: 'Board reach', ico: '🏢', value: 'All', trend: 'visible to tenants & staff' },
+    { label: 'Board reach', ico: '🏢', value: t('All'), trend: t('visible to tenants & staff') },
     { label: 'Emailed', ico: '📨', value: ns.filter(n => n.emailed).length, trend: 'broadcast to tenants', ok: ns.some(n => n.emailed) },
   ]
 })
@@ -120,7 +120,7 @@ async function deleteNotice(n) {
   try {
     const r = await apiCall('app-notice-delete', { id: n.id })
     if (r.ok) { window.__krToast?.(`🗑️ ${n.id} deleted`, 'ok'); if (sel.value?.id === n.id) sel.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Delete failed', 'error')
+    else window.__krToast?.(r.error || t('Delete failed'), 'error')
   } finally { delBusy.value = '' }
 }
 </script>
@@ -129,7 +129,7 @@ async function deleteNotice(n) {
   <div>
     <div class="page-head">
       <div>
-        <h1>📢 {{ lang === 'bn' ? 'নোটিশ' : 'Notices' }}</h1>
+        <h1>📢 {{ t('Notices') }}</h1>
         <div class="sub">{{ noticesAll.length }} notices · {{ kpis[1]?.value || 0 }} pinned · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -146,7 +146,7 @@ async function deleteNotice(n) {
         </div>
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="openCompose" :title="t('Compose and post a new notice to the board')">＋ {{ lang === 'bn' ? 'নতুন নোটিশ' : 'New notice' }}</button>
+        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="openCompose" :title="t('Compose and post a new notice to the board')">{{ t('New notice') }}</button>
       </div>
     </div>
 
@@ -233,7 +233,7 @@ async function deleteNotice(n) {
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="newModal = false"></div>
       <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);background:var(--card);border-radius:16px;z-index:71;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden">
         <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-          <h3 style="font-size:15px;font-weight:800">📢 {{ lang === 'bn' ? 'নতুন নোটিশ' : 'New notice' }}</h3>
+          <h3 style="font-size:15px;font-weight:800">📢 {{ t('New notice') }}</h3>
           <button @click="newModal = false" style="border:none;background:none;font-size:16px;cursor:pointer;color:var(--text-mute)">✕</button>
         </div>
         <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">

@@ -48,12 +48,12 @@ const kpis = computed(() => {
   bs.forEach(b => { const t = b.type || 'other'; byType[t] = (byType[t] || 0) + 1 })
   const topType = Object.entries(byType).sort((a, b) => b[1] - a[1])[0]
   return [
-    { label: 'Utility bills', ico: '🧾', value: bs.length, trend: paid + ' paid' },
-    { label: 'Total billed', ico: '💰', value: money(tot), trend: 'all months' },
-    { label: 'Unpaid', ico: '⏳', value: money(unpaid), trend: unpaid ? 'needs collection' : 'all clear', ok: unpaid === 0 },
-    { label: 'This month', ico: '📅', value: money(mTot), trend: monthLabel(thisM) },
-    { label: 'Usage', ico: '📈', value: usage.toLocaleString('en-IN'), trend: 'units consumed' },
-    { label: 'Top type', ico: typeMeta(topType?.[0]).ico, value: topType ? typeMeta(topType[0]).label : '—', trend: topType ? topType[1] + ' bills' : '' },
+    { label: t('Utility bills'), ico: '🧾', value: bs.length, trend: paid + ' paid' },
+    { label: t('Total billed'), ico: '💰', value: money(tot), trend: 'all months' },
+    { label: 'Unpaid', ico: '⏳', value: money(unpaid), trend: unpaid ? t('needs collection') : t('all clear'), ok: unpaid === 0 },
+    { label: t('This month'), ico: '📅', value: money(mTot), trend: monthLabel(thisM) },
+    { label: 'Usage', ico: '📈', value: usage.toLocaleString('en-IN'), trend: t('units consumed') },
+    { label: t('Top type'), ico: typeMeta(topType?.[0]).ico, value: topType ? typeMeta(topType[0]).label : '—', trend: topType ? topType[1] + ' bills' : '' },
   ]
 })
 
@@ -166,7 +166,7 @@ async function payBill(b) {
 }
 async function voidBill(b) {
   if (['Paid', 'Void'].includes(b.status)) { window.__krToast?.('Already ' + b.status); return }
-  if (!window.confirm('Void bill ' + b.id + ' (' + money(b.amount) + ')?')) return
+  if (!window.confirm(t('Void bill ') + b.id + ' (' + money(b.amount) + ')?')) return
   const r = await apiCall('app-utility-bill-pay', { id: b.id, action: 'void' })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('⛔ ' + b.id + ' voided', 'ok')

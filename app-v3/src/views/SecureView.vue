@@ -19,12 +19,12 @@ const data = useDataStore()
 
 const TAB_ORDER = [
   ['overview', '📊', 'Overview'],
-  ['smarthome', '🏠', 'Building Systems'],
-  ['land', '🛰️', 'Land Guard'],
-  ['build', '🏗️', 'Build Watch'],
-  ['firesafety', '🧯', 'Fire Safety'],
+  ['smarthome', '🏠', t('Building Systems')],
+  ['land', '🛰️', t('Land Guard')],
+  ['build', '🏗️', t('Build Watch')],
+  ['firesafety', '🧯', t('Fire Safety')],
   ['inspections', '🔍', 'Inspections'],
-  ['kyc', '🪪', 'Tenant KYC'],
+  ['kyc', '🪪', t('Tenant KYC')],
 ]
 
 const VIEWS = {

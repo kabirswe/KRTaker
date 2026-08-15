@@ -79,7 +79,7 @@ async function doLogin() {
   if (r.ok) {
     const ok = await data.bootstrap()
     if (ok || data.offline) router.push(redirectTo)
-    else { err.value = data.error || 'Login failed.'; auth.clear() }
+    else { err.value = data.error || t('Login failed.'); auth.clear() }
   } else if (r.need2fa) {
     show2fa.value = true
     twofaMethod.value = r.method || 'totp'

@@ -44,9 +44,9 @@ const kpis = computed(() => {
   return [
     { label: 'Tickets', ico: '🎧', value: ss.length, trend: lang.value === 'bn' ? 'সাপোর্ট রিকোয়েস্ট' : 'support requests', bn: 'টিকেট' },
     { label: 'Open', ico: '🟥', value: open, trend: lang.value === 'bn' ? 'মনোযোগ দরকার' : 'need attention', ok: open <= 2, bn: 'খোলা' },
-    { label: 'In progress', ico: '🔵', value: prog, trend: lang.value === 'bn' ? 'চলছে' : 'being worked', bn: 'চলমান' },
+    { label: t('In progress'), ico: '🔵', value: prog, trend: lang.value === 'bn' ? 'চলছে' : 'being worked', bn: 'চলমান' },
     { label: 'Resolved', ico: '✅', value: res, trend: lang.value === 'bn' ? 'সমাধানকৃত' : 'closed', bn: 'সমাধানকৃত' },
-    { label: 'High prio', ico: '🚨', value: high, trend: lang.value === 'bn' ? 'এগুলো আগে সমাধান করুন' : 'escalate these first', ok: high === 0, bn: 'উচ্চ অগ্রাধিকার' },
+    { label: t('High prio'), ico: '🚨', value: high, trend: lang.value === 'bn' ? 'এগুলো আগে সমাধান করুন' : 'escalate these first', ok: high === 0, bn: 'উচ্চ অগ্রাধিকার' },
     { label: 'Senders', ico: '👥', value: senders, trend: lang.value === 'bn' ? 'স্বতন্ত্র ব্যবহারকারী' : 'distinct users', bn: 'ব্যবহারকারী' },
   ]
 })
@@ -91,7 +91,7 @@ async function submitTicket() {
   busy.value = true
   try {
     const r = await apiCall('app-support-ticket', { action: 'create', subject: form.value.subject, cat: form.value.cat, prio: form.value.prio, body: form.value.body })
-    if (!r.ok) { composeErr.value = r.error || 'Failed to create ticket.'; return }
+    if (!r.ok) { composeErr.value = r.error || t('Failed to create ticket.'); return }
     track('support_ticket_created', { cat: form.value.cat, prio: form.value.prio })
     window.__krToast?.('✅ Ticket ' + r.id + ' opened')
     // put into overlay so it appears instantly, then open it
@@ -133,10 +133,10 @@ const timeAgo = (ts) => {
   const d = new Date(String(ts).replace(' ', 'T'))
   if (isNaN(d)) return String(ts).slice(0, 10)
   const s = (Date.now() - d.getTime()) / 1000
-  if (s < 60) return 'just now'
-  if (s < 3600) return Math.max(1, Math.floor(s / 60)) + 'm ago'
-  if (s < 86400) return Math.floor(s / 3600) + 'h ago'
-  if (s < 604800) return Math.floor(s / 86400) + 'd ago'
+  if (s < 60) return t('just now')
+  if (s < 3600) return Math.max(1, Math.floor(s / 60)) + t('m ago')
+  if (s < 86400) return Math.floor(s / 3600) + t('h ago')
+  if (s < 604800) return Math.floor(s / 86400) + t('d ago')
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -374,7 +374,7 @@ function detailFields(row) {
           </div>
 
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

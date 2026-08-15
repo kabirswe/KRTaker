@@ -23,7 +23,7 @@ const staffName = (id) => {
   return st ? st.name : id
 }
 const stCls = (s) => s === 'present' ? 'b-green' : (s === 'absent' ? 'b-red' : (s === 'late' ? 'b-orange' : 'b-gray'))
-const stLabel = (s) => s === 'present' ? 'Present' : (s === 'absent' ? 'Absent' : (s === 'late' ? 'Late' : (s || '—')))
+const stLabel = (s) => s === 'present' ? t('Present') : (s === 'absent' ? t('Absent') : (s === 'late' ? t('Late') : (s || '—')))
 const fmtDate = (d) => { if (!d) return '—'; const t = new Date(String(d).slice(0, 10) + 'T00:00:00'); return isNaN(t) ? String(d).slice(0, 10) : t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }
 function hoursWorked(a) {
   if (!a.check_in || !a.check_out || a.status !== 'present') return null
@@ -57,7 +57,7 @@ async function saveAttendance() {
   await data.bootstrap()
 }
 async function delAttendance(a) {
-  if (!window.confirm('Delete attendance entry ' + a.id + '?')) return
+  if (!window.confirm(t('Delete attendance entry ') + a.id + '?')) return
   const r = await apiCall('app-staffwatch', { action: 'attendance-delete', id: a.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('🗑 Deleted')
@@ -78,8 +78,8 @@ const kpis = computed(() => {
   return [
     { label: 'Records', ico: '👷', value: as.length, trend: 'attendance entries' },
     { label: 'Present', ico: '✅', value: present, trend: rate + '% attendance rate' },
-    { label: 'Absent', ico: '❌', value: absent, trend: absent ? 'missed shifts' : 'none absent', ok: absent <= 2 },
-    { label: 'Late', ico: '⏰', value: late, trend: late ? 'late check-ins' : 'none late' },
+    { label: 'Absent', ico: '❌', value: absent, trend: absent ? t('missed shifts') : t('none absent'), ok: absent <= 2 },
+    { label: 'Late', ico: '⏰', value: late, trend: late ? t('late check-ins') : t('none late') },
     { label: 'Staff', ico: '👥', value: staffN, trend: 'people tracked' },
     { label: 'Months', ico: '🗓️', value: days, trend: last ? 'latest ' + fmtDate(last.work_date) : '' },
   ]
@@ -298,7 +298,7 @@ function detailFields(row) {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

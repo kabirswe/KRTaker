@@ -12,11 +12,11 @@ const auth = useAuthStore()
 const email = auth.user?.email || ''
 
 const steps = [
-  { ico: '👋', title: 'Welcome to your tenant portal', body: 'This is your private portal for the unit you rent — your lease, rent invoices, payments, receipts, documents and maintenance tickets, all in one place.' },
+  { ico: '👋', title: 'Welcome to your tenant portal', body: t('This is your private portal for the unit you rent — your lease, rent invoices, payments, receipts, documents and maintenance tickets, all in one place.') },
   { ico: '🔑', title: 'Set your own password', body: 'Your temporary password was emailed to you. Change it now: open Settings (top-right) → Security → enter your current and new password.' },
-  { ico: '🪪', title: 'Complete your profile', body: 'Upload your NID copy and a profile photo from My Portal → My Profile, so your landlord can verify your identity.' },
-  { ico: '👨‍👩‍👧', title: 'Add family members', body: 'List who lives with you (name, relation, phone). Your landlord uses this for the thana registration form.' },
-  { ico: '📋', title: 'Acknowledge the move-in checklist', body: 'Review the condition checklist of your flat on My Portal and tap “Acknowledge” when you agree with it.' },
+  { ico: '🪪', title: 'Complete your profile', body: t('Upload your NID copy and a profile photo from My Portal → My Profile, so your landlord can verify your identity.') },
+  { ico: '👨‍👩‍👧', title: t('Add family members'), body: 'List who lives with you (name, relation, phone). Your landlord uses this for the thana registration form.' },
+  { ico: '📋', title: 'Acknowledge the move-in checklist', body: t('Review the condition checklist of your flat on My Portal and tap “Acknowledge” when you agree with it.') },
 ]
 const step = ref(0)
 const done = ref(false)

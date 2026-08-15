@@ -47,7 +47,7 @@ async function loadList() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-statements', { action: 'list', month: month.value })
-    if (!r.ok) { err.value = r.error || 'Failed to load statements.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load statements.'); return }
     list.value = r.statements || []
   } catch (e) { err.value = e.message }
   finally { loading.value = false }
@@ -94,7 +94,7 @@ async function openDetail(s) {
   busy.value = true
   try {
     const r = await apiCall('app-statements', { action: 'detail', prop: s.prop, month: month.value })
-    if (!r.ok) { err.value = r.error || 'Failed to load detail.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load detail.'); return }
     detail.value = r
   } catch (e) { err.value = e.message }
   finally { busy.value = false }
@@ -122,7 +122,7 @@ async function savePayout() {
       amount: Math.round(+pay.value.amount || 0), status: pay.value.status,
       method: pay.value.method, ref: pay.value.ref,
     })
-    if (!r.ok) { err.value = r.error || 'Payout failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Payout failed.'); return }
     payOpen.value = false
     toast.value = `✅ Payout recorded for ${pay.value.name}`
     setTimeout(() => toast.value = '', 4000)
@@ -175,7 +175,7 @@ async function loadRentConfig() {
   rentLoading.value = true; err.value = ''
   try {
     const r = await apiCall('app-rent-config-get')
-    if (!r.ok) { err.value = r.error || 'Failed to load rent config.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load rent config.'); return }
     rentCfg.value = r.rent_configs || []
   } catch (e) { err.value = e.message }
   finally { rentLoading.value = false }
@@ -200,7 +200,7 @@ async function saveRentConfig() {
   rentSaving.value = true; err.value = ''
   try {
     const r = await apiCall('app-rent-config-save', { prop: editProp.value, config: editForm.value })
-    if (!r.ok) { err.value = r.error || 'Failed to save rent config.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to save rent config.'); return }
     editProp.value = null
     toast.value = '✅ Rent config saved'
     setTimeout(() => toast.value = '', 4000)
@@ -247,7 +247,7 @@ async function loadEmailCfg() {
   emailLoading.value = true; emailErr.value = ''
   try {
     const r = await apiCall('app-statement-email', { action: 'config' })
-    if (!r.ok) { emailErr.value = r.error || 'Failed to load statement email config.'; return }
+    if (!r.ok) { emailErr.value = r.error || t('Failed to load statement email config.'); return }
     emailCfg.value = { enabled: !!r.config?.enabled, day: r.config?.day || 5, owner_name: r.config?.owner_name || '', bcc: r.config?.bcc || '' }
     emailLastRun.value = r.last_run || ''
     emailHistory.value = r.history || []
@@ -258,7 +258,7 @@ async function saveEmailCfg() {
   emailSaving.value = true; emailErr.value = ''
   try {
     const r = await apiCall('app-statement-email', { action: 'save', config: emailCfg.value })
-    if (!r.ok) { emailErr.value = r.error || 'Failed to save.'; return }
+    if (!r.ok) { emailErr.value = r.error || t('Failed to save.'); return }
     emailCfg.value = { enabled: !!r.config?.enabled, day: r.config?.day || 5, owner_name: r.config?.owner_name || '', bcc: r.config?.bcc || '' }
     toast.value = '✅ Statement email config saved'
     setTimeout(() => toast.value = '', 4000)
@@ -270,7 +270,7 @@ async function previewEmails() {
   emailRunning.value = true; emailErr.value = ''
   try {
     const r = await apiCall('app-statement-email', { action: 'preview', month: month.value })
-    if (!r.ok) { emailErr.value = r.error || 'Preview failed.'; return }
+    if (!r.ok) { emailErr.value = r.error || t('Preview failed.'); return }
     emailPlan.value = r.plan || []
     emailTotals.value = r.totals || {}
   } catch (e) { emailErr.value = e.message }
@@ -280,7 +280,7 @@ async function sendEmails() {
   emailRunning.value = true; emailErr.value = ''
   try {
     const r = await apiCall('app-statement-email', { action: 'run', month: month.value, send: 1 })
-    if (!r.ok) { emailErr.value = r.error || 'Send failed.'; return }
+    if (!r.ok) { emailErr.value = r.error || t('Send failed.'); return }
     confirmSendEmails.value = false
     emailPlan.value = r.plan || []
     emailTotals.value = r.totals || {}

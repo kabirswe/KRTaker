@@ -31,7 +31,7 @@ const NTYPE_META = {
   rent_hike: { ico: '📈', label: 'Rent increase', cls: 'b-orange' },
   termination: { ico: '🛑', label: 'Termination', cls: 'b-gray' },
   tds_alert: { ico: '💰', label: 'TDS advisory', cls: 'b-orange' },
-  default: { ico: '📢', label: 'Notice', cls: 'b-gray' },
+  default: { ico: '📢', label: t('Notice'), cls: 'b-gray' },
 }
 const ntypeMeta = (t) => NTYPE_META[t] || NTYPE_META.default
 const stCls = (s) => ({ Draft: 'b-gray', Served: 'b-blue', Void: 'b-red' }[s] || 'b-gray')
@@ -44,9 +44,9 @@ const effNote = (n) => {
   const d = daysUntil(n.effective_date)
   if (d === null) return ''
   if (n.status === 'Void') return ''
-  if (d < 0) return 'effective ' + (-d) + 'd ago'
-  if (d === 0) return 'effective today'
-  return 'effective in ' + d + 'd'
+  if (d < 0) return 'effective ' + (-d) + t('d ago')
+  if (d === 0) return t('effective today')
+  return t('effective in ') + d + 'd'
 }
 
 // ── KPIs ──
@@ -57,12 +57,12 @@ const kpis = computed(() => {
   const served = ns.filter(n => n.status === 'Served').length
   const voided = ns.filter(n => n.status === 'Void').length
   return [
-    { label: 'Cases', ico: '⚖️', value: cases.value.length, trend: openCases + ' open' },
-    { label: 'Notices', ico: '📢', value: ns.length, trend: 'legal notices issued' },
-    { label: 'Draft', ico: '📝', value: draft, trend: draft ? 'ready to serve' : 'none in draft' },
-    { label: 'Served', ico: '🚚', value: served, trend: 'delivered to tenant' },
-    { label: 'Void', ico: '⛔', value: voided, trend: 'cancelled' },
-    { label: 'Effective', ico: '📅', value: ns.filter(n => n.status === 'Served' && n.effective_date).length, trend: 'with effective dates' },
+    { label: t('Cases'), ico: '⚖️', value: cases.value.length, trend: openCases + ' open' },
+    { label: t('Notices'), ico: '📢', value: ns.length, trend: 'legal notices issued' },
+    { label: t('Draft'), ico: '📝', value: draft, trend: draft ? 'ready to serve' : t('none in draft') },
+    { label: t('Served'), ico: '🚚', value: served, trend: 'delivered to tenant' },
+    { label: t('Void'), ico: '⛔', value: voided, trend: 'cancelled' },
+    { label: t('Effective'), ico: '📅', value: ns.filter(n => n.status === 'Served' && n.effective_date).length, trend: t('with effective dates') },
   ]
 })
 
@@ -70,7 +70,7 @@ const kpis = computed(() => {
 const query = ref('')
 const statusFilter = ref('')
 const typeFilter = ref('')
-const statusOptions = ['Draft', 'Served', 'Void']
+const statusOptions = [t('Draft'), t('Served'), t('Void')]
 const typeOptions = computed(() => [...new Set(legalNotices.value.map(n => n.ntype).filter(Boolean))].sort())
 const filtered = computed(() => {
   let out = legalNotices.value
@@ -93,9 +93,9 @@ async function submitNotice() {
   const f = nForm.value
   if (!f.lease) { window.__krToast?.('❌ Select a lease'); return }
   const r = await apiCall('app-legal', { action: 'notice-create', ntype: f.ntype, lease: f.lease, reason: f.reason.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   nModal.value = false
-  window.__krToast?.('✅ ' + (r.id || 'Notice') + ' issued · effective ' + (r.effective_date || '—'), 'ok')
+  window.__krToast?.('✅ ' + (r.id || t('Notice')) + t(' issued · effective ') + (r.effective_date || '—'), 'ok')
   await data.bootstrap()
 }
 
@@ -108,18 +108,18 @@ watch(() => route.query.open, (id) => {
 }, { immediate: true })
 function leaseRef(n) { return n.lease ? { path: '/leases', query: { open: n.lease } } : null }
 async function serveNotice(n) {
-  if (n.status !== 'Draft') { window.__krToast?.('Only drafts can be served'); return }
+  if (n.status !== 'Draft') { window.__krToast?.(t('Only drafts can be served')); return }
   const r = await apiCall('app-legal', { action: 'notice-serve', id: n.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🚚 ' + n.id + ' served', 'ok')
   await data.bootstrap()
   refreshSel()
 }
 async function voidNotice(n) {
-  if (n.status === 'Void') { window.__krToast?.('Already voided'); return }
-  if (!window.confirm('Void legal notice ' + n.id + '?')) return
+  if (n.status === 'Void') { window.__krToast?.(t('Already voided')); return }
+  if (!window.confirm(t('Void legal notice ') + n.id + '?')) return
   const r = await apiCall('app-legal', { action: 'notice-void', id: n.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('⛔ ' + n.id + ' voided', 'ok')
   await data.bootstrap()
   refreshSel()
@@ -330,7 +330,7 @@ function detailFields(row) {
             <div style="font-size:13px;line-height:1.65;white-space:pre-wrap">{{ sel.body }}</div>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div v-if="canManage" style="display:flex;gap:8px;margin-top:16px">

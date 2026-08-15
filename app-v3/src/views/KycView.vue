@@ -15,10 +15,10 @@ const isTenant = computed(() => auth.user?.role === 'tenant')
 const canReview = computed(() => !isTenant.value && ['superadmin', 'owner', 'manager', 'svc_mgr', 'accountant'].includes(auth.user?.role || ''))
 
 const STATUS = [
-  { v: 'unverified', l: 'Unverified', ico: '🪪', cls: 'b-gray' },
-  { v: 'pending', l: 'Pending', ico: '⏳', cls: 'b-orange' },
-  { v: 'verified', l: 'Verified', ico: '✅', cls: 'b-green' },
-  { v: 'rejected', l: 'Rejected', ico: '❌', cls: 'b-red' },
+  { v: 'unverified', l: t('Unverified'), ico: '🪪', cls: 'b-gray' },
+  { v: 'pending', l: t('Pending'), ico: '⏳', cls: 'b-orange' },
+  { v: 'verified', l: t('Verified'), ico: '✅', cls: 'b-green' },
+  { v: 'rejected', l: t('Rejected'), ico: '❌', cls: 'b-red' },
 ]
 const stMeta = (s) => STATUS.find(x => x.v === s) || { v: s, l: s || '—', ico: '🪪', cls: 'b-gray' }
 
@@ -57,7 +57,7 @@ async function load() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-kyc', { action: 'list' })
-    if (!r.ok) { err.value = r.error || 'Failed to load KYC.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load KYC.'); return }
     if (isTenant.value) {
       record.value = r.record || null
       myTid.value = r.tenant_id || ''
@@ -81,7 +81,7 @@ async function load() {
 function flash(m, ok = true) { toast.value = m; setTimeout(() => toast.value = '', 4000) }
 
 // ── staff: review drawer ──
-const selName = computed(() => sel.value?.tenant_name || 'Tenant')
+const selName = computed(() => sel.value?.tenant_name || t('Tenant'))
 const docBlob = (r, field) => {
   if (!r || !r[field]) return
   apiBlob('app-kyc?action=view&tenant_id=' + encodeURIComponent(r.tenant_id) + '&field=' + field)
@@ -93,7 +93,7 @@ async function review(decision) {
   reviewBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-kyc', { action: 'review', tenant_id: sel.value.tenant_id, decision, notes: reviewNote.value })
-    if (!r.ok) { err.value = r.error || 'Review failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Review failed.'); return }
     flash(decision === 'approve' ? '✅ KYC approved — tenant can now pay by card' : '❌ KYC rejected')
     reviewNote.value = ''
     await load()
@@ -106,7 +106,7 @@ async function resetKyc(r) {
   reviewBusy.value = true; err.value = ''
   try {
     const res = await apiCall('app-kyc', { action: 'remove', tenant_id: r.tenant_id })
-    if (!res.ok) { err.value = res.error || 'Reset failed.'; return }
+    if (!res.ok) { err.value = res.error || t('Reset failed.'); return }
     flash('🪪 KYC reset to unverified')
     await load()
   } catch (e) { err.value = e.message }
@@ -119,7 +119,7 @@ async function submitKyc() {
   submitBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-kyc', { action: 'submit', full_name: form.value.full_name, nid: form.value.nid, tin: form.value.tin, dob: form.value.dob, address: form.value.address })
-    if (!r.ok) { err.value = r.error || 'Submit failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Submit failed.'); return }
     flash('⏳ KYC submitted — awaiting review')
     await load()
   } catch (e) { err.value = e.message }
@@ -138,8 +138,8 @@ async function uploadDoc(field, file) {
   submitBusy.value = true; err.value = ''
   try {
     const r = await apiUpload('app-kyc', fd)
-    if (!r.ok) { err.value = r.error || 'Upload failed.'; return }
-    flash('📄 ' + (field === 'doc_front' ? 'Front' : 'Back') + ' document uploaded')
+    if (!r.ok) { err.value = r.error || t('Upload failed.'); return }
+    flash('📄 ' + (field === 'doc_front' ? 'Front' : 'Back') + t(' document uploaded'))
     frontFile.value = null; backFile.value = null
     await load()
   } catch (e) { err.value = e.message }

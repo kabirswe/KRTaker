@@ -26,12 +26,12 @@ async function loadPlans() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-premium-plans')
-    if (!r.ok) { err.value = r.error || 'Failed to load plans.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load plans.'); return }
     plans.value = Object.entries(r.plans || {}).map(([code, p]) => ({ code, ...p }))
   } catch (e) { err.value = e.message }
   finally { loading.value = false }
 }
-const CYCLES = [['monthly', 'Monthly'], ['quarterly', 'Quarterly'], ['annual', 'Annual']]
+const CYCLES = [['monthly', 'Monthly'], ['quarterly', t('Quarterly')], ['annual', 'Annual']]
 
 // ── Subscribe (app-premium-subscribe) ──
 const subOpen = ref(false)
@@ -45,7 +45,7 @@ async function doSubscribe() {
   subBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-premium-subscribe', subForm.value)
-    if (!r.ok) { err.value = r.error || 'Subscribe failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Subscribe failed.'); return }
     subOpen.value = false
     toast.value = `✅ ${r.id} subscribed — ${r.sub?.tier_label || ''} ${r.sub?.cycle || ''}`
     setTimeout(() => toast.value = '', 5000)
@@ -66,7 +66,7 @@ async function toggleSub(s) {
   if (!confirm(`Pause or resume ${s.id} (${s.tier_label})?`)) return
   err.value = ''
   const r = await apiCall('app-premium-toggle', { id: s.id })
-  if (!r.ok) { err.value = r.error || 'Toggle failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Toggle failed.'); return }
   toast.value = `✅ ${s.id} → ${r.status}`
   setTimeout(() => toast.value = '', 4000)
   await loadSubs()
@@ -75,7 +75,7 @@ async function cancelSub(s) {
   if (!confirm(`Cancel ${s.id} (${s.tier_label})? This ends the subscription and stops billing.`)) return
   err.value = ''
   const r = await apiCall('app-premium-cancel', { id: s.id })
-  if (!r.ok) { err.value = r.error || 'Cancel failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Cancel failed.'); return }
   toast.value = `✅ ${s.id} cancelled`
   setTimeout(() => toast.value = '', 4000)
   await loadSubs()
@@ -96,7 +96,7 @@ async function payBill(b) {
   billBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-premium-billing', { action: 'pay', id: b.id, method: 'bKash' })
-    if (!r.ok) { err.value = r.error || 'Pay failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Pay failed.'); return }
     toast.value = `✅ ${b.id} paid`
     setTimeout(() => toast.value = '', 4000)
     await loadBilling()
@@ -108,7 +108,7 @@ async function runBilling() {
   billBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-premium-billing', { action: 'run' })
-    if (!r.ok) { err.value = r.error || 'Billing run failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Billing run failed.'); return }
     toast.value = `✅ Billing run: ${r.created?.length || 0} invoices created`
     setTimeout(() => toast.value = '', 5000)
     await loadBilling()
@@ -215,7 +215,7 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
                 <td style="text-align:right;font-weight:700">{{ money(b.amount) }}</td>
                 <td><span class="badge" :class="billCls(b.status)">{{ b.status }}</span></td>
                 <td>
-                  <button v-if="b.status !== 'Paid' && isOwner" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="payBill(b)">💳 Mark paid</button>
+                  <button v-if="b.status !== 'Paid' && isOwner" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="payBill(b)">💳 {{ t('Mark paid') }}</button>
                 </td>
               </tr>
             </tbody>

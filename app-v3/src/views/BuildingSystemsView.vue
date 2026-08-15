@@ -20,7 +20,7 @@ const cams = ref([])
 const smartCfg = ref({})
 async function loadSmart() {
   const r = await apiCall('app-smarthome', { action: 'summary' })
-  if (!r.ok) { err.value = r.error || 'Failed to load smart home.'; return }
+  if (!r.ok) { err.value = r.error || t('Failed to load smart home.'); return }
   locks.value = (r.locks && r.locks.rows) || []
   cams.value = (r.cameras && r.cameras.rows) || []
   smartCfg.value = r.config || {}
@@ -33,7 +33,7 @@ const sysFuel = ref([])
 const sysStats = ref({})
 async function loadSystems() {
   const r = await apiCall('app-systems', { action: 'summary' })
-  if (!r.ok) { err.value = r.error || 'Failed to load systems.'; return }
+  if (!r.ok) { err.value = r.error || t('Failed to load systems.'); return }
   const s = r.summary || {}
   sysAssets.value = s.assets || []
   sysServices.value = s.services || []
@@ -46,7 +46,7 @@ const plans = ref([])
 const planStats = ref({})
 async function loadHealth() {
   const r = await apiCall('app-healthcheck', { action: 'summary' })
-  if (!r.ok) { err.value = r.error || 'Failed to load health check.'; return }
+  if (!r.ok) { err.value = r.error || t('Failed to load health check.'); return }
   plans.value = (r.plans && r.plans.rows) || []
   planStats.value = { by_status: r.plans?.by_status || {}, overdue: r.plans?.overdue || 0, upcoming: r.plans?.upcoming || 0 }
 }
@@ -85,7 +85,7 @@ async function createLock() {
   const f = lockForm.value
   if (!f.lock_name.trim()) { alert('Lock name is required.'); return }
   const r = await apiCall('app-smarthome', { action: 'lock-create', lock_name: f.lock_name.trim(), purpose: f.purpose, prop: f.prop, unit: f.unit.trim(), grant_for: f.grant_for.trim(), notes: f.notes.trim() })
-  if (!r.ok) { alert(r.error || 'Create failed'); return }
+  if (!r.ok) { alert(r.error || t('Create failed')); return }
   showLockForm.value = false
   toast.value = `✅ Lock ${r.id} created · code ${r.code}`
   setTimeout(() => toast.value = '', 4000)
@@ -94,12 +94,12 @@ async function createLock() {
 async function revokeLock(l) {
   if (!confirm(`Revoke lock ${l.id}? It can no longer be used.`)) return
   const r = await apiCall('app-smarthome', { action: 'lock-revoke', id: l.id })
-  if (!r.ok) { alert(r.error || 'Revoke failed'); return }
+  if (!r.ok) { alert(r.error || t('Revoke failed')); return }
   await loadSmart()
 }
 async function useLock(l) {
   const r = await apiCall('app-smarthome', { action: 'lock-use', id: l.id })
-  if (!r.ok) { alert(r.error || 'Use failed'); return }
+  if (!r.ok) { alert(r.error || t('Use failed')); return }
   toast.value = `✅ ${l.id} used (${r.used_count}×)`
   setTimeout(() => toast.value = '', 4000)
   await loadSmart()
@@ -107,7 +107,7 @@ async function useLock(l) {
 async function toggleCam(c) {
   const next = c.status === 'online' ? 'offline' : 'online'
   const r = await apiCall('app-smarthome', { action: 'camera-status', id: c.id, status: next })
-  if (!r.ok) { alert(r.error || 'Toggle failed'); return }
+  if (!r.ok) { alert(r.error || t('Toggle failed')); return }
   await loadSmart()
 }
 
@@ -118,7 +118,7 @@ const assetStatusVal = ref('operational')
 function openAssetStatus(a) { assetStatusFor.value = a; assetStatusVal.value = a.status; showAssetStatus.value = true }
 async function setAssetStatus() {
   const r = await apiCall('app-systems', { action: 'asset-status', id: assetStatusFor.value.id, status: assetStatusVal.value })
-  if (!r.ok) { alert(r.error || 'Status update failed'); return }
+  if (!r.ok) { alert(r.error || t('Status update failed')); return }
   showAssetStatus.value = false
   await loadSystems()
 }
@@ -130,7 +130,7 @@ async function recordService() {
   const f = svcForm.value
   if (!f.technician.trim()) { alert('Technician is required.'); return }
   const r = await apiCall('app-systems', { action: 'asset-service', id: serviceFor.value.id, service_type: f.service_type, technician: f.technician.trim(), vendor: f.vendor.trim(), cost: +f.cost || 0, notes: f.notes.trim() })
-  if (!r.ok) { alert(r.error || 'Record failed'); return }
+  if (!r.ok) { alert(r.error || t('Record failed')); return }
   showServiceForm.value = false
   toast.value = '✅ Service recorded — next service bumped'
   setTimeout(() => toast.value = '', 4000)
@@ -144,7 +144,7 @@ async function recordFuel() {
   const f = fuelForm.value
   if (!(+f.liters > 0)) { alert('Liters must be positive.'); return }
   const r = await apiCall('app-systems', { action: 'asset-fuel', id: fuelFor.value.id, liters: +f.liters, rate_per_litre: +f.rate_per_litre || 0, vendor: f.vendor.trim(), notes: f.notes.trim() })
-  if (!r.ok) { alert(r.error || 'Refuel failed'); return }
+  if (!r.ok) { alert(r.error || t('Refuel failed')); return }
   showFuelForm.value = false
   toast.value = '✅ Fuel refill recorded'
   setTimeout(() => toast.value = '', 4000)
@@ -158,7 +158,7 @@ async function advancePlan(p) {
   if (idx < 0 || idx >= PLAN_STATUSES.length - 2) return
   const next = PLAN_STATUSES[idx + 1]
   const r = await apiCall('app-healthcheck', { action: 'plan-status', id: p.id, status: next })
-  if (!r.ok) { alert(r.error || 'Advance failed'); return }
+  if (!r.ok) { alert(r.error || t('Advance failed')); return }
   toast.value = `✅ ${p.id} → ${next}`
   setTimeout(() => toast.value = '', 4000)
   await loadHealth()
@@ -169,7 +169,7 @@ function openPlanForm() { planForm.value = { season: 'quarterly', service: 'deep
 async function createPlan() {
   const f = planForm.value
   const r = await apiCall('app-healthcheck', { action: 'plan-create', season: f.season, service: f.service, prop: f.prop, scheduled_for: f.scheduled_for, assigned_to: f.assigned_to.trim(), cost: +f.cost || 0 })
-  if (!r.ok) { alert(r.error || 'Create failed'); return }
+  if (!r.ok) { alert(r.error || t('Create failed')); return }
   showPlanForm.value = false
   toast.value = `✅ Plan ${r.id} created`
   setTimeout(() => toast.value = '', 4000)

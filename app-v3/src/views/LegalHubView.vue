@@ -21,9 +21,9 @@ const data = useDataStore()
 const TAB_ORDER = [
   ['overview', '📊', 'Overview'],
   ['compliance', '⚖️', 'Compliance'],
-  ['legal', '📜', 'Legal Engine'],
+  ['legal', '📜', t('Legal Engine')],
   ['cases', '👨‍⚖️', 'Cases'],
-  ['concierge', '🗂️', 'Legal Concierge'],
+  ['concierge', '🗂️', t('Legal Concierge')],
 ]
 
 const VIEWS = {

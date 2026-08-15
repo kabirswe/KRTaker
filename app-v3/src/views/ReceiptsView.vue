@@ -47,9 +47,9 @@ const kpis = computed(() => {
   return [
     { label: 'Receipts', ico: '📎', value: rs.length, trend: inMonths.length ? `${inMonths[0]} → ${inMonths[inMonths.length - 1]}` : 'no receipts yet' },
     { label: 'Collected', ico: '💰', value: money(tot), trend: 'total issued' },
-    { label: 'This month', ico: '📅', value: money(mTot), trend: monthLabel(thisM) },
+    { label: t('This month'), ico: '📅', value: money(mTot), trend: monthLabel(thisM) },
     { label: 'Avg receipt', ico: '📊', value: money(avg), trend: 'per receipt' },
-    { label: 'Top method', ico: '💳', value: topMethod ? topMethod[0] : '—', trend: topMethod ? money(topMethod[1]) : '' },
+    { label: t('Top method'), ico: '💳', value: topMethod ? topMethod[0] : '—', trend: topMethod ? money(topMethod[1]) : '' },
     { label: 'Invoice-linked', ico: '🧾', value: rs.filter(r => r.inv).length, trend: 'receipts with invoice' },
   ]
 })
@@ -105,7 +105,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
         <input v-model="query" :placeholder="t('Search receipt, invoice, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="methodFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">{{ t('All methods') }}</option>
-          <option v-for="m in methodOptions" :key="m" :value="m">{{ m }}</option>
+          <option v-for="m in methodOptions" :key="m" :value="m">{{ t(m) }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">{{ t('All months') }}</option>

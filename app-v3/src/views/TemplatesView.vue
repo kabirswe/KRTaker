@@ -21,7 +21,7 @@ async function loadAll() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-tpl-list')
-    if (!r.ok) { err.value = r.error || 'Failed to load templates.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load templates.'); return }
     tpls.value = r.templates || []
     emails.value = r.email || []
     palettes.value = r.palettes || {}
@@ -63,7 +63,7 @@ const SAMPLE = {
   lease_id: 'L-007', lease_start: '15 Jun 2026', lease_end: '14 Jun 2027',
   rent: '৳32,000', rent_words: 'Thirty-Two Thousand', rent_words_bn: 'বত্রিশ হাজার টাকা',
   advance: '৳90,000', advance_words: 'Ninety Thousand', advance_words_bn: 'নব্বই হাজার টাকা',
-  reg_office: 'Sub-Registrar, Dhanmondi', reg_deed: 'Deed No. 4123', reg_note: 'Registration recommended for enforceability.',
+  reg_office: 'Sub-Registrar, Dhanmondi', reg_deed: 'Deed No. 4123', reg_note: t('Registration recommended for enforceability.'),
   receipt_id: 'PAY-010', date: '02 Aug 2026', amount: '৳25,000', amount_words_en: 'Twenty-Five Thousand', amount_words_bn: 'পঁচিশ হাজার টাকা মাত্র',
   method: 'bKash', ref: '8T5XK2QZ', invoice_id: 'INV-2026-0011', month: '2026-06',
   partner_name: 'Rahim Steel Works', partner_trade: 'Fabrication & Repair', partner_rating: '4.8', partner_jobs: '23', partner_status: 'Active', partner_email: 'rahim@example.com',
@@ -145,7 +145,7 @@ async function openTpl(t) {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-tpl-get', { id: t.id })
-    if (!r.ok) { err.value = r.error || 'Failed to load template.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load template.'); return }
     edit.value = { id: r.tpl.id, kind: r.tpl.kind, name: r.tpl.name, title: r.tpl.title || '', body: r.tpl.body || '', lang: r.tpl.lang || 'en' }
     editOpen.value = true
   } catch (e) { err.value = e.message }
@@ -160,11 +160,11 @@ function insertTok(tok) {
 }
 async function saveTpl() {
   if (!edit.value) return
-  if (!edit.value.name || !edit.value.body.trim()) { err.value = 'Name and body are required.'; return }
+  if (!edit.value.name || !edit.value.body.trim()) { err.value = t('Name and body are required.'); return }
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-tpl-save', { id: edit.value.id || undefined, kind: edit.value.kind, name: edit.value.name, title: edit.value.title, body: edit.value.body, lang: edit.value.lang })
-    if (!r.ok) { err.value = r.error || 'Save failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Save failed.'); return }
     editOpen.value = false
     toast.value = `✅ ${r.id} saved`
     setTimeout(() => toast.value = '', 4000)
@@ -176,7 +176,7 @@ async function dupTpl(t) {
   if (!confirm(`Duplicate template ${t.id}?`)) return
   err.value = ''
   const r = await apiCall('app-tpl-dup', { id: t.id })
-  if (!r.ok) { err.value = r.error || 'Duplicate failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Duplicate failed.'); return }
   toast.value = `✅ ${r.id} created`
   setTimeout(() => toast.value = '', 4000)
   await loadAll()
@@ -185,7 +185,7 @@ async function delTpl(t) {
   if (!confirm(`Delete template ${t.id}?`)) return
   err.value = ''
   const r = await apiCall('app-tpl-delete', { id: t.id })
-  if (!r.ok) { err.value = r.error || 'Delete failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Delete failed.'); return }
   toast.value = `🗑 ${t.id} deleted`
   setTimeout(() => toast.value = '', 4000)
   await loadAll()
@@ -194,7 +194,7 @@ async function resetTpl(t) {
   if (!confirm(`Reset ${t.id} to its default content?`)) return
   err.value = ''
   const r = await apiCall('app-tpl-reset', { id: t.id })
-  if (!r.ok) { err.value = r.error || 'Reset failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Reset failed.'); return }
   toast.value = `↩ ${t.id} reset to default`
   setTimeout(() => toast.value = '', 4000)
   await loadAll()
@@ -207,7 +207,7 @@ async function openEmail(e) {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-email-tpl-get', { id: e.id })
-    if (!r.ok) { err.value = r.error || 'Failed to load email template.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load email template.'); return }
     emEdit.value = { id: r.tpl.id, name: r.tpl.name, subject: r.tpl.subject || '', body: r.tpl.body || '', lang: r.tpl.lang || 'en' }
     emOpen.value = true
   } catch (e) { err.value = e.message }
@@ -215,11 +215,11 @@ async function openEmail(e) {
 }
 async function saveEmail() {
   if (!emEdit.value) return
-  if (!emEdit.value.subject || !emEdit.value.body.trim()) { err.value = 'Subject and body are required.'; return }
+  if (!emEdit.value.subject || !emEdit.value.body.trim()) { err.value = t('Subject and body are required.'); return }
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-email-tpl-save', { id: emEdit.value.id, subject: emEdit.value.subject, body: emEdit.value.body, lang: emEdit.value.lang })
-    if (!r.ok) { err.value = r.error || 'Save failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Save failed.'); return }
     emOpen.value = false
     toast.value = `✅ ${emEdit.value.id} saved`
     setTimeout(() => toast.value = '', 4000)
@@ -231,7 +231,7 @@ async function resetEmail(e) {
   if (!confirm(`Reset ${e.id} to its default content?`)) return
   err.value = ''
   const r = await apiCall('app-email-tpl-reset', { id: e.id })
-  if (!r.ok) { err.value = r.error || 'Reset failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Reset failed.'); return }
   toast.value = `↩ ${e.id} reset to default`
   setTimeout(() => toast.value = '', 4000)
   await loadAll()

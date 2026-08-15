@@ -86,12 +86,12 @@ const kpis = computed(() => {
   const rentRoll = unitsAll.value.filter(u => String(u.status).toLowerCase() === 'leased').reduce((s, u) => s + (u.rent || 0), 0)
   const open = ticketsAll.value.filter(t => String(t.status).toLowerCase() === 'open').length
   return [
-    { label: 'Properties', ico: '🏢', value: propsAll.value.length, trend: `${propsAll.value.filter(p => p.status === 'Active').length} active` },
-    { label: 'Total area', ico: '📐', value: totalSqft.toLocaleString('en-IN') + ' sqft', trend: 'across portfolio' },
-    { label: 'Portfolio value', ico: '💎', value: bigMoney(portValue), trend: 'current market value' },
-    { label: 'Units', ico: '🚪', value: `${leased} / ${unitsAll.value.length}`, trend: `${vacant} vacant`, ok: vacant === 0 },
-    { label: 'Rent roll / mo', ico: '💵', value: money(rentRoll), trend: 'leased units' },
-    { label: 'Open tickets', ico: '🔧', value: open, trend: open ? 'need attention' : 'all clear', ok: open === 0 },
+    { label: t('Properties'), ico: '🏢', value: propsAll.value.length, trend: `${propsAll.value.filter(p => p.status === 'Active').length} active` },
+    { label: t('Total area'), ico: '📐', value: totalSqft.toLocaleString('en-IN') + ' sqft', trend: t('across portfolio') },
+    { label: t('Portfolio value'), ico: '💎', value: bigMoney(portValue), trend: 'current market value' },
+    { label: t('Units'), ico: '🚪', value: `${leased} / ${unitsAll.value.length}`, trend: `${vacant} vacant`, ok: vacant === 0 },
+    { label: t('Rent roll / mo'), ico: '💵', value: money(rentRoll), trend: 'leased units' },
+    { label: t('Open tickets'), ico: '🔧', value: open, trend: open ? t('need attention') : t('all clear'), ok: open === 0 },
   ]
 })
 
@@ -171,9 +171,9 @@ const selStats = computed(() => {
     { label: 'Rent roll', v: money(rentRoll(p)) + '/mo' },
     { label: 'Invoiced', v: money(totNet) },
     { label: 'Collected', v: money(paidNet) },
-    { label: 'Open tickets', v: ticketsOf(p).filter(t => String(t.status).toLowerCase() === 'open').length },
-    { label: 'Open cost', v: money(openCost) },
-    { label: 'Lease expiries', v: selLeases.value.filter(l => leaseDaysLeft(l) !== null && leaseDaysLeft(l) <= 90).length },
+    { label: t('Open tickets'), v: ticketsOf(p).filter(t => String(t.status).toLowerCase() === 'open').length },
+    { label: t('Open cost'), v: money(openCost) },
+    { label: t('Lease expiries'), v: selLeases.value.filter(l => leaseDaysLeft(l) !== null && leaseDaysLeft(l) <= 90).length },
   ]
 })
 
@@ -188,7 +188,7 @@ function openAdd() {
   formErr.value = ''; modal.value = { mode: 'add' }
 }
 function openEdit(p) {
-  form.value = { name: p.name || '', type: p.type || 'Flat', jur: p.jur || 'Dhaka North', holding: p.holding || '', sqft: p.sqft || '', value: p.value || '', status: p.status || 'Active', address: p.address || '', description: p.description || '', featured: String(p.featured) === '1', published: String(p.published) === '1' }
+  form.value = { name: p.name || '', type: p.type || 'Flat', jur: p.jur || t('Dhaka North'), holding: p.holding || '', sqft: p.sqft || '', value: p.value || '', status: p.status || 'Active', address: p.address || '', description: p.description || '', featured: String(p.featured) === '1', published: String(p.published) === '1' }
   formErr.value = ''; modal.value = { mode: 'edit', p }
 }
 function closeModal() { modal.value = null; formErr.value = '' }
@@ -223,7 +223,7 @@ async function submitForm() {
       await data.bootstrap()
       if (modal.value?.p) openDetail(data.list('properties').find(x => x.id === modal.value.p.id))
     } else {
-      formErr.value = r.error || 'Save failed.'
+      formErr.value = r.error || t('Save failed.')
     }
   } finally { saving.value = false }
 }
@@ -236,7 +236,7 @@ async function delProperty(p) {
     if (sel.value?.id === p.id) closeDetail()
     await data.bootstrap()
   } else {
-    window.__krToast?.(r.error || 'Delete failed', 'error')
+    window.__krToast?.(r.error || t('Delete failed'), 'error')
   }
 }
 
@@ -244,13 +244,13 @@ async function togglePublish(p) {
   const next = String(p.published) === '1' ? 0 : 1
   const r = await apiCall('app-crud', { action: 'update', collection: 'properties', id: p.id, data: { published: next } })
   if (r.ok) { p.published = next; window.__krToast?.(next ? '👁 Published' : '🙈 Unpublished', 'ok') }
-  else window.__krToast?.(r.error || 'Update failed', 'error')
+  else window.__krToast?.(r.error || t('Update failed'), 'error')
 }
 async function toggleFeatured(p) {
   const next = String(p.featured) === '1' ? '0' : '1'
   const r = await apiCall('app-crud', { action: 'update', collection: 'properties', id: p.id, data: { featured: next } })
   if (r.ok) { p.featured = next; window.__krToast?.(next === '1' ? '⭐ Featured' : 'Unfeatured', 'ok') }
-  else window.__krToast?.(r.error || 'Update failed', 'error')
+  else window.__krToast?.(r.error || t('Update failed'), 'error')
 }
 </script>
 
@@ -258,7 +258,7 @@ async function toggleFeatured(p) {
   <div>
     <div class="page-head">
       <div>
-        <h1>🏢 {{ lang === 'bn' ? 'প্রপার্টি' : 'Properties' }}</h1>
+        <h1>🏢 {{ t('Properties') }}</h1>
         <div class="sub">{{ propsAll.length }} properties · {{ unitsAll.length }} units · live from API</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -582,7 +582,7 @@ async function toggleFeatured(p) {
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
           <button class="btn-ghost" @click="closeModal">{{ t('Cancel') }}</button>
-          <button class="btn-primary" :disabled="saving" @click="submitForm" style="padding:9px 18px">{{ saving ? 'Saving…' : modal.mode === 'edit' ? 'Save changes' : 'Create property' }}</button>
+          <button class="btn-primary" :disabled="saving" @click="submitForm" style="padding:9px 18px">{{ saving ? t('Saving…') : modal.mode === 'edit' ? 'Save changes' : 'Create property' }}</button>
         </div>
       </div>
     </template>

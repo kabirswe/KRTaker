@@ -58,8 +58,8 @@ const kpis = computed(() => {
     { label: 'Invoices', ico: '🧾', value: invoicesAll.value.length, trend: `${paid.length} paid` },
     { label: 'Billed', ico: '📊', value: money(tot), trend: 'total net' },
     { label: 'Collected', ico: '💳', value: money(col), trend: rate + '% collection' },
-    { label: 'Outstanding', ico: '⏳', value: money(due), trend: due ? 'needs follow-up' : 'all clear', ok: due === 0 },
-    { label: 'This month due', ico: '📅', value: money(mDue), trend: monthLabel(thisM) },
+    { label: 'Outstanding', ico: '⏳', value: money(due), trend: due ? t('needs follow-up') : t('all clear'), ok: due === 0 },
+    { label: t('This month due'), ico: '📅', value: money(mDue), trend: monthLabel(thisM) },
     { label: 'Partial', ico: '🧩', value: partial.length, trend: partial.length ? 'partly paid' : 'none', ok: partial.length === 0 },
   ]
 })
@@ -119,7 +119,7 @@ async function submitPay() {
   try {
     const r = await apiCall('app-invoice-pay', { invoice_id: m.inv.id, amount: Math.round(m.amount), date: m.date, method: m.method, sig: m.sig })
     if (r.ok) { window.__krToast?.(`💳 ${m.inv.id} → ${r.status} (paid ৳${(r.paid || 0).toLocaleString('en-IN')})`, 'ok'); payModal.value = null; await data.bootstrap(); track('invoice_paid', { invoice_id: m.inv.id, amount: Math.round(m.amount), method: m.method }) }
-    else window.__krToast?.(r.error || 'Payment failed', 'error')
+    else window.__krToast?.(r.error || t('Payment failed'), 'error')
   } finally { paySaving.value = false }
 }
 
@@ -132,7 +132,7 @@ async function emailInv(i) {
     if (r.ok) {
       if (r.emailed === false) window.__krToast?.(r.suppressed ? `📧 Suppressed — ${r.reason || ''}` : '📧 No email on file', 'error')
       else window.__krToast?.(`📧 ${i.id} emailed to ${r.to || ''}`, 'ok')
-    } else window.__krToast?.(r.error || 'Email failed', 'error')
+    } else window.__krToast?.(r.error || t('Email failed'), 'error')
   } finally { emailBusy.value = '' }
 }
 const printBusy = ref('')
@@ -144,7 +144,7 @@ async function printInv(i) {
       const blob = await res.blob()
       window.open(URL.createObjectURL(blob), '_blank')
     } else window.__krToast?.('Could not render invoice (HTTP ' + res.status + ')', 'error')
-  } catch (e) { window.__krToast?.('Network error printing invoice', 'error') }
+  } catch (e) { window.__krToast?.(t('Network error printing invoice'), 'error') }
   finally { printBusy.value = '' }
 }
 
@@ -167,7 +167,7 @@ async function refreshAutoPreview() {
   try {
     const r = await apiCall('app-invoice-auto', { month: m.month })
     if (r.ok) autoPreview.value = r
-    else window.__krToast?.(r.error || 'Preview failed', 'error')
+    else window.__krToast?.(r.error || t('Preview failed'), 'error')
   } finally { autoBusy.value = false }
 }
 async function runAuto() {
@@ -187,7 +187,7 @@ async function runAuto() {
       window.__krToast?.(parts.join(' · '), r.created ? 'ok' : 'info')
       closeAuto()
       await data.bootstrap()
-    } else window.__krToast?.(r.error || 'Generate failed', 'error')
+    } else window.__krToast?.(r.error || t('Generate failed'), 'error')
   } finally { autoRunBusy.value = false }
 }
 </script>
@@ -400,7 +400,7 @@ async function runAuto() {
             <div>
               <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</label>
               <select v-model="payModal.method" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-                <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ m }}</option>
+                <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ t(m) }}</option>
               </select>
             </div>
           </div>

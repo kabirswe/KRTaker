@@ -111,7 +111,7 @@ const kpis = computed(() => {
     { label: 'Tenants', ico: '👥', value: tenantsAll.value.length, trend: `${indiv} individual · ${corp} corporate` },
     { label: 'NRB clients', ico: '🌍', value: nrb, trend: 'non-resident Bangladeshi', ok: true },
     { label: 'Verified', ico: '🪪', value: verified, trend: 'NID / Thana verified', ok: true },
-    { label: 'Active leases', ico: '📄', value: active, trend: 'of ' + leasesAll.value.length },
+    { label: t('Active leases'), ico: '📄', value: active, trend: 'of ' + leasesAll.value.length },
     { label: 'Rent roll / mo', ico: '💵', value: money(rentRoll), trend: 'active leases' },
     { label: 'Outstanding', ico: '⏳', value: money(oust), trend: 'unpaid invoices', ok: oust === 0 },
   ]
@@ -154,9 +154,9 @@ const sel = ref(null)
 const tab = ref('profile')
 const TABS = [
   { id: 'profile', label: 'Profile', ico: '👤' },
-  { id: 'leases', label: 'Lease & Unit', ico: '📄' },
+  { id: 'leases', label: t('Lease & Unit'), ico: '📄' },
   { id: 'billing', label: 'Billing', ico: '💳' },
-  { id: 'tickets', label: 'Tickets & Maint.', ico: '🔧' },
+  { id: 'tickets', label: t('Tickets & Maint.'), ico: '🔧' },
   { id: 'hando', label: 'Handover', ico: '📦' },
   { id: 'chat', label: 'Chat', ico: '💬' },
   { id: 'docs', label: 'Documents', ico: '📎' },
@@ -187,7 +187,7 @@ const selStats = computed(() => {
   const tot = invs.reduce((s, i) => s + (i.net || 0), 0)
   return [
     { label: 'Units', v: selUnits.value.length },
-    { label: 'Rent / mo', v: money(monthlyRent(sel.value)) },
+    { label: t('Rent / mo'), v: money(monthlyRent(sel.value)) },
     { label: 'Invoiced', v: money(tot) },
     { label: 'Paid', v: money(paid) },
     { label: 'Outstanding', v: money(outstanding(sel.value)) },
@@ -234,7 +234,7 @@ async function onPhotoPick(e) {
   try {
     const r = await apiUpload('app-photo?action=tenant-upload', fd)
     if (r.ok) { window.__krToast?.('📸 Photo updated', 'ok'); photoUrls.delete(sel.value.id); await data.bootstrap(); reResolveSel(); loadPhoto() }
-    else window.__krToast?.(r.error || 'Photo upload failed', 'error')
+    else window.__krToast?.(r.error || t('Photo upload failed'), 'error')
   } finally { uploadingPhoto.value = false }
 }
 
@@ -251,8 +251,8 @@ function loadFamilyCompany() {
   company.value = c && typeof c === 'object' && !Array.isArray(c) ? c : {}
 }
 const FAM_FIELDS = [
-  { k: 'name', label: 'Name', ph: 'Spouse / child name', w: '2fr' },
-  { k: 'relation', label: 'Relation', ph: 'Spouse / Son / Daughter…', w: '1fr' },
+  { k: 'name', label: 'Name', ph: t('Spouse / child name'), w: '2fr' },
+  { k: 'relation', label: 'Relation', ph: t('Spouse / Son / Daughter…'), w: '1fr' },
   { k: 'nid', label: 'NID', ph: 'Optional', w: '1.4fr' },
   { k: 'dob', label: 'DOB', ph: 'YYYY-MM-DD', w: '1fr' },
   { k: 'phone', label: 'Phone', ph: '01xxx', w: '1fr' },
@@ -266,14 +266,14 @@ function openFamEdit(i) { famModal.value = { index: i, m: { ...family.value[i] }
 function saveFamMember() {
   const fm = famModal.value
   if (!fm) return
-  if (!fm.m.name.trim()) { window.__krToast?.('Member name is required', 'error'); return }
+  if (!fm.m.name.trim()) { window.__krToast?.(t('Member name is required'), 'error'); return }
   if (fm.index === null) family.value.push({ ...fm.m })
   else family.value[fm.index] = { ...fm.m }
   famModal.value = null
   saveFamily()
 }
 function removeFamilyRow(i) {
-  if (!confirm(`Remove ${family.value[i]?.name || 'this member'} from family?`)) return
+  if (!confirm(`${t('Remove')} ${family.value[i]?.name || t('this member')} ${t('from family?')}`)) return
   family.value.splice(i, 1)
   saveFamily()
 }
@@ -284,18 +284,18 @@ async function saveFamily() {
     const clean = family.value.filter(m => m.name || m.relation || m.phone)
     const r = await apiCall('app-crud', { action: 'update', collection: 'tenants', id: sel.value.id, data: { family: JSON.stringify(clean) } })
     if (r.ok) { window.__krToast?.('👨‍👩‍👧 Family info saved', 'ok'); await data.bootstrap(); reResolveSel() }
-    else window.__krToast?.(r.error || 'Save failed', 'error')
+    else window.__krToast?.(r.error || t('Save failed'), 'error')
   } finally { famSaving.value = false }
 }
 const CO_FIELDS = [
-  { k: 'trade', label: 'Trade / Business type', ph: 'e.g. Garments, Trading, NGO…', w: '1fr' },
-  { k: 'bin', label: 'BIN / TIN / Reg. no', ph: 'e.g. BIN 001234567-0101', w: '1fr' },
-  { k: 'address', label: 'Registered address', ph: 'Company address', w: 'full' },
+  { k: 'trade', label: t('Trade / Business type'), ph: t('e.g. Garments, Trading, NGO…'), w: '1fr' },
+  { k: 'bin', label: t('BIN / TIN / Reg. no'), ph: t('e.g. BIN 001234567-0101'), w: '1fr' },
+  { k: 'address', label: t('Registered address'), ph: t('Company address'), w: 'full' },
   { k: 'city', label: 'City', ph: 'Dhaka', w: '0.6fr' },
-  { k: 'contact_person', label: 'Contact person', ph: 'Authorized person name', w: '1fr' },
+  { k: 'contact_person', label: t('Contact person'), ph: t('Authorized person name'), w: '1fr' },
   { k: 'phone', label: 'Phone', ph: '01xxx', w: '0.8fr' },
   { k: 'email', label: 'Email', ph: 'office@company.com', w: '1fr' },
-  { k: 'industry', label: 'Industry', ph: 'e.g. Textile', w: '0.8fr' },
+  { k: 'industry', label: 'Industry', ph: t('e.g. Textile'), w: '0.8fr' },
   { k: 'website', label: 'Website', ph: 'https://…', w: '1fr' },
 ]
 async function saveCompany() {
@@ -304,7 +304,7 @@ async function saveCompany() {
   try {
     const r = await apiCall('app-crud', { action: 'update', collection: 'tenants', id: sel.value.id, data: { company: JSON.stringify(company.value) } })
     if (r.ok) { window.__krToast?.('🏢 Company profile saved', 'ok'); await data.bootstrap(); reResolveSel() }
-    else window.__krToast?.(r.error || 'Save failed', 'error')
+    else window.__krToast?.(r.error || t('Save failed'), 'error')
   } finally { coSaving.value = false }
 }
 
@@ -312,12 +312,12 @@ async function saveCompany() {
 const noticeModal = ref(null)
 const noticeSaving = ref(false)
 const NOTICE_PRESETS = [
-  { id: 'eviction', label: '🚫 Eviction notice', title: 'Eviction notice', body: 'This is a formal notice that you are required to vacate the premises by the end of the notice period, in accordance with the tenancy agreement and applicable law. Please settle all outstanding dues and complete the move-out handover checklist before the vacating date.' },
-  { id: 'warning', label: '⚠️ Warning', title: 'Formal warning', body: 'Please be advised to comply with the terms of the tenancy agreement. Repeated non-compliance may lead to further action.' },
-  { id: 'due', label: '💰 Payment due', title: 'Rent payment due', body: 'Kindly clear your outstanding rent at the earliest. Late payment charges may apply as per the agreement.' },
-  { id: 'general', label: '📋 General notice', title: 'Notice to tenants', body: '' },
+  { id: 'eviction', label: '🚫 Eviction notice', title: t('Eviction notice'), body: 'This is a formal notice that you are required to vacate the premises by the end of the notice period, in accordance with the tenancy agreement and applicable law. Please settle all outstanding dues and complete the move-out handover checklist before the vacating date.' },
+  { id: 'warning', label: '⚠️ Warning', title: t('Formal warning'), body: t('Please be advised to comply with the terms of the tenancy agreement. Repeated non-compliance may lead to further action.') },
+  { id: 'due', label: '💰 Payment due', title: t('Rent payment due'), body: t('Kindly clear your outstanding rent at the earliest. Late payment charges may apply as per the agreement.') },
+  { id: 'general', label: '📋 General notice', title: t('Notice to tenants'), body: '' },
 ]
-function openNotice() { noticeModal.value = { preset: 'general', title: 'Notice to tenants', body: '', vacateBy: '' } }
+function openNotice() { noticeModal.value = { preset: 'general', title: t('Notice to tenants'), body: '', vacateBy: '' } }
 function applyPreset() {
   const p = NOTICE_PRESETS.find(x => x.id === noticeModal.value.preset)
   if (p) { noticeModal.value.title = p.title; noticeModal.value.body = p.body; if (p.id !== 'eviction') noticeModal.value.vacateBy = '' }
@@ -331,7 +331,7 @@ async function sendNotice() {
     if (m.preset === 'eviction' && m.vacateBy) body += `\n\n🚪 Vacate by: ${m.vacateBy} (soft deadline — settle dues and complete handover before this date).`
     const r = await apiCall('app-notice-create', { title: m.title.trim(), body })
     if (r.ok) { window.__krToast?.(`📢 ${r.id} posted`, 'ok'); noticeModal.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Failed to post notice', 'error')
+    else window.__krToast?.(r.error || t('Failed to post notice'), 'error')
   } finally { noticeSaving.value = false }
 }
 
@@ -349,7 +349,7 @@ async function sendReminder() {
       if (r.total_upcoming > 0) parts.push(`upcoming ৳${(r.total_upcoming || 0).toLocaleString('en-IN')}`)
       window.__krToast?.(`🔔 Reminder sent — ${parts.join(' + ') || 'nothing due'}${r.emailed ? ' + email' : ''}`, 'ok')
     }
-    else window.__krToast?.(r.error || 'Reminder failed', 'error')
+    else window.__krToast?.(r.error || t('Reminder failed'), 'error')
   } finally { remindSending.value = false }
 }
 
@@ -364,7 +364,7 @@ async function exportGdpr() {
     const blob = await res.blob()
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'krtaker_gdpr_' + sel.value.id + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000)
     window.__krToast?.('📦 Tenant data exported', 'ok')
-  } catch (e) { window.__krToast?.('Export failed: ' + e.message, 'error') }
+  } catch (e) { window.__krToast?.(t('Export failed: ') + e.message, 'error') }
   finally { gdprBusy.value = false }
 }
 
@@ -374,7 +374,7 @@ const offerSaving = ref(false)
 function openOffer() {
   const active = selLeases.value.filter(l => !['Expired', 'Terminated'].includes(l.status))
   const l = active[0] || selLeases.value[0]
-  if (!l) { window.__krToast?.('No lease to extend', 'error'); return }
+  if (!l) { window.__krToast?.(t('No lease to extend'), 'error'); return }
   offerModal.value = { lease: l.id, months: 12, escalation: '', new_rent: '', note: '' }
 }
 async function submitOffer() {
@@ -387,7 +387,7 @@ async function submitOffer() {
     else if (m.escalation !== '' && m.escalation !== null) payload.escalation = parseFloat(m.escalation)
     const r = await apiCall('app-renewal-offer', payload)
     if (r.ok) { window.__krToast?.(`📄 ${r.id} offered — ৳${(r.new_rent || 0).toLocaleString('en-IN')}/mo`, 'ok'); offerModal.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Offer failed', 'error')
+    else window.__krToast?.(r.error || t('Offer failed'), 'error')
   } finally { offerSaving.value = false }
 }
 async function decideRenewal(r, action) {
@@ -476,7 +476,7 @@ async function createHovo(lease, kind) {
 async function openHovo(id) {
   const r = await apiCall('app-hando-get', { id })
   if (r.ok) { hovoSel.value = r.checklist; hovoSel.value.items = r.checklist.items || [] }
-  else window.__krToast?.(r.error || 'Failed to load checklist', 'error')
+  else window.__krToast?.(r.error || t('Failed to load checklist'), 'error')
 }
 function addHovoItem() { if (hovoSel.value) hovoSel.value.items.push({ id: 'x' + Date.now(), label: '', checked: 0, note: '' }) }
 function removeHovoItem(i) { if (hovoSel.value) hovoSel.value.items.splice(i, 1) }
@@ -486,7 +486,7 @@ async function saveHovo() {
   try {
     const r = await apiCall('app-hando-save', { id: hovoSel.value.id, items: hovoSel.value.items })
     if (r.ok) { window.__krToast?.(`📦 ${hovoSel.value.id} saved — ${r.done}/${r.total} → ${r.status}`, 'ok'); await loadHovo() }
-    else window.__krToast?.(r.error || 'Save failed', 'error')
+    else window.__krToast?.(r.error || t('Save failed'), 'error')
   } finally { hovoSaving.value = false }
 }
 const hovoForLease = (leaseId) => hovoList.value.filter(c => c.lease === leaseId)
@@ -497,12 +497,12 @@ function openAgree(l) { agreeModal.value = l }
 async function viewDoc(d) {
   const url = await apiBlob('app-doc-view?id=' + encodeURIComponent(d.id))
   if (url) window.open(url, '_blank')
-  else window.__krToast?.('Could not load document', 'error')
+  else window.__krToast?.(t('Could not load document'), 'error')
 }
 async function downloadDoc(d) {
   const url = await apiBlob('app-doc-download?id=' + encodeURIComponent(d.id))
   if (url) { const a = document.createElement('a'); a.href = url; a.download = d.name || d.id; a.click() }
-  else window.__krToast?.('Could not download document', 'error')
+  else window.__krToast?.(t('Could not download document'), 'error')
 }
 
 // ── private note (owner only) ──
@@ -522,7 +522,7 @@ async function saveNote() {
   try {
     const r = await apiCall('app-tenant-note-save', { tenant_id: sel.value.id, note: noteText.value })
     if (r.ok) window.__krToast?.('🔒 Private note saved', 'ok')
-    else window.__krToast?.(r.error || 'Save failed', 'error')
+    else window.__krToast?.(r.error || t('Save failed'), 'error')
   } finally { noteSaving.value = false }
 }
 
@@ -550,7 +550,7 @@ const settleDate = ref(new Date().toISOString().slice(0, 10))
 const settleRecomputing = ref(false)
 const settleFinalizing = ref(false)
 async function openSettle() {
-  if (!sel.value || !selLeases.value.length) { window.__krToast?.('No lease for this tenant.', 'error'); return }
+  if (!sel.value || !selLeases.value.length) { window.__krToast?.(t('No lease for this tenant.'), 'error'); return }
   const lease = selLeases.value.find(l => ['Active', 'Pending Registration'].includes(String(l.status).toLowerCase())) || selLeases.value[0]
   settleLoading.value = true
   try {
@@ -560,7 +560,7 @@ async function openSettle() {
       settleDeducts.value = (r.settlement?.sections?.damages || []).map(d => ({ label: d.label, amount: d.amount }))
       settleApplyDeposit.value = true
       settleDate.value = new Date().toISOString().slice(0, 10)
-    } else window.__krToast?.(r.error || 'Failed to load settlement', 'error')
+    } else window.__krToast?.(r.error || t('Failed to load settlement'), 'error')
   } finally { settleLoading.value = false }
 }
 function addDeduct() { settleDeducts.value.push({ label: '', amount: 0 }) }
@@ -571,7 +571,7 @@ async function recomputeSettle() {
   try {
     const r = await apiCall('app-moveout', { lease: settleModal.value.lease?.id, action: 'prepare', deductions: settleDeducts.value.filter(d => d.label && d.amount > 0), apply_deposit: settleApplyDeposit.value })
     if (r.ok) settleModal.value = r
-    else window.__krToast?.(r.error || 'Recompute failed', 'error')
+    else window.__krToast?.(r.error || t('Recompute failed'), 'error')
   } finally { settleRecomputing.value = false }
 }
 async function finalizeSettle() {
@@ -586,7 +586,7 @@ async function finalizeSettle() {
       window.__krToast?.(`🚪 Move-out finalized — ${r.settlement?.id || 'SET-??'} (${r.settlement?.status || ''})`, 'ok')
       settleModal.value = null
       await data.bootstrap(); reResolveSel()
-    } else window.__krToast?.(r.error || 'Move-out failed', 'error')
+    } else window.__krToast?.(r.error || t('Move-out failed'), 'error')
   } finally { settleFinalizing.value = false }
 }
 
@@ -627,7 +627,7 @@ const DOC_TYPES = [
   { id: 'tax', label: '🧾 Tax & khajna' },
   { id: 'community', label: '🏘 Community / society' },
 ]
-const docTypeLabel = (id) => (DOC_TYPES.find(t => t.id === id) || {}).label || id || '—'
+const docTypeLabel = (id) => t((DOC_TYPES.find(t => t.id === id) || {}).label || id || '—')
 async function onDocPick(e) {
   const f = e.target.files && e.target.files[0]
   e.target.value = ''
@@ -641,7 +641,7 @@ async function onDocPick(e) {
   try {
     const r = await apiUpload('app-doc-upload', fd)
     if (r.ok) { window.__krToast?.('📎 Document uploaded (' + docTypeLabel(docCat.value) + ')', 'ok'); await data.bootstrap(); reResolveSel() }
-    else window.__krToast?.(r.error || 'Upload failed', 'error')
+    else window.__krToast?.(r.error || t('Upload failed'), 'error')
   } finally { docUploading.value = false }
 }
 // Attach a scanned lease paper to the LEASE (kind='lease' → shows in the agreement viewer).
@@ -659,14 +659,14 @@ async function attachAgreement(e) {
   try {
     const r = await apiUpload('app-doc-upload', fd)
     if (r.ok) { window.__krToast?.('📎 Agreement attached to ' + agreeModal.value.id, 'ok'); await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Upload failed', 'error')
+    else window.__krToast?.(r.error || t('Upload failed'), 'error')
   } finally { agreeUploading.value = false }
 }
 async function delDoc(d) {
   if (!confirm(`Delete document "${d.name}"?`)) return
   const r = await apiCall('app-doc-delete', { id: d.id })
   if (r.ok) { window.__krToast?.('🗑️ Document deleted', 'ok'); await data.bootstrap(); reResolveSel() }
-  else window.__krToast?.(r.error || 'Delete failed', 'error')
+  else window.__krToast?.(r.error || t('Delete failed'), 'error')
 }
 // ── document type filter + re-categorize ──
 const docFilter = ref('all')
@@ -678,7 +678,7 @@ async function setDocCat(d, cat) {
   try {
     const r = await apiCall('app-doc-cat', { id: d.id, cat })
     if (r.ok) { window.__krToast?.('🏷️ ' + d.id + ' → ' + docTypeLabel(cat), 'ok'); await data.bootstrap(); reResolveSel() }
-    else window.__krToast?.(r.error || 'Could not re-categorize', 'error')
+    else window.__krToast?.(r.error || t('Could not re-categorize'), 'error')
   } finally { docCatBusy.value = '' }
 }
 
@@ -700,7 +700,7 @@ async function submitPay() {
       window.__krToast?.(`💳 ${m.inv.id} → ${r.status} (paid ৳${(r.paid || 0).toLocaleString('en-IN')})`, 'ok')
       payModal.value = null
       await data.bootstrap(); reResolveSel()
-    } else window.__krToast?.(r.error || 'Payment failed', 'error')
+    } else window.__krToast?.(r.error || t('Payment failed'), 'error')
   } finally { paySaving.value = false }
 }
 
@@ -766,14 +766,14 @@ async function submitForm() {
         window.__krToast?.('🔑 Portal account created — welcome email sent', 'ok')
       }
       closeModal(); await data.bootstrap()
-    } else formErr.value = r.error || 'Save failed.'
+    } else formErr.value = r.error || t('Save failed.')
   } finally { saving.value = false }
 }
 async function delTenant(t) {
   if (!confirm(`Delete ${t.name} (${t.id})? This cannot be undone.`)) return
   const r = await apiCall('app-crud', { action: 'delete', collection: 'tenants', id: t.id, data: {} })
   if (r.ok) { window.__krToast?.(`🗑️ ${t.id} deleted`, 'ok'); if (sel.value?.id === t.id) closeDetail(); await data.bootstrap() }
-  else window.__krToast?.(r.error || 'Delete failed', 'error')
+  else window.__krToast?.(r.error || t('Delete failed'), 'error')
 }
 </script>
 
@@ -1595,7 +1595,7 @@ async function delTenant(t) {
             <div>
               <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</label>
               <select v-model="payModal.method" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-                <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ m }}</option>
+                <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ t(m) }}</option>
               </select>
             </div>
           </div>

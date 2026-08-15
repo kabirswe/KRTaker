@@ -20,7 +20,7 @@ const canManage = computed(() => ['superadmin', 'owner', 'manager'].includes(aut
 const polAll = computed(() => data.list('insurance_policies'))
 const tenantName = (tid) => data.list('tenants').find(t => t.id === tid)?.name || tid || ''
 const stCls = (s) => s === 'paid' ? 'b-green' : (s === 'active' ? 'b-green' : (s === 'expired' ? 'b-gray' : (s === 'cancelled' ? 'b-red' : 'b-gray')))
-const stLabel = (s) => s === 'paid' ? 'Active' : (s || '—')
+const stLabel = (s) => s === 'paid' ? t('Active') : (s || '—')
 const daysLeft = (p) => {
   if (!p.end) return null
   const t = new Date(String(p.end).slice(0, 10) + 'T00:00:00')
@@ -43,7 +43,7 @@ const kpis = computed(() => {
     { label: 'Coverage', ico: '🏦', value: money(coverage), trend: 'total insured value' },
     { label: 'Premium', ico: '💳', value: money(premium), trend: 'total premium paid' },
     { label: 'Active', ico: '✅', value: active, trend: active + ' in force', ok: active === ps.length },
-    { label: 'Claims', ico: '📋', value: claims, trend: claims ? money(claimAmt) + ' claimed' : 'no claims', ok: claims <= 1 },
+    { label: 'Claims', ico: '📋', value: claims, trend: claims ? money(claimAmt) + t(' claimed') : t('no claims'), ok: claims <= 1 },
     { label: 'Tenants', ico: '👥', value: tenants, trend: 'policy holders' },
   ]
 })
@@ -252,7 +252,7 @@ const pendingClaim = (p) => canManage.value && p.claim && !p.claim_amt
             <button :disabled="busy === sel.id" @click="cancelPolicy(sel)" class="btn-ghost" style="padding:8px 14px;font-size:12.5px;color:var(--danger)">⛔ Cancel policy</button>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

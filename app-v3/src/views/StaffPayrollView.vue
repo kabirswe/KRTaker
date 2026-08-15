@@ -56,7 +56,7 @@ async function payPayroll(p) {
   await data.bootstrap()
 }
 async function delPayroll(p) {
-  if (!window.confirm('Delete payslip ' + p.id + '?')) return
+  if (!window.confirm(t('Delete payslip ') + p.id + '?')) return
   const r = await apiCall('app-staffwatch', { action: 'payroll-delete', id: p.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
   window.__krToast?.('🗑 Deleted')
@@ -75,11 +75,11 @@ const kpis = computed(() => {
   const avg = ps.length ? Math.round(net / ps.length) : 0
   return [
     { label: 'Payrolls', ico: '💰', value: ps.length, trend: 'payrun entries' },
-    { label: 'Net total', ico: '💸', value: money(net), trend: 'across ' + months + ' month(s)' },
-    { label: 'Paid', ico: '✅', value: paid, trend: paid ? money(paidAmt) + ' settled' : 'none paid', ok: paid > 0 },
-    { label: 'Draft', ico: '📝', value: draft, trend: draft ? 'awaiting approval' : 'none in draft', ok: draft === 0 },
+    { label: t('Net total'), ico: '💸', value: money(net), trend: 'across ' + months + ' month(s)' },
+    { label: 'Paid', ico: '✅', value: paid, trend: paid ? money(paidAmt) + t(' settled') : t('none paid'), ok: paid > 0 },
+    { label: 'Draft', ico: '📝', value: draft, trend: draft ? t('awaiting approval') : t('none in draft'), ok: draft === 0 },
     { label: 'Months', ico: '🗓️', value: months, trend: 'payroll periods' },
-    { label: 'Avg net', ico: '📊', value: money(avg), trend: 'per payslip' },
+    { label: t('Avg net'), ico: '📊', value: money(avg), trend: 'per payslip' },
   ]
 })
 
@@ -312,7 +312,7 @@ function detailFields(row) {
             <span style="font-weight:800;font-size:17px">{{ money(sel.net ?? netOf(sel)) }}</span>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

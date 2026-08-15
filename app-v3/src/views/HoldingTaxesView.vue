@@ -30,11 +30,11 @@ const kpis = computed(() => {
   const over = hs.filter(overdue).length
   const corps = new Set(hs.map(h => h.city_corp).filter(Boolean)).size
   return [
-    { label: 'Holding taxes', ico: '🏛️', value: hs.length, trend: 'city corp assessments' },
-    { label: 'Assessed', ico: '📋', value: money(tax), trend: 'total tax billed' },
-    { label: 'Collected', ico: '💵', value: money(paid), trend: 'paid so far' },
-    { label: 'Outstanding', ico: '⚠️', value: money(outstanding), trend: outstanding ? 'unpaid balance' : 'fully settled', ok: outstanding === 0 },
-    { label: 'Overdue', ico: '⏰', value: over, trend: over ? 'past due date' : 'none', ok: over === 0 },
+    { label: t('Holding taxes'), ico: '🏛️', value: hs.length, trend: 'city corp assessments' },
+    { label: t('Assessed'), ico: '📋', value: money(tax), trend: 'total tax billed' },
+    { label: t('Collected'), ico: '💵', value: money(paid), trend: 'paid so far' },
+    { label: t('Outstanding'), ico: '⚠️', value: money(outstanding), trend: outstanding ? 'unpaid balance' : t('fully settled'), ok: outstanding === 0 },
+    { label: t('Overdue'), ico: '⏰', value: over, trend: over ? 'past due date' : 'none', ok: over === 0 },
     { label: 'Corporations', ico: '🏙️', value: corps, trend: 'city corporations' },
   ]
 })
@@ -223,7 +223,7 @@ function detailFields(row) {
           <div v-if="sel.rate_pct && sel.annual_value" class="c-sub" style="font-size:12px;margin:-6px 0 10px">{{ sel.rate_pct }}% of {{ money(sel.annual_value) }} annual value</div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

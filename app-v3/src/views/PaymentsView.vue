@@ -47,11 +47,11 @@ const kpis = computed(() => {
   const topMethod = Object.entries(byMethod).sort((a, b) => b[1] - a[1])[0]
   const okCount = ps.filter(p => String(p.status).toLowerCase() === 'success').length
   return [
-    { label: 'Payments', ico: '💳', value: ps.length, trend: okCount + ' succeeded' },
-    { label: 'Total', ico: '💰', value: money(tot), trend: 'all payment attempts' },
-    { label: 'Success rate', ico: '✅', value: rate + '%', trend: money(success) + ' settled', ok: rate === 100 },
-    { label: 'This month', ico: '📅', value: money(mTot), trend: monthLabel(thisM) },
-    { label: 'Top method', ico: '🏦', value: topMethod ? topMethod[0] : '—', trend: topMethod ? money(topMethod[1]) : '' },
+    { label: t('Payments'), ico: '💳', value: ps.length, trend: okCount + ' succeeded' },
+    { label: t('Total'), ico: '💰', value: money(tot), trend: 'all payment attempts' },
+    { label: t('Success rate'), ico: '✅', value: rate + '%', trend: money(success) + ' settled', ok: rate === 100 },
+    { label: t('This month'), ico: '📅', value: money(mTot), trend: monthLabel(thisM) },
+    { label: t('Top method'), ico: '🏦', value: topMethod ? topMethod[0] : '—', trend: topMethod ? money(topMethod[1]) : '' },
     { label: 'Settled', ico: '✔️', value: money(success), trend: okCount + ' of ' + ps.length + ' payments' },
   ]
 })
@@ -121,7 +121,7 @@ async function uploadProof(p) {
     fd.append('note', proofNote.value.trim())
     fd.append('file', proofFile.value)
     const r = await apiUpload('app-payment-proof?action=upload', fd)
-    if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Upload failed')); return }
+    if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Upload failed'))); return }
     const row = paymentsAll.value.find(x => x.id === p.id)
     if (row) { row.proof = r.proof; row.proof_note = proofNote.value.trim(); row.proof_at = new Date().toISOString().slice(0, 19).replace('T', ' ') }
     proofUrlMap[p.id] = await apiBlob('app-payment-proof?action=view&id=' + encodeURIComponent(p.id))
@@ -131,9 +131,9 @@ async function uploadProof(p) {
   } finally { proofBusy.value = false }
 }
 async function removeProof(p) {
-  if (!confirm('Remove the attached proof for ' + p.id + '?')) return
+  if (!confirm(t('Remove the attached proof for ') + p.id + '?')) return
   const r = await apiCall('app-payment-proof', { action: 'remove', payment_id: p.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   const row = paymentsAll.value.find(x => x.id === p.id)
   if (row) { row.proof = ''; row.proof_note = ''; row.proof_at = '' }
   delete proofUrlMap[p.id]
@@ -157,7 +157,7 @@ async function removeProof(p) {
         </select>
         <select v-model="methodFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">{{ t('All methods') }}</option>
-          <option v-for="m in methodOptions" :key="m" :value="m">{{ m }}</option>
+          <option v-for="m in methodOptions" :key="m" :value="m">{{ t(m) }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">{{ t('All months') }}</option>

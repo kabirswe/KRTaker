@@ -25,11 +25,11 @@ const TYPES = [
   { v: 'service', l: '🛎️ Service', cls: 'b-blue' },
   { v: 'maintenance', l: '🔧 Maintenance', cls: 'b-purple' },
 ]
-const typeLabel = (t) => TYPES.find(x => x.v === t)?.l || t || '—'
+const typeLabel = (ty) => t(TYPES.find(x => x.v === ty)?.l || ty || '—')
 const typeCls = (t) => TYPES.find(x => x.v === t)?.cls || 'b-gray'
 const STATUS = [
-  { v: 'scheduled', l: 'Scheduled', cls: 'b-blue' },
-  { v: 'in_progress', l: 'In progress', cls: 'b-orange' },
+  { v: 'scheduled', l: t('Scheduled'), cls: 'b-blue' },
+  { v: 'in_progress', l: t('In progress'), cls: 'b-orange' },
   { v: 'passed', l: '✅ Passed', cls: 'b-green' },
   { v: 'failed', l: '❌ Failed', cls: 'b-red' },
 ]
@@ -62,7 +62,7 @@ async function load() {
       apiCall('app-inspections', { action: 'list', itype: fType.value, status: fStatus.value }),
       apiCall('app-inspections', { action: 'schedule-list' }),
     ])
-    if (!s.ok) { err.value = s.error || 'Failed to load.'; return }
+    if (!s.ok) { err.value = s.error || t('Failed to load.'); return }
     summary.value = s
     if (l.ok) list.value = l.list || []
     if (sc.ok) scheds.value = sc.list || []
@@ -98,7 +98,7 @@ async function saveForm() {
   loading.value = true
   try {
     const r = await apiCall('app-inspections', { action: form.value.id ? 'update' : 'create', ...form.value, checklist: cl, title: form.value.title.trim(), findings: form.value.findings })
-    if (!r.ok) { err.value = r.error || 'Failed to save.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to save.'); return }
     flash(form.value.id ? '💾 Inspection updated' : `✅ ${r.code || 'INS'} created`)
     showNew.value = false; await load()
   } finally { loading.value = false }
@@ -123,7 +123,7 @@ async function delInspection() {
   loading.value = true
   try {
     const r = await apiCall('app-inspections', { action: 'delete', id: sel.value.id })
-    if (r.ok) { flash('🗑️ Deleted'); sel.value = null; await load() } else err.value = r.error || 'Delete failed.'
+    if (r.ok) { flash('🗑️ Deleted'); sel.value = null; await load() } else err.value = r.error || t('Delete failed.')
   } finally { loading.value = false }
 }
 function parseCl(x) {
@@ -163,7 +163,7 @@ async function saveSched() {
   loading.value = true
   try {
     const r = await apiCall('app-inspections', { action: 'schedule-save', ...sForm.value, checklist: cl, title: sForm.value.title.trim() })
-    if (!r.ok) { err.value = r.error || 'Failed to save schedule.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to save schedule.'); return }
     flash('🔁 Schedule saved')
     schedSel.value = null; await load()
   } finally { loading.value = false }
@@ -214,7 +214,7 @@ onMounted(load)
       <!-- filters -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <CompactFilters>
-        <button v-for="t in [{v:'',l:'All'}, ...TYPES]" :key="t.v" @click="fType = t.v; load()"
+        <button v-for="t in [{v:'',l:t('All')}, ...TYPES]" :key="t.v" @click="fType = t.v; load()"
           :style="fType === t.v ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
           style="padding:7px 13px;border:none;border-radius:9px;font-weight:800;font-size:12px;cursor:pointer">{{ t.l }}</button>
         <span style="flex:1"></span>
@@ -252,7 +252,7 @@ onMounted(load)
         <div v-for="s in scheds" :key="s.id" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
           <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
             <div style="font-weight:800;font-size:13.5px">{{ s.title }}</div>
-            <span class="badge" :class="Number(s.active) === 1 ? 'b-green' : 'b-gray'">{{ Number(s.active) === 1 ? 'Active' : 'Paused' }}</span>
+            <span class="badge" :class="Number(s.active) === 1 ? 'b-green' : 'b-gray'">{{ Number(s.active) === 1 ? t('Active') : 'Paused' }}</span>
           </div>
           <div class="c-sub" style="font-size:12px;margin-top:3px"><span class="badge" :class="typeCls(s.itype)">{{ typeLabel(s.itype) }}</span> · {{ propName(s.property_id) }}</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:11px 0;font-size:12.5px">

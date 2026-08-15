@@ -42,7 +42,7 @@ const flash = (m) => { toast.value = m; setTimeout(() => toast.value = '', 4000)
 const pnl = ref(null)
 async function loadPnl() {
   const r = await apiCall('app-analytics', { action: 'pnl', month: month.value })
-  if (r.ok) pnl.value = r; else if (!err.value) err.value = r.error || 'Failed to load P&L.'
+  if (r.ok) pnl.value = r; else if (!err.value) err.value = r.error || t('Failed to load P&L.')
 }
 const pnlRows = computed(() => pnl.value?.properties || [])
 const pnlTotals = computed(() => pnl.value?.totals || {})
@@ -63,7 +63,7 @@ async function loadAging() {
 const agingSegs = computed(() => {
   const b = aging.value || {}
   return [
-    { label: 'Current', value: b.current || 0, color: C.green },
+    { label: t('Current'), value: b.current || 0, color: C.green },
     { label: '30 days', value: b.d30 || 0, color: C.amber },
     { label: '60 days', value: b.d60 || 0, color: C.orange },
     { label: '90+ days', value: b.d90 || 0, color: C.red },
@@ -153,7 +153,7 @@ async function genBoard() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-analytics', { action: 'board', month: month.value })
-    if (!r.ok) { err.value = r.error || 'Board generation failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Board generation failed.'); return }
     boardId.value = r.id; boardMonth.value = r.month; boardMd.value = r.markdown || ''
     flash(`📊 ${r.id} generated for ${r.month}`)
     await loadBoards()
@@ -823,7 +823,7 @@ function printReport() {
         <div class="panel-b">
           <LineChart :series="[
             { name: 'Expected', color: C.blue, points: fcMonths.map(m => m.expected) },
-            { name: 'Collected', color: C.green, points: fcMonths.map(m => m.collected) },
+            { name: t('Collected'), color: C.green, points: fcMonths.map(m => m.collected) },
           ]" :labels="fcMonths.map(m => shortMonth(m.month))" :fmt="money" />
         </div>
       </div>

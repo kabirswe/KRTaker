@@ -21,12 +21,12 @@ const data = useDataStore()
 const TAB_ORDER = [
   ['overview', '📊', 'Overview'],
   ['maintenance', '🔧', 'Maintenance'],
-  ['gate', '🚪', 'Gate Visits'],
+  ['gate', '🚪', t('Gate Visits')],
   ['staff', '👷', 'Staff'],
   ['attendance', '⏱️', 'Attendance'],
   ['payroll', '💵', 'Payroll'],
-  ['meter', '⚡', 'Meter Readings'],
-  ['utilities', '🔌', 'Utility Bills'],
+  ['meter', '⚡', t('Meter Readings')],
+  ['utilities', '🔌', t('Utility Bills')],
 ]
 
 const VIEWS = {
@@ -112,8 +112,8 @@ const goTab = (t) => { tab.value = t }
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('maintenance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Maintenance requests and work orders')">🔧 Maintenance</button>
-        <button @click="goTab('gate')" class="btn-ghost" :title="t('Visitor and gate visit log')">🚪 Gate Visits</button>
+        <button @click="goTab('maintenance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Maintenance requests and work orders')">{{ t('🔧 Maintenance') }}</button>
+        <button @click="goTab('gate')" class="btn-ghost" :title="t('Visitor and gate visit log')">{{ t('🚪 Gate Visits') }}</button>
         <button @click="goTab('staff')" class="btn-ghost" :title="t('Building staff directory')">👷 {{ t('Staff') }}</button>
         <button @click="goTab('attendance')" class="btn-ghost" :title="t('Staff attendance tracking')">⏱️ Attendance</button>
         <button @click="goTab('payroll')" class="btn-ghost" :title="t('Staff payroll management')">💵 Payroll</button>

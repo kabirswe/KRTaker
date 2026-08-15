@@ -44,10 +44,10 @@ const kpis = computed(() => {
   const topType = Object.entries(byType).sort((a, b) => b[1] - a[1])[0]
   return [
     { label: 'Readings', ico: '📏', value: rs.length, trend: 'meter entries' },
-    { label: 'Units covered', ico: '🚪', value: units, trend: 'metered units' },
+    { label: t('Units covered'), ico: '🚪', value: units, trend: 'metered units' },
     { label: 'Months', ico: '📅', value: months.size, trend: latest ? 'latest ' + monthLabel(latest) : '' },
     { label: 'Latest month', ico: '🆕', value: monthLabel(latest), trend: lCount + ' readings logged' },
-    { label: 'Top type', ico: typeMeta(topType?.[0]).ico, value: topType ? typeMeta(topType[0]).label : '—', trend: topType ? topType[1] + ' readings' : '' },
+    { label: t('Top type'), ico: typeMeta(topType?.[0]).ico, value: topType ? typeMeta(topType[0]).label : '—', trend: topType ? topType[1] + ' readings' : '' },
     { label: 'Logged', ico: '🕒', value: rs.filter(r => r.ts).length, trend: 'with timestamps' },
   ]
 })

@@ -7,6 +7,7 @@ import { apiCall } from './api/client'
 import Sidebar from './components/Sidebar.vue'
 import Topbar from './components/Topbar.vue'
 import TenantTour from './components/TenantTour.vue'
+import { t } from './lib/i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -60,7 +61,7 @@ watch(() => [auth.validated, route.query.gw, route.query.sid], async ([v, gw, si
       tries++
       const s = await apiCall('app-payment-status', { session_id: sid })
       if (s.ok && s.paid) {
-        toast('Payment received — invoice ' + s.invoice_id, 'ok')
+        toast(t('Payment received — invoice ') + s.invoice_id, 'ok')
         router.replace({ query: {} }).catch(() => {})
         return
       }
@@ -71,7 +72,7 @@ watch(() => [auth.validated, route.query.gw, route.query.sid], async ([v, gw, si
       }
       if (tries < 15) setTimeout(poll, 2000)
       else {
-        toast('Payment is still being confirmed — check your invoices in a minute.')
+        toast(t('Payment is still being confirmed — check your invoices in a minute.'))
         router.replace({ query: {} }).catch(() => {})
       }
     }
@@ -79,8 +80,8 @@ watch(() => [auth.validated, route.query.gw, route.query.sid], async ([v, gw, si
     return
   }
   const d = await apiCall('app-payment-confirm', { session_id: sid, gateway_ref: ref })
-  if (d.ok) toast('Payment ' + d.payment + ' recorded · receipt ' + d.receipt, 'ok')
-  else toast(d.error || 'Verification failed — you can retry from the invoice.', 'error')
+  if (d.ok) toast('Payment ' + d.payment + t(' recorded · receipt ') + d.receipt, 'ok')
+  else toast(d.error || t('Verification failed — you can retry from the invoice.'), 'error')
   router.replace({ query: {} }).catch(() => {})
 }, { immediate: true })
 

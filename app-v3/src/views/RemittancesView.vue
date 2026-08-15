@@ -29,10 +29,10 @@ const kpis = computed(() => {
   const cur = new Set(rs.map(r => r.currency).filter(Boolean)).size
   return [
     { label: 'Remittances', ico: '🌍', value: rs.length, trend: 'NRB repatriations' },
-    { label: 'BDT total', ico: '💵', value: money(bdt), trend: 'repatriated' },
-    { label: 'FX total', ico: '💱', value: fx ? fx.toLocaleString('en-US') + ' ' + (rs[0]?.currency || '') : '—', trend: 'foreign currency' },
+    { label: t('BDT total'), ico: '💵', value: money(bdt), trend: 'repatriated' },
+    { label: t('FX total'), ico: '💱', value: fx ? fx.toLocaleString('en-US') + ' ' + (rs[0]?.currency || '') : '—', trend: 'foreign currency' },
     { label: 'Confirmed', ico: '✅', value: confirmed, trend: confirmed ? money(confirmedAmt) + ' confirmed' : 'none', ok: confirmed > 0 },
-    { label: 'In transit', ico: '🚀', value: sent, trend: sent ? 'awaiting bank confirmation' : 'none', ok: sent === 0 },
+    { label: t('In transit'), ico: '🚀', value: sent, trend: sent ? 'awaiting bank confirmation' : 'none', ok: sent === 0 },
     { label: 'Months', ico: '🗓️', value: months, trend: cur + ' currency · SWIFT' },
   ]
 })
@@ -214,7 +214,7 @@ function detailFields(row) {
             </div>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-top:9px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div style="height:24px"></div>

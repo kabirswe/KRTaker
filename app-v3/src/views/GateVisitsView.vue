@@ -23,11 +23,11 @@ const propName = (pid) => propsAll.value.find(p => p.id === pid)?.name || pid ||
 const unitName = (uid) => data.list('units').find(u => u.id === uid)?.name || uid || ''
 
 const TYPE_META = {
-  visitor: { ico: '🚶', label: 'Visitor', cls: 'b-blue' },
+  visitor: { ico: '🚶', label: t('Visitor'), cls: 'b-blue' },
   delivery: { ico: '📦', label: 'Delivery', cls: 'b-orange' },
   worker: { ico: '🛠️', label: 'Worker', cls: 'b-green' },
-  vendor: { ico: '🧰', label: 'Vendor', cls: 'b-purple' },
-  vehicle: { ico: '🚗', label: 'Vehicle', cls: 'b-gray' },
+  vendor: { ico: '🧰', label: t('Vendor'), cls: 'b-purple' },
+  vehicle: { ico: '🚗', label: t('Vehicle'), cls: 'b-gray' },
   default: { ico: '🚪', label: 'Entry', cls: 'b-gray' },
 }
 const typeMeta = (t) => TYPE_META[t] || TYPE_META.default
@@ -44,11 +44,11 @@ const kpis = computed(() => {
   const tCount = vs.filter(v => (v.check_in || '').startsWith(today) || (v.ts || '').startsWith(today)).length
   return [
     { label: 'Visits', ico: '🚪', value: vs.length, trend: 'gate entries logged' },
-    { label: 'Inside', ico: '🟦', value: inside, trend: inside ? 'on the premises now' : 'none inside', ok: inside <= 3 },
+    { label: 'Inside', ico: '🟦', value: inside, trend: inside ? 'on the premises now' : t('none inside'), ok: inside <= 3 },
     { label: 'Out', ico: '✅', value: out, trend: 'checked out' },
-    { label: 'Flagged', ico: '🚩', value: flagged, trend: flagged ? 'watchlist matches!' : 'no watchlist hits', ok: flagged === 0 },
+    { label: 'Flagged', ico: '🚩', value: flagged, trend: flagged ? 'watchlist matches!' : t('no watchlist hits'), ok: flagged === 0 },
     { label: 'Types', ico: '🗂️', value: types, trend: 'visitor · delivery · worker · vendor · vehicle' },
-    { label: 'Today', ico: '📅', value: tCount, trend: 'entries today' },
+    { label: t('Today'), ico: '📅', value: tCount, trend: 'entries today' },
   ]
 })
 
@@ -91,9 +91,9 @@ async function submitCheckIn() {
   if (!f.prop) { window.__krToast?.('❌ Select a property'); return }
   if (!f.name.trim() && !f.vehicle_no.trim()) { window.__krToast?.('❌ Name or vehicle number required'); return }
   const r = await apiCall('app-gate', { action: 'visit-create', prop: f.prop, vtype: f.vtype, name: f.name.trim(), phone: f.phone.trim(), vehicle_no: f.vehicle_no.trim(), unit: f.unit, purpose: f.purpose.trim(), host_name: f.host_name.trim(), notes: f.notes.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   cinModal.value = false
-  window.__krToast?.(r.flagged ? '🚩 ' + (r.id || 'Entry') + ' checked in — WATCHLIST MATCH!' : '✅ ' + (r.id || 'Entry') + ' checked in', r.flagged ? 'error' : 'ok')
+  window.__krToast?.(r.flagged ? '🚩 ' + (r.id || 'Entry') + t(' checked in — WATCHLIST MATCH!') : '✅ ' + (r.id || 'Entry') + t(' checked in'), r.flagged ? 'error' : 'ok')
   await data.bootstrap()
 }
 
@@ -111,18 +111,18 @@ function detailFields(row) {
   return Object.entries(row).filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
 }
 async function checkOut(v) {
-  if (v.status !== 'Inside') { window.__krToast?.('Already checked out'); return }
+  if (v.status !== 'Inside') { window.__krToast?.(t('Already checked out')); return }
   const r = await apiCall('app-gate', { action: 'visit-out', id: v.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ ' + v.id + ' checked out', 'ok')
   await data.bootstrap()
   if (sel.value) { const fresh = visitsAll.value.find(x => x.id === sel.value.id); if (fresh) sel.value = fresh }
 }
 async function delVisit(v) {
-  if (!window.confirm('Delete gate entry ' + v.id + ' (' + (v.name || v.vehicle_no || '') + ')?')) return
+  if (!window.confirm(t('Delete gate entry ') + v.id + ' (' + (v.name || v.vehicle_no || '') + ')?')) return
   const r = await apiCall('app-gate', { action: 'visit-delete', id: v.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
-  window.__krToast?.('🗑 Deleted')
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
+  window.__krToast?.('🗑 ' + t('Deleted'))
   closeDetail()
   await data.bootstrap()
 }
@@ -133,7 +133,7 @@ const wlItems = ref([])
 const wlForm = ref({ vehicle_no: '', name: '', reason: '' })
 async function loadWatchlist() {
   const r = await apiCall('app-gate', { action: 'watchlist-list' })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   wlItems.value = r.watchlist || []
   wlOpen.value = true
 }
@@ -141,16 +141,16 @@ async function addWatch() {
   const f = wlForm.value
   if (!f.vehicle_no.trim() && !f.name.trim()) { window.__krToast?.('❌ Vehicle or name required'); return }
   const r = await apiCall('app-gate', { action: 'watchlist-create', vehicle_no: f.vehicle_no.trim(), name: f.name.trim(), reason: f.reason.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   wlForm.value = { vehicle_no: '', name: '', reason: '' }
   window.__krToast?.('🚨 Added ' + (r.id || ''), 'ok')
   await loadWatchlist()
   await data.bootstrap()
 }
 async function delWatch(w) {
-  if (!window.confirm('Remove ' + (w.vehicle_no || w.name || w.id) + ' from watchlist?')) return
+  if (!window.confirm(t('Remove') + ' ' + (w.vehicle_no || w.name || w.id) + t(' from watchlist?'))) return
   const r = await apiCall('app-gate', { action: 'watchlist-delete', id: w.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Removed')
   await loadWatchlist()
   await data.bootstrap()
@@ -344,7 +344,7 @@ async function delWatch(w) {
               <div class="c-sub" style="font-size:11.5px;margin-top:2px">{{ w.reason || '—' }}</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
-              <span class="badge" :class="w.active ? 'b-danger' : 'b-gray'">{{ w.active ? 'Active' : 'Off' }}</span>
+              <span class="badge" :class="w.active ? 'b-danger' : 'b-gray'">{{ w.active ? t('Active') : t('Off') }}</span>
               <button v-if="canManage" @click="delWatch(w)" :title="t('Remove')" style="background:none;border:none;font-size:14px;cursor:pointer">🗑</button>
             </div>
           </div>
@@ -401,7 +401,7 @@ async function delWatch(w) {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65">{{ sel.notes }}</div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div v-if="canManage" style="display:flex;gap:8px;margin-top:16px">

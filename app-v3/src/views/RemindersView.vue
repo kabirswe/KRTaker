@@ -16,10 +16,10 @@ const fmtAgo = (ts) => {
   const d = new Date(String(ts).replace(' ', 'T'))
   if (isNaN(d)) return String(ts).slice(0, 10)
   const s = Math.floor((Date.now() - d.getTime()) / 1000)
-  if (s < 60) return 'just now'
-  if (s < 3600) return Math.floor(s / 60) + 'm ago'
-  if (s < 86400) return Math.floor(s / 3600) + 'h ago'
-  if (s < 604800) return Math.floor(s / 86400) + 'd ago'
+  if (s < 60) return t('just now')
+  if (s < 3600) return Math.floor(s / 60) + t('m ago')
+  if (s < 86400) return Math.floor(s / 3600) + t('h ago')
+  if (s < 604800) return Math.floor(s / 86400) + t('d ago')
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 const tierBadge = (t) => t === 3 ? 'b-red' : (t === 2 ? 'b-orange' : (t === 1 ? 'b-blue' : 'b-gray'))
@@ -39,9 +39,9 @@ const remSaving = ref(false)
 const confirmSend = ref(false)
 
 const emptyTiers = () => ({
-  '1': { label: 'Day 1 · gentle', min_days: 0, max_days: 6, note: '' },
-  '2': { label: 'Day 7 · follow-up', min_days: 7, max_days: 13, note: '' },
-  '3': { label: 'Day 15 · final', min_days: 14, max_days: 999, note: '' },
+  '1': { label: t('Day 1 · gentle'), min_days: 0, max_days: 6, note: '' },
+  '2': { label: t('Day 7 · follow-up'), min_days: 7, max_days: 13, note: '' },
+  '3': { label: t('Day 15 · final'), min_days: 14, max_days: 999, note: '' },
 })
 const remCfg = ref({ enabled: true, late_fee: '', tiers: emptyTiers() })
 
@@ -56,8 +56,8 @@ async function loadAll() {
   loading.value = true; err.value = ''
   try {
     const [c, s] = await Promise.all([apiCall('app-reminder-config'), apiCall('app-reminder-summary')])
-    if (!c.ok) { err.value = c.error || 'Failed to load config.'; return }
-    if (!s.ok) { err.value = s.error || 'Failed to load plan.'; return }
+    if (!c.ok) { err.value = c.error || t('Failed to load config.'); return }
+    if (!s.ok) { err.value = s.error || t('Failed to load plan.'); return }
     rem.value = c
     remPlan.value = s
     const cfg = c.config || {}
@@ -76,7 +76,7 @@ async function saveCfg() {
   remSaving.value = true; err.value = ''
   try {
     const r = await apiCall('app-reminder-save', { config: remCfg.value })
-    if (!r.ok) { err.value = r.error || 'Save failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Save failed.'); return }
     flash('✅ Reminder config saved')
     track('reminder_config_saved', { enabled: r.config?.enabled ? 1 : 0 })
     await loadAll()
@@ -88,7 +88,7 @@ async function runReminders(send) {
   remRunning.value = true; err.value = ''
   try {
     const r = await apiCall('app-reminder-run', { send })
-    if (!r.ok) { err.value = r.error || 'Run failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Run failed.'); return }
     remRun.value = r
     confirmSend.value = false
     if (send) {
@@ -106,7 +106,7 @@ async function runPush(send) {
   pushRunning.value = true; err.value = ''
   try {
     const r = await apiCall('app-rent-due-push', { send, lookahead: pushLookahead.value })
-    if (!r.ok) { err.value = r.error || 'Push run failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Push run failed.'); return }
     pushRun.value = r
     confirmPush.value = false
     if (send) {

@@ -19,9 +19,9 @@ const data = useDataStore()
 
 const TAB_ORDER = [
   ['overview', '📊', 'Overview'],
-  ['notices', '📢', 'Notice Board'],
+  ['notices', '📢', t('Notice Board')],
   ['referrals', '🤝', 'Referrals'],
-  ['trust', '🪪', 'NID & Trust'],
+  ['trust', '🪪', t('NID & Trust')],
   ['support', '🎧', 'Support'],
 ]
 
@@ -92,10 +92,10 @@ const goTab = (t) => { tab.value = t }
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('notices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('View and post notices')">📢 Notice Board</button>
-        <button @click="goTab('referrals')" class="btn-ghost" :title="t('Referral program and rewards')">🤝 Referrals</button>
-        <button @click="goTab('trust')" class="btn-ghost" :title="t('NID verification and trust services')">🪪 NID &amp; Trust</button>
-        <button @click="goTab('support')" class="btn-ghost" :title="t('Support tickets')">🎧 Support</button>
+        <button @click="goTab('notices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('View and post notices')">📢 {{ t('Notice Board') }}</button>
+        <button @click="goTab('referrals')" class="btn-ghost" :title="t('Referral program and rewards')">🤝 {{ t('Referrals') }}</button>
+        <button @click="goTab('trust')" class="btn-ghost" :title="t('NID verification and trust services')">🪪 {{ t('NID & Trust') }}</button>
+        <button @click="goTab('support')" class="btn-ghost" :title="t('Support tickets')">🎧 {{ t('Support') }}</button>
       </div>
 
       <!-- lists -->

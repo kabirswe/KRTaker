@@ -31,8 +31,8 @@ async function load() {
   try {
     const r = await apiCall('app-ws-backup', { action: 'list' })
     if (r.ok) backups.value = r.backups || []
-    else err.value = r.error || 'Failed to load backups.'
-  } catch (e) { err.value = 'Network error.' }
+    else err.value = r.error || t('Failed to load backups.')
+  } catch (e) { err.value = t('Network error.')}
   loading.value = false
 }
 
@@ -45,14 +45,14 @@ async function createBackup() {
       note.value = ''
       await load()
     } else err.value = r.error || 'Backup failed.'
-  } catch (e) { err.value = 'Network error.' }
+  } catch (e) { err.value = t('Network error.')}
   creating.value = false
 }
 
 async function downloadBackup(b) {
   try {
     const r = await apiCall('app-ws-backup', { action: 'get', id: b.id })
-    if (!r.ok) { err.value = r.error || 'Download failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Download failed.'); return }
     const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -60,7 +60,7 @@ async function downloadBackup(b) {
     a.click()
     URL.revokeObjectURL(a.href)
     showToast(`Downloaded ${b.id}`)
-  } catch (e) { err.value = 'Network error.' }
+  } catch (e) { err.value = t('Network error.')}
 }
 
 async function restoreBackup(b) {
@@ -72,7 +72,7 @@ async function restoreBackup(b) {
       const parts = Object.entries(r.restored || {}).map(([k, v]) => `${k}: ${v}`).join(', ')
       showToast(`Restored — ${parts}`)
     } else err.value = r.error || 'Restore failed.'
-  } catch (e) { err.value = 'Network error.' }
+  } catch (e) { err.value = t('Network error.')}
   restoringId.value = ''
 }
 
@@ -81,8 +81,8 @@ async function deleteBackup(b) {
   try {
     const r = await apiCall('app-ws-backup', { action: 'delete', id: b.id })
     if (r.ok) { showToast(`Deleted ${b.id}`); await load() }
-    else err.value = r.error || 'Delete failed.'
-  } catch (e) { err.value = 'Network error.' }
+    else err.value = r.error || t('Delete failed.')
+  } catch (e) { err.value = t('Network error.')}
 }
 
 function onFilePicked(ev) {
@@ -99,7 +99,7 @@ function onFilePicked(ev) {
         showToast(`Uploaded restore — ${parts}`)
         await load()
       } else err.value = r.error || 'Restore failed.'
-    } catch (e) { err.value = 'Invalid backup file: ' + (e.message || e) }
+    } catch (e) { err.value = t('Invalid backup file: ') + (e.message || e) }
     uploading.value = false
     ev.target.value = ''
   }
@@ -131,9 +131,9 @@ onMounted(load)
     <div v-if="err" class="err-box">⚠️ {{ err }}</div>
 
     <div class="card" style="margin-top:18px">
-      <h3>🆕 {{ lang === 'bn' ? 'নতুন ব্যাকআপ' : 'Create a backup' }}</h3>
+      <h3>🆕 {{ t('Create a backup') }}</h3>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
-        <input v-model="note" :placeholder="lang === 'bn' ? 'নোট (ঐচ্ছিক)' : 'Note (optional)'"
+        <input v-model="note" :placeholder="t('Note (optional)')"
                style="flex:1;min-width:200px" />
         <button class="btn-primary" :disabled="creating" @click="createBackup">
           {{ creating ? '⏳ …' : '📦 ' + (lang === 'bn' ? 'ব্যাকআপ নিন' : 'Create backup') }}
@@ -146,7 +146,7 @@ onMounted(load)
     </div>
 
     <div class="card" style="margin-top:18px">
-      <h3>🗂️ {{ lang === 'bn' ? 'ব্যাকআপ ইতিহাস' : 'Backup history' }}</h3>
+      <h3>🗂️ {{ t('Backup history') }}</h3>
       <p v-if="loading" class="c-sub">Loading…</p>
       <div v-else-if="!backups.length" class="empty-state" style="padding:26px 0;text-align:center;color:var(--text-mute)">
         {{ lang === 'bn' ? 'এখনো কোনো ব্যাকআপ নেই।' : 'No backups yet — create your first one above.' }}
@@ -155,8 +155,8 @@ onMounted(load)
         <table class="kr-table">
           <thead>
             <tr>
-              <th>ID</th><th>{{ lang === 'bn' ? 'তারিখ' : 'Date' }}</th><th>{{ lang === 'bn' ? 'আকার' : 'Size' }}</th>
-              <th>{{ lang === 'bn' ? 'নোট' : 'Note' }}</th><th>{{ lang === 'bn' ? 'দ্বারা' : 'By' }}</th><th style="width:210px">{{ lang === 'bn' ? 'অ্যাকশন' : 'Actions' }}</th>
+              <th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Size') }}</th>
+              <th>{{ t('Note') }}</th><th>{{ lang === 'bn' ? 'দ্বারা' : 'By' }}</th><th style="width:210px">{{ t('Actions') }}</th>
             </tr>
           </thead>
           <tbody>

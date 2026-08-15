@@ -34,7 +34,7 @@ const TAB_ORDER = [
   ['reminders', '⏰', 'Reminders'],
   ['remittances', '🌍', 'Remittances'],
   ['statements', '💰', 'Statements'],
-  ['taxes', '🏛️', 'Holding Tax'],
+  ['taxes', '🏛️', t('Holding Tax')],
   ['subscriptions', '💎', 'Subscriptions'],
   ['accounts', '💱', 'Accounts'],
 ]
@@ -115,10 +115,10 @@ async function loadOverview() {
       apiCall('app-analytics', { action: 'aging' }),
       apiCall('app-accounts', { action: 'summary' }),
     ])
-    if (!cf.ok) throw new Error(cf.error || 'cashflow failed')
-    if (!coll.ok) throw new Error(coll.error || 'collections failed')
-    if (!ag.ok) throw new Error(ag.error || 'aging failed')
-    if (!acc.ok) throw new Error(acc.error || 'accounts failed')
+    if (!cf.ok) throw new Error(cf.error || t('cashflow failed'))
+    if (!coll.ok) throw new Error(coll.error || t('collections failed'))
+    if (!ag.ok) throw new Error(ag.error || t('aging failed'))
+    if (!acc.ok) throw new Error(acc.error || t('accounts failed'))
     cashflow.value = cf
     collections.value = coll
     aging.value = ag
@@ -131,8 +131,8 @@ async function loadOverview() {
 const flowSeries = computed(() => {
   const months = (cashflow.value?.months || []).map(m => m.month)
   return [
-    { name: 'Income', color: '#12a150', points: (cashflow.value?.months || []).map(m => m.income) },
-    { name: 'Expenses', color: '#e74c3c', points: (cashflow.value?.months || []).map(m => m.expenses) },
+    { name: t('Income'), color: '#12a150', points: (cashflow.value?.months || []).map(m => m.income) },
+    { name: t('Expenses'), color: '#e74c3c', points: (cashflow.value?.months || []).map(m => m.expenses) },
   ].map(s => ({ ...s, points: s.points.length === months.length ? s.points : [] }))
 })
 const flowLabels = computed(() => (cashflow.value?.months || []).map(m => shortMonth(m.month)))
@@ -143,7 +143,7 @@ const methodSegs = computed(() => (collections.value?.by_method || []).map((m, i
 const agingRows = computed(() => {
   const a = (aging.value && aging.value.buckets) || {}
   return [
-    { label: 'Current', value: a.current || 0, color: '#4361ee' },
+    { label: t('Current'), value: a.current || 0, color: '#4361ee' },
     { label: '30d', value: a.d30 || 0, color: '#f59e0b' },
     { label: '60d', value: a.d60 || 0, color: '#f97316' },
     { label: '90d+', value: a.d90 || 0, color: '#e74c3c' },

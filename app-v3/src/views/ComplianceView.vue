@@ -22,12 +22,12 @@ const canDelete = computed(() => ['superadmin', 'owner'].includes(auth.user?.rol
 const cplAll = computed(() => data.list('compliance_items'))
 
 const ITEM_META = {
-  fire_safety: { ico: '🧯', label: 'Fire safety', cls: 'b-red' },
-  trade_license: { ico: '📜', label: 'Trade license', cls: 'b-blue' },
+  fire_safety: { ico: '🧯', label: t('Fire safety'), cls: 'b-red' },
+  trade_license: { ico: '📜', label: t('Trade license'), cls: 'b-blue' },
   lease_expiry: { ico: '📅', label: 'Lease expiry', cls: 'b-green' },
   nid: { ico: '🪪', label: 'NID on file', cls: 'b-gray' },
   boiler: { ico: '⚙️', label: 'Boiler / cert', cls: 'b-orange' },
-  default: { ico: '📋', label: 'Compliance', cls: 'b-gray' },
+  default: { ico: '📋', label: t('Compliance'), cls: 'b-gray' },
 }
 const itemMeta = (t) => ITEM_META[t] || ITEM_META.default
 const daysUntil = (d) => { if (!d) return null; const t = new Date(String(d).slice(0, 10) + 'T00:00:00'); if (isNaN(t)) return null; return Math.round((t - Date.now()) / 86400000) }
@@ -43,10 +43,10 @@ function bucket(c) {
 }
 const expiryBadge = (c) => {
   const b = bucket(c)
-  if (b === 'none') return { cls: 'b-gray', text: 'No expiry' }
+  if (b === 'none') return { cls: 'b-gray', text: t('No expiry') }
   const n = daysUntil(c.expiry_date)
   if (b === 'expired') return { cls: 'b-red', text: '⏰ Expired ' + fmtDate(c.expiry_date) }
-  if (b === 'soon') return { cls: 'b-orange', text: '⚠️ ' + n + 'd left · ' + fmtDate(c.expiry_date) }
+  if (b === 'soon') return { cls: 'b-orange', text: '⚠️ ' + n + t('d left') + ' · ' + fmtDate(c.expiry_date) }
   return { cls: 'b-green', text: '✅ ' + fmtDate(c.expiry_date) }
 }
 
@@ -69,10 +69,10 @@ const kpis = computed(() => {
   const ok = cs.length - expired - soon
   return [
     { label: 'Items', ico: '📋', value: cs.length, trend: 'compliance records' },
-    { label: 'Expired', ico: '⏰', value: expired, trend: expired ? 'needs immediate action' : 'none expired', ok: expired === 0 },
-    { label: 'Expiring ≤90d', ico: '⚠️', value: soon, trend: soon ? 'renewals due soon' : 'nothing due', ok: soon === 0 },
+    { label: t('Expired'), ico: '⏰', value: expired, trend: expired ? 'needs immediate action' : t('none expired'), ok: expired === 0 },
+    { label: t('Expiring ≤90d'), ico: '⚠️', value: soon, trend: soon ? 'renewals due soon' : t('nothing due'), ok: soon === 0 },
     { label: 'Healthy', ico: '✅', value: ok, trend: 'ok or no expiry' },
-    { label: 'With expiry', ico: '📅', value: withExp, trend: withExp + ' tracked against the calendar' },
+    { label: t('With expiry'), ico: '📅', value: withExp, trend: withExp + ' tracked against the calendar' },
     { label: 'Types', ico: '🗂️', value: types, trend: 'licenses · safety · leases · NID' },
   ]
 })
@@ -135,9 +135,9 @@ async function submitAdd() {
   if (!f.label.trim()) { window.__krToast?.('❌ Label is required'); return }
   if (f.entity_type !== 'property' && !f.entity_id) { window.__krToast?.('❌ Select an entity'); return }
   const r = await apiCall('app-compliance', { action: 'create', label: f.label.trim(), entity_type: f.entity_type, entity_id: f.entity_id, item: f.item, ref_no: f.ref_no.trim(), issue_date: f.issue_date, expiry_date: f.expiry_date, notes: f.notes.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   addModal.value = false
-  window.__krToast?.('✅ ' + (r.id || 'Item') + ' added', 'ok')
+  window.__krToast?.('✅ ' + (r.id || t('Item')) + ' added', 'ok')
   await data.bootstrap()
 }
 const editForm = ref({ expiry_date: '', ref_no: '', notes: '', status: 'active' })
@@ -147,29 +147,29 @@ function openEdit(c) {
 async function saveEdit() {
   const f = editForm.value
   const r = await apiCall('app-compliance', { action: 'update', id: sel.value.id, expiry_date: f.expiry_date, ref_no: f.ref_no.trim(), notes: f.notes.trim(), status: f.status })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ ' + sel.value.id + ' updated', 'ok')
   await data.bootstrap()
   refreshSel()
 }
 async function delItem(c) {
-  if (!window.confirm('Delete compliance item ' + c.id + ' (' + c.label + ')?')) return
+  if (!window.confirm(t('Delete compliance item ') + c.id + ' (' + c.label + ')?')) return
   const r = await apiCall('app-compliance', { action: 'delete', id: c.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
-  window.__krToast?.('🗑 Deleted')
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
+  window.__krToast?.('🗑 ' + t('Deleted'))
   closeDetail()
   await data.bootstrap()
 }
 async function runRemind() {
-  if (!window.confirm('Email a compliance digest for all due/expired items to your account?')) return
+  if (!window.confirm(t('Email a compliance digest for all due/expired items to your account?'))) return
   const r = await apiCall('app-compliance', { action: 'remind' })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('📧 ' + (r.sent || 0) + ' of ' + (r.due || 0) + ' due items emailed', 'ok')
   await data.bootstrap()
 }
 async function runSync() {
   const r = await apiCall('app-compliance', { action: 'sync' })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🔄 Compliance resynced (lease expiries recomputed)', 'ok')
   await data.bootstrap()
 }
@@ -368,7 +368,7 @@ function refreshSel() {
           </div>
           <div v-if="sel.notes" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.65" v-html="sel.notes"></div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ k.replace(/_/g, ' ') }}</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t(k.replace(/_/g, ' ')) }}</div>
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <template v-if="canManage">
