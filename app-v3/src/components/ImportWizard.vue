@@ -20,7 +20,8 @@ const busy = ref(false)
 const err = ref('')
 const result = ref(null)
 
-const title = computed(() => props.collection === 'units' ? '⬆ Import units (CSV)' : '⬆ Import tenants (CSV)')
+const title = computed(() => '⬆ ' + t('Import ' + props.collection + ' (CSV)'))
+const noun = computed(() => ({ units: t('units imported'), tenants: t('tenants imported'), dues: t('dues imported') }[props.collection] || props.collection + ' imported'))
 
 async function loadTemplate() {
   busy.value = true; err.value = ''
@@ -82,7 +83,7 @@ function close() { emit('close') }
       <div style="padding:20px 22px;overflow:auto;flex:1">
         <!-- STEP: template -->
         <div v-if="step === 'template'">
-          <p style="font-size:13px;color:var(--text-mute);margin:0 0 12px">Paste your CSV below (or pick a file). Headers must match the template — invalid rows are skipped safely.</p>
+          <p style="font-size:13px;color:var(--text-mute);margin:0 0 12px">{{ t('Paste your CSV below (or pick a file). Headers must match the template — invalid rows are skipped safely.') }}</p>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text-mute);line-height:1.7">
             <b style="color:var(--text)">{{ t('Columns:') }}</b>
             <span v-for="(d,k) in columns" :key="k" style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px 8px;margin:3px 4px 3px 0"><code style="font-weight:700">{{ k }}</code> · {{ d }}</span>
@@ -120,7 +121,7 @@ function close() { emit('close') }
         <div v-if="step === 'done'">
           <div style="text-align:center;padding:26px 10px">
             <div style="font-size:42px;margin-bottom:10px">✅</div>
-            <div style="font-size:18px;font-weight:800;margin-bottom:6px">{{ result.created }} {{ props.collection }} imported</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:6px">{{ result.created }} {{ noun }}</div>
             <div v-if="result.provisioned" style="font-size:13px;color:var(--text-mute);margin-bottom:4px">🔑 {{ result.provisioned }} tenant portal account(s) created + welcome email sent</div>
             <div v-if="result.invalid" style="font-size:13px;color:var(--danger);margin-top:6px">{{ result.invalid }} row(s) skipped (invalid)</div>
             <div v-if="result.created_ids?.length" style="font-size:11.5px;color:var(--text-mute);margin-top:8px">IDs: {{ result.created_ids.join(', ') }}</div>

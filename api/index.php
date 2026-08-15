@@ -17413,8 +17413,9 @@ case 'app-setup-nudge': {
 
 case 'app-import': {
     /* CSV import wizard (GO-LIVE 4.1): owners with existing portfolios can bulk
-       import units or tenants. Three modes: template (CSV with headers+example),
-       preview (parse + validate, no writes), commit (insert valid rows).
+       import units, tenants or dues (one lease + one opening invoice per row).
+       Three modes: template (CSV with headers+example), preview (parse + validate,
+       no writes), commit (insert valid rows).
        Mirrors app-crud rules: subscriber ownership stamped, plan limits enforced,
        NID record + tenant portal provisioning for tenants with an email. */
     $u = require_user();
@@ -17423,10 +17424,14 @@ case 'app-import': {
     $pdo = db();
     $action = trim($body['action'] ?? '');
     $collection = trim($body['collection'] ?? '');
-    if (!in_array($collection, ['units', 'tenants'], true))
-        json_out(['ok' => false, 'error' => 'Import supports units or tenants only.'], 400);
-    if (!can_crud($u['role'], $collection))
+    if (!in_array($collection, ['units', 'tenants', 'dues'], true))
+        json_out(['ok' => false, 'error' => 'Import supports units, tenants or dues only.'], 400);
+    if ($collection === 'dues') {
+        if (!can_crud($u['role'], 'leases') || !can_crud($u['role'], 'invoices'))
+            json_out(['ok' => false, 'error' => 'Access denied — you cannot create leases or invoices.'], 403);
+    } elseif (!can_crud($u['role'], $collection)) {
         json_out(['ok' => false, 'error' => 'Access denied — no CRUD on ' . $collection . '.'], 403);
+    }
     $isSub = (($u['kind'] ?? '') === 'sub');
     $email = strtolower(trim($u['email']));
     $lim = $isSub ? effective_limits($u) : null;
@@ -17437,11 +17442,16 @@ case 'app-import': {
                  . "P-001,Flat 3B,3rd Floor,1250,32000,Occupied\n"
                  . "P-001,Shop 1,Ground Floor,900,45000,Vacant";
             $cols = ['p' => 'Property ID (e.g. P-001) — must be yours', 'name' => 'Unit name/label (required)', 'floor' => 'Floor (optional)', 'sqft' => 'Area in sqft (optional)', 'rent' => 'Monthly rent in ৳ (optional)', 'status' => 'Vacant | Occupied | Reserved (optional)'];
-        } else {
+        } elseif ($collection === 'tenants') {
             $csv = "name,phone,email,nid,kind,nrb\n"
                  . "Sultana Rahman,01712-334455,sultana@gmail.com,1990123456789012,Individual,0\n"
                  . "Rahim Steel,01718-998877,rahim@steel.com,1995112233445566,Corporate,1";
             $cols = ['name' => 'Tenant name (required)', 'phone' => 'Phone (optional)', 'email' => 'Email — creates portal login (optional)', 'nid' => 'NID number (optional)', 'kind' => 'Individual | Corporate (optional)', 'nrb' => '0 = local, 1 = NRB (optional)'];
+        } else {
+            $csv = "u,t,start,end,rent,adv,m,due,status\n"
+                 . "U-001,T-001,2026-06-01,2027-05-31,32000,96000,2026-06,32000,Unpaid\n"
+                 . "U-002,T-002,2026-05-15,,45000,135000,2026-05,45000,Paid";
+            $cols = ['u' => 'Unit ID (e.g. U-001) — must be yours', 't' => 'Tenant ID (e.g. T-001) — must be yours', 'start' => 'Lease start YYYY-MM-DD (required)', 'end' => 'Lease end (optional → start + 12 months)', 'rent' => 'Monthly rent ৳ (optional → unit rent)', 'adv' => 'Advance ৳ (optional)', 'm' => 'First due month YYYY-MM (optional → start month)', 'due' => 'Net due ৳ (optional → rent)', 'status' => 'Unpaid | Paid (optional, default Unpaid)'];
         }
         json_out(['ok' => true, 'collection' => $collection, 'csv' => $csv, 'columns' => $cols]);
     }
@@ -17454,14 +17464,23 @@ case 'app-import': {
         if (count($lines) < 2) json_out(['ok' => false, 'error' => 'CSV needs a header row + at least one data row.'], 400);
         $header = str_getcsv($lines[0]);
         $header = array_map(fn($h) => strtolower(trim($h)), $header);
-        $expected = $collection === 'units' ? ['p', 'name', 'floor', 'sqft', 'rent', 'status'] : ['name', 'phone', 'email', 'nid', 'kind', 'nrb'];
+        $expected = ['units' => ['p', 'name', 'floor', 'sqft', 'rent', 'status'], 'tenants' => ['name', 'phone', 'email', 'nid', 'kind', 'nrb'], 'dues' => ['u', 't', 'start', 'end', 'rent', 'adv', 'm', 'due', 'status']][$collection];
         $unknown = array_diff($header, $expected);
         if ($unknown) json_out(['ok' => false, 'error' => 'Unknown column(s): ' . implode(', ', $unknown) . '. Expected: ' . implode(', ', $expected) . '.'], 400);
 
-        /* property ownership map (units only) — cache so each row is one lookup */
+        /* ownership maps — cached so each row is one lookup (units: property owner; dues: tenant owner + unit rent + leased units) */
         $propOwn = [];
         if ($collection === 'units') {
             foreach ($pdo->query('SELECT id, sub_email FROM properties') as $pr) $propOwn[$pr['id']] = (string)$pr['sub_email'];
+        }
+        $tOwn = []; $unitRent = []; $leased = [];
+        if ($collection === 'dues') {
+            foreach ($pdo->query('SELECT u.id AS uid, pr.sub_email AS se FROM units u LEFT JOIN properties pr ON pr.id = u.p') as $ur) $propOwn[$ur['uid']] = (string)$ur['se'];
+            foreach ($pdo->query('SELECT id, sub_email FROM tenants') as $tr) $tOwn[$tr['id']] = (string)$tr['sub_email'];
+            foreach ($pdo->query('SELECT id, rent FROM units') as $ur) $unitRent[$ur['id']] = (int)$ur['rent'];
+            foreach ($pdo->query("SELECT u, status FROM leases") as $lr) {
+                if ($lr['status'] !== 'Terminated') $leased[$lr['u']] = true;
+            }
         }
         $rows = [];
         foreach (array_slice($lines, 1) as $i => $line) {
@@ -17479,10 +17498,26 @@ case 'app-import': {
                 if ($rec['rent'] !== '' && !is_numeric($rec['rent'])) $errs[] = 'rent must be a number';
                 if ($rec['sqft'] !== '' && !is_numeric($rec['sqft'])) $errs[] = 'sqft must be a number';
                 if ($rec['status'] !== '' && !in_array($rec['status'], ['Vacant', 'Occupied', 'Reserved'], true)) $errs[] = 'status must be Vacant|Occupied|Reserved';
-            } else {
+            } elseif ($collection === 'tenants') {
                 if ($rec['name'] === '') $errs[] = 'tenant name is required';
                 if ($rec['nrb'] !== '' && !in_array($rec['nrb'], ['0', '1'], true)) $errs[] = 'nrb must be 0 or 1';
                 if ($rec['kind'] !== '' && !in_array($rec['kind'], ['Individual', 'Corporate'], true)) $errs[] = 'kind must be Individual|Corporate';
+            } else {
+                /* dues — one row = one lease + one opening invoice */
+                if ($rec['u'] === '') $errs[] = 'unit (u) is required';
+                elseif (!isset($propOwn[$rec['u']])) $errs[] = 'unit ' . $rec['u'] . ' not found';
+                elseif ($isSub && strtolower($propOwn[$rec['u']]) !== $email) $errs[] = 'unit ' . $rec['u'] . ' belongs to another account';
+                if ($rec['t'] === '') $errs[] = 'tenant (t) is required';
+                elseif (!isset($tOwn[$rec['t']])) $errs[] = 'tenant ' . $rec['t'] . ' not found';
+                elseif ($isSub && strtolower($tOwn[$rec['t']]) !== $email) $errs[] = 'tenant ' . $rec['t'] . ' belongs to another account';
+                if (isset($leased[$rec['u']])) $errs[] = 'unit ' . $rec['u'] . ' is already leased';
+                if ($rec['start'] !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $rec['start'])) $errs[] = 'start must be YYYY-MM-DD';
+                if ($rec['end'] !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $rec['end'])) $errs[] = 'end must be YYYY-MM-DD';
+                if ($rec['rent'] !== '' && !is_numeric($rec['rent'])) $errs[] = 'rent must be a number';
+                if ($rec['adv'] !== '' && !is_numeric($rec['adv'])) $errs[] = 'adv must be a number';
+                if ($rec['m'] !== '' && !preg_match('/^\d{4}-\d{2}$/', $rec['m'])) $errs[] = 'm must be YYYY-MM';
+                if ($rec['due'] !== '' && !is_numeric($rec['due'])) $errs[] = 'due must be a number';
+                if ($rec['status'] !== '' && !in_array($rec['status'], ['Unpaid', 'Paid'], true)) $errs[] = 'status must be Unpaid|Paid';
             }
             $rows[] = ['line' => $no, 'data' => $rec, 'ok' => empty($errs), 'errors' => $errs];
         }
@@ -17508,7 +17543,7 @@ case 'app-import': {
 
         /* commit — insert only valid rows; stop everything if the plan cap would be exceeded */
         if ($limitErr) json_out(['ok' => false, 'error' => $limitErr], 403);
-        $created = 0; $provisioned = 0; $createdIds = [];
+        $created = 0; $provisioned = 0; $skipped = 0; $createdIds = [];
         foreach ($valid as $r) {
             $d = $r['data'];
             if ($collection === 'units') {
@@ -17520,7 +17555,7 @@ case 'app-import': {
                     ->execute(array_merge([$id], array_values($data)));
                 $createdIds[] = $id;
                 $created++;
-            } else {
+            } elseif ($collection === 'tenants') {
                 $id = next_id('tenants', 'T-', 3);
                 $data = ['name' => $d['name'], 'phone' => $d['phone'], 'email' => $d['email'], 'nid' => $d['nid'], 'kind' => $d['kind'] !== '' ? $d['kind'] : 'Individual', 'nrb' => (int)$d['nrb']];
                 if ($isSub) $data['sub_email'] = $email;
@@ -17534,10 +17569,31 @@ case 'app-import': {
                 }
                 $createdIds[] = $id;
                 $created++;
+            } elseif ($collection === 'dues') {
+                /* re-check (a lease may exist since preview, or the file duplicated a unit) */
+                $st = $pdo->prepare('SELECT 1 FROM leases WHERE u=? AND status<>? LIMIT 1');
+                $st->execute([$d['u'], 'Terminated']);
+                if ($st->fetch()) { $skipped++; continue; }
+                $lid = next_id('leases', 'L-', 3);
+                $start = $d['start'] !== '' ? $d['start'] : date('Y-m-d');
+                $end = $d['end'] !== '' ? $d['end'] : (new DateTime($start))->modify('+12 months')->format('Y-m-d');
+                $rent = $d['rent'] !== '' ? (int)$d['rent'] : (int)($unitRent[$d['u']] ?? 0);
+                $adv = $d['adv'] !== '' ? (int)$d['adv'] : 0;
+                $due = $d['due'] !== '' ? (int)$d['due'] : $rent;
+                $m = $d['m'] !== '' ? $d['m'] : substr($start, 0, 7);
+                $stt = $d['status'] !== '' ? $d['status'] : 'Unpaid';
+                $pdo->prepare('INSERT INTO leases (id, u, t, start, end, rent, adv, res, reg_office, reg_deed, status) VALUES (?,?,?,?,?,?,?,1,?,?,?)')
+                    ->execute([$lid, $d['u'], $d['t'], $start, $end, $rent, $adv, '', '', 'Active']);
+                $iid = invoice_next_id($pdo);
+                $pdo->prepare('INSERT INTO invoices (id, l, m, gross, tds, net, status) VALUES (?,?,?,?,0,?,?)')
+                    ->execute([$iid, $lid, $m, $rent, $due, $stt]);
+                $pdo->prepare("UPDATE units SET status='Leased' WHERE id=?")->execute([$d['u']]);
+                $createdIds[] = $lid;
+                $created++;
             }
         }
-        audit($u['name'], 'Import ' . $collection, $collection, 'csv', 'created=' . $created . ' invalid=' . count($invalid));
-        json_out(['ok' => true, 'collection' => $collection, 'created' => $created, 'provisioned' => $provisioned, 'invalid' => count($invalid), 'created_ids' => $createdIds, 'invalid_rows' => $invalid]);
+        audit($u['name'], 'Import ' . $collection, $collection, 'csv', 'created=' . $created . ' invalid=' . count($invalid) . ' skipped=' . $skipped);
+        json_out(['ok' => true, 'collection' => $collection, 'created' => $created, 'provisioned' => $provisioned, 'skipped' => $skipped, 'invalid' => count($invalid), 'created_ids' => $createdIds, 'invalid_rows' => $invalid]);
     }
 
     json_out(['ok' => false, 'error' => 'action must be template|preview|commit.'], 400);

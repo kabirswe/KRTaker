@@ -9,6 +9,7 @@ import { track } from '../lib/analytics'
 import { badge, useViewMode, usePager } from '../lib/ui'
 import PagerBar from '../components/PagerBar.vue'
 import CompactFilters from '../components/CompactFilters.vue'
+import ImportWizard from '../components/ImportWizard.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -18,6 +19,8 @@ const go = (path, q) => router.push({ path, query: q })
 const data = useDataStore()
 const auth = useAuthStore()
 const canManage = computed(() => ['superadmin', 'owner', 'manager', 'accountant'].includes(auth.user?.role || ''))
+const showImport = ref(false)
+function importedDues() { showImport.value = false; data.bootstrap() }
 
 const invoicesAll = computed(() => data.list('invoices'))
 const leasesAll = computed(() => data.list('leases'))
@@ -226,6 +229,7 @@ async function runAuto() {
         <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openAuto" class="btn-primary" style="padding:9px 16px;font-size:12.5px" :title="t('Generate rent invoices for a month from active leases')">{{ lang === 'bn' ? '⚡ অটো-জেনারেট' : '⚡ Auto-generate' }}</button>
+        <button v-if="canManage" @click="showImport = true" class="btn-ghost" style="padding:9px 16px;font-size:12.5px;font-weight:700" :title="t('Import dues (CSV)')">⬆ {{ lang === 'bn' ? 'ইমপোর্ট' : 'Import' }}</button>
       </div>
     </div>
 
@@ -458,6 +462,8 @@ async function runAuto() {
       </div>
     </template>
   </div>
+
+  <ImportWizard v-if="showImport" collection="dues" :on-done="importedDues" @close="showImport = false" />
 </template>
 
 <style scoped>

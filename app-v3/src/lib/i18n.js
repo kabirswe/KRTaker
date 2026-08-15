@@ -1929,6 +1929,14 @@ const BN = {
   'ready for payout': 'পেআউটের জন্য প্রস্তুত',
   'settled': 'নিষ্পত্তিকৃত',
   'tenants moved in': 'টেন্যান্ট ঢুকেছে',
+  // ── V2.40.7: dues (ledger) CSV import ──
+  'Import units (CSV)': 'ইউনিট ইমপোর্ট করুন (CSV)',
+  'Import tenants (CSV)': 'টেন্যান্ট ইমপোর্ট করুন (CSV)',
+  'Import dues (CSV)': 'বকেয়া ইমপোর্ট করুন (CSV)',
+  'units imported': 'টি ইউনিট ইমপোর্ট হয়েছে',
+  'tenants imported': 'টি টেন্যান্ট ইমপোর্ট হয়েছে',
+  'dues imported': 'টি বকেয়া ইমপোর্ট হয়েছে',
+  'Paste your CSV below (or pick a file). Headers must match the template — invalid rows are skipped safely.': 'নীচে আপনার CSV পেস্ট করুন (বা একটি ফাইল বেছে নিন)। হেডার অবশ্যই টেমপ্লেটের সাথে মিলতে হবে — ভুল সারিগুলো নিরাপদে বাদ দেওয়া হবে।',
 }
 
 // t(key) — dictionary lookup with English fallback.
