@@ -91,7 +91,7 @@ async function submitReading() {
   if (isNaN(n) || n < 0) { window.__krToast?.('❌ Enter a valid reading'); return }
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(f.month)) { window.__krToast?.('❌ Month must be YYYY-MM'); return }
   const r = await apiCall('app-meter-submit', { unit: f.unit, type: f.type, reading: n, month: f.month, note: f.note.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   recModal.value = false
   window.__krToast?.('✅ Reading saved · ' + (r.id || ''), 'ok')
   await data.bootstrap()

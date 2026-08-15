@@ -146,7 +146,7 @@ async function sendReply() {
   threadBusy.value = true
   try {
     const r = await apiCall('app-support-ticket', { action: 'comment', id: sel.value.id, body: text })
-    if (!r.ok) { window.__krToast?.('❌ ' + (r.error || 'Reply failed')); return }
+    if (!r.ok) { window.__krToast?.('❌ ' + (r.error || t('Reply failed'))); return }
     thread.value.push({ author: data.user?.name || 'You', body: text, ts: new Date().toISOString().replace('T', ' ').slice(0, 19) })
     reply.value = ''
     patchOverlay(sel.value.id, { updated_at: new Date().toISOString().replace('T', ' ').slice(0, 19) })
@@ -157,7 +157,7 @@ async function setStatus(s) {
   threadBusy.value = true
   try {
     const r = await apiCall('app-support-ticket', { action: 'status', id: sel.value.id, status: s })
-    if (!r.ok) { window.__krToast?.('❌ ' + (r.error || 'Update failed')); return }
+    if (!r.ok) { window.__krToast?.('❌ ' + (r.error || t('Update failed'))); return }
     patchOverlay(sel.value.id, { status: s })
     window.__krToast?.('Status → ' + s)
   } finally { threadBusy.value = false }
@@ -167,7 +167,7 @@ async function setPrio(p) {
   threadBusy.value = true
   try {
     const r = await apiCall('app-support-ticket', { action: 'prio', id: sel.value.id, prio: p })
-    if (!r.ok) { window.__krToast?.('❌ ' + (r.error || 'Update failed')); return }
+    if (!r.ok) { window.__krToast?.('❌ ' + (r.error || t('Update failed'))); return }
     patchOverlay(sel.value.id, { prio: p })
     window.__krToast?.('Priority → ' + p)
   } finally { threadBusy.value = false }

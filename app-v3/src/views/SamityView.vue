@@ -115,7 +115,7 @@ async function saveMember() {
   const f = memberForm.value
   if (!f.name.trim()) { window.__krToast?.('❌ Name is required'); return }
   const r = await apiCall('app-samity', { action: f.id ? 'member-save' : 'member-create', id: f.id, name: f.name.trim(), role: f.role, phone: f.phone.trim(), since_date: f.since_date || today(), status: f.status, notes: f.notes.trim(), prop: f.prop })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   memberModal.value = false
   window.__krToast?.('✅ Member saved')
   await data.bootstrap()
@@ -123,7 +123,7 @@ async function saveMember() {
 async function delMember(m) {
   if (!window.confirm(t('Delete member ') + m.name + '?')) return
   const r = await apiCall('app-samity', { action: 'member-delete', id: m.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   closeDetail()
   await data.bootstrap()
@@ -191,7 +191,7 @@ async function addBill() {
   if (!f.unit) { window.__krToast?.('❌ Select a unit'); return }
   if (!(parseInt(f.amount) > 0)) { window.__krToast?.('❌ Amount is required'); return }
   const r = await apiCall('app-samity', { action: 'bill-create', unit: f.unit, month: f.month || today().slice(0, 7), amount: parseInt(f.amount), due_date: f.due_date || today().slice(0, 7) + '-05', note: f.note.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   billModal.value = false
   window.__krToast?.('✅ Bill issued')
   await data.bootstrap()
@@ -199,7 +199,7 @@ async function addBill() {
 async function delBill(b) {
   if (!window.confirm(t('Delete bill ') + b.id + '?')) return
   const r = await apiCall('app-samity', { action: 'bill-delete', id: b.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   await data.bootstrap()
 }
@@ -222,7 +222,7 @@ async function addCollection() {
   if (!f.bill) { window.__krToast?.('❌ Select a bill'); return }
   if (!(parseInt(f.amount) > 0)) { window.__krToast?.('❌ Amount is required'); return }
   const r = await apiCall('app-samity', { action: 'collection-create', bill: f.bill, amount: parseInt(f.amount), method: f.method, collected_at: f.collected_at || today(), note: f.note.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   collModal.value = false
   window.__krToast?.('✅ Collection recorded')
   await data.bootstrap()
@@ -230,7 +230,7 @@ async function addCollection() {
 async function delCollection(c) {
   if (!window.confirm(t('Delete collection ') + c.id + '?')) return
   const r = await apiCall('app-samity', { action: 'collection-delete', id: c.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   await data.bootstrap()
 }
@@ -245,7 +245,7 @@ async function loadCfg() {
 }
 async function saveCfg() {
   const r = await apiCall('app-samity', { action: 'config-save', alert_days: Math.max(1, Math.min(120, samityCfg.value.alert_days || 7)), default_charge: Math.max(1, Math.min(100000, samityCfg.value.default_charge || 3000)) })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ Settings saved')
 }
 watch(tab, (t) => { if (t === 'settings' && !cfgLoaded.value) loadCfg() })
@@ -284,7 +284,7 @@ async function addExpense() {
   if (!f.title.trim()) { window.__krToast?.('❌ Title is required'); return }
   if (!(parseInt(f.amount) > 0)) { window.__krToast?.('❌ Amount is required'); return }
   const r = await apiCall('app-samity', { action: 'expense-create', title: f.title.trim(), category: f.category, amount: parseInt(f.amount), exp_date: f.exp_date || today(), prop: f.prop, note: f.note.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   expModal.value = false
   window.__krToast?.('✅ Expense recorded')
   await data.bootstrap()
@@ -292,7 +292,7 @@ async function addExpense() {
 async function delExpense(e) {
   if (!window.confirm(t('Delete expense ') + e.id + ' — ' + (e.title || '') + '?')) return
   const r = await apiCall('app-samity', { action: 'expense-delete', id: e.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   await data.bootstrap()
 }
@@ -396,9 +396,9 @@ const elDonut = (e, posName) => {
   return { background: 'conic-gradient(' + stops.join(',') + ')' }
 }
 async function castElectionVote(e, pos, cand) {
-  if (!window.confirm('Vote for ' + (cand.member_name || memberName(cand.member)) + ' as ' + pos + '?')) return
+  if (!window.confirm(t('Vote for {name} as {pos}?').replace('{name}', cand.member_name || memberName(cand.member)).replace('{pos}', pos))) return
   const r = await apiCall('app-samity', { action: 'vote', election: e.id, position: pos, candidate: cand.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ Vote recorded')
   await loadElections()
   await data.bootstrap()
@@ -420,30 +420,30 @@ async function saveElection() {
   const positions = f.positions.filter(p => p.name && p.name.trim()).map(p => ({ name: p.name.trim(), seats: Math.max(1, parseInt(p.seats) || 1) }))
   if (!positions.length) { window.__krToast?.('❌ Add at least one position'); return }
   const r = await apiCall('app-samity', { action: f.id ? 'election-save' : 'election-create', id: f.id, title: f.title.trim(), positions, starts_at: f.starts_at, ends_at: f.ends_at })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   elModal.value = false
   window.__krToast?.('✅ Election ' + (f.id ? 'updated' : 'created'))
   await loadElections()
 }
 async function openElection(e) {
-  if (!window.confirm('Open voting for "' + e.title + '"? Members can now cast votes.')) return
+  if (!window.confirm(t('Open voting for "{title}"? Members can now cast votes.').replace('{title}', e.title))) return
   const r = await apiCall('app-samity', { action: 'election-open', id: e.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ Voting opened')
   await loadElections()
 }
 async function closeElection(e) {
-  if (!window.confirm('Close voting for "' + e.title + '"? Winners will be assigned committee roles.')) return
+  if (!window.confirm(t('Close voting for "{title}"? Winners will be assigned committee roles.').replace('{title}', e.title))) return
   const r = await apiCall('app-samity', { action: 'election-close', id: e.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ Election closed — committee updated')
   await loadElections()
   await data.bootstrap()
 }
 async function deleteElection(e) {
-  if (!window.confirm('Delete election "' + e.title + '"? This cannot be undone.')) return
+  if (!window.confirm(t('Delete election "{title}"? This cannot be undone.').replace('{title}', e.title))) return
   const r = await apiCall('app-samity', { action: 'election-delete', id: e.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   await loadElections()
 }
@@ -458,7 +458,7 @@ async function addCandidate() {
   const f = candForm.value
   if (!f.member) { window.__krToast?.('❌ Select a member'); return }
   const r = await apiCall('app-samity', { action: 'candidate-add', election: f.election, member: f.member, position: f.position, manifesto: f.manifesto.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   candModal.value = false
   window.__krToast?.('✅ Candidate added')
   await loadElections()
@@ -466,7 +466,7 @@ async function addCandidate() {
 async function removeCandidate(c) {
   if (!window.confirm(t('Remove') + ' ' + (c.member_name || memberName(c.member)) + t(' from the ballot?'))) return
   const r = await apiCall('app-samity', { action: 'candidate-remove', id: c.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Removed')
   await loadElections()
 }

@@ -50,7 +50,7 @@ async function enablePush() {
       const st = await apiCall('app-push?action=state', {})
       if (st.ok) pushState.value.vapid = st.vapid_public || ''
     }
-    if (!pushState.value.vapid) { err.value = 'Push is not configured on the server yet.'; return }
+    if (!pushState.value.vapid) { err.value = t('Push is not configured on the server yet.'); return }
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushState.value.vapid })
     const json = sub.toJSON()
     const r = await apiCall('app-push', { action: 'save', endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, ua: navigator.userAgent.slice(0, 200) })
@@ -137,7 +137,7 @@ async function enableEmail2fa() {
   try {
     const r = await apiCall('app-2fa-enable', { method: 'email', code: twofaCode.value })
     if (r.ok) { toast('2FA enabled with email codes ✅', 'ok'); twofaStep.value = ''; twofaCode.value = ''; await loadTwofa() }
-    else toast(r.error || 'Enable failed.', 'error')
+    else toast(r.error || t('Enable failed.'), 'error')
   } finally { twofaBusy.value = false }
 }
 async function setupTotp() {
@@ -154,7 +154,7 @@ async function enableTotp2fa() {
   try {
     const r = await apiCall('app-2fa-enable', { method: 'totp', code: twofaCode.value })
     if (r.ok) { toast('2FA enabled with authenticator ✅', 'ok'); twofaStep.value = ''; twofaSetup.value = null; twofaCode.value = ''; await loadTwofa() }
-    else toast(r.error || 'Enable failed.', 'error')
+    else toast(r.error || t('Enable failed.'), 'error')
   } finally { twofaBusy.value = false }
 }
 async function disable2fa() {
@@ -163,7 +163,7 @@ async function disable2fa() {
   try {
     const r = await apiCall('app-2fa-disable', { code: twofaCode.value, password: twofaPw.value })
     if (r.ok) { toast('2FA disabled', 'ok'); twofaStep.value = ''; twofaCode.value = ''; twofaPw.value = ''; await loadTwofa() }
-    else toast(r.error || 'Disable failed.', 'error')
+    else toast(r.error || t('Disable failed.'), 'error')
   } finally { twofaBusy.value = false }
 }
 
@@ -182,11 +182,11 @@ async function saveProfile() {
 
 async function changePassword() {
   err.value = ''; saved.value = ''
-  if (!oldPw.value || !newPw.value) { err.value = 'Current and new password are required.'; return }
+  if (!oldPw.value || !newPw.value) { err.value = t('Current and new password are required.'); return }
   if (newPw.value.length < 6) { err.value = t('New password must be at least 6 characters.'); return }
   const r = await apiCall('app-profile', { old_password: oldPw.value, new_password: newPw.value })
   if (r.ok) { saved.value = t('Password changed.'); oldPw.value = ''; newPw.value = '' }
-  else err.value = r.error || 'Failed to change password.'
+  else err.value = r.error || t('Failed to change password.')
 }
 
 async function saveSettings() {
@@ -299,7 +299,7 @@ async function revokeOthers() {
   try {
     const r = await apiCall('app-sessions', { action: 'revoke_others' })
     if (r.ok) { saved.value = `Signed out ${r.revoked || 0} other device${r.revoked === 1 ? '' : 's'}.`; confirmRevoke.value = ''; await loadSessions() }
-    else err.value = r.error || 'Failed to sign out other devices.'
+    else err.value = r.error || t('Failed to sign out other devices.')
   } finally { sessionsBusy.value = false }
 }
 async function revokeAll() {
@@ -310,7 +310,7 @@ async function revokeAll() {
       try { localStorage.removeItem('krtaker_dash_token') } catch (e) {}
       auth.token = ''; auth.user = null
       location.reload()
-    } else err.value = r.error || 'Failed to sign out everywhere.'
+    } else err.value = r.error || t('Failed to sign out everywhere.')
   } finally { sessionsBusy.value = false }
 }
 async function saveSecAlerts() {
@@ -348,7 +348,7 @@ async function downloadBackup() {
   backupBusy.value = 'db'; err.value = ''; saved.value = ''
   try {
     const res = await fetch('https://krtaker.com/api/app-backup', { headers: { Authorization: 'Bearer ' + (auth.token || '') } })
-    if (!res.ok) { err.value = 'Backup failed (HTTP ' + res.status + ')'; return }
+    if (!res.ok) { err.value = t('Backup failed (HTTP ') + res.status + ')'; return }
     const blob = await res.blob()
     saveBlob(blob, 'krtaker_' + new Date().toISOString().slice(0, 10) + '.db')
     saved.value = t('DB snapshot downloaded.')
@@ -359,7 +359,7 @@ async function downloadExport() {
   backupBusy.value = 'json'; err.value = ''; saved.value = ''
   try {
     const res = await fetch('https://krtaker.com/api/app-export', { headers: { Authorization: 'Bearer ' + (auth.token || '') } })
-    if (!res.ok) { err.value = 'Export failed (HTTP ' + res.status + ')'; return }
+    if (!res.ok) { err.value = t('Export failed (HTTP ') + res.status + ')'; return }
     const blob = await res.blob()
     saveBlob(blob, 'krtaker_export_' + new Date().toISOString().slice(0, 10) + '.json')
     saved.value = t('Full JSON export downloaded.')

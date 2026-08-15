@@ -1937,6 +1937,54 @@ const BN = {
   'tenants imported': 'টি টেন্যান্ট ইমপোর্ট হয়েছে',
   'dues imported': 'টি বকেয়া ইমপোর্ট হয়েছে',
   'Paste your CSV below (or pick a file). Headers must match the template — invalid rows are skipped safely.': 'নীচে আপনার CSV পেস্ট করুন (বা একটি ফাইল বেছে নিন)। হেডার অবশ্যই টেমপ্লেটের সাথে মিলতে হবে — ভুল সারিগুলো নিরাপদে বাদ দেওয়া হবে।',
+  // ── V2.40.8: error-message localization ──
+  'Backup failed.': 'ব্যাকআপ ব্যর্থ হয়েছে।',
+  'Cancel failed': 'বাতিল ব্যর্থ হয়েছে',
+  'Create failed': 'তৈরি ব্যর্থ হয়েছে',
+  'Decision failed': 'সিদ্ধান্ত ব্যর্থ হয়েছে',
+  'Disable failed.': 'নিষ্ক্রিয় করা ব্যর্থ হয়েছে।',
+  'Enable failed.': 'সক্রিয় করা ব্যর্থ হয়েছে।',
+  'Failed': 'ব্যর্থ হয়েছে',
+  'Failed to change password.': 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে।',
+  'Failed to load fire safety data.': 'ফায়ার সেফটি ডেটা লোড করা যায়নি।',
+  'Failed to post': 'পোস্ট করা যায়নি',
+  'Failed to sign out everywhere.': 'সব জায়গা থেকে সাইন আউট ব্যর্থ হয়েছে।',
+  'Failed to sign out other devices.': 'অন্যান্য ডিভাইস থেকে সাইন আউট ব্যর্থ হয়েছে।',
+  'Failed.': 'ব্যর্থ হয়েছে।',
+  'Invalid email or password.': 'ইমেইল বা পাসওয়ার্ড সঠিক নয়।',
+  'Offer failed': 'অফার ব্যর্থ হয়েছে',
+  'Payment failed': 'পেমেন্ট ব্যর্থ হয়েছে',
+  'QC failed': 'QC ব্যর্থ হয়েছে',
+  'Reconcile failed.': 'রিকনসাইল ব্যর্থ হয়েছে।',
+  'Record failed': 'রেকর্ড ব্যর্থ হয়েছে',
+  'Reply failed': 'উত্তর পাঠানো ব্যর্থ হয়েছে',
+  'Restore failed.': 'পুনরুদ্ধার ব্যর্থ হয়েছে।',
+  'Review failed': 'রিভিউ ব্যর্থ হয়েছে',
+  'Save failed': 'সংরক্ষণ ব্যর্থ হয়েছে',
+  'Send failed': 'পাঠানো ব্যর্থ হয়েছে',
+  'Submit failed': 'জমা দেওয়া ব্যর্থ হয়েছে',
+  'Update failed': 'আপডেট ব্যর্থ হয়েছে',
+  'failed': 'ব্যর্থ হয়েছে',
+  'Account name required.': 'অ্যাকাউন্টের নাম আবশ্যক।',
+  'Backup failed (HTTP ': 'ব্যাকআপ ব্যর্থ হয়েছে (HTTP ',
+  'Current and new password are required.': 'বর্তমান এবং নতুন পাসওয়ার্ড আবশ্যক।',
+  'Email and password are required.': 'ইমেইল এবং পাসওয়ার্ড আবশ্যক।',
+  'Export failed (HTTP ': 'এক্সপোর্ট ব্যর্থ হয়েছে (HTTP ',
+  'Give your tenant a name (or clear the fields to skip this step).': 'আপনার টেন্যান্টের একটি নাম দিন (বা ধাপটি এড়াতে ফিল্ডগুলো খালি রাখুন)।',
+  'Push is not configured on the server yet.': 'সার্ভারে এখনো পুশ কনফিগার করা হয়নি।',
+  'Title is required.': 'শিরোনাম আবশ্যক।',
+  'Delete {id} ({name})?': '{id} ({name}) মুছে ফেলবেন?',
+  'Vote for {name} as {pos}?': '{name} কে {pos} হিসেবে ভোট দেবেন?',
+  'Mark {id} as paid for {name}?': '{id} কে {name} এর জন্য পরিশোধিত হিসেবে চিহ্নিত করবেন?',
+  'Delete staff {name}? This removes their attendance and payroll records too.': '{name} কে মুছে ফেলবেন? এতে তাদের অ্যাটেনডেন্স ও পে-রোল রেকর্ডও মুছে যাবে।',
+  'Holding no and FY are required.': 'হোল্ডিং নম্বর এবং FY আবশ্যক।',
+  'Location is required.': 'অবস্থান আবশ্যক।',
+  'Lock name is required.': 'লকের নাম আবশ্যক।',
+  'Technician is required.': 'টেকনিশিয়ান আবশ্যক।',
+  'Liters must be positive.': 'লিটার ধনাত্মক হতে হবে।',
+  'Open voting for "{title}"? Members can now cast votes.': '"{title}" এর জন্য ভোট খোলবেন? সদস্যরা এখন ভোট দিতে পারবেন।',
+  'Close voting for "{title}"? Winners will be assigned committee roles.': '"{title}" এর জন্য ভোট বন্ধ করবেন? বিজয়ীরা কমিটির দায়িত্ব পাবেন।',
+  'Delete election "{title}"? This cannot be undone.': '"{title}" নির্বাচন মুছে ফেলবেন? এটি ফেরানো যাবে না।',
 }
 
 // t(key) — dictionary lookup with English fallback.
@@ -1948,4 +1996,162 @@ export function t(key) {
 // Reactive composable for <script setup> use.
 export function useT() {
   return { t, lang, isBn }
+}
+
+// ── V2.40.8: server-error localization ───────────────────────────────────
+// The API returns English error strings. In বাংলা mode every `r.error` that
+// reaches the user is run through translateServerError() — wired centrally in
+// api/client.js, so every display site (err.value = r.error || …, toast(r.error))
+// gets Bengali without touching 112 call sites. Exact map first, then regex
+// rules for the pattern-heavy long tail ("X not found.", "Not your X.", …).
+
+const SERVER_BN = {
+  'Access denied.': 'অ্যাক্সেস অস্বীকৃত।',
+  'Superadmin only.': 'শুধুমাত্র সুপার অ্যাডমিন।',
+  'Super admin only.': 'শুধুমাত্র সুপার অ্যাডমিন।',
+  'Service key required.': 'সার্ভিস কি আবশ্যক।',
+  'Owner access required.': 'মালিকের অ্যাক্সেস আবশ্যক।',
+  'Invalid verification code.': 'অবৈধ ভেরিফিকেশন কোড।',
+  'Invalid email or password.': 'ইমেইল বা পাসওয়ার্ড সঠিক নয়।',
+  'Invalid email address.': 'অবৈধ ইমেইল ঠিকানা।',
+  'Invalid email.': 'অবৈধ ইমেইল।',
+  'Invalid code.': 'অবৈধ কোড।',
+  'Invalid status.': 'অবৈধ স্ট্যাটাস।',
+  'Invalid team role.': 'অবৈধ টিম রোল।',
+  'Bad role.': 'অবৈধ রোল।',
+  'Bad status.': 'অবৈধ স্ট্যাটাস।',
+  'Bad kind.': 'অবৈধ ধরন।',
+  'Bad priority.': 'অবৈধ অগ্রাধিকার।',
+  'Unknown action.': 'অজানা অ্যাকশন।',
+  'Not found.': 'খুঁজে পাওয়া যায়নি।',
+  'No registration found for this email.': 'এই ইমেইলে কোনো নিবন্ধন পাওয়া যায়নি।',
+  'No active user with that email.': 'এই ইমেইলে কোনো সক্রিয় ব্যবহারকারী নেই।',
+  'No subscriber found.': 'কোনো সাবস্ক্রাইবার পাওয়া যায়নি।',
+  'No tenant profile for this account.': 'এই অ্যাকাউন্টের জন্য কোনো টেন্যান্ট প্রোফাইল নেই।',
+  'No tenant profile.': 'কোনো টেন্যান্ট প্রোফাইল নেই।',
+  'Account not found.': 'অ্যাকাউন্ট খুঁজে পাওয়া যায়নি।',
+  'Current password is incorrect.': 'বর্তমান পাসওয়ার্ড সঠিক নয়।',
+  'Nothing to update.': 'আপডেট করার কিছু নেই।',
+  'Already paid.': 'ইতোমধ্যে পরিশোধিত।',
+  'Already voted.': 'ইতোমধ্যে ভোট দেওয়া হয়েছে।',
+  'Already RSVPed.': 'ইতোমধ্যে RSVP করা হয়েছে।',
+  'Account already verified.': 'অ্যাকাউন্ট ইতোমধ্যে যাচাইকৃত।',
+  'Already verified.': 'ইতোমধ্যে যাচাইকৃত।',
+  'File too large (max 8MB).': 'ফাইল অনেক বড় (সর্বোচ্চ 8MB)।',
+  'Images only.': 'শুধুমাত্র ছবি।',
+  'Images or PDF only.': 'শুধুমাত্র ছবি বা PDF।',
+  'A file upload is required.': 'একটি ফাইল আপলোড আবশ্যক।',
+  'A photo upload is required.': 'একটি ছবি আপলোড আবশ্যক।',
+  'A document file (image or PDF) is required.': 'একটি ডকুমেন্ট ফাইল (ছবি বা PDF) আবশ্যক।',
+  'A proof file (image or PDF) is required.': 'একটি প্রুফ ফাইল (ছবি বা PDF) আবশ্যক।',
+  'Storage not writable.': 'স্টোরেজে লেখা যাচ্ছে না।',
+  'File missing on server.': 'সার্ভারে ফাইল নেই।',
+  'Failed to store photo.': 'ছবি সংরক্ষণ ব্যর্থ।',
+  'Could not store file.': 'ফাইল সংরক্ষণ করা যায়নি।',
+  'Could not store document.': 'ডকুমেন্ট সংরক্ষণ করা যায়নি।',
+  'Could not store proof.': 'প্রুফ সংরক্ষণ করা যায়নি।',
+  'Invoice already fully paid.': 'ইনভয়েস ইতোমধ্যে সম্পূর্ণ পরিশোধিত।',
+  'CSV is empty.': 'CSV খালি।',
+  'CSV needs a header row + at least one data row.': 'CSV-তে হেডার সারি + অন্তত একটি ডেটা সারি প্রয়োজন।',
+  'Import supports units, tenants or dues only.': 'ইমপোর্ট শুধুমাত্র ইউনিট, টেন্যান্ট বা বকেয়া সমর্থন করে।',
+  'Your role cannot import records.': 'আপনার রোলে রেকর্ড ইমপোর্ট করা যায় না।',
+  'A renewal request is already pending for this lease.': 'এই লিজের জন্য ইতোমধ্যে একটি নবায়ন অনুরোধ বিচারাধীন আছে।',
+  'Checkout session not found.': 'চেকআউট সেশন খুঁজে পাওয়া যায়নি।',
+  'Too many devices (max 10).': 'অনেক বেশি ডিভাইস (সর্বোচ্চ 10)।',
+  'You can only raise tickets for your own unit.': 'আপনি শুধুমাত্র নিজের ইউনিটের জন্য টিকেট তুলতে পারেন।',
+  'You can only pay your own invoices.': 'আপনি শুধুমাত্র নিজের ইনভয়েস পরিশোধ করতে পারেন।',
+  'Your role cannot post notices.': 'আপনার রোলে নোটিশ পোস্ট করা যায় না।',
+  'Audits are for staff.': 'অডিট শুধুমাত্র স্টাফদের জন্য।',
+  'Cannot delete your own account.': 'নিজের অ্যাকাউন্ট মুছে ফেলা যায় না।',
+  'Cannot delete the last super admin.': 'শেষ সুপার অ্যাডমিনকে মুছে ফেলা যায় না।',
+  'Cannot impersonate another super admin.': 'অন্য সুপার অ্যাডমিনের ভূমিকা নেওয়া যায় না।',
+  'Cannot impersonate yourself.': 'নিজের ভূমিকা নেওয়া যায় না।',
+  'Cannot view as yourself.': 'নিজেকে হিসেবে দেখা যায় না।',
+  'Code expired. Request a new one.': 'কোডের মেয়াদ শেষ। নতুন কোড অনুরোধ করুন।',
+  'Code expired. Resend a new one.': 'কোডের মেয়াদ শেষ। নতুন কোড পাঠান।',
+  'A valid unit is required.': 'একটি বৈধ ইউনিট আবশ্যক।',
+  'A valid web, mobile or tenant API key is required (X-API-Key header).': 'একটি বৈধ ওয়েব, মোবাইল বা টেন্যান্ট API কী আবশ্যক (X-API-Key হেডার)।',
+  'Empty response from server.': 'সার্ভার থেকে খালি উত্তর।',
+  'Network error — please try again.': 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।',
+  'Request failed.': 'অনুরোধ ব্যর্থ।',
+  'Holding no and FY are required.': 'হোল্ডিং নম্বর এবং FY আবশ্যক।',
+  'Location is required.': 'অবস্থান আবশ্যক।',
+  'Lock name is required.': 'লকের নাম আবশ্যক।',
+  'Technician is required.': 'টেকনিশিয়ান আবশ্যক।',
+  'Liters must be positive.': 'লিটার ধনাত্মক হতে হবে।',
+  'Open voting for "{title}"? Members can now cast votes.': '"{title}" এর জন্য ভোট খোলবেন? সদস্যরা এখন ভোট দিতে পারবেন।',
+  'Close voting for "{title}"? Winners will be assigned committee roles.': '"{title}" এর জন্য ভোট বন্ধ করবেন? বিজয়ীরা কমিটির দায়িত্ব পাবেন।',
+  'Delete election "{title}"? This cannot be undone.': '"{title}" নির্বাচন মুছে ফেলবেন? এটি ফেরানো যাবে না।',
+}
+
+const SERVER_ENT = {
+  'team member': 'টিম সদস্য', 'checkout session': 'চেকআউট সেশন', 'property': 'সম্পত্তি',
+  'unit': 'ইউনিট', 'tenant': 'টেন্যান্ট', 'lease': 'লিজ', 'invoice': 'ইনভয়েস',
+  'ticket': 'টিকেট', 'document': 'ডকুমেন্ট', 'notice': 'নোটিশ', 'bill': 'বিল',
+  'payment': 'পেমেন্ট', 'receipt': 'রসিদ', 'checklist': 'চেকলিস্ট', 'project': 'প্রকল্প',
+  'asset': 'সম্পদ', 'job': 'জব', 'request': 'রিকোয়েস্ট', 'lead': 'লিড',
+  'visit': 'ভিজিট', 'vacancy': 'ভ্যাকেন্সি', 'parcel': 'পার্সেল', 'form': 'ফর্ম',
+  'thread': 'থ্রেড', 'staff': 'স্টাফ', 'member': 'সদস্য', 'election': 'নির্বাচন',
+  'poll': 'পোল', 'webhook': 'ওয়েবহুক', 'key': 'কি', 'incident': 'ঘটনা',
+  'expense': 'ব্যয়', 'template': 'টেমপ্লেট', 'package': 'প্যাকেজ', 'subscriber': 'সাবস্ক্রাইবার',
+  'domain': 'ডোমেইন', 'policy': 'পলিসি', 'case': 'কেস', 'showing': 'শোয়িং',
+  'dispute': 'বিতর্ক', 'lock': 'লক', 'plan': 'প্ল্যান', 'milestone': 'মাইলস্টোন',
+  'onboarding': 'অনবোর্ডিং', 'partner': 'পার্টনার', 'inspection': 'পরিদর্শন',
+  'backup': 'ব্যাকআপ', 'account': 'অ্যাকাউন্ট', 'support': 'সাপোর্ট', 'gate visit': 'গেট ভিজিট',
+}
+
+const SERVER_VAL = { 'a number': 'সংখ্যা', '0 or 1': '0 বা 1', 'Unpaid': 'অপরিশোধিত', 'Paid': 'পরিশোধিত', 'Vacant': 'খালি', 'Occupied': 'অধিকৃত', 'Reserved': 'সংরক্ষিত', 'Individual': 'ব্যক্তি', 'Corporate': 'প্রতিষ্ঠান' }
+
+function _entKeep(w) {
+  const k = w.toLowerCase().trim()
+  const keys = Object.keys(SERVER_ENT).sort((a, b) => b.length - a.length)
+  for (const e of keys) {
+    if (k === e) return SERVER_ENT[e]
+    if (k.startsWith(e + ' ')) return SERVER_ENT[e] + ' ' + w.slice(e.length).trim()
+  }
+  const ks = k.endsWith('s') ? k.slice(0, -1) : ''
+  if (ks && SERVER_ENT[ks]) return (SERVER_ENT[ks] + ' ' + w.slice(k.length)).trim()
+  return w
+}
+function _ent(w) {
+  const k = w.toLowerCase().trim()
+  const keys = Object.keys(SERVER_ENT).sort((a, b) => b.length - a.length)
+  for (const e of keys) {
+    if (k === e) return SERVER_ENT[e]
+    if (k.startsWith(e + ' ')) return SERVER_ENT[e]
+  }
+  const ks = k.endsWith('s') ? k.slice(0, -1) : ''
+  if (ks && SERVER_ENT[ks]) return SERVER_ENT[ks]
+  return w
+}
+
+const SERVER_RULES = [
+  { re: /^(.+?) not found\.?$/i, f: (m) => _entKeep(m[1]) + ' খুঁজে পাওয়া যায়নি।' },
+  { re: /^not your (.+?)\.$/i, f: (m) => 'আপনার ' + _ent(m[1]) + ' নয়।' },
+  { re: /^(.+?) required\.$/i, f: (m) => _ent(m[1]) + ' আবশ্যক।' },
+  { re: /^(.+?) is required\.$/i, f: (m) => _ent(m[1]) + ' আবশ্যক।' },
+  { re: /^invalid (.+?)\.$/i, f: (m) => 'অবৈধ ' + _ent(m[1]) + '।' },
+  { re: /^unknown (.+?)\.$/i, f: (m) => 'অজানা ' + _ent(m[1]) + '।' },
+  { re: /^(.+?) already (.+?)\.$/i, f: (m) => _ent(m[1]) + ' ইতোমধ্যে ' + _ent(m[2]) + '।' },
+  { re: /^(.+?) are locked\.$/i, f: (m) => _ent(m[1]) + ' লক করা আছে।' },
+  { re: /^(.+?) is locked\.$/i, f: (m) => _ent(m[1]) + ' লক করা আছে।' },
+  { re: /^no (.+?) for this account\.$/i, f: (m) => 'এই অ্যাকাউন্টের জন্য কোনো ' + _ent(m[1]) + ' নেই।' },
+  { re: /^no (.+?)\.$/i, f: (m) => 'কোনো ' + _ent(m[1]) + ' নেই।' },
+  { re: /^access denied — no crud on (.+?)\.$/i, f: (m) => 'অ্যাক্সেস অস্বীকৃত — ' + _ent(m[1]) + ' এ কোনো অনুমতি নেই।' },
+  { re: /^(.+?) belongs to another account\.?$/i, f: (m) => _ent(m[1]) + ' অন্য অ্যাকাউন্টের অন্তর্ভুক্ত।' },
+  { re: /^(.+?) must be (.+?)$/i, f: (m) => _ent(m[1]) + ' অবশ্যই ' + (SERVER_VAL[m[2].toLowerCase()] || m[2]) + ' হতে হবে।' },
+  { re: /^plan limit reached: (.+)$/i, f: (m) => 'প্ল্যান সীমা পূর্ণ: ' + m[1] },
+  { re: /^cannot (.+?)$/i, f: (m) => 'সম্ভব নয় — ' + m[1] },
+  { re: /^(.+?) is not supported\.$/i, f: (m) => _ent(m[1]) + ' সমর্থিত নয়।' },
+]
+
+export function translateServerError(err) {
+  if (!err || typeof err !== 'string') return err
+  const exact = SERVER_BN[err]
+  if (exact) return exact
+  for (const r of SERVER_RULES) {
+    const m = r.re.exec(err)
+    if (m) return r.f(m)
+  }
+  return err
 }

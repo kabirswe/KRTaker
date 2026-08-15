@@ -110,7 +110,7 @@ async function submitNotice() {
       emailNotice.value = false
       await data.bootstrap()
     }
-    else window.__krToast?.(r.error || 'Failed to post', 'error')
+    else window.__krToast?.(r.error || t('Failed to post'), 'error')
   } finally { saving.value = false }
 }
 const delBusy = ref('')

@@ -186,7 +186,7 @@ async function submitOffer() {
   const amt = parseInt(f.amount, 10) || 0
   if (f.kind === 'counter' && amt <= 0) { notify('⚠️ Enter your counter amount'); return }
   const r = await apiCall('app-vendors', { action: 'offer-create', job: selJob.value.id, kind: f.kind, amount: amt || undefined, note: f.note.trim() })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Offer failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Offer failed'))); return }
   notify(`✅ Offer ${r.id} submitted (${money(r.amount)})`)
   drawerOpen.value = false
   await load()
@@ -194,14 +194,14 @@ async function submitOffer() {
 async function withdrawOffer(o) {
   if (!confirm(`Withdraw offer ${o.id}?`)) return
   const r = await apiCall('app-vendors', { action: 'offer-withdraw', id: o.id })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Failed'))); return }
   notify('↩ Offer withdrawn')
   await refreshDrawer()
 }
 async function decideOffer(o, verdict) {
   if (!confirm(`Accept offer ${o.id} from ${o.partner_name} and issue a work order?`)) return
   const r = await apiCall('app-vendors', { action: 'offer-decide', id: o.id, verdict })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Failed'))); return }
   notify(verdict === 'accept' ? `✅ Work order ${r.wo_no} issued — ${money(r.amount)}` : '✕ Offer rejected')
   drawerOpen.value = false
   await load()
@@ -215,7 +215,7 @@ async function rfqAction(action, label) {
   if (!selJob.value) return
   if (!confirm(`${label} ${selJob.value.id}?`)) return
   const r = await apiCall('app-vendors', { action, id: selJob.value.id })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Failed'))); return }
   notify(`✅ ${selJob.value.id} ${label}`)
   drawerOpen.value = false
   await load()
@@ -224,7 +224,7 @@ async function rfqStatus(status, label) {
   if (!selJob.value) return
   if (!confirm(`${label} ${selJob.value.id}?`)) return
   const r = await apiCall('app-vendors', { action: 'rfq-status', id: selJob.value.id, status })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Failed'))); return }
   notify(`✅ ${selJob.value.id} → ${label}`)
   drawerOpen.value = false
   await load()
@@ -249,7 +249,7 @@ async function createJob() {
     unit: f.unit, prop: f.prop, budget_type: f.budget_type, budget_amount: amt || undefined,
     deadline: f.deadline, notes: f.notes.trim(), from_mt: f.from_mt || undefined,
   })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Create failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Create failed'))); return }
   notify(`✅ ${r.id} ${t('created')} — ${r.status === 'open' ? t('posted for quotation') : t('pending owner approval')}`)
   newOpen.value = false
   await load()
@@ -257,7 +257,7 @@ async function createJob() {
 async function postFromMt(mtId) {
   if (!confirm(`Post ${mtId} as an RFQ for partners to quote?`)) return
   const r = await apiCall('app-vendors', { action: 'rfq-from-mt', from_mt: mtId })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Failed'))); return }
   notify(`✅ ${r.id} posted from ${mtId}`)
   await load()
 }
@@ -274,7 +274,7 @@ async function saveEdit() {
   const f = editForm.value
   const amt = parseInt(f.budget_amount, 10) || 0
   const r = await apiCall('app-vendors', { action: 'rfq-edit', id: f.id, title: f.title, cat: f.cat, desc: f.desc, unit: f.unit, prop: f.prop, budget_type: f.budget_type, budget_amount: amt || undefined, deadline: f.deadline, notes: f.notes })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Save failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Save failed'))); return }
   notify('✅ Task updated')
   editOpen.value = false
   await refreshDrawer(); await load()
@@ -313,13 +313,13 @@ const filteredPayouts = computed(() => {
 
 async function jobStatus(id, status) {
   const r = await apiCall('app-vendors', { action: 'job-status', id, status })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Update failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Update failed'))); return }
   await load()
 }
 async function jobQc(id) {
   if (!confirm(`Run QC on job ${id} and close it?`)) return
   const r = await apiCall('app-vendors', { action: 'job-qc', id })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'QC failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('QC failed'))); return }
   await load()
 }
 
@@ -334,19 +334,19 @@ async function submitInvoice() {
   const vendorName = (job && (job.vendor || job.assigned_to)) || ''
   const partner = partners.value.find(p => p.name === vendorName)?.id || partners.value[0]?.id || ''
   const r = await apiCall('app-vendors', { action: 'invoice-submit', job: f.job, amount: parseInt(f.amount, 10) || 0, desc: f.desc.trim(), partner })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Submit failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Submit failed'))); return }
   showInvoiceForm.value = false
   await load()
 }
 async function invoiceDecide(id, verdict) {
   const r = await apiCall('app-vendors', { action: 'invoice-decide', id, verdict })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Review failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Review failed'))); return }
   await load()
 }
 async function invoicePay(id) {
   if (!confirm(`Mark invoice ${id} as paid?`)) return
   const r = await apiCall('app-vendors', { action: 'invoice-pay', id })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Payment failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Payment failed'))); return }
   await load()
 }
 
@@ -357,7 +357,7 @@ async function recordPayout() {
   const f = payoutForm.value
   if (!f.partner || !f.amount) { notify('⚠️ Partner and amount are required.'); return }
   const r = await apiCall('app-vendors', { action: 'payout-record', partner: f.partner, month: f.month, amount: parseInt(f.amount, 10) || 0, status: f.status, method: f.method, ref: f.ref.trim() })
-  if (!r.ok) { notify('⚠️ ' + (r.error || 'Record failed')); return }
+  if (!r.ok) { notify('⚠️ ' + (r.error || t('Record failed'))); return }
   showPayoutForm.value = false
   await load()
 }

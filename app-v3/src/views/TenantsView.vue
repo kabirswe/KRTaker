@@ -401,7 +401,7 @@ async function decideRenewal(r, action) {
 async function setMaintStatus(m, status) {
   const r = await apiCall('app-maintenance', { action: 'status', id: m.id, status })
   if (r.ok) { window.__krToast?.(`🔧 ${m.id} → ${status}`, 'ok'); await data.bootstrap() }
-  else window.__krToast?.(r.error || 'Failed', 'error')
+  else window.__krToast?.(r.error || t('Failed'), 'error')
 }
 const costModal = ref(null)
 const costSaving = ref(false)
@@ -412,7 +412,7 @@ async function submitCost() {
   try {
     const r = await apiCall('app-maintenance', { action: 'cost', id: m.id, cost_estimate: parseInt(m.cost_estimate) || 0, actual_cost: parseInt(m.actual_cost) || 0, charge_to: m.charge_to })
     if (r.ok) { window.__krToast?.('💰 Cost updated', 'ok'); costModal.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Failed', 'error')
+    else window.__krToast?.(r.error || t('Failed'), 'error')
   } finally { costSaving.value = false }
 }
 
@@ -434,7 +434,7 @@ async function submitMeter() {
   try {
     const r = await apiCall('app-meter-submit', { unit: m.unit, type: m.type, month: m.month, reading: parseInt(m.reading), note: m.note || '' })
     if (r.ok) { window.__krToast?.(`⚡ ${r.id} recorded`, 'ok'); meterModal.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Failed', 'error')
+    else window.__krToast?.(r.error || t('Failed'), 'error')
   } finally { meterSaving.value = false }
 }
 function openBill() {
@@ -450,7 +450,7 @@ async function generateBill() {
     if (m.curr_reading) payload.curr_reading = parseInt(m.curr_reading)
     const r = await apiCall('app-utility-bill-generate', payload)
     if (r.ok) { window.__krToast?.(`🧾 ${r.bill.id} generated — ৳${(r.bill.amount || 0).toLocaleString('en-IN')}`, 'ok'); billModal.value = null; await data.bootstrap() }
-    else window.__krToast?.(r.error || 'Failed', 'error')
+    else window.__krToast?.(r.error || t('Failed'), 'error')
   } finally { billSaving.value = false }
 }
 
@@ -471,7 +471,7 @@ async function loadHovo() {
 async function createHovo(lease, kind) {
   const r = await apiCall('app-hando-create', { lease, kind })
   if (r.ok) { window.__krToast?.(`📦 ${r.id} created`, 'ok'); await loadHovo(); openHovo(r.id) }
-  else window.__krToast?.(r.error || 'Failed', 'error')
+  else window.__krToast?.(r.error || t('Failed'), 'error')
 }
 async function openHovo(id) {
   const r = await apiCall('app-hando-get', { id })
@@ -611,7 +611,7 @@ async function sendChat() {
   try {
     const r = await apiCall('app-tenant-chat-send', { tenant_id: sel.value.id, body: t })
     if (r.ok) { chatText.value = ''; await loadChat() }
-    else window.__krToast?.(r.error || 'Send failed', 'error')
+    else window.__krToast?.(r.error || t('Send failed'), 'error')
   } finally { chatSending.value = false }
 }
 function scrollChat() { requestAnimationFrame(() => { if (chatBox.value) chatBox.value.scrollTop = chatBox.value.scrollHeight }) }

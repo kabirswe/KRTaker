@@ -98,13 +98,13 @@ async function previewBill() {
   const f = genForm.value
   if (!f.unit || !/^\d{4}-(0[1-9]|1[0-2])$/.test(f.month)) { window.__krToast?.('❌ Select unit and month'); return }
   const r = await apiCall('app-utility-bill-preview', { unit: f.unit, type: f.type, month: f.month })
-  if (r && r.ok === false) { genPreview.value = null; window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { genPreview.value = null; window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   genPreview.value = r.bill
 }
 async function generateBill() {
   const f = genForm.value
   const r = await apiCall('app-utility-bill-generate', { unit: f.unit, type: f.type, month: f.month })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   genModal.value = false
   window.__krToast?.('✅ ' + (r.bill?.id || 'Bill') + ' generated · ' + money(r.bill?.amount), 'ok')
   await data.bootstrap()
@@ -123,7 +123,7 @@ async function runBatch() {
   const f = batchForm.value
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(f.month)) { window.__krToast?.('❌ Month must be YYYY-MM'); return }
   const r = await apiCall('app-utility-run', { month: f.month, prop: f.prop || undefined })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   batchResult.value = r
   window.__krToast?.('⚡ Batch done: ' + r.generated + ' generated · ' + r.updated + ' updated · ' + money(r.total_amount), 'ok')
   await data.bootstrap()
@@ -134,7 +134,7 @@ const tarModal = ref(false)
 const tarList = ref([])
 async function openTariffs() {
   const r = await apiCall('app-utility-tariff-get')
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   tarList.value = Object.values(r.tariffs || {})
   tarModal.value = true
 }
@@ -142,7 +142,7 @@ async function saveTariffs() {
   const payload = {}
   tarList.value.forEach(t => { payload[t.type] = { rate: parseInt(t.rate) || 0, standing: parseInt(t.standing) || 0, enabled: t.enabled ? 1 : 0 } })
   const r = await apiCall('app-utility-tariff-save', { tariffs: payload })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ Tariffs saved', 'ok')
   await data.bootstrap()
 }
@@ -159,7 +159,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
 async function payBill(b) {
   if (['Paid', 'Void'].includes(b.status)) { window.__krToast?.('Already ' + b.status); return }
   const r = await apiCall('app-utility-bill-pay', { id: b.id, action: 'pay' })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('💰 ' + b.id + ' marked paid', 'ok')
   await data.bootstrap()
   refreshBill()
@@ -168,7 +168,7 @@ async function voidBill(b) {
   if (['Paid', 'Void'].includes(b.status)) { window.__krToast?.('Already ' + b.status); return }
   if (!window.confirm(t('Void bill ') + b.id + ' (' + money(b.amount) + ')?')) return
   const r = await apiCall('app-utility-bill-pay', { id: b.id, action: 'void' })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('⛔ ' + b.id + ' voided', 'ok')
   await data.bootstrap()
   refreshBill()

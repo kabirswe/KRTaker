@@ -93,7 +93,7 @@ function rmCheckRow(i) { form.value.checklist.splice(i, 1) }
 
 async function saveForm() {
   err.value = ''
-  if (!form.value.title.trim()) { err.value = 'Title is required.'; return }
+  if (!form.value.title.trim()) { err.value = t('Title is required.'); return }
   const cl = form.value.checklist.filter(c => (c.item || '').trim())
   loading.value = true
   try {
@@ -113,7 +113,7 @@ async function completeInspection(passed) {
   try {
     const cl = (sel.value.checklist || []).map(c => ({ item: c.item, pass: c.pass === null ? passed : c.pass }))
     const r = await apiCall('app-inspections', { action: 'complete', id: sel.value.id, status: passed ? 'passed' : 'failed', checklist: cl, findings: sel.value.findings || '' })
-    if (!r.ok) { err.value = r.error || 'Failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed.'); return }
     flash(passed ? '✅ Inspection passed — sign-off recorded' : '❌ Inspection failed — follow-up required')
     sel.value = null; await load()
   } finally { completing.value = false }
@@ -158,7 +158,7 @@ function editSched(s) {
 }
 async function saveSched() {
   err.value = ''
-  if (!sForm.value.title.trim()) { err.value = 'Title is required.'; return }
+  if (!sForm.value.title.trim()) { err.value = t('Title is required.'); return }
   const cl = sForm.value.checklist.filter(c => (c.item || '').trim())
   loading.value = true
   try {
@@ -172,7 +172,7 @@ async function delSched(s) {
   loading.value = true
   try {
     const r = await apiCall('app-inspections', { action: 'schedule-delete', id: s.id })
-    if (r.ok) { flash('🔁 Schedule disabled'); await load() } else err.value = r.error || 'Failed.'
+    if (r.ok) { flash('🔁 Schedule disabled'); await load() } else err.value = r.error || t('Failed.')
   } finally { loading.value = false }
 }
 

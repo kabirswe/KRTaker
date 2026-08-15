@@ -218,7 +218,7 @@ async function sendTestSms() {
   try {
     const r = await apiCall('app-sms', { action: 'send-test', phone: smsTestPhone.value.trim() })
     smsTestResult.value = r
-    toast.value = r.ok ? `✅ Test SMS → ${r.to} (${r.provider})` : ('⚠️ ' + (r.reason || r.error || 'failed'))
+    toast.value = r.ok ? `✅ Test SMS → ${r.to} (${r.provider})` : ('⚠️ ' + (r.reason || r.error || t('failed')))
     setTimeout(() => toast.value = '', 5000)
     await loadSms()
   } catch (e) { err.value = e.message }

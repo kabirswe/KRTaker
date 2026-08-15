@@ -124,7 +124,7 @@ function openAcct() {
   acctOpen.value = true
 }
 async function createAcct() {
-  if (!acctForm.value.name.trim()) { err.value = 'Account name required.'; return }
+  if (!acctForm.value.name.trim()) { err.value = t('Account name required.'); return }
   acctBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-accounts', { action: 'account-create', name: acctForm.value.name.trim(), type: acctForm.value.type, opening_balance: +acctForm.value.opening_balance || 0, notes: acctForm.value.notes.trim() })
@@ -168,7 +168,7 @@ async function doReconcile(t) {
   reconBusy.value = true; err.value = ''
   try {
     const r = await apiCall('app-accounts', { action: 'reconcile', id: t.id, ref: reconRefs.value[t.id] || '' })
-    if (!r.ok) { err.value = r.error || 'Reconcile failed.'; return }
+    if (!r.ok) { err.value = r.error || t('Reconcile failed.'); return }
     toast.value = `✅ ${t.id} reconciled`
     setTimeout(() => toast.value = '', 4000)
     await Promise.all([loadRecon(), loadSummary()])
@@ -179,7 +179,7 @@ async function undoReconcile(t) {
   if (!confirm(`Un-reconcile ${t.id}?`)) return
   err.value = ''
   const r = await apiCall('app-accounts', { action: 'unreconcile', id: t.id })
-  if (!r.ok) { err.value = r.error || 'Failed.'; return }
+  if (!r.ok) { err.value = r.error || t('Failed.'); return }
   await Promise.all([loadRecon(), loadSummary()])
 }
 

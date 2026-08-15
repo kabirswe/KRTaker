@@ -294,7 +294,7 @@ async function uploadMedia() {
   await afterMutation()
 }
 async function askDeleteMedia(md) {
-  if (!confirm('Delete ' + md.id + ' (' + md.name + ')?')) return
+  if (!confirm(t('Delete {id} ({name})?').replace('{id}', md.id).replace('{name}', md.name))) return
   const r = await apiCall('app-build', { action: 'media-delete', id: md.id })
   if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   delete blobMap[md.id]

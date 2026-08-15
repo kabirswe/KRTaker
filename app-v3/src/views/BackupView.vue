@@ -44,7 +44,7 @@ async function createBackup() {
       showToast(`Backup ${r.id} created — ${(r.size / 1024).toFixed(1)} KB, ${r.tables ? Object.entries(r.tables).map(([k, v]) => `${k}: ${v}`).join(', ') : ''}`)
       note.value = ''
       await load()
-    } else err.value = r.error || 'Backup failed.'
+    } else err.value = r.error || t('Backup failed.')
   } catch (e) { err.value = t('Network error.')}
   creating.value = false
 }
@@ -71,7 +71,7 @@ async function restoreBackup(b) {
     if (r.ok) {
       const parts = Object.entries(r.restored || {}).map(([k, v]) => `${k}: ${v}`).join(', ')
       showToast(`Restored — ${parts}`)
-    } else err.value = r.error || 'Restore failed.'
+    } else err.value = r.error || t('Restore failed.')
   } catch (e) { err.value = t('Network error.')}
   restoringId.value = ''
 }
@@ -98,7 +98,7 @@ function onFilePicked(ev) {
         const parts = Object.entries(r.restored || {}).map(([k, v]) => `${k}: ${v}`).join(', ')
         showToast(`Uploaded restore — ${parts}`)
         await load()
-      } else err.value = r.error || 'Restore failed.'
+      } else err.value = r.error || t('Restore failed.')
     } catch (e) { err.value = t('Invalid backup file: ') + (e.message || e) }
     uploading.value = false
     ev.target.value = ''

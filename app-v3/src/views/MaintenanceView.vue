@@ -80,7 +80,7 @@ async function submitRaise() {
   if (!f.unit) { window.__krToast?.('❌ Select a unit'); return }
   if (!f.title.trim()) { window.__krToast?.('❌ Title is required'); return }
   const r = await apiCall('app-maintenance', { action: 'create', unit: f.unit, category: f.category, priority: f.priority, title: f.title.trim(), desc: f.desc.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   raiseModal.value = false
   window.__krToast?.('✅ ' + (r.id || 'Request') + ' raised')
   await data.bootstrap()

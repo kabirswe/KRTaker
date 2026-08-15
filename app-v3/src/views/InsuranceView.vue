@@ -94,7 +94,7 @@ async function cancelPolicy(p) {
   busy.value = p.id
   const r = await apiCall('app-insurance', { action: 'cancel', id: p.id })
   busy.value = ''
-  if (!r.ok) { alert(r.error || 'Cancel failed'); return }
+  if (!r.ok) { alert(r.error || t('Cancel failed')); return }
   await data.bootstrap()
   closeDetail()
 }
@@ -102,7 +102,7 @@ async function decideClaim(p, verdict) {
   busy.value = p.id
   const r = await apiCall('app-insurance', { action: 'decide', id: p.id, verdict })
   busy.value = ''
-  if (!r.ok) { alert(r.error || 'Decision failed'); return }
+  if (!r.ok) { alert(r.error || t('Decision failed')); return }
   await data.bootstrap()
   closeDetail()
 }

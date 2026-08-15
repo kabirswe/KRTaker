@@ -55,7 +55,7 @@ async function load() {
   loading.value = true; err.value = ''
   try {
     const r = await apiCall('app-firesafety', { action: 'summary' })
-    if (!r.ok) { err.value = r.error || 'Failed to load fire safety data.'; return }
+    if (!r.ok) { err.value = r.error || t('Failed to load fire safety data.'); return }
     const s = r.summary || {}
     sm.value = s
     assets.value = s.assets || []
@@ -126,7 +126,7 @@ function openAssetAdd() { editingAsset.value = null; assetForm.value = { asset_t
 function openAssetEdit(a) { editingAsset.value = a; assetForm.value = { asset_type: a.asset_type || 'extinguisher', location: a.location || '', prop: a.prop || '', model: a.model || '', serial_no: a.serial_no || '', install_date: a.install_date || '', expiry_date: a.expiry_date || '', status: a.status || 'active', notes: a.notes || '' }; showAssetForm.value = true }
 async function saveAsset() {
   const f = assetForm.value
-  if (!f.location.trim()) { alert('Location is required.'); return }
+  if (!f.location.trim()) { alert(t('Location is required.')); return }
   const payload = { action: editingAsset.value ? 'asset-save' : 'asset-create', id: editingAsset.value?.id, asset_type: f.asset_type, location: f.location.trim(), prop: f.prop, model: f.model.trim(), serial_no: f.serial_no.trim(), install_date: f.install_date, expiry_date: f.expiry_date, status: f.status, notes: f.notes.trim() }
   const r = await apiCall('app-firesafety', payload)
   if (!r.ok) { alert(r.error || t('Save failed')); return }
@@ -154,7 +154,7 @@ function openIncidentAdd() { editingIncident.value = null; incidentForm.value = 
 function openIncidentEdit(i) { editingIncident.value = i; incidentForm.value = { incident_type: i.incident_type || 'fire', severity: i.severity || 'medium', location: i.location || '', prop: i.prop || '', description: i.description || '' }; showIncidentForm.value = true }
 async function saveIncident() {
   const f = incidentForm.value
-  if (!f.location.trim()) { alert('Location is required.'); return }
+  if (!f.location.trim()) { alert(t('Location is required.')); return }
   const payload = { action: editingIncident.value ? 'incident-save' : 'incident-create', id: editingIncident.value?.id, incident_type: f.incident_type, severity: f.severity, location: f.location.trim(), prop: f.prop, description: f.description.trim() }
   const r = await apiCall('app-firesafety', payload)
   if (!r.ok) { alert(r.error || t('Save failed')); return }

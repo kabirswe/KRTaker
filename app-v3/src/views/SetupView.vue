@@ -142,7 +142,7 @@ async function createProperty() {
 async function createTenant() {
   // Optional step — skip when the owner left every field empty.
   if (!tenant.value.name.trim() && !tenant.value.phone.trim() && !tenant.value.email.trim()) return true
-  if (!tenant.value.name.trim()) { err.value = 'Give your tenant a name (or clear the fields to skip this step).'; return false }
+  if (!tenant.value.name.trim()) { err.value = t('Give your tenant a name (or clear the fields to skip this step).'); return false }
   const payload = {
     name: tenant.value.name.trim(),
     phone: tenant.value.phone.trim(),
@@ -203,7 +203,7 @@ async function enablePush() {
       const st = await apiCall('app-push?action=state', {})
       if (st.ok) pushState.value.vapid = st.vapid_public || ''
     }
-    if (!pushState.value.vapid) { err.value = 'Push is not configured on the server yet.'; return }
+    if (!pushState.value.vapid) { err.value = t('Push is not configured on the server yet.'); return }
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushState.value.vapid })
     const json = sub.toJSON()
     const r = await apiCall('app-push', { action: 'save', endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, ua: navigator.userAgent.slice(0, 200) })

@@ -2,6 +2,9 @@
 // Base: relative '../api/' (same as v2) → works in dev (proxy) and prod (cPanel).
 // Override at build time: VITE_API_BASE=https://krtaker.com/api (e.g. staging cross-origin).
 import { useAuthStore } from '../stores/auth'
+import { lang, translateServerError } from '../lib/i18n'
+
+const tErr = (s) => (lang.value === 'bn' ? translateServerError(s) : s)
 
 const API_BASE = (() => {
   const base = (import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://krtaker.com/api/' : '../api/')).replace(/\/?$/, '/')
@@ -39,19 +42,20 @@ export async function apiCall(path, data = null) {
       try { j = JSON.parse(text) } catch (e) { j = null }
       if (!j) {
         if (res.status === 401 && path !== 'app-login') { auth.clear(); location.hash = '#/login' }
-        return { ok: false, error: 'Empty response from server.', _status: res.status }
+        return { ok: false, error: tErr('Empty response from server.'), _status: res.status }
       }
       j._status = res.status
+      if (j.error && lang.value === 'bn') j.error = translateServerError(j.error)
       if (j.ok === false && (res.status === 503 || res.status === 500 || res.status === 504)) {
         last = j; await sleep(700 * (i + 1)); continue
       }
       return j
     } catch (e) {
-      last = { ok: false, error: 'Network error — please try again.', _net: true }
+      last = { ok: false, error: tErr('Network error — please try again.'), _net: true }
       await sleep(700 * (i + 1))
     }
   }
-  return last || { ok: false, error: 'Request failed.' }
+  return last || { ok: false, error: tErr('Request failed.') }
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }

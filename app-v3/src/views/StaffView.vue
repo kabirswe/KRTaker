@@ -95,7 +95,7 @@ async function saveStaff() {
   if (!f.name.trim()) { window.__krToast?.('❌ Name is required'); return }
   const body = { action: f.id ? 'staff-save' : 'staff-create', id: f.id, name: f.name.trim(), role: f.role, shift: f.shift, phone: f.phone.trim(), join_date: f.join_date || today(), monthly_salary: parseInt(f.monthly_salary) || 0, prop: f.prop, notes: f.notes.trim() }
   const r = await apiCall('app-staffwatch', body)
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   staffModal.value = false
   window.__krToast?.('✅ Staff saved' + (r.id ? ' · ' + r.id : ''))
   await data.bootstrap()
@@ -103,14 +103,14 @@ async function saveStaff() {
 async function setStaffStatus(s, status) {
   if (s.status === status) return
   const r = await apiCall('app-staffwatch', { action: 'staff-status', id: s.id, status })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ ' + s.name + ' → ' + stLabel(status))
   await data.bootstrap()
 }
 async function delStaff(s) {
-  if (!window.confirm('Delete staff ' + s.name + '? This removes their attendance and payroll records too.')) return
+  if (!window.confirm(t('Delete staff {name}? This removes their attendance and payroll records too.').replace('{name}', s.name))) return
   const r = await apiCall('app-staffwatch', { action: 'staff-delete', id: s.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   closeDetail()
   await data.bootstrap()

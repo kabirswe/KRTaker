@@ -71,7 +71,7 @@ onMounted(() => {
 
 async function doLogin() {
   err.value = ''
-  if (!email.value || !password.value) { err.value = 'Email and password are required.'; return }
+  if (!email.value || !password.value) { err.value = t('Email and password are required.'); return }
   // Turnstile token rides along when the widget rendered (server ignores it otherwise)
   const extra = tsToken.value ? { 'cf-turnstile-response': tsToken.value } : {}
   if (twofaAlt.value) { extra['2fa_alt'] = 'email'; twofaAlt.value = false }
@@ -87,7 +87,7 @@ async function doLogin() {
     twofa.value = ''
     err.value = ''
   } else {
-    err.value = r.error || 'Invalid email or password.'
+    err.value = r.error || t('Invalid email or password.')
   }
 }
 // Email-OTP recovery: switch from authenticator codes to an emailed code.

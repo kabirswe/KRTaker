@@ -229,7 +229,7 @@ const htForm = ref({ city_corp: 'DSCC', ward: '', holding_no: '', fy: '', annual
 function openHtForm() { htForm.value = { city_corp: 'DSCC', ward: '', holding_no: '', fy: '', annual_value: '', rate_pct: '7', due_date: '' }; showHtForm.value = true }
 async function createHolding() {
   const f = htForm.value
-  if (!f.holding_no.trim() || !f.fy.trim()) { alert('Holding no and FY are required.'); return }
+  if (!f.holding_no.trim() || !f.fy.trim()) { alert(t('Holding no and FY are required.')); return }
   const r = await apiCall('app-concierge', { action: 'holding-create', city_corp: f.city_corp, ward: f.ward.trim(), holding_no: f.holding_no.trim(), fy: f.fy.trim(), annual_value: +f.annual_value || 0, rate_pct: +f.rate_pct || 0, due_date: f.due_date })
   if (!r.ok) { alert(r.error || t('Create failed')); return }
   showHtForm.value = false

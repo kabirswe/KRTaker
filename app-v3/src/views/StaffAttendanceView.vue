@@ -51,7 +51,7 @@ async function saveAttendance() {
   if (!f.staff) { window.__krToast?.('❌ Select staff'); return }
   if (!f.work_date) { window.__krToast?.('❌ Date is required'); return }
   const r = await apiCall('app-staffwatch', { action: 'attendance-mark', staff: f.staff, work_date: f.work_date, status: f.status, check_in: f.check_in, check_out: f.check_out, notes: f.notes.trim() })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   attModal.value = false
   window.__krToast?.('✅ Attendance marked')
   await data.bootstrap()
@@ -59,7 +59,7 @@ async function saveAttendance() {
 async function delAttendance(a) {
   if (!window.confirm(t('Delete attendance entry ') + a.id + '?')) return
   const r = await apiCall('app-staffwatch', { action: 'attendance-delete', id: a.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   closeDetail()
   await data.bootstrap()

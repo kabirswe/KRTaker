@@ -43,22 +43,22 @@ async function generatePayroll() {
   if (!f.staff) { window.__krToast?.('❌ Select staff'); return }
   if (!f.month) { window.__krToast?.('❌ Month is required'); return }
   const r = await apiCall('app-staffwatch', { action: 'payroll-create', staff: f.staff, month: f.month, overtime: parseInt(f.overtime) || 0, bonus: parseInt(f.bonus) || 0, advance_deduction: parseInt(f.advance_deduction) || 0 })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   pyModal.value = false
   window.__krToast?.('✅ Payslip ' + (r.id || '') + ' · net ' + money(r.net ?? 0) + (r.absent_days ? ' · ' + r.absent_days + ' absent' : ''))
   await data.bootstrap()
 }
 async function payPayroll(p) {
-  if (!window.confirm('Mark ' + p.id + ' as paid for ' + staffName(p.staff) + '?')) return
+  if (!window.confirm(t('Mark {id} as paid for {name}?').replace('{id}', p.id).replace('{name}', staffName(p.staff)))) return
   const r = await apiCall('app-staffwatch', { action: 'payroll-pay', id: p.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('✅ Marked paid')
   await data.bootstrap()
 }
 async function delPayroll(p) {
   if (!window.confirm(t('Delete payslip ') + p.id + '?')) return
   const r = await apiCall('app-staffwatch', { action: 'payroll-delete', id: p.id })
-  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || 'Failed')); return }
+  if (r && r.ok === false) { window.__krToast?.('❌ ' + (r.error || t('Failed'))); return }
   window.__krToast?.('🗑 Deleted')
   closeDetail()
   await data.bootstrap()

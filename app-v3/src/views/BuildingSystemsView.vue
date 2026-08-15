@@ -83,7 +83,7 @@ function openLockForm() {
 }
 async function createLock() {
   const f = lockForm.value
-  if (!f.lock_name.trim()) { alert('Lock name is required.'); return }
+  if (!f.lock_name.trim()) { alert(t('Lock name is required.')); return }
   const r = await apiCall('app-smarthome', { action: 'lock-create', lock_name: f.lock_name.trim(), purpose: f.purpose, prop: f.prop, unit: f.unit.trim(), grant_for: f.grant_for.trim(), notes: f.notes.trim() })
   if (!r.ok) { alert(r.error || t('Create failed')); return }
   showLockForm.value = false
@@ -128,7 +128,7 @@ const svcForm = ref({ service_type: 'routine', technician: '', vendor: '', cost:
 function openServiceForm(a) { serviceFor.value = a; svcForm.value = { service_type: 'routine', technician: '', vendor: '', cost: '', notes: '' }; showServiceForm.value = true }
 async function recordService() {
   const f = svcForm.value
-  if (!f.technician.trim()) { alert('Technician is required.'); return }
+  if (!f.technician.trim()) { alert(t('Technician is required.')); return }
   const r = await apiCall('app-systems', { action: 'asset-service', id: serviceFor.value.id, service_type: f.service_type, technician: f.technician.trim(), vendor: f.vendor.trim(), cost: +f.cost || 0, notes: f.notes.trim() })
   if (!r.ok) { alert(r.error || t('Record failed')); return }
   showServiceForm.value = false
@@ -142,7 +142,7 @@ const fuelForm = ref({ liters: '', rate_per_litre: '', vendor: '', notes: '' })
 function openFuelForm(a) { fuelFor.value = a; fuelForm.value = { liters: '', rate_per_litre: '', vendor: '', notes: '' }; showFuelForm.value = true }
 async function recordFuel() {
   const f = fuelForm.value
-  if (!(+f.liters > 0)) { alert('Liters must be positive.'); return }
+  if (!(+f.liters > 0)) { alert(t('Liters must be positive.')); return }
   const r = await apiCall('app-systems', { action: 'asset-fuel', id: fuelFor.value.id, liters: +f.liters, rate_per_litre: +f.rate_per_litre || 0, vendor: f.vendor.trim(), notes: f.notes.trim() })
   if (!r.ok) { alert(r.error || t('Refuel failed')); return }
   showFuelForm.value = false
