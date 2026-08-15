@@ -104,7 +104,7 @@ img{max-width:100%}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:22px}
 .page-head h1{font-size:23px;font-weight:800;letter-spacing:-.4px;line-height:1.2}
 .page-head .sub{font-size:13px;color:var(--text-mute);margin-top:3px}
-.head-actions{display:flex;gap:9px;flex-wrap:wrap}
+.head-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
 .btn-primary{display:inline-flex;align-items:center;gap:7px;background:var(--grad);color:#fff;border:none;border-radius:10px;padding:10px 17px;font-size:13px;font-weight:600;box-shadow:0 8px 22px rgba(47,128,237,.30);transition:all .15s}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(47,128,237,.38)}
 .btn-outline{display:inline-flex;align-items:center;gap:7px;border:1px solid #C9D8EE;color:var(--primary);background:var(--card);border-radius:10px;padding:10px 17px;font-size:13px;font-weight:600;transition:all .15s}
