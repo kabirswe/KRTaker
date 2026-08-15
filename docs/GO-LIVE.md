@@ -118,7 +118,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [ ] Demo/onboarding tour: after signup, walk the owner through adding their first property + unit + tenant (the seed data helps).
 - [ ] Empty-state design: dashboard with 0 properties should feel intentional (there are already seeded demo properties — decide whether new subscribers start clean or with demo data they can delete).
 - [ ] Import wizard: owners often have existing tenants/ledgers — CSV import for units/tenants/dues (build if not present).
-- [ ] Welcome email sequence: welcome → set up property → invite tenant (app already has tenant-facing portal) → first rent reminder.
+- [x] Welcome email sequence: welcome → set up property → invite tenant (app already has tenant-facing portal) → first rent reminder. (V2.42.0: welcome fires at OTP verify; setup nudge + tenant nudge daily cron `krtaker-setup-nudge` 08:00, both idempotent; rent reminders via `krtaker-rent-reminder-scheduler` 03:00.)
 
 ### 4.2 Support
 - [ ] Help center: extend faq.html + a docs page (tools.html exists); link from dashboard.
