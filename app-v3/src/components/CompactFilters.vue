@@ -4,6 +4,7 @@
 // changes on wide screens. Wrap every filter/search/select/secondary button;
 // keep the primary action (＋ New) OUTSIDE so it stays visible on mobile.
 import { ref } from 'vue'
+import { t } from '../lib/i18n'
 const open = ref(false)
 defineProps({
   label: { type: String, default: '⚙️ Filters' },

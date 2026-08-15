@@ -1,5 +1,6 @@
 // Shared UI helpers for app-v3 views (unified badge colors, view-mode toggle).
 import { ref, computed, watch } from 'vue'
+import { t } from './i18n'
 
 // ── badge colors (single source of truth — tenants-page convention) ──
 const BADGE_MAP = {
@@ -54,10 +55,10 @@ export function usePager(source, perPage = 12) {
   const pageCount = computed(() => Math.max(1, Math.ceil(source.value.length / pageSize.value)))
   const paged = computed(() => source.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
   const rangeLabel = computed(() => {
-    if (!source.value.length) return '0 records'
+    if (!source.value.length) return t('0 records')
     const from = (page.value - 1) * pageSize.value + 1
     const to = Math.min(page.value * pageSize.value, source.value.length)
-    return `${from}–${to} of ${source.value.length}`
+    return `${from}–${to} ${t('of')} ${source.value.length}`
   })
   function setPage(p) { page.value = Math.min(Math.max(1, p), pageCount.value) }
   function setPageSize(n) { pageSize.value = n; page.value = 1 }
