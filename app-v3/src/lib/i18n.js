@@ -10,9 +10,29 @@ import { ref, computed } from 'vue'
 export const LANGS = ['en', 'bn']
 const KEY = 'krtaker_dash_lang'
 
+// V2.40.9: default বাংলা for visitors in Bangladesh — explicit user choice
+// (stored) always wins; otherwise Bengali browsers and anyone whose clock is
+// on Asia/Dhaka (Bangladesh is UTC+6, single zone, no DST) get বাংলা by
+// default. No network calls — pure Intl/navigator sniffing, works offline.
+export function detectDefaultLang() {
+  try {
+    const nav = (navigator.language || navigator.languages?.[0] || '').toLowerCase()
+    if (nav.startsWith('bn')) return 'bn'
+  } catch (e) { /* headless */ }
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+    if (tz === 'Asia/Dhaka') return 'bn'
+  } catch (e) { /* headless */ }
+  return 'en'
+}
+
 export const lang = ref('en')
-try { lang.value = localStorage.getItem(KEY) || 'en' } catch (e) { /* ssr/headless */ }
+try {
+  const stored = localStorage.getItem(KEY)
+  lang.value = (stored && LANGS.includes(stored)) ? stored : detectDefaultLang()
+} catch (e) { /* ssr/headless */ }
 if (!LANGS.includes(lang.value)) lang.value = 'en'
+try { document.documentElement.setAttribute('lang', lang.value) } catch (e) { /* ssr */ }
 
 export function setLang(l) {
   if (!LANGS.includes(l)) l = 'en'

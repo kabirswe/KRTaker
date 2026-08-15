@@ -2,8 +2,21 @@
 (function () {
   const STORE = 'krtaker_lang';
   const DEFAULTS = { en: 'EN', bn: 'বাং' };
+  // V2.40.9: default বাংলা for visitors in Bangladesh — stored choice wins;
+  // otherwise Bengali browsers and Asia/Dhaka clocks get বাংলা by default.
+  function detectDefaultLang() {
+    try {
+      const nav = (navigator.language || (navigator.languages && navigator.languages[0]) || '').toLowerCase();
+      if (nav.indexOf('bn') === 0) return 'bn';
+    } catch (e) {}
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (tz === 'Asia/Dhaka') return 'bn';
+    } catch (e) {}
+    return 'en';
+  }
   let lang = 'en';
-  try { lang = localStorage.getItem(STORE) || 'en'; } catch (e) {}
+  try { lang = localStorage.getItem(STORE) || detectDefaultLang(); } catch (e) { lang = detectDefaultLang(); }
   if (!KR_I18N[lang]) lang = 'en';
 
   function apply() {
