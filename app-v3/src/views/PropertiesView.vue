@@ -383,7 +383,13 @@ async function toggleFeatured(p) {
       </div>
     </div>
     <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
-      No properties found{{ query ? ' for “' + query + '”' : '' }}.
+      <div style="font-size:44px;margin-bottom:10px">🏢</div>
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px">{{ lang === 'bn' ? 'এখনো কোনো প্রপার্টি নেই' : 'No properties yet' }}</div>
+      <div style="font-size:13px;max-width:420px;margin:0 auto 18px;line-height:1.6">{{ query ? (lang === 'bn' ? `“${query}” এর জন্য কিছু পাওয়া যায়নি` : `Nothing found for “${query}”`) : (lang === 'bn' ? 'আপনার প্রথম প্রপার্টি যোগ করে শুরু করুন — অথবা পুরনো তালিকা থাকলে CSV দিয়ে ইমপোর্ট করুন।' : 'Add your first property to get started — or import an existing portfolio from CSV.') }}</div>
+      <div v-if="canManage" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button @click="openAdd" class="btn-primary" style="padding:10px 20px">{{ lang === 'bn' ? '＋ প্রথম প্রপার্টি যোগ করুন' : '＋ Add your first property' }}</button>
+        <router-link to="/setup" class="btn-ghost" style="padding:10px 20px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center">{{ lang === 'bn' ? '🎬 ট্যুর দেখুন' : '🎬 Watch the tour' }}</router-link>
+      </div>
     </div>
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />

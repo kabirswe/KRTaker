@@ -212,7 +212,7 @@ const setupChecklist = computed(() => {
         </div>
 
         <div style="margin-top:20px;font-size:12px;color:var(--text-mute)">
-          {{ lang === 'bn' ? 'আরও সাহায্য দরকার? ⚙️ সেটিংস → সাহায্য, অথবা 🤖 Ask AI' : 'Need a hand? Visit ⚙️ Settings → Help, or just 🤖 Ask AI.' }}
+          {{ lang === 'bn' ? 'আরও সাহায্য দরকার? 📚 উইকি দেখুন, 🎫 সাপোর্ট টিকেট খুলুন, অথবা 🤖 Ask AI' : 'Need a hand? Browse the 📚 Wiki, open a 🎫 support ticket, or just 🤖 Ask AI.' }}
         </div>
       </div>
     </template>

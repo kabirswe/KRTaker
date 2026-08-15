@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { t } from '../lib/i18n'
+import { lang, t } from '../lib/i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
@@ -290,7 +290,15 @@ async function setStatus(u, st) {
         </table>
       </div>
     </div>
-    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No units found{{ query ? ' for “' + query + '”' : '' }}.</div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
+      <div style="font-size:44px;margin-bottom:10px">🚪</div>
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px">{{ lang === 'bn' ? 'এখনো কোনো ইউনিট নেই' : 'No units yet' }}</div>
+      <div style="font-size:13px;max-width:420px;margin:0 auto 18px;line-height:1.6">{{ query ? (lang === 'bn' ? `“${query}” এর জন্য কিছু পাওয়া যায়নি` : `Nothing found for “${query}”`) : (lang === 'bn' ? 'প্রপার্টি নির্বাচন করে প্রথম ইউনিট যোগ করুন — ভাড়া, ফ্লোর ও মিটার যুক্ত থাকবে।' : 'Add your first unit to a property — attach rent, floor and meters as you go.') }}</div>
+      <div v-if="canManage" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button @click="openAdd" class="btn-primary" style="padding:10px 20px">{{ lang === 'bn' ? '＋ প্রথম ইউনিট যোগ করুন' : '＋ Add your first unit' }}</button>
+        <button @click="openImport" class="btn-ghost" style="padding:10px 20px;font-weight:700">{{ lang === 'bn' ? '⬆ CSV ইমপোর্ট' : '⬆ Import from CSV' }}</button>
+      </div>
+    </div>
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 

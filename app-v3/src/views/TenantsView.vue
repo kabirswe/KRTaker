@@ -896,7 +896,15 @@ async function delTenant(t) {
         </table>
       </div>
     </div>
-    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No tenants found{{ query ? ' for “' + query + '”' : '' }}.</div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
+      <div style="font-size:44px;margin-bottom:10px">👤</div>
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px">{{ lang === 'bn' ? 'এখনো কোনো ভাড়াটিয়া নেই' : 'No tenants yet' }}</div>
+      <div style="font-size:13px;max-width:420px;margin:0 auto 18px;line-height:1.6">{{ query ? (lang === 'bn' ? `“${query}” এর জন্য কিছু পাওয়া যায়নি` : `Nothing found for “${query}”`) : (lang === 'bn' ? 'প্রথম ভাড়াটিয়া যোগ করুন — নাম, ফোন ও NID দিলেই তাদের পোর্টাল অ্যাকাউন্ট তৈরি হয়ে যাবে।' : 'Add your first tenant — name, phone & NID, and their portal account is created automatically.') }}</div>
+      <div v-if="canManage" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button @click="openAdd" class="btn-primary" style="padding:10px 20px">{{ lang === 'bn' ? '＋ প্রথম ভাড়াটিয়া যোগ করুন' : '＋ Add your first tenant' }}</button>
+        <button @click="openImport" class="btn-ghost" style="padding:10px 20px;font-weight:700">{{ lang === 'bn' ? '⬆ CSV ইমপোর্ট' : '⬆ Import from CSV' }}</button>
+      </div>
+    </div>
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 

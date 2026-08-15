@@ -294,7 +294,15 @@ async function runAuto() {
         </table>
       </div>
     </div>
-    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No invoices found{{ query ? ' for “' + query + '”' : '' }}.</div>
+    <div v-if="!filtered.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">
+      <div style="font-size:44px;margin-bottom:10px">🧾</div>
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px">{{ lang === 'bn' ? 'এখনো কোনো ইনভয়েস নেই' : 'No invoices yet' }}</div>
+      <div style="font-size:13px;max-width:420px;margin:0 auto 18px;line-height:1.6">{{ query ? (lang === 'bn' ? `“${query}” এর জন্য কিছু পাওয়া যায়নি` : `Nothing found for “${query}”`) : (lang === 'bn' ? 'সক্রিয় লিজ থেকে মাসিক ভাড়া ইনভয়েস অটো-জেনারেট করুন — অথবা পুরনো বকেয়া CSV দিয়ে ইমপোর্ট করুন।' : 'Auto-generate monthly rent invoices from active leases — or import existing dues from CSV.') }}</div>
+      <div v-if="canManage" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button @click="openAuto" class="btn-primary" style="padding:10px 20px">{{ lang === 'bn' ? '⚡ ইনভয়েস অটো-জেনারেট' : '⚡ Auto-generate invoices' }}</button>
+        <button @click="showImport = true" class="btn-ghost" style="padding:10px 20px;font-weight:700">{{ lang === 'bn' ? '⬆ CSV ইমপোর্ট' : '⬆ Import from CSV' }}</button>
+      </div>
+    </div>
 
     <PagerBar :page="page" :page-count="pageCount" :range="rangeLabel" @set="setPage" />
 
