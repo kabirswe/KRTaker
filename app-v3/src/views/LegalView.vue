@@ -146,11 +146,11 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search notice, tenant, reason…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All types</option>
+          <option value="">{{ t('All types') }}</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ ntypeMeta(t).label }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
@@ -213,11 +213,11 @@ function detailFields(row) {
               <td style="white-space:nowrap" class="c-sub">{{ fmtDate(n.effective_date) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="stCls(n.status)">{{ n.status }}</span></td>
               <td v-if="canManage" style="white-space:nowrap">
-                <button v-if="n.status === 'Draft'" @click.stop="serveNotice(n)" title="Serve" style="background:none;border:none;font-size:14px;cursor:pointer">🚚</button>
-                <button v-if="canVoid && n.status !== 'Void'" @click.stop="voidNotice(n)" title="Void" style="background:none;border:none;font-size:14px;cursor:pointer">⛔</button>
+                <button v-if="n.status === 'Draft'" @click.stop="serveNotice(n)" :title="t('Serve')" style="background:none;border:none;font-size:14px;cursor:pointer">🚚</button>
+                <button v-if="canVoid && n.status !== 'Void'" @click.stop="voidNotice(n)" :title="t('Void')" style="background:none;border:none;font-size:14px;cursor:pointer">⛔</button>
               </td>
             </tr>
-            <tr v-if="!filtered.length"><td :colspan="canManage ? 8 : 7" style="text-align:center;color:var(--text-mute);padding:30px">No notices found.</td></tr>
+            <tr v-if="!filtered.length"><td :colspan="canManage ? 8 : 7" style="text-align:center;color:var(--text-mute);padding:30px">{{ t('No notices found.') }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -235,7 +235,7 @@ function detailFields(row) {
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:280px">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>Case</th><th>Type</th><th>Status</th><th>Next hearing</th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Case') }}</th><th>{{ t('Type') }}</th><th>{{ t('Status') }}</th><th>{{ t('Next hearing') }}</th></tr></thead>
             <tbody>
               <tr v-for="c in cases.slice(0, 8)" :key="c.id" style="cursor:pointer" @click="go('/cases', { open: c.id })">
                 <td style="font-weight:700;white-space:nowrap">{{ c.id }}</td>
@@ -261,7 +261,7 @@ function detailFields(row) {
         <div style="padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notice type</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Notice type') }}</div>
               <select v-model="nForm.ntype" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option value="eviction">🚪 Notice to quit</option>
                 <option value="rent_hike">📈 Rent increase</option>
@@ -277,7 +277,7 @@ function detailFields(row) {
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Reason</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Reason') }}</div>
             <RichEditor v-model="nForm.reason" placeholder="e.g. Rent unpaid for 3 consecutive months" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <div class="c-sub" style="font-size:11.5px;line-height:1.6">The body is auto-generated from the legal config (statutory notice period for the selected type) with tenant/unit/rent details. Served separately.</div>
@@ -309,19 +309,19 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Effective date</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Effective date') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.effective_date) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Served</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Served') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.served_on ? fmtTs(sel.served_on) : '—' }}<template v-if="sel.served_by"> · {{ sel.served_by }}</template></div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Rent</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Rent') }}</div>
               <div style="font-weight:700;margin-top:1px">৳{{ (leaseRent(sel.lease) || 0).toLocaleString('en-IN') }}/mo</div>
             </div>
             <div v-if="sel.reason" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Reason</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Reason') }}</div>
               <div style="font-weight:700;margin-top:1px" v-html="sel.reason"></div>
             </div>
           </div>

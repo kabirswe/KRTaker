@@ -569,7 +569,7 @@ function go(path) { router.push(path) }
     <div class="page-head">
       <div>
         <h1>📚 {{ lang === 'bn' ? 'উইকি ও সাহায্য' : 'Wiki &amp; Help' }}</h1>
-        <div class="sub">Visual guides, alerts, notifications, email &amp; security</div>
+        <div class="sub">{{ t('Visual guides, alerts, notifications, email & security') }}</div>
       </div>
     </div>
 

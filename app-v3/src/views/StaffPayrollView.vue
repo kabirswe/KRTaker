@@ -131,18 +131,18 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search staff…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All months</option>
+          <option value="">{{ t('All months') }}</option>
           <option v-for="m in monthOptions" :key="m" :value="m">{{ monthLabel(m) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openPyModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Generate payslip</button>
       </div>
@@ -172,7 +172,7 @@ function detailFields(row) {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
             <span class="badge b-gray">Salary {{ money(p.salary) }}</span>
             <span v-if="p.overtime" class="badge b-blue">+OT {{ money(p.overtime) }}</span>
-            <span v-if="p.bonus" class="badge b-green">+Bonus {{ money(p.bonus) }}</span>
+            <span v-if="p.bonus" class="badge b-green">+{{ t('Bonus') }} {{ money(p.bonus) }}</span>
             <span v-if="p.advance_deduction" class="badge b-red">−Adv {{ money(p.advance_deduction) }}</span>
           </div>
           <div style="display:flex;gap:13px;font-size:11.5px" class="c-sub">
@@ -200,9 +200,9 @@ function detailFields(row) {
               <td style="white-space:nowrap;font-weight:700">{{ money(p.net ?? netOf(p)) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="stCls(p.status)">{{ p.status || '—' }}</span></td>
               <td style="white-space:nowrap">
-                <button v-if="canManage && p.status !== 'Paid'" @click.stop="payPayroll(p)" title="Mark paid" style="background:none;border:none;font-size:14px;cursor:pointer">💰</button>
-                <button v-if="canManage" @click.stop="openPyModal(p)" title="Recompute" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
-                <button v-if="canManage" @click.stop="delPayroll(p)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+                <button v-if="canManage && p.status !== 'Paid'" @click.stop="payPayroll(p)" :title="t('Mark paid')" style="background:none;border:none;font-size:14px;cursor:pointer">💰</button>
+                <button v-if="canManage" @click.stop="openPyModal(p)" :title="t('Recompute')" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
+                <button v-if="canManage" @click.stop="delPayroll(p)" :title="t('Delete')" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
               </td>
             </tr>
           </tbody>
@@ -234,21 +234,21 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Overtime</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Overtime') }}</div>
               <input v-model="pyForm.overtime" type="number" min="0" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Bonus</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Bonus') }}</div>
               <input v-model="pyForm.bonus" type="number" min="0" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Advance</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Advance') }}</div>
               <input v-model="pyForm.advance_deduction" type="number" min="0" placeholder="0" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
           </div>
-          <div style="font-size:12px;color:var(--text-mute);line-height:1.6">Net = salary + overtime + bonus − advance − absent-day deductions. Absent days and daily rate are computed automatically from attendance.</div>
+          <div style="font-size:12px;color:var(--text-mute);line-height:1.6">Net = salary + overtime + bonus − advance − absent-day deductions. {{ t('Absent days') }} and daily rate are computed automatically from attendance.</div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-            <button @click="pyModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="pyModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">{{ t('Cancel') }}</button>
             <button @click="generatePayroll" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Generate</button>
           </div>
         </div>
@@ -277,38 +277,38 @@ function detailFields(row) {
             <span class="badge" :class="stCls(sel.status)">{{ sel.status || '—' }}</span>
           </div>
           <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">
-            <button v-if="sel.status !== 'Paid'" style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:var(--ok);color:#fff;cursor:pointer" @click="payPayroll(sel)">💰 Mark paid</button>
-            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;font-weight:700" @click="openPyModal(sel)">✏️ Recompute</button>
-            <button style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="delPayroll(sel)">🗑 Delete</button>
+            <button v-if="sel.status !== 'Paid'" style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:var(--ok);color:#fff;cursor:pointer" @click="payPayroll(sel)">💰 {{ t('Mark paid') }}</button>
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;font-weight:700" @click="openPyModal(sel)">✏️ {{ t('Recompute') }}</button>
+            <button style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="delPayroll(sel)">🗑 {{ t('Delete') }}</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px;border-top:1px solid var(--border);padding-top:14px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Base salary</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Base salary') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ money(sel.salary) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Overtime</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Overtime') }}</div>
               <div style="font-weight:700;margin-top:1px;color:var(--ok)">{{ sel.overtime ? '+' + money(sel.overtime) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Bonus</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Bonus') }}</div>
               <div style="font-weight:700;margin-top:1px;color:var(--ok)">{{ sel.bonus ? '+' + money(sel.bonus) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Advance deduction</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Advance deduction') }}</div>
               <div style="font-weight:700;margin-top:1px;color:var(--danger)">{{ sel.advance_deduction ? '−' + money(sel.advance_deduction) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Absent days</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Absent days') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.absent_days ?? '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Daily rate</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Daily rate') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.daily_rate ? money(sel.daily_rate) + '/day' : '—' }}</div>
             </div>
           </div>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0;display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Net pay</span>
+            <span style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Net pay') }}</span>
             <span style="font-weight:800;font-size:17px">{{ money(sel.net ?? netOf(sel)) }}</span>
           </div>
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">

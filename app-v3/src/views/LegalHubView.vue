@@ -79,7 +79,7 @@ const goTab = (t) => { tab.value = t }
     <div class="page-head">
       <div>
         <h1>{{ t('⚖️ Legal') }}</h1>
-        <div class="sub">Everything legal — compliance, legal engine, cases &amp; concierge · one dashboard</div>
+        <div class="sub">{{ t('Everything legal — compliance, legal engine, cases & concierge · one dashboard') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn-ghost" @click="goTab('cases')">➕ New case</button>
@@ -98,12 +98,12 @@ const goTab = (t) => { tab.value = t }
     <template v-if="tab === 'overview'">
       <!-- KPI cards -->
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Compliance items</div><div class="s-value">{{ kpis.comp }}</div><div class="s-trend">{{ kpis.compSoon }} expiring ≤30d</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏰</span>Overdue</div><div class="s-value" :style="kpis.compOverdue > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ kpis.compOverdue }}</div><div class="s-trend">expired items</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">👨‍⚖️</span>Cases</div><div class="s-value">{{ kpis.cases }}</div><div class="s-trend">{{ kpis.openCases }} open</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📜</span>Legal notices</div><div class="s-value">{{ kpis.notes }}</div><div class="s-trend">generated</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🗂️</span>Concierge requests</div><div class="s-value">{{ kpis.conc }}</div><div class="s-trend">{{ kpis.concActive }} in progress</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💳</span>Awaiting fee</div><div class="s-value" :style="kpis.concFee > 0 ? 'color:#f39c12' : ''">{{ kpis.concFee }}</div><div class="s-trend">unpaid concierge</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Compliance items') }}</div><div class="s-value">{{ kpis.comp }}</div><div class="s-trend">{{ kpis.compSoon }} expiring ≤30d</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏰</span>{{ t('Overdue') }}</div><div class="s-value" :style="kpis.compOverdue > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ kpis.compOverdue }}</div><div class="s-trend">expired items</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👨‍⚖️</span>{{ t('Cases') }}</div><div class="s-value">{{ kpis.cases }}</div><div class="s-trend">{{ kpis.openCases }} open</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📜</span>{{ t('Legal notices') }}</div><div class="s-value">{{ kpis.notes }}</div><div class="s-trend">generated</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🗂️</span>{{ t('Concierge requests') }}</div><div class="s-value">{{ kpis.conc }}</div><div class="s-trend">{{ kpis.concActive }} in progress</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💳</span>{{ t('Awaiting fee') }}</div><div class="s-value" :style="kpis.concFee > 0 ? 'color:#f39c12' : ''">{{ kpis.concFee }}</div><div class="s-trend">unpaid concierge</div></div>
       </div>
 
       <!-- Quick actions -->
@@ -127,7 +127,7 @@ const goTab = (t) => { tab.value = t }
               <div style="font-weight:800;font-size:11.5px" :style="daysTo(c.expiry_date) !== null && daysTo(c.expiry_date) < 0 ? 'color:var(--danger,#e74c3c)' : 'color:#f39c12'">{{ c.expiry_date || '—' }}</div>
             </div>
           </div>
-          <div v-if="!soonComp.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No compliance items.</div>
+          <div v-if="!soonComp.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No compliance items.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
           <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">👨‍⚖️ Recent cases</div>
@@ -140,7 +140,7 @@ const goTab = (t) => { tab.value = t }
               <span class="badge" :class="String(c.status).toLowerCase() === 'open' ? 'badge-red' : 'badge-green'">{{ c.status || '—' }}</span>
             </div>
           </div>
-          <div v-if="!recentCases.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No cases yet.</div>
+          <div v-if="!recentCases.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No cases yet.') }}</div>
         </div>
       </div>
     </template>

@@ -203,29 +203,29 @@ async function runAuto() {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search invoice, tenant, unit…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All months</option>
+          <option value="">{{ t('All months') }}</option>
           <option v-for="m in monthOptions" :key="m" :value="m">{{ monthLabel(m) }}</option>
         </select>
         <select v-model="propFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All properties</option>
+          <option value="">{{ t('All properties') }}</option>
           <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="m">Sort: Month</option>
-          <option value="net">Sort: Net</option>
-          <option value="due">Sort: Due</option>
+          <option value="m">{{ t('Sort: Month') }}</option>
+          <option value="net">{{ t('Sort: Net') }}</option>
+          <option value="due">{{ t('Sort: Due') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAuto" class="btn-primary" style="padding:9px 16px;font-size:12.5px" title="Generate rent invoices for a month from active leases">{{ lang === 'bn' ? '⚡ অটো-জেনারেট' : '⚡ Auto-generate' }}</button>
+        <button v-if="canManage" @click="openAuto" class="btn-primary" style="padding:9px 16px;font-size:12.5px" :title="t('Generate rent invoices for a month from active leases')">{{ lang === 'bn' ? '⚡ অটো-জেনারেট' : '⚡ Auto-generate' }}</button>
       </div>
     </div>
 
@@ -252,16 +252,16 @@ async function runAuto() {
             <div class="c-sub" style="margin-top:2px">👤 {{ tenantOf(i) }} · 🚪 {{ unitOf(i) }} · {{ propName(propOf(i)) }}</div>
           </div>
           <div style="display:flex;gap:13px;font-size:12px;flex-wrap:wrap">
-            <span class="c-sub" title="Gross">📊 {{ money(i.gross) }}<template v-if="i.tds"> − TDS {{ money(i.tds) }}</template></span>
-            <span class="c-sub" title="Net">🧾 {{ money(i.net) }}</span>
-            <span class="c-sub" :style="invDue(i) > 0 ? 'color:var(--danger);font-weight:800' : ''" title="Due">⏳ {{ money(invDue(i)) }}</span>
+            <span class="c-sub" :title="t('Gross')">📊 {{ money(i.gross) }}<template v-if="i.tds"> − TDS {{ money(i.tds) }}</template></span>
+            <span class="c-sub" :title="t('Net')">🧾 {{ money(i.net) }}</span>
+            <span class="c-sub" :style="invDue(i) > 0 ? 'color:var(--danger);font-weight:800' : ''" :title="t('Due')">⏳ {{ money(invDue(i)) }}</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
             <span class="badge b-green">💳 {{ money(invPaid(i)) }}</span>
             <span class="badge b-gray">📄 {{ i.l }}</span>
           </div>
           <div v-if="canManage && invDue(i) > 0" style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:9px">
-            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openPay(i)" title="Record a payment against this invoice">💳 {{ lang === 'bn' ? 'পেমেন্ট রেকর্ড করুন' : 'Record payment' }}</button>
+            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openPay(i)" :title="t('Record a payment against this invoice')">💳 {{ lang === 'bn' ? 'পেমেন্ট রেকর্ড করুন' : 'Record payment' }}</button>
           </div>
         </div>
       </div>
@@ -269,7 +269,7 @@ async function runAuto() {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>{{ lang === 'bn' ? 'ইনভয়েস' : 'Invoice' }}</th><th>{{ lang === 'bn' ? 'মাস' : 'Month' }}</th><th>{{ lang === 'bn' ? 'ভাড়াটিয়া' : 'Tenant' }}</th><th>{{ lang === 'bn' ? 'লিজ / ইউনিট' : 'Lease / Unit' }}</th><th>{{ lang === 'bn' ? 'গ্রস' : 'Gross' }}</th><th>TDS</th><th>{{ lang === 'bn' ? 'নিট' : 'Net' }}</th><th>{{ lang === 'bn' ? 'পরিশোধিত' : 'Paid' }}</th><th>{{ lang === 'bn' ? 'বকেয়া' : 'Due' }}</th><th>{{ lang === 'bn' ? 'স্ট্যাটাস' : 'Status' }}</th><th v-if="canManage && filtered.some(i => invDue(i) > 0)">{{ lang === 'bn' ? 'অ্যাকশন' : 'Action' }}</th></tr></thead>
+          <thead><tr><th>{{ lang === 'bn' ? 'ইনভয়েস' : 'Invoice' }}</th><th>{{ lang === 'bn' ? 'মাস' : 'Month' }}</th><th>{{ lang === 'bn' ? 'ভাড়াটিয়া' : 'Tenant' }}</th><th>{{ lang === 'bn' ? 'লিজ / ইউনিট' : 'Lease / Unit' }}</th><th>{{ lang === 'bn' ? 'গ্রস' : 'Gross' }}</th><th>{{ t('TDS') }}</th><th>{{ lang === 'bn' ? 'নিট' : 'Net' }}</th><th>{{ lang === 'bn' ? 'পরিশোধিত' : 'Paid' }}</th><th>{{ lang === 'bn' ? 'বকেয়া' : 'Due' }}</th><th>{{ lang === 'bn' ? 'স্ট্যাটাস' : 'Status' }}</th><th v-if="canManage && filtered.some(i => invDue(i) > 0)">{{ lang === 'bn' ? 'অ্যাকশন' : 'Action' }}</th></tr></thead>
           <tbody>
             <tr v-for="i in paged" :key="i.id" style="cursor:pointer" @click="openDetail(i)">
               <td style="white-space:nowrap"><b>{{ i.id }}</b></td>
@@ -283,7 +283,7 @@ async function runAuto() {
               <td :style="invDue(i) > 0 ? 'color:var(--danger);font-weight:800;white-space:nowrap' : 'white-space:nowrap'">{{ money(invDue(i)) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="badge(invStatusRow(i))">{{ invStatusRow(i) }}</span></td>
               <td v-if="canManage && filtered.some(i => invDue(i) > 0)" style="white-space:nowrap">
-                <button v-if="invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openPay(i)" title="Record payment for this invoice">💳 Pay</button>
+                <button v-if="invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11px" @click.stop="openPay(i)" :title="t('Record payment for this invoice')">💳 Pay</button>
               </td>
             </tr>
           </tbody>
@@ -312,23 +312,23 @@ async function runAuto() {
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Gross</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Gross') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sel.gross) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">TDS</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('TDS') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sel.tds) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Net</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Net') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sel.net) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Paid</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Paid') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(invPaid(sel)) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Due</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Due') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="invDue(sel) > 0 ? 'color:var(--danger)' : ''">{{ money(invDue(sel)) }}</div>
             </div>
           </div>
@@ -343,14 +343,14 @@ async function runAuto() {
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">👤 Tenant</div>
             <div style="font-weight:800;font-size:14px;cursor:pointer" @click="go('/tenants', { open: leaseOf(sel)?.t })">{{ tenantOf(sel) }} ↗</div>
             <div class="c-sub" style="font-size:11.5px;margin-top:3px">{{ selTenantObj?.phone || '—' }} · {{ selTenantObj?.kind || '—' }}<template v-if="selTenantObj?.nrb"> · NRB</template></div>
-            <div class="c-sub" style="font-size:11.5px;margin-top:2px">Lease <a @click.stop="go('/leases', { open: sel.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ sel.l }}</a> · 🚪 <a @click.stop="go('/units', { open: leaseOf(sel)?.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitOf(sel) }}</a> · 🏢 {{ propName(propOf(sel)) }}</div>
+            <div class="c-sub" style="font-size:11.5px;margin-top:2px">{{ t('Lease') }} <a @click.stop="go('/leases', { open: sel.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ sel.l }}</a> · 🚪 <a @click.stop="go('/units', { open: leaseOf(sel)?.u })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ unitOf(sel) }}</a> · 🏢 {{ propName(propOf(sel)) }}</div>
           </div>
 
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">💳 Payments</div>
             <div class="drawer-tbl-wrap">
               <table class="kr" style="width:100%">
-              <thead><tr><th>ID</th><th>Date</th><th>Method</th><th>Ref</th><th>Amount</th><th>Status</th></tr></thead>
+              <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="p in selPays" :key="p.id">
                   <td style="font-weight:700">{{ p.id }}</td>
@@ -360,7 +360,7 @@ async function runAuto() {
                   <td>{{ money(p.amount) }}</td>
                   <td><span class="badge" :class="badge(p.status)">{{ p.status }}</span></td>
                 </tr>
-                <tr v-if="!selPays.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:16px">No payments recorded for this invoice.</td></tr>
+                <tr v-if="!selPays.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:16px">{{ t('No payments recorded for this invoice.') }}</td></tr>
               </tbody>
             </table>
             </div>
@@ -394,23 +394,23 @@ async function runAuto() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Date</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Date') }}</label>
               <input v-model="payModal.date" type="date" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Method</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</label>
               <select v-model="payModal.method" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
                 <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ m }}</option>
               </select>
             </div>
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Reference / signature</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Reference / signature') }}</label>
             <input v-model="payModal.sig" placeholder="e.g. BK-7f2a, cheque no…" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="payModal = null" title="Cancel and close">Cancel</button>
+          <button class="btn-ghost" @click="payModal = null" :title="t('Cancel and close')">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="paySaving" @click="submitPay" style="padding:9px 18px" :title="paySaving ? 'Saving…' : 'Save this payment and update the invoice'">{{ paySaving ? 'Recording…' : '💳 Record payment' }}</button>
         </div>
       </div>
@@ -426,13 +426,13 @@ async function runAuto() {
         </div>
         <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Billing month</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Billing month') }}</label>
             <input v-model="autoModal.month" type="month" @change="refreshAutoPreview" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <div class="c-sub" style="font-size:11px;margin-top:4px">One Unpaid invoice per Active lease for this month — leases already billed are skipped.</div>
+            <div class="c-sub" style="font-size:11px;margin-top:4px">{{ t('One Unpaid invoice per Active lease for this month — leases already billed are skipped.') }}</div>
           </div>
           <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer">
             <input v-model="autoModal.email" type="checkbox" style="width:16px;height:16px;accent-color:var(--primary)">
-            <span><b>Email tenants</b> <span class="c-sub">— queue invoice email (respects docs switch + opt-outs)</span></span>
+            <span><b>{{ t('Email tenants') }}</b> <span class="c-sub">— queue invoice email (respects docs switch + opt-outs)</span></span>
           </label>
           <div v-if="autoPreview" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:12px 14px;font-size:12.5px;line-height:1.7">
             <div v-if="autoBusy" class="c-sub">Refreshing…</div>
@@ -452,7 +452,7 @@ async function runAuto() {
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
           <button class="btn-ghost" @click="refreshAutoPreview" :disabled="autoBusy" style="font-size:12px">↻ Preview</button>
-          <button class="btn-ghost" @click="closeAuto">Cancel</button>
+          <button class="btn-ghost" @click="closeAuto">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="autoRunBusy || !autoPreview?.created" @click="runAuto" style="padding:9px 18px">{{ autoRunBusy ? 'Generating…' : (autoModal.email ? '⚡ Generate + email' : '⚡ Generate only') }}</button>
         </div>
       </div>

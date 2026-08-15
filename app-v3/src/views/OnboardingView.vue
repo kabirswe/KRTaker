@@ -94,14 +94,14 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search name, email, unit…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -188,35 +188,35 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Unit</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Unit') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.unit ? unitName(sel.unit) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Property</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Property') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.prop ? propName(sel.prop) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Rent</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Rent') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ money(sel.rent) }}/mo</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Advance</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Advance') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ money(sel.adv) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Term</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Term') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.months ? sel.months + ' months' : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Move-in</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Move-in') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ (sel.start || '').slice(0, 10) }}</div>
             </div>
             <div v-if="sel.nid" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">NID</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('NID') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.nid }}</div>
             </div>
             <div v-if="sel.verified_by" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Verified by</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Verified by') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.verified_by }} · {{ fmtTs(sel.verified_at) }}</div>
             </div>
           </div>

@@ -383,7 +383,7 @@ async function downloadExport() {
     <div class="grid grid-2">
       <!-- Account -->
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🪪</span>Account</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🪪</span>{{ t('Account') }}</div></div>
         <div class="panel-b">
           <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
             <div style="width:52px;height:52px;border-radius:50%;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;flex-shrink:0">
@@ -395,10 +395,10 @@ async function downloadExport() {
               <div style="margin-top:4px"><span class="badge b-blue">{{ roleLabel }}</span></div>
             </div>
           </div>
-          <div class="kv"><span class="k">Member since</span><span class="v">{{ account.created || account.member_since || auth.user?.created || '—' }}</span></div>
-          <div class="kv"><span class="k">Last login</span><span class="v">{{ account.last_login || '—' }}</span></div>
+          <div class="kv"><span class="k">{{ t('Member since') }}</span><span class="v">{{ account.created || account.member_since || auth.user?.created || '—' }}</span></div>
+          <div class="kv"><span class="k">{{ t('Last login') }}</span><span class="v">{{ account.last_login || '—' }}</span></div>
           <div class="kv">
-            <span class="k">Two-factor auth</span>
+            <span class="k">{{ t('Two-factor auth') }}</span>
             <span class="v">
               <span class="badge" :class="twofa ? 'b-green' : 'b-gray'">{{ twofa ? '🔒 Enabled' : 'Disabled' }}</span>
             </span>
@@ -411,15 +411,15 @@ async function downloadExport() {
         <div class="panel-h"><div class="t"><span class="pi">👤</span>{{ lang === 'bn' ? 'প্রোফাইল' : 'Profile' }}</div></div>
         <div class="panel-b">
           <div class="form-field" style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Display name</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Display name') }}</label>
             <input v-model="name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <div v-if="isStaff" class="form-field" style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Department</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Department') }}</label>
             <input v-model="dept" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <div v-if="isStaff" class="form-field" style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Avatar URL (optional)</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Avatar URL (optional)') }}</label>
             <input v-model="avatar" placeholder="https://…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <button class="btn-primary" style="width:100%" @click="saveProfile">{{ t('Save profile') }}</button>
@@ -430,9 +430,9 @@ async function downloadExport() {
     <div class="grid grid-2" style="margin-top:18px">
       <!-- Preferences -->
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🎨</span>Preferences</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🎨</span>{{ t('Preferences') }}</div></div>
         <div class="panel-b">
-          <div style="font-size:12px;font-weight:700;margin-bottom:6px">Theme</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:6px">{{ t('Theme') }}</div>
           <div style="display:flex;gap:8px;margin-bottom:14px">
             <button class="btn-ghost" :style="(prefs.theme || 'light') === 'light' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setTheme('light')">☀️ Light</button>
             <button class="btn-ghost" :style="prefs.theme === 'dark' ? 'border-color:var(--primary);background:var(--primary-light)' : ''" @click="setTheme('dark')">🌙 Dark</button>
@@ -451,7 +451,7 @@ async function downloadExport() {
         <div class="panel-h"><div class="t"><span class="pi">🔑</span>{{ lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Change password' }}</div></div>
         <div class="panel-b">
           <div class="form-field" style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Current password</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Current password') }}</label>
             <input v-model="oldPw" type="password" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <div class="form-field" style="margin-bottom:12px">
@@ -465,39 +465,39 @@ async function downloadExport() {
 
     <!-- Login security (owner) -->
     <div v-if="isOwner" class="panel" style="margin-top:18px">
-      <div class="panel-h"><div class="t"><span class="pi">🔐</span>Login security <span class="badge b-blue" style="margin-left:8px">Owner</span></div></div>
+      <div class="panel-h"><div class="t"><span class="pi">🔐</span>{{ t('Login security') }} <span class="badge b-blue" style="margin-left:8px">{{ t('Owner') }}</span></div></div>
       <div class="panel-b">
         <div class="c-sub" style="font-size:12.5px;margin-bottom:14px">Optional human-verification on the login form. When a secret is set, a valid token is required to log in; leave both blank to keep the built-in proof-of-work guard only.</div>
         <div class="grid grid-2" style="gap:14px">
           <div class="form-field">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Google reCAPTCHA v3 — site key</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Google reCAPTCHA v3 — site key') }}</label>
             <input v-model="secForm.recaptcha_site_key" placeholder="6Lc…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <div class="form-field">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Google reCAPTCHA v3 — secret key</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Google reCAPTCHA v3 — secret key') }}</label>
             <input v-model="secForm.recaptcha_secret" placeholder="6Lc…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <div class="form-field">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Cloudflare Turnstile — site key</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Cloudflare Turnstile — site key') }}</label>
             <input v-model="secForm.turnstile_site_key" placeholder="0x4AAAA…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
           <div class="form-field">
-            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">Cloudflare Turnstile — secret key</label>
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:5px">{{ t('Cloudflare Turnstile — secret key') }}</label>
             <input v-model="secForm.turnstile_secret" placeholder="0x4AAAA…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
           </div>
         </div>
         <div style="display:flex;gap:24px;align-items:center;margin:14px 0;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer">
-            <input type="checkbox" v-model="secForm.bot_guard"> Bot guard (PoW + time-trap) enabled
+            <input type="checkbox" v-model="secForm.bot_guard"> {{ t('Bot guard (PoW + time-trap) enabled') }}
           </label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
-            PoW difficulty
+            {{ t('PoW difficulty') }}
             <input type="number" v-model.number="secForm.bot_pow_bits" min="8" max="24" style="width:70px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--bg);color:var(--text)">
           </label>
         </div>
         <div style="display:flex;gap:24px;align-items:center;margin:14px 0;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
-            Session expiry
+            {{ t('Session expiry') }}
             <select v-model.number="secForm.session_ttl_hours" style="padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--bg);color:var(--text)">
               <option :value="12">12 hours</option>
               <option :value="24">1 day</option>
@@ -508,7 +508,7 @@ async function downloadExport() {
             </select>
           </label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
-            Min password length
+            {{ t('Min password length') }}
             <input type="number" v-model.number="secForm.password_min" min="6" max="32" style="width:70px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--bg);color:var(--text)">
           </label>
         </div>
@@ -518,9 +518,9 @@ async function downloadExport() {
 
       <!-- Two-factor authentication (superadmin) -->
       <div v-if="isSuperAdmin" class="panel" style="margin-top:18px">
-        <div class="panel-h"><div class="t"><span class="pi">🔐</span>Two-factor authentication <span v-if="twofaState.enabled" class="badge b-green" style="margin-left:8px">On · {{ twofaState.method === 'email' ? 'Email codes' : 'Authenticator' }}</span><span v-else class="badge b-gray" style="margin-left:8px">Off</span></div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🔐</span>{{ t('Two-factor authentication') }} <span v-if="twofaState.enabled" class="badge b-green" style="margin-left:8px">On · {{ twofaState.method === 'email' ? 'Email codes' : 'Authenticator' }}</span><span v-else class="badge b-gray" style="margin-left:8px">{{ t('Off') }}</span></div></div>
         <div class="panel-b">
-          <div class="c-sub" style="font-size:12.5px;margin-bottom:14px">Require a second verification step at login. Choose <b>email codes</b> (6-digit code sent to {{ twofaState.email_hint || 'your account email' }}) or an <b>authenticator app</b> (TOTP).</div>
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:14px">{{ t('Require a second verification step at login. Choose') }} <b>email codes</b> (6-digit code sent to {{ twofaState.email_hint || 'your account email' }}) or an <b>authenticator app</b> (TOTP).</div>
 
           <template v-if="!twofaState.enabled">
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
@@ -529,7 +529,7 @@ async function downloadExport() {
             </div>
 
             <div v-if="twofaStep === 'email-code'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px">
-              <div style="font-size:13px;margin-bottom:10px">1. Tap <b>Send code</b> — we'll email a 6-digit code to {{ twofaState.email_hint || 'your account email' }}. 2. Enter it below and confirm.</div>
+              <div style="font-size:13px;margin-bottom:10px">1. Tap <b>{{ t('Send code') }}</b> — we'll email a 6-digit code to {{ twofaState.email_hint || 'your account email' }}. 2. Enter it below and confirm.</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">{{ t('Send code') }}</button>
                 <input v-model="twofaCode" inputmode="numeric" maxlength="6" :placeholder="t('6-digit code')" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
@@ -555,32 +555,32 @@ async function downloadExport() {
               <button class="btn-ghost" style="color:var(--danger)" :disabled="twofaBusy" @click="twofaStep = 'disable'">🚫 Disable 2FA</button>
             </div>
             <div v-if="twofaStep === 'disable'" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px">
-              <div style="font-size:13px;margin-bottom:10px">Send a verification code to your email, then enter it with your password to confirm.</div>
+              <div style="font-size:13px;margin-bottom:10px">{{ t('Send a verification code to your email, then enter it with your password to confirm.') }}</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-                <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">Send code</button>
+                <button class="btn-ghost" :disabled="twofaBusy" @click="sendTwofaCode">{{ t('Send code') }}</button>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <input v-model="twofaCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width:130px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
-                <input v-model="twofaPw" type="password" placeholder="Password" style="width:160px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
-                <button class="btn-primary" style="background:var(--danger)" :disabled="twofaBusy" @click="disable2fa">Disable 2FA</button>
+                <input v-model="twofaPw" type="password" :placeholder="t('Password')" style="width:160px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13.5px;background:var(--bg);color:var(--text)">
+                <button class="btn-primary" style="background:var(--danger)" :disabled="twofaBusy" @click="disable2fa">{{ t('Disable 2FA') }}</button>
               </div>
             </div>
-            <div class="c-sub" style="font-size:12px">Lost your authenticator app? On the login screen choose <b>“Use email code instead”</b> — we'll email you a one-time code.</div>
+            <div class="c-sub" style="font-size:12px">{{ t('Lost your authenticator app? On the login screen choose') }} <b>“Use email code instead”</b> — we'll email you a one-time code.</div>
           </template>
         </div>
       </div>
 
       <!-- Audit log (superadmin) -->
       <div v-if="isSuperAdmin" class="panel" style="margin-top:18px">
-        <div class="panel-h"><div class="t"><span class="pi">🧾</span>Audit log <span class="badge b-blue" style="margin-left:8px">Superadmin</span></div>
+        <div class="panel-h"><div class="t"><span class="pi">🧾</span>{{ t('Audit log') }} <span class="badge b-blue" style="margin-left:8px">{{ t('Superadmin') }}</span></div>
           <button class="btn-ghost" style="font-size:12px" :disabled="auditLoading" @click="loadAudit">{{ auditLoading ? 'Loading…' : '↻ Refresh' }}</button>
         </div>
         <div class="panel-b">
-          <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">Latest 50 platform events — who did what, when (logins, security changes, exports, reminders).</div>
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">{{ t('Latest 50 platform events — who did what, when (logins, security changes, exports, reminders).') }}</div>
           <div class="tbl-wrap" style="max-height:none">
             <table class="kr" style="width:100%;font-size:12px">
               <thead>
-                <tr><th style="text-align:left">When</th><th style="text-align:left">User</th><th style="text-align:left">Action</th><th style="text-align:left">Module</th><th style="text-align:left">Entity</th></tr>
+                <tr><th style="text-align:left">{{ t('When') }}</th><th style="text-align:left">{{ t('User') }}</th><th style="text-align:left">{{ t('Action') }}</th><th style="text-align:left">{{ t('Module') }}</th><th style="text-align:left">{{ t('Entity') }}</th></tr>
               </thead>
               <tbody>
                 <tr v-for="(a, i) in auditEntries" :key="i">
@@ -590,7 +590,7 @@ async function downloadExport() {
                   <td><span class="badge b-gray">{{ a.module }}</span></td>
                   <td class="c-sub" style="font-size:11px">{{ a.entity }}</td>
                 </tr>
-                <tr v-if="!auditEntries.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px 0">No audit entries loaded.</td></tr>
+                <tr v-if="!auditEntries.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px 0">{{ t('No audit entries loaded.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -599,7 +599,7 @@ async function downloadExport() {
 
       <!-- Backup & export (superadmin) -->
       <div v-if="isSuperAdmin" class="panel" style="margin-top:18px">
-        <div class="panel-h"><div class="t"><span class="pi">💾</span>Backup &amp; export <span class="badge b-blue" style="margin-left:8px">Superadmin</span></div></div>
+        <div class="panel-h"><div class="t"><span class="pi">💾</span>{{ t('Backup & export') }} <span class="badge b-blue" style="margin-left:8px">{{ t('Superadmin') }}</span></div></div>
         <div class="panel-b">
           <div class="c-sub" style="font-size:12.5px;margin-bottom:14px">Download a consistent SQLite snapshot (VACUUM INTO) or a full JSON dump of every table — for archives, migration and disaster recovery.</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -611,7 +611,7 @@ async function downloadExport() {
 
       <!-- Sign-in & sessions (V2.17) -->
       <div class="panel" style="margin-top:18px">
-        <div class="panel-h"><div class="t"><span class="pi">🖥️</span>Sign-in &amp; sessions</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🖥️</span>{{ t('Sign-in & sessions') }}</div></div>
         <div class="panel-b">
           <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">Devices currently signed in to your account. Sign out anything you don't recognise — the session is killed instantly, even if that device is offline.</div>
 
@@ -619,7 +619,7 @@ async function downloadExport() {
           <template v-else>
             <table class="kr" style="width:100%;font-size:12.5px">
               <thead>
-                <tr><th style="text-align:left">Device</th><th style="text-align:left">IP</th><th style="text-align:left">Last active</th><th></th></tr>
+                <tr><th style="text-align:left">{{ t('Device') }}</th><th style="text-align:left">IP</th><th style="text-align:left">{{ t('Last active') }}</th><th></th></tr>
               </thead>
               <tbody>
                 <tr v-for="s in sessions" :key="s.id">
@@ -629,14 +629,14 @@ async function downloadExport() {
                   </td>
                   <td>{{ s.ip }}</td>
                   <td>
-                    <span v-if="s.current" class="badge b-green">This device</span>
+                    <span v-if="s.current" class="badge b-green">{{ t('This device') }}</span>
                     <template v-else>{{ fmtAgo(s.last_seen) }}</template>
                   </td>
                   <td style="text-align:right">
-                    <button v-if="!s.current" class="btn-ghost" style="color:var(--danger);font-size:11.5px;padding:5px 10px" :disabled="sessionsBusy" @click="revokeSession(s.id)">Sign out</button>
+                    <button v-if="!s.current" class="btn-ghost" style="color:var(--danger);font-size:11.5px;padding:5px 10px" :disabled="sessionsBusy" @click="revokeSession(s.id)">{{ t('Sign out') }}</button>
                   </td>
                 </tr>
-                <tr v-if="!sessions.length"><td colspan="4" style="color:var(--text-mute);padding:14px 0">No active sessions found.</td></tr>
+                <tr v-if="!sessions.length"><td colspan="4" style="color:var(--text-mute);padding:14px 0">{{ t('No active sessions found.') }}</td></tr>
               </tbody>
             </table>
 
@@ -646,18 +646,18 @@ async function downloadExport() {
             </div>
             <div v-if="confirmRevoke === 'others'" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
               <span style="font-size:12.5px;color:var(--text-mute)">You'll stay signed in here.</span>
-              <button class="btn-primary" style="background:var(--danger)" :disabled="sessionsBusy" @click="revokeOthers">Yes, sign out other devices</button>
-              <button class="btn-ghost" @click="confirmRevoke = ''">Cancel</button>
+              <button class="btn-primary" style="background:var(--danger)" :disabled="sessionsBusy" @click="revokeOthers">{{ t('Yes, sign out other devices') }}</button>
+              <button class="btn-ghost" @click="confirmRevoke = ''">{{ t('Cancel') }}</button>
             </div>
             <div v-if="confirmRevoke === 'all'" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
-              <span style="font-size:12.5px;color:var(--text-mute)">This signs out every device, including this one.</span>
-              <button class="btn-primary" style="background:var(--danger)" :disabled="sessionsBusy" @click="revokeAll">Yes, sign out everywhere</button>
-              <button class="btn-ghost" @click="confirmRevoke = ''">Cancel</button>
+              <span style="font-size:12.5px;color:var(--text-mute)">{{ t('This signs out every device, including this one.') }}</span>
+              <button class="btn-primary" style="background:var(--danger)" :disabled="sessionsBusy" @click="revokeAll">{{ t('Yes, sign out everywhere') }}</button>
+              <button class="btn-ghost" @click="confirmRevoke = ''">{{ t('Cancel') }}</button>
             </div>
 
             <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
-              <div style="font-weight:800;font-size:13px;margin-bottom:8px">Recent sign-ins</div>
-              <div v-if="!loginHistory.length" style="color:var(--text-mute);font-size:12.5px">No recent sign-ins recorded.</div>
+              <div style="font-weight:800;font-size:13px;margin-bottom:8px">{{ t('Recent sign-ins') }}</div>
+              <div v-if="!loginHistory.length" style="color:var(--text-mute);font-size:12.5px">{{ t('No recent sign-ins recorded.') }}</div>
               <div v-for="h in loginHistory" :key="h.ts + h.ip" style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--border)">
                 <span style="color:var(--text-mute)">{{ h.ip }}</span>
                 <span>{{ fmtAgo(h.ts) }}</span>
@@ -666,9 +666,9 @@ async function downloadExport() {
 
             <div v-if="isSuperAdmin" style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer">
-                <input type="checkbox" v-model="secAlerts" @change="saveSecAlerts"> Email me when someone signs in from a new device
+                <input type="checkbox" v-model="secAlerts" @change="saveSecAlerts"> {{ t('Email me when someone signs in from a new device') }}
               </label>
-              <span class="c-sub" style="font-size:11.5px">Applies to all accounts in this workspace.</span>
+              <span class="c-sub" style="font-size:11.5px">{{ t('Applies to all accounts in this workspace.') }}</span>
             </div>
           </template>
         </div>
@@ -676,7 +676,7 @@ async function downloadExport() {
 
       <!-- Notifications -->
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🔔</span>Push notifications <span v-if="pushState.enabled" class="badge b-green" style="margin-left:8px">On</span><span v-else class="badge b-gray" style="margin-left:8px">Off</span></div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🔔</span>{{ t('Push notifications') }} <span v-if="pushState.enabled" class="badge b-green" style="margin-left:8px">On</span><span v-else class="badge b-gray" style="margin-left:8px">{{ t('Off') }}</span></div></div>
         <div class="panel-b">
           <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">Get instant alerts on this device when a tenant raises maintenance, a payment is recorded, or a KYC application is submitted — even when the app is closed.</div>
           <div v-if="pushState.loading" style="color:var(--text-mute);font-size:13px">Loading…</div>
@@ -691,7 +691,7 @@ async function downloadExport() {
             <div style="font-size:12.5px;color:var(--text-mute)">
               <template v-if="pushState.enabled">✅ Active on <b>{{ pushState.devices }}</b> device{{ pushState.devices === 1 ? '' : 's' }}</template>
               <template v-else-if="pushState.notifPermission === 'denied'">⚠️ Notification permission is blocked in this browser — unblock it from the site settings (padlock icon) to enable.</template>
-              <template v-else>No devices registered on this browser yet.</template>
+              <template v-else>{{ t('No devices registered on this browser yet.') }}</template>
             </div>
           </template>
         </div>

@@ -106,7 +106,7 @@ function resendOtp() { twofa.value = ''; doLogin() }
         <div class="logo-mark" :style="loginLogo.grad ? { background: loginLogo.grad } : {}">{{ loginLogo.mark }}</div>
       </template>
       <div v-if="loginLogo.showTitle">
-        <div style="font-weight:800">{{ loginLogo.name }}<small style="display:block;font-size:10px;color:var(--text-mute)">Key Responsibility Taker</small></div>
+        <div style="font-weight:800">{{ loginLogo.name }}<small style="display:block;font-size:10px;color:var(--text-mute)">{{ t('Key Responsibility Taker') }}</small></div>
       </div>
     </div>
     <h1>{{ t('Welcome back') }}</h1>
@@ -135,8 +135,8 @@ function resendOtp() { twofa.value = ''; doLogin() }
       {{ lang === 'bn' ? 'নতুন?' : 'New here?' }} <a href="https://krtaker.com/register.html" style="color:var(--primary);font-weight:700">{{ lang === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন →' : 'Create an account →' }}</a>
     </div>
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:16px;font-size:11.5px">
-      <a href="https://krtaker.com/privacy.html" target="_blank" rel="noopener" style="color:var(--text-mute)">Privacy</a>
-      <a href="https://krtaker.com/terms.html" target="_blank" rel="noopener" style="color:var(--text-mute)">Terms</a>
+      <a href="https://krtaker.com/privacy.html" target="_blank" rel="noopener" style="color:var(--text-mute)">{{ t('Privacy') }}</a>
+      <a href="https://krtaker.com/terms.html" target="_blank" rel="noopener" style="color:var(--text-mute)">{{ t('Terms') }}</a>
       <a href="https://krtaker.com/" target="_blank" rel="noopener" style="color:var(--text-mute)">krtaker.com</a>
     </div>
   </div>

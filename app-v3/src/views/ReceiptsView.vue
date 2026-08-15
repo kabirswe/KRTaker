@@ -104,26 +104,26 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search receipt, invoice, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="methodFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All methods</option>
+          <option value="">{{ t('All methods') }}</option>
           <option v-for="m in methodOptions" :key="m" :value="m">{{ m }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All months</option>
+          <option value="">{{ t('All months') }}</option>
           <option v-for="m in monthOptions" :key="m" :value="m">{{ monthLabel(m) }}</option>
         </select>
         <select v-model="propFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All properties</option>
+          <option value="">{{ t('All properties') }}</option>
           <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="date">Sort: Date</option>
-          <option value="amount">Sort: Amount</option>
+          <option value="date">{{ t('Sort: Date') }}</option>
+          <option value="amount">{{ t('Sort: Amount') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -141,7 +141,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
         <div style="height:84px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">📎</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
-            <span class="badge" style="background:#ffffff">Issued</span>
+            <span class="badge" style="background:#ffffff">{{ t('Issued') }}</span>
           </div>
           <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ r.id }}</div>
         </div>
@@ -151,9 +151,9 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
             <div class="c-sub" style="margin-top:2px">👤 {{ tenantOf(invOf(r)) }} · 🚪 {{ unitOf(invOf(r)) }} · {{ propName(propOf(invOf(r))) }}</div>
           </div>
           <div style="display:flex;gap:13px;font-size:12px;flex-wrap:wrap">
-            <span class="c-sub" title="Invoice">🧾 <a @click.stop="go('/invoices', { open: r.inv })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ r.inv }}</a></span>
-            <span class="c-sub" title="Date">📅 {{ r.date || '—' }}</span>
-            <span class="c-sub" title="Signature">✍️ {{ r.sig || '—' }}</span>
+            <span class="c-sub" :title="t('Invoice')">🧾 <a @click.stop="go('/invoices', { open: r.inv })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ r.inv }}</a></span>
+            <span class="c-sub" :title="t('Date')">📅 {{ r.date || '—' }}</span>
+            <span class="c-sub" :title="t('Signature')">✍️ {{ r.sig || '—' }}</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
             <span class="badge" :style="{ background: methodColor(r.method) + '22', color: methodColor(r.method), border: '1px solid ' + methodColor(r.method) + '44' }">{{ r.method || 'Manual' }}</span>
@@ -192,7 +192,7 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:46px">📎</div>
           <button @click="closeDetail" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
           <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
-            <span class="badge" style="background:#ffffff">Issued</span>
+            <span class="badge" style="background:#ffffff">{{ t('Issued') }}</span>
             <span class="badge" style="background:#ffffff">{{ sel.inv }}</span>
           </div>
         </div>
@@ -202,25 +202,25 @@ const selTenantObj = computed(() => { const l = sel.value ? leaseOf(invOf(sel.va
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Amount</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Amount') }}</div>
               <div style="font-size:15px;font-weight:800;margin-top:2px">{{ money(sel.amount) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Method</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ sel.method || 'Manual' }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Date</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Date') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ sel.date || '—' }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Signature</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Signature') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px;overflow:hidden;text-overflow:ellipsis">{{ sel.sig || '—' }}</div>
             </div>
           </div>
 
           <div v-if="selInv" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧾 Invoice</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧾 {{ t('Invoice') }}</div>
             <div style="font-weight:800;font-size:14px;cursor:pointer" @click="go('/invoices', { open: selInv.id })">{{ selInv.id }} ↗</div>
             <div class="c-sub" style="font-size:11.5px;margin-top:3px">{{ selInv.m ? monthLabel(selInv.m) : '—' }} · {{ money(selInv.net) }} net · lease <a @click.stop="go('/leases', { open: selInv.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ selInv.l }}</a></div>
           </div>

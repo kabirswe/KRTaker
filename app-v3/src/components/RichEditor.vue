@@ -5,6 +5,7 @@
 // Modes: Write (contenteditable) · HTML (raw source) · Text (plain, strips tags).
 // Dependency-free (document.execCommand — same as v1; works in all browsers).
 import { ref, watch, onMounted } from 'vue'
+import { t } from '../lib/i18n'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -129,69 +130,69 @@ defineExpose({ insertAtCaret, focus: () => el.value && el.value.focus(), stripTa
   <div class="rich-wrap">
     <!-- Toolbar -->
     <div class="rich-tb" @mousedown.prevent>
-      <button type="button" title="Undo" @click="exec('undo')">↶</button>
-      <button type="button" title="Redo" @click="exec('redo')">↷</button>
+      <button type="button" :title="t('Undo')" @click="exec('undo')">↶</button>
+      <button type="button" :title="t('Redo')" @click="exec('redo')">↷</button>
       <span class="sep"></span>
-      <button type="button" title="Bold" @click="exec('bold')"><b>B</b></button>
-      <button type="button" title="Italic" @click="exec('italic')"><i>I</i></button>
-      <button type="button" title="Underline" @click="exec('underline')"><u>U</u></button>
-      <button type="button" title="Strikethrough" @click="exec('strikeThrough')"><s>S</s></button>
-      <button type="button" title="Subscript" @click="exec('subscript')">x₂</button>
-      <button type="button" title="Superscript" @click="exec('superscript')">x²</button>
+      <button type="button" :title="t('Bold')" @click="exec('bold')"><b>B</b></button>
+      <button type="button" :title="t('Italic')" @click="exec('italic')"><i>I</i></button>
+      <button type="button" :title="t('Underline')" @click="exec('underline')"><u>U</u></button>
+      <button type="button" :title="t('Strikethrough')" @click="exec('strikeThrough')"><s>S</s></button>
+      <button type="button" :title="t('Subscript')" @click="exec('subscript')">x₂</button>
+      <button type="button" :title="t('Superscript')" @click="exec('superscript')">x²</button>
       <span class="sep"></span>
-      <button type="button" title="Heading 1" @click="setBlock('h2')">H1</button>
-      <button type="button" title="Heading 2" @click="setBlock('h3')">H2</button>
-      <button type="button" title="Heading 3" @click="setBlock('h4')">H3</button>
-      <button type="button" title="Normal paragraph" @click="setBlock('p')">¶</button>
-      <button type="button" title="Blockquote" @click="setBlock('blockquote')">❝</button>
+      <button type="button" :title="t('Heading 1')" @click="setBlock('h2')">H1</button>
+      <button type="button" :title="t('Heading 2')" @click="setBlock('h3')">H2</button>
+      <button type="button" :title="t('Heading 3')" @click="setBlock('h4')">H3</button>
+      <button type="button" :title="t('Normal paragraph')" @click="setBlock('p')">¶</button>
+      <button type="button" :title="t('Blockquote')" @click="setBlock('blockquote')">❝</button>
       <span class="sep"></span>
-      <button type="button" title="Bullet list" @click="exec('insertUnorderedList')">•≡</button>
-      <button type="button" title="Numbered list" @click="exec('insertOrderedList')">1≡</button>
-      <button type="button" title="Indent" @click="exec('indent')">⤏</button>
-      <button type="button" title="Outdent" @click="exec('outdent')">⤎</button>
+      <button type="button" :title="t('Bullet list')" @click="exec('insertUnorderedList')">•≡</button>
+      <button type="button" :title="t('Numbered list')" @click="exec('insertOrderedList')">1≡</button>
+      <button type="button" :title="t('Indent')" @click="exec('indent')">⤏</button>
+      <button type="button" :title="t('Outdent')" @click="exec('outdent')">⤎</button>
       <span class="sep"></span>
-      <button type="button" title="Align left" @click="exec('justifyLeft')">⇤</button>
-      <button type="button" title="Align center" @click="exec('justifyCenter')">⇔</button>
-      <button type="button" title="Align right" @click="exec('justifyRight')">⇥</button>
-      <button type="button" title="Justify" @click="exec('justifyFull')">≣</button>
+      <button type="button" :title="t('Align left')" @click="exec('justifyLeft')">⇤</button>
+      <button type="button" :title="t('Align center')" @click="exec('justifyCenter')">⇔</button>
+      <button type="button" :title="t('Align right')" @click="exec('justifyRight')">⇥</button>
+      <button type="button" :title="t('Justify')" @click="exec('justifyFull')">≣</button>
       <span class="sep"></span>
-      <button type="button" title="Insert link" @click="openPop('link')">🔗</button>
-      <button type="button" title="Insert image (URL)" @click="openPop('image')">🖼</button>
-      <button type="button" title="Inline code" @click="inlineCode">⟨/⟩</button>
-      <button type="button" title="Code block" @click="setBlock('pre')">{ }</button>
+      <button type="button" :title="t('Insert link')" @click="openPop('link')">🔗</button>
+      <button type="button" :title="t('Insert image (URL)')" @click="openPop('image')">🖼</button>
+      <button type="button" :title="t('Inline code')" @click="inlineCode">⟨/⟩</button>
+      <button type="button" :title="t('Code block')" @click="setBlock('pre')">{ }</button>
       <span class="sep"></span>
       <div class="dd" style="position:relative">
-        <button type="button" title="Text color" @click="colorOpen = !colorOpen; hlOpen = false">🎨</button>
+        <button type="button" :title="t('Text color')" @click="colorOpen = !colorOpen; hlOpen = false">🎨</button>
         <div v-if="colorOpen" class="dd-pal">
           <button v-for="c in COLORS" :key="c" type="button" :style="{ background: c }" :title="c" @click="setColor(c)"></button>
         </div>
       </div>
       <div class="dd" style="position:relative">
-        <button type="button" title="Highlight" @click="hlOpen = !hlOpen; colorOpen = false">🖍</button>
+        <button type="button" :title="t('Highlight')" @click="hlOpen = !hlOpen; colorOpen = false">🖍</button>
         <div v-if="hlOpen" class="dd-pal">
           <button v-for="c in HLS" :key="c" type="button" :style="{ background: c }" :title="c" @click="setHl(c)"></button>
         </div>
       </div>
-      <button type="button" title="Small text" @click="setSize('S')">A⁻</button>
-      <button type="button" title="Medium text" @click="setSize('M')">A</button>
-      <button type="button" title="Large text" @click="setSize('L')">A⁺</button>
+      <button type="button" :title="t('Small text')" @click="setSize('S')">A⁻</button>
+      <button type="button" :title="t('Medium text')" @click="setSize('M')">A</button>
+      <button type="button" :title="t('Large text')" @click="setSize('L')">A⁺</button>
       <span class="sep"></span>
-      <button type="button" title="Insert table" @click="insertTable">⊞</button>
-      <button type="button" title="Horizontal rule" @click="insertHr">―</button>
-      <button type="button" title="Clear formatting" @click="clearFmt">⌫</button>
+      <button type="button" :title="t('Insert table')" @click="insertTable">⊞</button>
+      <button type="button" :title="t('Horizontal rule')" @click="insertHr">―</button>
+      <button type="button" :title="t('Clear formatting')" @click="clearFmt">⌫</button>
       <span class="tb-grow"></span>
       <!-- Mode toggle -->
       <div class="rich-mode" role="tablist">
         <button type="button" :class="{ on: mode === 'write' }" @click="switchMode('write')">✍ Write</button>
         <button type="button" :class="{ on: mode === 'html' }" @click="switchMode('html')">&lt;/&gt; HTML</button>
-        <button type="button" :class="{ on: mode === 'text' }" @click="switchMode('text')">T Text</button>
+        <button type="button" :class="{ on: mode === 'text' }" @click="switchMode('text')">{{ t('T Text') }}</button>
       </div>
     </div>
 
     <!-- Link/image popover -->
     <div v-if="pop" class="rich-pop" @mousedown.prevent>
       <input ref="popInp" v-model="popUrl" :placeholder="pop === 'link' ? 'https://…' : 'Image URL https://…'" @keyup.enter="applyPop" style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12.5px;background:var(--bg);color:var(--text)">
-      <button type="button" class="pop-ok" @click="applyPop">Insert</button>
+      <button type="button" class="pop-ok" @click="applyPop">{{ t('Insert') }}</button>
       <button type="button" class="pop-x" @click="pop = null">✕</button>
     </div>
 

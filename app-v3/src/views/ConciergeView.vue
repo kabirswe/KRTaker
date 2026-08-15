@@ -260,18 +260,18 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search parcel, property, ref…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="svcFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All services</option>
+          <option value="">{{ t('All services') }}</option>
           <option v-for="s in svcOptions" :key="s" :value="s">{{ svc(s).label }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ stLabel(s) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openForm" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ New request</button>
       </div>
@@ -309,7 +309,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
               <span v-if="r.prop" class="badge b-gray">{{ propName(r.prop) }}</span>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <span class="badge b-orange">Fee {{ money(r.fee) }}</span>
+              <span class="badge b-orange">{{ t('Fee') }} {{ money(r.fee) }}</span>
               <span class="badge" :class="r.fee_status === 'paid' ? 'b-green' : 'b-gray'">{{ (r.fee_status || '—').toUpperCase() }}</span>
               <span v-if="r.assigned_to" class="badge b-blue">👤 {{ r.assigned_to }}</span>
             </div>
@@ -324,7 +324,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
       <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden;margin-top:18px">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>Service</th><th>Location</th><th>Ref</th><th>Fee</th><th>Assigned</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Service') }}</th><th>{{ t('Location') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Fee') }}</th><th>{{ t('Assigned') }}</th><th>{{ t('Status') }}</th></tr></thead>
             <tbody>
               <tr v-for="r in paged" :key="r.id" style="cursor:pointer" @click="openDetail(r)">
                 <td style="font-weight:700;white-space:nowrap">{{ r.id }}</td>
@@ -354,7 +354,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
         </div>
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>City corp</th><th>Ward</th><th>Holding no</th><th>FY</th><th>Annual value</th><th>Tax</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('City corp') }}</th><th>{{ t('Ward') }}</th><th>{{ t('Holding no') }}</th><th>FY</th><th>{{ t('Annual value') }}</th><th>{{ t('Tax') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="h in holdings" :key="h.id">
                 <td style="white-space:nowrap;font-weight:700">{{ h.id }}</td>
@@ -369,7 +369,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
                   <button v-if="canManage && h.status !== 'Paid'" @click="openPayForm(h)" class="btn-ghost" style="padding:4px 9px;font-size:11.5px">💳 Pay</button>
                 </td>
               </tr>
-              <tr v-if="!holdings.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:20px">No holding tax records.</td></tr>
+              <tr v-if="!holdings.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:20px">{{ t('No holding tax records.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -396,40 +396,40 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">District</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('District') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.district || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Upazila</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Upazila') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.upazila || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Mouza</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Mouza') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.mouza || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Khatian / Dag</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Khatian / Dag') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.khatian || '—' }}<template v-if="sel.khatian && sel.dag"> · </template>{{ sel.dag || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Assigned to</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Assigned to') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.assigned_to || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Est. days</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Est. days') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.est_days ? sel.est_days + ' days' : '—' }}</div>
             </div>
           </div>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
               <div>
-                <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Service fee</div>
+                <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Service fee') }}</div>
                 <div style="font-weight:800;font-size:22px;margin-top:2px">{{ money(sel.fee) }}</div>
               </div>
               <span class="badge" :class="sel.fee_status === 'paid' ? 'b-green' : 'b-orange'">{{ (sel.fee_status || '—').toUpperCase() }}</span>
             </div>
             <div v-if="sel.fee_paid_at" class="c-sub" style="font-size:12px;margin-top:6px">Paid {{ fmtTs(sel.fee_paid_at) }}</div>
-            <div v-if="sel.service_ref" class="c-sub" style="font-size:12px;margin-top:4px">Ref: {{ sel.service_ref }}</div>
+            <div v-if="sel.service_ref" class="c-sub" style="font-size:12px;margin-top:4px">{{ t('Ref') }}: {{ sel.service_ref }}</div>
           </div>
           <div v-if="canManage" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">⚙️ Manage</div>
@@ -451,15 +451,15 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
               </span>
             </div>
             <div v-if="docsLoading" class="c-sub" style="font-size:12px;padding:6px 0">Loading…</div>
-            <div v-else-if="!docs.length" class="c-sub" style="font-size:12px;padding:6px 0">No documents attached.</div>
+            <div v-else-if="!docs.length" class="c-sub" style="font-size:12px;padding:6px 0">{{ t('No documents attached.') }}</div>
             <div v-else style="display:flex;flex-direction:column;gap:6px">
               <div v-for="d in docs" :key="d.id" style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--border)">
                 <span style="font-size:14px">{{ docKind(d.kind).ico }}</span>
                 <span style="font-weight:700;white-space:nowrap">{{ d.id }}</span>
                 <span class="c-sub" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</span>
                 <span class="c-sub" style="font-size:10.5px">{{ Math.max(1, Math.round((d.size || 0) / 1024)) }} KB</span>
-                <button @click="downloadDoc(d)" class="btn-ghost" style="padding:3px 8px;font-size:11px" title="Download">⬇</button>
-                <button v-if="canManage" @click="removeDoc(d)" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger,#e74c3c)" title="Remove">🗑</button>
+                <button @click="downloadDoc(d)" class="btn-ghost" style="padding:3px 8px;font-size:11px" :title="t('Download')">⬇</button>
+                <button v-if="canManage" @click="removeDoc(d)" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger,#e74c3c)" :title="t('Remove')">🗑</button>
               </div>
             </div>
           </div>
@@ -495,25 +495,25 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Service *</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Service') }} *</label>
             <select v-model="form.service" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option v-for="s in SERVICES" :key="s.v" :value="s.v">{{ s.l }}</option>
             </select>
             <div v-if="feePreview" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-              <span class="badge b-green" style="font-size:12px">💰 Fee {{ feePreview.fee }}</span>
+              <span class="badge b-green" style="font-size:12px">💰 {{ t('Fee') }} {{ feePreview.fee }}</span>
               <span class="badge b-blue" style="font-size:12px">⏱ Est. {{ feePreview.days }}</span>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Land parcel</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Land parcel') }}</label>
               <select v-model="form.parcel" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
                 <option value="">— none —</option>
                 <option v-for="p in parcelOptions" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
               </select>
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Property</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Property') }}</label>
               <select v-model="form.prop" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
                 <option value="">— none —</option>
                 <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
@@ -522,21 +522,21 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">District</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('District') }}</label>
               <input v-model="form.district" placeholder="e.g. Mymensingh" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Upazila</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Upazila') }}</label>
               <input v-model="form.upazila" placeholder="e.g. Trishal" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Mouza</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Mouza') }}</label>
               <input v-model="form.mouza" placeholder="e.g. Kanthal" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Khatian / Dag</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Khatian / Dag') }}</label>
               <div style="display:flex;gap:8px;margin-top:5px">
                 <input v-model="form.khatian" placeholder="KH-…" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
                 <input v-model="form.dag" placeholder="DAG-…" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
@@ -544,7 +544,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
             </div>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Notes</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Notes') }}</label>
             <RichEditor v-model="form.notes" placeholder="e.g. mutation after inheritance" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <button @click="createRequest" class="btn-primary" style="margin-top:4px">🛎️ Submit request</button>
@@ -580,7 +580,7 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Kind</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Kind') }}</label>
             <select v-model="docKindVal" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option v-for="k in DOC_KINDS" :key="k.v" :value="k.v">{{ k.ico }} {{ k.l }}</option>
             </select>
@@ -605,22 +605,22 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">City corp</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('City corp') }}</label>
               <select v-model="htForm.city_corp" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
-                <option value="DSCC">DSCC</option>
-                <option value="DNCC">DNCC</option>
-                <option value="CCC">CCC</option>
-                <option value="Other">Other</option>
+                <option value="DSCC">{{ t('DSCC') }}</option>
+                <option value="DNCC">{{ t('DNCC') }}</option>
+                <option value="CCC">{{ t('CCC') }}</option>
+                <option value="Other">{{ t('Other') }}</option>
               </select>
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Ward</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Ward') }}</label>
               <input v-model="htForm.ward" placeholder="e.g. 33" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Holding no *</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Holding no') }} *</label>
               <input v-model="htForm.holding_no" placeholder="e.g. 777" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
             <div>
@@ -630,15 +630,15 @@ const htStatusCls = (h) => h.status === 'Paid' ? 'b-green' : (h.status === 'Over
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Annual value</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Annual value') }}</label>
               <input v-model="htForm.annual_value" type="number" min="0" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rate %</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Rate %') }}</label>
               <input v-model="htForm.rate_pct" type="number" min="0" step="0.1" placeholder="7" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Due date</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Due date') }}</label>
               <input v-model="htForm.due_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
           </div>

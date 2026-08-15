@@ -125,22 +125,22 @@ const prevReading = computed(() => {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search reading, unit, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All types</option>
+          <option value="">{{ t('All types') }}</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ typeMeta(t).label }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All months</option>
+          <option value="">{{ t('All months') }}</option>
           <option v-for="m in monthOptions" :key="m" :value="m">{{ monthLabel(m) }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="month">Sort: Month</option>
-          <option value="reading">Sort: Reading</option>
+          <option value="month">{{ t('Sort: Month') }}</option>
+          <option value="reading">{{ t('Sort: Reading') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openRecord" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Record reading</button>
       </div>
@@ -216,7 +216,7 @@ const prevReading = computed(() => {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Type</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Type') }}</div>
               <select v-model="recForm.type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(m, k) in TYPE_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
               </select>
@@ -229,14 +229,14 @@ const prevReading = computed(() => {
           <div>
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Reading *</div>
             <input v-model="recForm.reading" type="number" min="0" :placeholder="t('e.g. 5120')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:14px;font-weight:700;outline:none">
-            <div class="c-sub" style="font-size:11px;margin-top:4px">Cannot be lower than the previous reading for this unit + type.</div>
+            <div class="c-sub" style="font-size:11px;margin-top:4px">{{ t('Cannot be lower than the previous reading for this unit + type.') }}</div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Note</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Note') }}</div>
             <input v-model="recForm.note" :placeholder="t('Optional — e.g. owner reading')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           </div>
           <button @click="submitReading" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">💾 Save reading</button>
-          <div class="c-sub" style="font-size:11px;text-align:center">Saving again for the same unit + type + month updates the value (UPSERT).</div>
+          <div class="c-sub" style="font-size:11px;text-align:center">{{ t('Saving again for the same unit + type + month updates the value (UPSERT).') }}</div>
         </div>
       </div>
     </template>
@@ -259,19 +259,19 @@ const prevReading = computed(() => {
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Reading</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Reading') }}</div>
               <div style="font-size:15px;font-weight:800;margin-top:2px">{{ (sel.reading ?? '—').toLocaleString('en-IN') }} {{ unitLabel(sel.type) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Month</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Month') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ monthLabel(sel.month) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Type</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Type') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ typeMeta(sel.type).label }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Logged</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Logged') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ (sel.ts || '').slice(0, 10) || '—' }}</div>
             </div>
           </div>
@@ -280,15 +280,15 @@ const prevReading = computed(() => {
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📈 Consumption vs {{ monthLabel(prevReading.month) }}</div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12.5px">
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Previous</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Previous') }}</div>
                 <b>{{ (prevReading.reading ?? '—').toLocaleString('en-IN') }}</b>
               </div>
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Current</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Current') }}</div>
                 <b>{{ (sel.reading ?? '—').toLocaleString('en-IN') }}</b>
               </div>
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Used</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Used') }}</div>
                 <b style="color:var(--primary)">{{ Math.max(0, (sel.reading || 0) - (prevReading.reading || 0)).toLocaleString('en-IN') }} {{ unitLabel(sel.type) }}</b>
               </div>
             </div>

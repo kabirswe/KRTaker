@@ -233,14 +233,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <div class="gs-box" @click="openSearch">
             <span class="gs-ic">🔍</span>
             <input v-model="searchQ" @input="runSearch" @focus="openSearch" @keydown="onSearchKey"
-                   :placeholder="SEARCH_HINT" class="gs-input" aria-label="Global search" />
+                   :placeholder="SEARCH_HINT" class="gs-input" :aria-label="t('Global search')" />
             <button v-if="searchQ" class="gs-clear" @click.stop="searchQ = ''; runSearch()">✕</button>
           </div>
           <!-- dropdown -->
           <div v-if="searchOpen" class="search-menu" style="position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16);z-index:95;overflow:hidden">
             <template v-if="searchQ.trim().length >= 2">
               <div v-if="searchBusy" style="padding:20px;text-align:center;color:var(--text-mute);font-size:13px">Searching…</div>
-              <div v-else-if="!results.length" style="padding:26px 16px;text-align:center;color:var(--text-mute);font-size:13px">No matches for <b>{{ searchQ }}</b></div>
+              <div v-else-if="!results.length" style="padding:26px 16px;text-align:center;color:var(--text-mute);font-size:13px">{{ t('No matches for') }} <b>{{ searchQ }}</b></div>
               <div v-else style="max-height:min(480px,62vh);overflow-y:auto;padding:6px 0">
                 <template v-for="(g, gi) in results" :key="g.group">
                   <div class="gs-group" style="padding:8px 14px 4px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ g.ic }} {{ g.group }} <span style="font-weight:600;opacity:.7">· {{ g.items.length }}</span></div>
@@ -259,21 +259,21 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
                 </template>
               </div>
             </template>
-            <div v-else style="padding:20px 16px;text-align:center;color:var(--text-mute);font-size:12.5px">Type at least 2 characters to search across tenants, units, invoices, maintenance, notices and more.</div>
+            <div v-else style="padding:20px 16px;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('Type at least 2 characters to search across tenants, units, invoices, maintenance, notices and more.') }}</div>
           </div>
         </div>
         <div class="tb-actions">
           <button class="icon-btn" @click="toggleLang()" title="Switch language: English / বাংলা">বাংলা</button>
-          <button class="icon-btn" @click="toggleTheme()" title="Toggle light / dark theme">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
+          <button class="icon-btn" @click="toggleTheme()" :title="t('Toggle light / dark theme')">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
           <div style="position:relative;display:inline-block" class="tb-bell">
-            <button class="icon-btn" @click.stop="toggleBell()" title="Notifications" style="position:relative">🔔<span v-if="unread" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ unread > 99 ? '99+' : unread }}</span></button>
+            <button class="icon-btn" @click.stop="toggleBell()" :title="t('Notifications')" style="position:relative">🔔<span v-if="unread" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ unread > 99 ? '99+' : unread }}</span></button>
             <!-- bell dropdown -->
             <div v-if="bellOpen" class="bell-menu" style="position:absolute;top:calc(100% + 10px);right:0;width:min(360px,86vw);background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16);z-index:90;overflow:hidden">
               <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border)">
-                <div style="font-weight:800;font-size:14px">🔔 Notifications <span v-if="unread" style="color:var(--danger);font-size:12px">· {{ unread }} new</span></div>
+                <div style="font-weight:800;font-size:14px">🔔 {{ t('Notifications') }} <span v-if="unread" style="color:var(--danger);font-size:12px">· {{ unread }} new</span></div>
                 <div style="display:flex;gap:8px;align-items:center">
                   <button v-if="unread" @click="readAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--primary);font-weight:800;font-size:11.5px;cursor:pointer">✓ Read all</button>
-                  <button v-if="alerts.length" @click="dismissAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--text-mute);font-weight:800;font-size:11.5px;cursor:pointer">Clear all</button>
+                  <button v-if="alerts.length" @click="dismissAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--text-mute);font-weight:800;font-size:11.5px;cursor:pointer">{{ t('Clear all') }}</button>
                 </div>
               </div>
               <div style="max-height:min(420px,60vh);overflow-y:auto">
@@ -288,7 +288,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
                       <span class="c-sub" style="font-size:11px">{{ timeAgoBell(a.ts) }}</span>
                     </div>
                   </div>
-                  <button @click.stop="dismissAlert(a.id)" :disabled="bellBusy" title="Dismiss" style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
+                  <button @click.stop="dismissAlert(a.id)" :disabled="bellBusy" :title="t('Dismiss')" style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
                 </div>
               </div>
               <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:center">
@@ -296,8 +296,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
               </div>
             </div>
           </div>
-          <button class="icon-btn" @click="goSettings()" title="Settings: profile, preferences, security, billing">⚙️</button>
-          <div class="tb-user" id="tbUserChip" @click.stop="toggleMenu()" title="Account menu: switch role, profile, log out">
+          <button class="icon-btn" @click="goSettings()" :title="t('Settings: profile, preferences, security, billing')">⚙️</button>
+          <div class="tb-user" id="tbUserChip" @click.stop="toggleMenu()" :title="t('Account menu: switch role, profile, log out')">
             <div class="role-ava" style="width:34px;height:34px;font-size:12px">{{ initials }}</div>
             <div>
               <div class="u-name">{{ (data.user || auth.user)?.name }}</div>
@@ -316,7 +316,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             <template v-if="auth.isImpersonating">
               <div class="um-item" style="font-weight:700;color:var(--primary)" @click="backToMe()">
                 <span class="um-ic">↩</span>
-                <span class="um-t">Back to my account</span>
+                <span class="um-t">{{ t('Back to my account') }}</span>
               </div>
               <div class="um-div"></div>
             </template>
@@ -334,19 +334,19 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
                 </div>
               </template>
             </template>
-            <div v-else class="um-label" style="color:var(--text-mute);text-transform:none;letter-spacing:0;font-weight:600">No subordinate users</div>
+            <div v-else class="um-label" style="color:var(--text-mute);text-transform:none;letter-spacing:0;font-weight:600">{{ t('No subordinate users') }}</div>
             <div class="um-div"></div>
             <div class="um-item" @click="goProfile()">
               <span class="um-ic">⚙️</span>
               <div>
-                <div class="um-t">Profile &amp; settings</div>
-                <div class="um-s">Profile, preferences, security, billing</div>
+                <div class="um-t">{{ t('Profile & settings') }}</div>
+                <div class="um-s">{{ t('Profile, preferences, security, billing') }}</div>
               </div>
             </div>
             <div class="um-item" @click="doLogout()">
               <span class="um-ic">⎋</span>
               <div>
-                <div class="um-t">Log out</div>
+                <div class="um-t">{{ t('Log out') }}</div>
               </div>
             </div>
           </div>

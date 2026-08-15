@@ -125,10 +125,10 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
     <div class="page-head">
       <div>
         <h1>{{ t('💎 Premium & Subscriptions') }}</h1>
-        <div class="sub">Remote caretaker plans — subscribe, manage, bill · live from API</div>
+        <div class="sub">{{ t('Remote caretaker plans — subscribe, manage, bill · live from API') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-ghost" @click="loadPlans(); loadSubs(); loadBilling()">🔄 Refresh</button>
+        <button class="btn-ghost" @click="loadPlans(); loadSubs(); loadBilling()">{{ t('Refresh') }}</button>
         <button v-if="isOwner" @click="openSubscribe" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer">＋ Subscribe</button>
       </div>
     </div>
@@ -173,7 +173,7 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
       <div v-else class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>ID</th><th>Owner</th><th>Plan</th><th>Property</th><th style="text-align:right">Price</th><th>Cycle</th><th>Next invoice</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Owner') }}</th><th>{{ t('Plan') }}</th><th>{{ t('Property') }}</th><th style="text-align:right">{{ t('Price') }}</th><th>{{ t('Cycle') }}</th><th>{{ t('Next invoice') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="s in subs" :key="s.id">
                 <td style="font-weight:700">{{ s.id }}</td>
@@ -200,11 +200,11 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
       <div style="display:flex;gap:8px;margin-bottom:16px">
         <button v-if="role === 'superadmin'" @click="runBilling" :disabled="billBusy" style="padding:10px 16px;border:none;border-radius:10px;background:var(--bg-alt);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">🔁 Run billing cycle {{ billBusy ? '…' : '' }}</button>
       </div>
-      <div v-if="!bills.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No caretaker invoices yet.</div>
+      <div v-if="!bills.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">{{ t('No caretaker invoices yet.') }}</div>
       <div v-else class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Invoice</th><th>Sub</th><th>Owner</th><th>Property</th><th>Month</th><th style="text-align:right">Amount</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Sub') }}</th><th>{{ t('Owner') }}</th><th>{{ t('Property') }}</th><th>{{ t('Month') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="b in bills" :key="b.id">
                 <td style="font-weight:700">{{ b.id }}</td>
@@ -229,17 +229,17 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
       <div class="modal">
         <div class="modal-h"><span class="t">💎 Subscribe to caretaker service</span><button class="close" @click="subOpen = false">✕</button></div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
-          <div class="form-field"><label>Plan</label>
+          <div class="form-field"><label>{{ t('Plan') }}</label>
             <select v-model="subForm.tier" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
               <option v-for="p in plans" :key="p.code" :value="p.code">{{ p.label }} — {{ money(p.price?.monthly) }}/mo</option>
             </select>
           </div>
-          <div class="form-field"><label>Billing cycle</label>
+          <div class="form-field"><label>{{ t('Billing cycle') }}</label>
             <div style="display:flex;gap:8px">
               <button v-for="[c, cl] in CYCLES" :key="c" @click="subForm.cycle = c" :style="subForm.cycle === c ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'" style="padding:9px 14px;border:none;border-radius:9px;font-weight:800;font-size:12.5px;cursor:pointer;flex:1">{{ cl }}<div style="font-size:11px;opacity:.85">{{ money(plans.find(p => p.code === subForm.tier)?.price?.[c]) }}</div></button>
             </div>
           </div>
-          <div class="form-field"><label>Property</label>
+          <div class="form-field"><label>{{ t('Property') }}</label>
             <select v-model="subForm.prop" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
               <option value="">— No property (workspace only) —</option>
               <option v-for="p in data.list('properties')" :key="p.id" :value="p.id">{{ p.name }}</option>
@@ -247,7 +247,7 @@ onMounted(() => { loadPlans(); loadSubs(); loadBilling() })
           </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="subOpen = false">Cancel</button>
+          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="subOpen = false">{{ t('Cancel') }}</button>
           <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="subBusy" @click="doSubscribe">Subscribe {{ subBusy ? '…' : '' }}</button>
         </div>
       </div>

@@ -182,10 +182,10 @@ async function createPlan() {
     <div class="page-head">
       <div>
         <h1>{{ t('🏠 Building Systems') }}</h1>
-        <div class="sub">Smart home · systems watch · health check — merged workspace, live from API</div>
+        <div class="sub">{{ t('Smart home · systems watch · health check — merged workspace, live from API') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="load">🔄 Refresh</button>
+        <button class="btn-ghost" @click="load">{{ t('Refresh') }}</button>
       </div>
     </div>
 
@@ -204,10 +204,10 @@ async function createPlan() {
     <!-- ══ SMART HOME ══ -->
     <template v-if="tab === 'smart' && !loading">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Locks</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ locks.length }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Active</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ locks.filter(l => l.status === 'active').length }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Cameras</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ cams.length }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Online</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ cams.filter(c => c.status === 'online').length }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Locks') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ locks.length }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Active') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ locks.filter(l => l.status === 'active').length }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Cameras') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ cams.length }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Online') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ cams.filter(c => c.status === 'online').length }}</div></div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -253,20 +253,20 @@ async function createPlan() {
           </div>
         </div>
       </div>
-      <div v-if="!locks.length && !cams.length" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">No smart home devices.</div>
+      <div v-if="!locks.length && !cams.length" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">{{ t('No smart home devices.') }}</div>
     </template>
 
     <!-- ══ SYSTEMS WATCH ══ -->
     <template v-if="tab === 'systems' && !loading">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Assets</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ sysStats.assets_total || 0 }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Operational</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ sysStats.operational || 0 }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Service due</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--danger,#e74c3c)">{{ (sysStats.service_overdue || 0) + (sysStats.service_due_soon || 0) }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Fuel 30d</div><div style="font-size:18px;font-weight:900;margin-top:6px">{{ money(sysStats.fuel_cost_30d || 0) }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Assets') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ sysStats.assets_total || 0 }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Operational') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ sysStats.operational || 0 }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Service due') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--danger,#e74c3c)">{{ (sysStats.service_overdue || 0) + (sysStats.service_due_soon || 0) }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Fuel 30d') }}</div><div style="font-size:18px;font-weight:900;margin-top:6px">{{ money(sysStats.fuel_cost_30d || 0) }}</div></div>
       </div>
 
       <div v-if="sysAssets.length" style="margin-bottom:18px">
-        <div style="font-weight:800;font-size:14px;margin-bottom:10px">⚙️ Assets</div>
+        <div style="font-weight:800;font-size:14px;margin-bottom:10px">⚙️ {{ t('Assets') }}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
           <div v-for="a in sysAssets" :key="a.id" class="panel chip" style="padding:14px 16px">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -281,8 +281,8 @@ async function createPlan() {
             </div>
             <div v-if="a.notes" class="c-sub" style="font-size:11.5px;margin-top:7px">{{ a.notes }}</div>
             <div v-if="canManage" style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-              <button @click="openAssetStatus(a)" class="btn-ghost" style="padding:5px 10px;font-size:11.5px">🔧 Status</button>
-              <button @click="openServiceForm(a)" class="btn-ghost" style="padding:5px 10px;font-size:11.5px">🛠️ Service</button>
+              <button @click="openAssetStatus(a)" class="btn-ghost" style="padding:5px 10px;font-size:11.5px">🔧 {{ t('Status') }}</button>
+              <button @click="openServiceForm(a)" class="btn-ghost" style="padding:5px 10px;font-size:11.5px">🛠️ {{ t('Service') }}</button>
               <button v-if="a.fuel_capacity" @click="openFuelForm(a)" class="btn-ghost" style="padding:5px 10px;font-size:11.5px">⛽ Refuel</button>
             </div>
           </div>
@@ -294,7 +294,7 @@ async function createPlan() {
         <div class="panel" style="overflow:hidden">
           <div class="tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>ID</th><th>Asset</th><th>Date</th><th>Type</th><th>Technician</th><th style="text-align:right">Cost</th></tr></thead>
+              <thead><tr><th>ID</th><th>{{ t('Asset') }}</th><th>{{ t('Date') }}</th><th>{{ t('Type') }}</th><th>{{ t('Technician') }}</th><th style="text-align:right">{{ t('Cost') }}</th></tr></thead>
               <tbody>
                 <tr v-for="s in sysServices.slice(0, 8)" :key="s.id">
                   <td style="font-weight:700;white-space:nowrap">{{ s.id }}</td>
@@ -315,7 +315,7 @@ async function createPlan() {
         <div class="panel" style="overflow:hidden">
           <div class="tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>ID</th><th>Asset</th><th>Date</th><th style="text-align:right">Liters</th><th style="text-align:right">Rate/L</th><th style="text-align:right">Amount</th></tr></thead>
+              <thead><tr><th>ID</th><th>{{ t('Asset') }}</th><th>{{ t('Date') }}</th><th style="text-align:right">{{ t('Liters') }}</th><th style="text-align:right">{{ t('Rate/L') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
               <tbody>
                 <tr v-for="f in sysFuel.slice(0, 8)" :key="f.id">
                   <td style="font-weight:700;white-space:nowrap">{{ f.id }}</td>
@@ -330,16 +330,16 @@ async function createPlan() {
           </div>
         </div>
       </div>
-      <div v-if="!sysAssets.length" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">No building assets.</div>
+      <div v-if="!sysAssets.length" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">{{ t('No building assets.') }}</div>
     </template>
 
     <!-- ══ HEALTH CHECK ══ -->
     <template v-if="tab === 'health' && !loading">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Plans</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ plans.length }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Overdue</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--danger,#e74c3c)">{{ planStats.overdue || 0 }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Upcoming</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ planStats.upcoming || 0 }}</div></div>
-        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Completed</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ planStats.by_status?.Completed || 0 }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Plans') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ plans.length }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Overdue') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--danger,#e74c3c)">{{ planStats.overdue || 0 }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Upcoming') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px;color:var(--ok,#2ecc71)">{{ planStats.upcoming || 0 }}</div></div>
+        <div class="panel chip" style="padding:15px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Completed') }}</div><div style="font-size:23px;font-weight:900;margin-top:4px">{{ planStats.by_status?.Completed || 0 }}</div></div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -365,7 +365,7 @@ async function createPlan() {
           </div>
         </div>
       </div>
-      <div v-else class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">No health plans.</div>
+      <div v-else class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">{{ t('No health plans.') }}</div>
     </template>
 
     <!-- ══ MODALS ══ -->
@@ -378,17 +378,17 @@ async function createPlan() {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px">
           <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Lock name *</label><input v-model="lockForm.lock_name" placeholder="e.g. Showing code — U-006" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Purpose</label>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Purpose') }}</label>
             <select v-model="lockForm.purpose" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option v-for="(v, k) in LOCK_PURPOSE" :key="k" :value="k">{{ v }}</option>
             </select>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Property</label><input v-model="lockForm.prop" placeholder="P-001" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Unit</label><input v-model="lockForm.unit" placeholder="U-006" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Property') }}</label><input v-model="lockForm.prop" :placeholder="t('P-001')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Unit') }}</label><input v-model="lockForm.unit" :placeholder="t('U-006')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
           </div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Granted to</label><input v-model="lockForm.grant_for" placeholder="e.g. Tanvir Ahmed" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Notes</label><textarea v-model="lockForm.notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea></div>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Granted to') }}</label><input v-model="lockForm.grant_for" placeholder="e.g. Tanvir Ahmed" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Notes') }}</label><textarea v-model="lockForm.notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea></div>
           <button @click="createLock" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer">🔑 Create lock</button>
         </div>
       </div>
@@ -402,7 +402,7 @@ async function createPlan() {
           <button @click="showAssetStatus = false" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
         </div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Status</label>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Status') }}</label>
             <select v-model="assetStatusVal" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option value="operational">operational</option><option value="service_due">service_due</option><option value="faulty">faulty</option><option value="decommissioned">decommissioned</option>
             </select>
@@ -421,16 +421,16 @@ async function createPlan() {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Type</label>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Type') }}</label>
               <select v-model="svcForm.service_type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
                 <option value="routine">routine</option><option value="repair">repair</option><option value="major">major</option><option value="amc">amc</option>
               </select>
             </div>
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Cost ৳</label><input v-model="svcForm.cost" type="number" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Cost') }} ৳</label><input v-model="svcForm.cost" type="number" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
           </div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Technician *</label><input v-model="svcForm.technician" placeholder="e.g. Jahidul Islam" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Vendor</label><input v-model="svcForm.vendor" placeholder="e.g. DESCO Sub" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Notes</label><textarea v-model="svcForm.notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea></div>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Technician') }} *</label><input v-model="svcForm.technician" placeholder="e.g. Jahidul Islam" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Vendor') }}</label><input v-model="svcForm.vendor" placeholder="e.g. DESCO Sub" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Notes') }}</label><textarea v-model="svcForm.notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea></div>
           <button @click="recordService" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer">🛠️ Record service</button>
         </div>
       </div>
@@ -445,11 +445,11 @@ async function createPlan() {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Liters *</label><input v-model="fuelForm.liters" type="number" placeholder="100" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Rate/L ৳</label><input v-model="fuelForm.rate_per_litre" type="number" placeholder="114" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Liters') }} *</label><input v-model="fuelForm.liters" type="number" placeholder="100" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Rate/L') }} ৳</label><input v-model="fuelForm.rate_per_litre" type="number" placeholder="114" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
           </div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Vendor</label><input v-model="fuelForm.vendor" placeholder="e.g. Padma Oil" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Notes</label><textarea v-model="fuelForm.notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea></div>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Vendor') }}</label><input v-model="fuelForm.vendor" placeholder="e.g. Padma Oil" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+          <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Notes') }}</label><textarea v-model="fuelForm.notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea></div>
           <button @click="recordFuel" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer">⛽ Record refill</button>
         </div>
       </div>
@@ -464,24 +464,24 @@ async function createPlan() {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Season</label>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Season') }}</label>
               <select v-model="planForm.season" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
-                <option value="pre_monsoon">Pre-monsoon</option><option value="pre_summer">Pre-summer</option><option value="quarterly">Quarterly</option>
+                <option value="pre_monsoon">{{ t('Pre-monsoon') }}</option><option value="pre_summer">{{ t('Pre-summer') }}</option><option value="quarterly">{{ t('Quarterly') }}</option>
               </select>
             </div>
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Service</label>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Service') }}</label>
               <select v-model="planForm.service" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
-                <option value="ac_service">AC service</option><option value="roof_waterproof">Roof waterproof</option><option value="drainage_clear">Drainage clear</option><option value="deep_clean">Deep clean</option><option value="pest_control">Pest control</option>
+                <option value="ac_service">{{ t('AC service') }}</option><option value="roof_waterproof">{{ t('Roof waterproof') }}</option><option value="drainage_clear">{{ t('Drainage clear') }}</option><option value="deep_clean">{{ t('Deep clean') }}</option><option value="pest_control">{{ t('Pest control') }}</option>
               </select>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Scheduled (YYYY-MM)</label><input v-model="planForm.scheduled_for" type="month" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Property</label><input v-model="planForm.prop" placeholder="P-001" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Scheduled (YYYY-MM)') }}</label><input v-model="planForm.scheduled_for" type="month" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Property') }}</label><input v-model="planForm.prop" :placeholder="t('P-001')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Assigned to</label><input v-model="planForm.assigned_to" placeholder="Vendor" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
-            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Cost ৳</label><input v-model="planForm.cost" type="number" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Assigned to') }}</label><input v-model="planForm.assigned_to" :placeholder="t('Vendor')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
+            <div><label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Cost') }} ৳</label><input v-model="planForm.cost" type="number" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px"></div>
           </div>
           <button @click="createPlan" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer">🌦️ Create plan</button>
         </div>

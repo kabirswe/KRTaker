@@ -4,6 +4,7 @@
 // when the strip actually overflows (mobile) and auto-disable at the ends.
 // Desktop: strip never overflows → arrows never render → zero change.
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { t } from '../lib/i18n'
 
 defineOptions({ inheritAttrs: false })
 
@@ -46,8 +47,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="kr-tabs-scroll">
-    <button v-if="showPrev" class="kr-scroll-btn kr-scroll-prev" type="button" aria-label="Scroll tabs left" @click="scroll(-1)">◀</button>
+    <button v-if="showPrev" class="kr-scroll-btn kr-scroll-prev" type="button" :aria-label="t('Scroll tabs left')" @click="scroll(-1)">◀</button>
     <div ref="strip" class="kr-tabs" v-bind="$attrs"><slot /></div>
-    <button v-if="showNext" class="kr-scroll-btn kr-scroll-next" type="button" aria-label="Scroll tabs right" @click="scroll(1)">▶</button>
+    <button v-if="showNext" class="kr-scroll-btn kr-scroll-next" type="button" :aria-label="t('Scroll tabs right')" @click="scroll(1)">▶</button>
   </div>
 </template>

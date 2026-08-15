@@ -236,10 +236,10 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
     <div class="page-head">
       <div>
         <h1>{{ t('📮 Collections & Recon') }}</h1>
-        <div class="sub">Unpaid-rent campaign + payment reconciliation · live from API</div>
+        <div class="sub">{{ t('Unpaid-rent campaign + payment reconciliation · live from API') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-ghost" @click="tab === 'collections' ? loadCollections() : loadRecon()">🔄 Refresh</button>
+        <button class="btn-ghost" @click="tab === 'collections' ? loadCollections() : loadRecon()">{{ t('Refresh') }}</button>
       </div>
     </div>
 
@@ -260,19 +260,19 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
         <!-- KPIs -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Unpaid invoices</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Unpaid invoices') }}</div>
             <div style="font-size:24px;font-weight:900;margin-top:4px">{{ unpaid.length }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Total due</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Total due') }}</div>
             <div style="font-size:24px;font-weight:900;margin-top:4px;color:var(--danger,#e74c3c)">{{ money(totalDue) }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Last run</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Last run') }}</div>
             <div style="font-size:13px;font-weight:700;margin-top:6px;word-break:break-word">{{ col?.last_run || '—' }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Last push</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Last push') }}</div>
             <div style="font-size:13px;font-weight:700;margin-top:6px;word-break:break-word">{{ col?.last_push || '—' }}</div>
           </div>
         </div>
@@ -285,7 +285,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
         <!-- Dry-run result -->
         <div v-if="dry" class="panel" style="padding:14px 18px;margin-bottom:16px;font-size:13px;border-left:3px solid var(--primary)">
-          <b>Run result:</b> {{ dry.unpaid }} unpaid · {{ money(dry.total_due) }} due · sent <b>{{ dry.sent }}</b> · failed {{ dry.failed }} · suppressed {{ dry.suppressed }} · {{ dry.dry_run ? 'DRY RUN — no emails sent' : 'emails sent' }}
+          <b>{{ t('Run result:') }}</b> {{ dry.unpaid }} unpaid · {{ money(dry.total_due) }} due · sent <b>{{ dry.sent }}</b> · failed {{ dry.failed }} · suppressed {{ dry.suppressed }} · {{ dry.dry_run ? 'DRY RUN — no emails sent' : 'emails sent' }}
         </div>
 
         <!-- Unpaid invoice table -->
@@ -316,7 +316,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
         <!-- By tenant -->
         <div class="panel" style="padding:18px;margin-top:16px">
-          <div style="font-weight:800;font-size:14px;margin-bottom:12px">By tenant</div>
+          <div style="font-weight:800;font-size:14px;margin-bottom:12px">{{ t('By tenant') }}</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <div v-for="[t, due] in byTenant" :key="t" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
               <span style="font-weight:600;font-size:13px">{{ t }}</span>
@@ -337,30 +337,30 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
         <!-- KPIs -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Payments</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Payments') }}</div>
             <div style="font-size:24px;font-weight:900;margin-top:4px">{{ rec?.payments?.count || 0 }}</div>
             <div style="font-size:12px;color:var(--text-mute)">{{ money(rec?.payments?.total) }} collected</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Receipts</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Receipts') }}</div>
             <div style="font-size:24px;font-weight:900;margin-top:4px">{{ rec?.receipts || 0 }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Refunds</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Refunds') }}</div>
             <div style="font-size:24px;font-weight:900;margin-top:4px">{{ rec?.payments?.refunds || 0 }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Orphan / Overpaid</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Orphan / Overpaid') }}</div>
             <div style="font-size:24px;font-weight:900;margin-top:4px">{{ (rec?.orphan_payments || []).length }} / {{ (rec?.overpaid || []).length }}</div>
           </div>
         </div>
 
         <!-- Gateway breakdown -->
         <div class="panel" style="padding:18px;margin-bottom:16px">
-          <div style="font-weight:800;font-size:14px;margin-bottom:12px">Gateway transactions by status</div>
+          <div style="font-weight:800;font-size:14px;margin-bottom:12px">{{ t('Gateway transactions by status') }}</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <span v-for="[s, n] in gtxEntries" :key="s" class="badge" :class="badge(s)" style="font-size:12.5px;padding:6px 12px">{{ s }}: {{ n }}</span>
-            <span v-if="!gtxEntries.length" class="c-sub">No gateway transactions</span>
+            <span v-if="!gtxEntries.length" class="c-sub">{{ t('No gateway transactions') }}</span>
           </div>
         </div>
 
@@ -369,7 +369,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
             <div>
               <div style="font-weight:800;font-size:14px">⚠️ {{ rec.stale_sessions.length }} stale pending session(s)</div>
-              <div class="c-sub" style="font-size:12px;margin-top:3px">Pending &gt;24h — will never complete; safe to expire.</div>
+              <div class="c-sub" style="font-size:12px;margin-top:3px">{{ t('Pending >24h — will never complete; safe to expire.') }}</div>
             </div>
             <button v-if="canManage" @click="cleanupStale" style="padding:9px 14px;border:none;border-radius:9px;background:var(--danger,#e74c3c);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">🧹 Expire all</button>
           </div>
@@ -377,7 +377,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
         <!-- Overpaid flags -->
         <div v-if="rec?.overpaid?.length" class="panel" style="padding:16px 18px;margin-bottom:16px;border-left:3px solid #f39c12">
-          <div style="font-weight:800;font-size:14px;margin-bottom:8px">Overpaid invoices</div>
+          <div style="font-weight:800;font-size:14px;margin-bottom:8px">{{ t('Overpaid invoices') }}</div>
           <div v-for="o in rec.overpaid" :key="o.inv" style="font-size:13px;display:flex;justify-content:space-between;gap:10px;padding:4px 0">
             <span style="font-weight:700">{{ o.inv }}</span>
             <span class="c-sub">paid {{ money(o.paid) }} · net {{ money(o.net) }} · <b style="color:#f39c12">excess {{ money(o.excess) }}</b></span>
@@ -386,16 +386,16 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
         <!-- Refund tool -->
         <div class="panel" style="padding:18px">
-          <div style="font-weight:800;font-size:14px;margin-bottom:4px">Refund a payment</div>
-          <div class="c-sub" style="font-size:12px;margin-bottom:12px">Marks a payment as Refunded (reconciliation flag — money movement is manual).</div>
+          <div style="font-weight:800;font-size:14px;margin-bottom:4px">{{ t('Refund a payment') }}</div>
+          <div class="c-sub" style="font-size:12px;margin-bottom:12px">{{ t('Marks a payment as Refunded (reconciliation flag — money movement is manual).') }}</div>
           <div v-if="!refundFor" style="display:flex;gap:8px;flex-wrap:wrap">
             <button @click="refundFor = 'P-' + Math.random().toString(36).slice(2, 7).toUpperCase()" style="padding:9px 14px;border:none;border-radius:9px;background:var(--bg-alt);color:var(--text);font-weight:800;font-size:12.5px;cursor:pointer">＋ New refund</button>
           </div>
           <div v-else style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <CompactFilters>
-            <input v-model="refundFor" placeholder="Payment ID (e.g. P-XXXXX)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:150px">
-            <input v-model="refundReason" placeholder="Reason (optional)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:180px">
-            <button @click="refundFor = null" style="padding:9px 12px;border:none;border-radius:9px;background:transparent;color:var(--text-mute);font-weight:700;font-size:12.5px;cursor:pointer">Cancel</button>
+            <input v-model="refundFor" :placeholder="t('Payment ID (e.g. P-XXXXX)')" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:150px">
+            <input v-model="refundReason" :placeholder="t('Reason (optional)')" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:180px">
+            <button @click="refundFor = null" style="padding:9px 12px;border:none;border-radius:9px;background:transparent;color:var(--text-mute);font-weight:700;font-size:12.5px;cursor:pointer">{{ t('Cancel') }}</button>
             </CompactFilters>
             <button @click="doRefund" style="padding:9px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">💸 Refund</button>
           </div>
@@ -410,7 +410,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
         <!-- Escalation plan KPIs -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Engine</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Engine') }}</div>
             <div style="font-size:20px;font-weight:900;margin-top:4px">{{ remCfg.enabled ? '🟢 On' : '⚪ Off' }}</div>
           </div>
           <div v-for="[t, n] in byTierEntries" :key="t" class="panel chip" style="padding:16px">
@@ -418,11 +418,11 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
             <div style="font-size:20px;font-weight:900;margin-top:4px">{{ n }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Total due</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Total due') }}</div>
             <div style="font-size:20px;font-weight:900;margin-top:4px;color:var(--danger,#e74c3c)">{{ money(remPlan?.total_due) }}</div>
           </div>
           <div class="panel chip" style="padding:16px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">Last run</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mute)">{{ t('Last run') }}</div>
             <div style="font-size:12.5px;font-weight:700;margin-top:6px;word-break:break-word">{{ rem?.last_run || '—' }}</div>
           </div>
         </div>
@@ -430,13 +430,13 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
         <!-- Run controls -->
         <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
           <button @click="runReminders(false)" :disabled="remRunning" style="padding:10px 16px;border:none;border-radius:10px;background:var(--bg-alt);color:var(--text);font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center">👁️ Dry run {{ remRunning ? '…' : '' }}</button>
-          <button v-if="canManage" @click="runReminders(true)" :disabled="remRunning || !remCfg.enabled" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center" title="Sends emails only to invoices whose tier escalated">📨 Send reminders {{ remRunning ? '…' : '' }}</button>
+          <button v-if="canManage" @click="runReminders(true)" :disabled="remRunning || !remCfg.enabled" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center" :title="t('Sends emails only to invoices whose tier escalated')">📨 Send reminders {{ remRunning ? '…' : '' }}</button>
           <span v-if="!remCfg.enabled" class="badge b-gray" style="align-self:center">engine disabled — enable below to send</span>
         </div>
 
         <!-- Run result -->
         <div v-if="remRun" class="panel" style="padding:14px 18px;margin-bottom:16px;font-size:13px;border-left:3px solid var(--primary)">
-          <b>Run result:</b> plan {{ remRun.plan?.length || 0 }} invoices · by tier T1:{{ remRun.by_tier?.['1'] || 0 }} T2:{{ remRun.by_tier?.['2'] || 0 }} T3:{{ remRun.by_tier?.['3'] || 0 }} · due {{ money(remRun.total_due) }} · sent <b>{{ remRun.sent }}</b> · stamped {{ remRun.stamped }} · suppressed {{ remRun.suppressed }} · errors {{ remRun.errors?.length || 0 }} · {{ remRun.send ? 'EMAILS SENT' : 'DRY RUN — nothing sent' }}
+          <b>{{ t('Run result:') }}</b> plan {{ remRun.plan?.length || 0 }} invoices · by tier T1:{{ remRun.by_tier?.['1'] || 0 }} T2:{{ remRun.by_tier?.['2'] || 0 }} T3:{{ remRun.by_tier?.['3'] || 0 }} · due {{ money(remRun.total_due) }} · sent <b>{{ remRun.sent }}</b> · stamped {{ remRun.stamped }} · suppressed {{ remRun.suppressed }} · errors {{ remRun.errors?.length || 0 }} · {{ remRun.send ? 'EMAILS SENT' : 'DRY RUN — nothing sent' }}
         </div>
 
         <!-- Escalation plan table -->
@@ -444,7 +444,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
           <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">📅</span>Escalation plan · {{ (remPlan?.plan || []).length }} unpaid</div></div>
           <div class="tbl-wrap">
             <table class="kr">
-              <thead><tr><th>Invoice</th><th>Month</th><th>Tenant</th><th>Unit</th><th>Property</th><th style="text-align:right">Due</th><th style="text-align:right">Days late</th><th>Tier</th><th>Last</th></tr></thead>
+              <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Month') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th style="text-align:right">{{ t('Due') }}</th><th style="text-align:right">{{ t('Days late') }}</th><th>{{ t('Tier') }}</th><th>{{ t('Last') }}</th></tr></thead>
               <tbody>
                 <tr v-for="r in remPlan?.plan || []" :key="r.inv">
                   <td style="font-weight:700">{{ r.inv }}</td>
@@ -468,7 +468,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
           <div style="font-weight:800;font-size:14px;margin-bottom:12px">⚙️ Reminder config</div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
             <input v-model="remCfg.enabled" type="checkbox" id="remEnabled" style="width:17px;height:17px;accent-color:var(--primary)">
-            <label for="remEnabled" style="font-weight:700;font-size:13.5px;cursor:pointer">Enable rent-reminder engine (escalation emails to tenants)</label>
+            <label for="remEnabled" style="font-weight:700;font-size:13.5px;cursor:pointer">{{ t('Enable rent-reminder engine (escalation emails to tenants)') }}</label>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
             <div v-for="t in ['1', '2', '3']" :key="t" class="form-field">
@@ -478,7 +478,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
             </div>
           </div>
           <div class="form-field" style="margin-top:12px">
-            <label>Late-fee line (appended to tier 3)</label>
+            <label>{{ t('Late-fee line (appended to tier 3)') }}</label>
             <input v-model="remCfg.late_fee" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div style="display:flex;gap:8px;margin-top:14px">
@@ -490,30 +490,30 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
         <div class="panel" style="padding:18px;margin-bottom:16px">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
             <div style="font-weight:800;font-size:14px">📱 SMS gateway <span v-if="sms" class="badge" :class="smsForm.enabled ? 'b-green' : 'b-gray'" style="margin-left:6px">{{ smsForm.enabled ? 'Enabled' : 'Disabled' }}</span></div>
-            <span class="c-sub" style="font-size:11.5px">Rent reminders get an SMS leg when a tenant has a phone · provider: <b>{{ smsForm.provider }}</b></span>
+            <span class="c-sub" style="font-size:11.5px">{{ t('Rent reminders get an SMS leg when a tenant has a phone · provider:') }} <b>{{ smsForm.provider }}</b></span>
           </div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
             <input v-model="smsForm.enabled" type="checkbox" id="smsEnabled" style="width:17px;height:17px;accent-color:var(--primary)">
-            <label for="smsEnabled" style="font-weight:700;font-size:13.5px;cursor:pointer">Enable SMS sending</label>
+            <label for="smsEnabled" style="font-weight:700;font-size:13.5px;cursor:pointer">{{ t('Enable SMS sending') }}</label>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
             <div class="form-field">
-              <label>Provider</label>
+              <label>{{ t('Provider') }}</label>
               <select v-model="smsForm.provider" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-                <option value="log">Log only (no real send — safe)</option>
-                <option value="bulksmsbd">BulkSMSBD (live)</option>
+                <option value="log">{{ t('Log only (no real send — safe)') }}</option>
+                <option value="bulksmsbd">{{ t('BulkSMSBD (live)') }}</option>
               </select>
             </div>
             <div class="form-field">
-              <label>API key</label>
+              <label>{{ t('API key') }}</label>
               <input v-model="smsForm.api_key" type="password" placeholder="••••••" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
             <div class="form-field">
-              <label>Sender ID</label>
+              <label>{{ t('Sender ID') }}</label>
               <input v-model="smsForm.sender_id" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
             <div class="form-field">
-              <label>API URL</label>
+              <label>{{ t('API URL') }}</label>
               <input v-model="smsForm.api_url" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
           </div>
@@ -529,7 +529,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
           </div>
           <div class="tbl-wrap" style="margin-top:14px;max-height:220px;overflow:auto">
             <table class="kr" style="width:100%">
-              <thead><tr><th>#</th><th>To</th><th>Message</th><th>Provider</th><th>Ref</th><th>Status</th><th>When</th></tr></thead>
+              <thead><tr><th>#</th><th>To</th><th>{{ t('Message') }}</th><th>{{ t('Provider') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Status') }}</th><th>{{ t('When') }}</th></tr></thead>
               <tbody>
                 <tr v-for="m in smsLog" :key="m.id">
                   <td class="c-sub">{{ m.id }}</td>
@@ -540,7 +540,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
                   <td><span class="badge" :class="m.status === 'sent' ? 'b-green' : 'b-red'">{{ m.status }}</span></td>
                   <td class="c-sub" style="white-space:nowrap">{{ m.ts }}</td>
                 </tr>
-                <tr v-if="!smsLog.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No SMS sent yet.</td></tr>
+                <tr v-if="!smsLog.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No SMS sent yet.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -548,10 +548,10 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
 
         <!-- History -->
         <div class="panel" style="overflow:hidden">
-          <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">🕓</span>Send history (last 20)</div></div>
+          <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">🕓</span>{{ t('Send history (last 20)') }}</div></div>
           <div class="tbl-wrap">
             <table class="kr">
-              <thead><tr><th>Invoice</th><th>Tier</th><th>Sent at</th><th>Via</th></tr></thead>
+              <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Tier') }}</th><th>{{ t('Sent at') }}</th><th>{{ t('Via') }}</th></tr></thead>
               <tbody>
                 <tr v-for="(h, i) in rem?.history || []" :key="i">
                   <td style="font-weight:700">{{ h.invoice_id }}</td>
@@ -559,7 +559,7 @@ onMounted(() => { loadCollections(); loadRecon(); loadReminders(); loadSms() })
                   <td>{{ h.sent_at }}</td>
                   <td class="c-sub">{{ h.via || '—' }}</td>
                 </tr>
-                <tr v-if="!(rem?.history || []).length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:26px">No reminders sent yet.</td></tr>
+                <tr v-if="!(rem?.history || []).length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:26px">{{ t('No reminders sent yet.') }}</td></tr>
               </tbody>
             </table>
           </div>

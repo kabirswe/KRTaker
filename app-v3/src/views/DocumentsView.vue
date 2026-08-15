@@ -159,18 +159,18 @@ async function submitUpload() {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search name, ref, uploader…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="kindFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All kinds</option>
+          <option value="">{{ t('All kinds') }}</option>
           <option v-for="k in KINDS" :key="k" :value="k">{{ kindLabel(k) }}</option>
         </select>
         <select v-model="catFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All categories</option>
+          <option value="">{{ t('All categories') }}</option>
           <option v-for="c in CATS" :key="c.v" :value="c.v">{{ c.l }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canUpload" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="upModal = true">＋ Upload</button>
       </div>
@@ -256,23 +256,23 @@ async function submitUpload() {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 18px;border-top:1px solid var(--border);padding-top:14px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Size</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Size') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtSize(sel.size) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Type</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Type') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.mime || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Reference</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Reference') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.ref || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Category</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Category') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.cat || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Property</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Property') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.p || '—' }}</div>
             </div>
           </div>
@@ -297,13 +297,13 @@ async function submitUpload() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Kind</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Kind') }}</label>
               <select v-model="upKind" style="width:100%;margin-top:5px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
                 <option v-for="k in KINDS" :key="k" :value="k">{{ kindLabel(k) }}</option>
               </select>
             </div>
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Category</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Category') }}</label>
               <select v-model="upCat" style="width:100%;margin-top:5px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
                 <option v-for="c in CATS" :key="c.v" :value="c.v">{{ c.l }}</option>
               </select>
@@ -312,11 +312,11 @@ async function submitUpload() {
           <div>
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Reference *</label>
             <input v-model="upRef" placeholder="e.g. L-007 · T-105 · MT-001 · P-002" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <div class="c-sub" style="font-size:11.5px;margin-top:5px">Lease (L-), tenant (T-), maintenance job (MT-), or property (P-) id.</div>
+            <div class="c-sub" style="font-size:11.5px;margin-top:5px">{{ t('Lease (L-), tenant (T-), maintenance job (MT-), or property (P-) id.') }}</div>
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="upModal = false">Cancel</button>
+          <button class="btn-ghost" @click="upModal = false">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="uploading" @click="submitUpload" style="padding:9px 18px">{{ uploading ? 'Uploading…' : '📁 Upload' }}</button>
         </div>
       </div>

@@ -152,30 +152,30 @@ async function removeProof(p) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search payment, invoice, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="methodFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All methods</option>
+          <option value="">{{ t('All methods') }}</option>
           <option v-for="m in methodOptions" :key="m" :value="m">{{ m }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All months</option>
+          <option value="">{{ t('All months') }}</option>
           <option v-for="m in monthOptions" :key="m" :value="m">{{ monthLabel(m) }}</option>
         </select>
         <select v-model="propFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All properties</option>
+          <option value="">{{ t('All properties') }}</option>
           <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="date">Sort: Date</option>
-          <option value="amount">Sort: Amount</option>
+          <option value="date">{{ t('Sort: Date') }}</option>
+          <option value="amount">{{ t('Sort: Amount') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -194,7 +194,7 @@ async function removeProof(p) {
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">💳</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
             <span class="badge" :class="badge(p.status)">{{ p.status }}</span>
-            <span v-if="p.proof" class="badge" style="background:rgba(255,255,255,.92);color:#1f6feb" title="Proof attached">🖼</span>
+            <span v-if="p.proof" class="badge" style="background:rgba(255,255,255,.92);color:#1f6feb" :title="t('Proof attached')">🖼</span>
           </div>
           <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ p.id }}</div>
         </div>
@@ -204,9 +204,9 @@ async function removeProof(p) {
             <div class="c-sub" style="margin-top:2px">👤 {{ tenantOf(invOf(p)) }} · 🚪 {{ unitOf(invOf(p)) }} · {{ propName(propOf(invOf(p))) }}</div>
           </div>
           <div style="display:flex;gap:13px;font-size:12px;flex-wrap:wrap">
-            <span class="c-sub" title="Invoice">🧾 <a @click.stop="go('/invoices', { open: p.inv })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ p.inv }}</a></span>
-            <span class="c-sub" title="Ref">🔖 {{ p.ref || '—' }}</span>
-            <span class="c-sub" title="Date">📅 {{ p.date || '—' }}</span>
+            <span class="c-sub" :title="t('Invoice')">🧾 <a @click.stop="go('/invoices', { open: p.inv })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ p.inv }}</a></span>
+            <span class="c-sub" :title="t('Ref')">🔖 {{ p.ref || '—' }}</span>
+            <span class="c-sub" :title="t('Date')">📅 {{ p.date || '—' }}</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
             <span class="badge" :style="{ background: methodColor(p.method) + '22', color: methodColor(p.method), border: '1px solid ' + methodColor(p.method) + '44' }">{{ p.method || 'Manual' }}</span>
@@ -229,7 +229,7 @@ async function removeProof(p) {
               <td style="white-space:nowrap" class="c-sub">{{ p.ref || '—' }}</td>
               <td style="white-space:nowrap" class="c-sub">{{ p.date || '—' }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="badge(p.status)">{{ p.status }}</span></td>
-              <td style="white-space:nowrap"><span v-if="p.proof" title="Proof attached" style="cursor:default;font-size:15px">🖼</span><span v-else class="c-sub">—</span></td>
+              <td style="white-space:nowrap"><span v-if="p.proof" :title="t('Proof attached')" style="cursor:default;font-size:15px">🖼</span><span v-else class="c-sub">—</span></td>
             </tr>
           </tbody>
         </table>
@@ -257,25 +257,25 @@ async function removeProof(p) {
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Amount</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Amount') }}</div>
               <div style="font-size:15px;font-weight:800;margin-top:2px">{{ money(sel.amount) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Method</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ sel.method || 'Manual' }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Reference</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Reference') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px;overflow:hidden;text-overflow:ellipsis">{{ sel.ref || '—' }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Date</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Date') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ sel.date || '—' }}</div>
             </div>
           </div>
 
           <div v-if="selInv" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧾 Invoice</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧾 {{ t('Invoice') }}</div>
             <div style="font-weight:800;font-size:14px;cursor:pointer" @click="go('/invoices', { open: selInv.id })">{{ selInv.id }} ↗</div>
             <div class="c-sub" style="font-size:11.5px;margin-top:3px">{{ selInv.m ? monthLabel(selInv.m) : '—' }} · {{ money(selInv.net) }} net · lease <a @click.stop="go('/leases', { open: selInv.l })" style="color:var(--text);cursor:pointer;text-decoration:underline dotted">{{ selInv.l }}</a></div>
           </div>
@@ -298,11 +298,11 @@ async function removeProof(p) {
                 <button @click="removeProof(sel)" class="btn-ghost" style="padding:7px 12px;font-size:12px;color:var(--danger)">🗑 Remove</button>
               </div>
             </template>
-            <div v-else class="c-sub" style="font-size:12px">No proof attached. Upload a payment screenshot (bKash / Nagad / bank / cash) or PDF receipt.</div>
+            <div v-else class="c-sub" style="font-size:12px">{{ t('No proof attached. Upload a payment screenshot (bKash / Nagad / bank / cash) or PDF receipt.') }}</div>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
               <input type="file" accept="image/*,.pdf" style="display:none" :id="'pp-file-' + sel.id" @change="pickProof">
               <button @click="document.getElementById('pp-file-' + sel.id)?.click()" class="btn" style="padding:8px 13px;font-size:12.5px" :disabled="proofBusy">{{ proofBusy ? '⏳ Uploading…' : (sel.proof ? '📤 Replace' : '📤 Attach proof') }}</button>
-              <input v-model="proofNote" placeholder="Note (e.g. bKash txn ID)" style="flex:1;min-width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--card);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+              <input v-model="proofNote" :placeholder="t('Note (e.g. bKash txn ID)')" style="flex:1;min-width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--card);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
               <button v-if="proofFile" @click="uploadProof(sel)" class="btn" style="padding:8px 13px;font-size:12.5px">⬆ Upload</button>
             </div>
           </div>

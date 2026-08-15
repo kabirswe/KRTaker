@@ -320,14 +320,14 @@ function defaultPrintCfg() {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search tenant, NID…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -345,8 +345,8 @@ function defaultPrintCfg() {
         <option value="">Select tenant…</option>
         <option v-for="t in data.list('tenants')" :key="t.id" :value="t.id">{{ t.name }} ({{ t.id }})</option>
       </select>
-      <input v-model="nvForm.nid" placeholder="NID number (10/17 digits)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
-      <input v-model="nvForm.dob" placeholder="DOB YYYY-MM-DD (optional)" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:170px">
+      <input v-model="nvForm.nid" :placeholder="t('NID number (10/17 digits)')" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
+      <input v-model="nvForm.dob" :placeholder="t('DOB YYYY-MM-DD (optional)')" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:170px">
       <button @click="runNidCheck" :disabled="nvSaving" style="padding:9px 14px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">Verify {{ nvSaving ? '…' : '' }}</button>
     </div>
     <div v-if="nvErr" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ nvErr }}</div>
@@ -442,19 +442,19 @@ function defaultPrintCfg() {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px;margin-top:14px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">NID number</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('NID number') }}</div>
               <div style="font-weight:700;margin-top:1px;font-family:monospace">{{ maskNid(sel.nid) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Date of birth</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Date of birth') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.dob || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Method</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.method || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Verified by</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Verified by') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.verified_by || '—' }}<template v-if="sel.verified_at"> · {{ fmtTs(sel.verified_at) }}</template></div>
             </div>
           </div>
@@ -483,11 +483,11 @@ function defaultPrintCfg() {
       <div class="page-head">
         <div>
           <h1>{{ t('📋 DMP Thana Forms') }}</h1>
-          <div class="sub">Tenant information forms for thana submission · create, submit, verify, print</div>
+          <div class="sub">{{ t('Tenant information forms for thana submission · create, submit, verify, print') }}</div>
         </div>
         <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-ghost" @click="loadTf()">🔄 Refresh</button>
-          <button v-if="isAdmin" class="btn-ghost" title="Print settings — applies to all DMP Thana forms (admin only)" @click="openPrintCfg()">⚙️ Print settings</button>
+          <button class="btn-ghost" @click="loadTf()">{{ t('Refresh') }}</button>
+          <button v-if="isAdmin" class="btn-ghost" :title="t('Print settings — applies to all DMP Thana forms (admin only)')" @click="openPrintCfg()">⚙️ Print settings</button>
         </div>
       </div>
       <div v-if="tfErr" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ tfErr }}</div>
@@ -507,7 +507,7 @@ function defaultPrintCfg() {
       <div v-else class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>Tenant</th><th>Unit</th><th>Property</th><th>Thana</th><th>District</th><th>Status</th><th>Created</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Tenant') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th>{{ t('Thana') }}</th><th>{{ t('District') }}</th><th>{{ t('Status') }}</th><th>{{ t('Created') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="f in tfItems" :key="f.id">
                 <td style="font-weight:700;white-space:nowrap">{{ f.id }}</td>
@@ -523,7 +523,7 @@ function defaultPrintCfg() {
                   <button v-if="f.status === 'Draft'" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="submitTf(f)">📤 Submit</button>
                   <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--ok,#12a150)" @click="verifyTf(f, 'approve')">✅ Approve</button>
                   <button v-if="f.status === 'Submitted' && isStaff" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" @click="verifyTf(f, 'reject')">❌ Reject</button>
-                  <button v-if="f.payload?.name || f.tenant_name" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="printTf(f)">🖨 Print</button>
+                  <button v-if="f.payload?.name || f.tenant_name" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click="printTf(f)">{{ t('Print') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -537,8 +537,8 @@ function defaultPrintCfg() {
           <div class="modal-h"><span class="t">📋 {{ tfEdit.id }} · {{ tfEdit.tenant_name }}</span><button class="close" @click="tfEdit = null">✕</button></div>
           <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-              <div class="form-field"><label>Thana</label><input v-model="tfEdit.thana" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-              <div class="form-field"><label>District</label><input v-model="tfEdit.district" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>{{ t('Thana') }}</label><input v-model="tfEdit.thana" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>{{ t('District') }}</label><input v-model="tfEdit.district" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
               <div v-for="[k, label] in TF_FIELDS" :key="k" class="form-field" :class="{ 'span-2': k === 'remarks' || k === 'permanent_address' }">
                 <label>{{ label }}</label>
                 <textarea v-if="k === 'remarks'" v-model="tfEdit.payload[k]" rows="2" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
@@ -548,7 +548,7 @@ function defaultPrintCfg() {
             <div style="height:16px"></div>
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
-            <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="tfEdit = null">Cancel</button>
+            <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="tfEdit = null">{{ t('Cancel') }}</button>
             <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="tfSaving" @click="saveTf">💾 Save form {{ tfSaving ? '…' : '' }}</button>
           </div>
         </div>
@@ -562,7 +562,7 @@ function defaultPrintCfg() {
             <!-- left: sliders -->
             <div style="flex:0 0 320px">
               <div v-if="tfCfgErr" style="padding:8px 12px;border-radius:9px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:12px;font-weight:600;font-size:12.5px">⚠️ {{ tfCfgErr }}</div>
-              <div class="c-sub" style="margin-bottom:10px;font-size:12px">These apply to the print of <b>every</b> DMP Thana form (template is the official DMP file — adjust how the filled values sit on it). Only admins can change these.</div>
+              <div class="c-sub" style="margin-bottom:10px;font-size:12px">{{ t('These apply to the print of') }} <b>every</b> DMP Thana form (template is the official DMP file — adjust how the filled values sit on it). Only admins can change these.</div>
               <div v-for="[k, label, mn, mx, st] in PRINT_CFG_FIELDS" :key="k" style="margin-bottom:12px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
                   <label style="font-size:12.5px;font-weight:700">{{ label }}</label>
@@ -592,7 +592,7 @@ function defaultPrintCfg() {
             <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="defaultPrintCfg">⏮ Default</button>
             <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="resetPrintCfg">↺ Reset</button>
             <div style="flex:1"></div>
-            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="tfCfg = false">Cancel</button>
+            <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px" @click="tfCfg = false">{{ t('Cancel') }}</button>
             <button class="btn-primary" style="padding:9px 16px;font-size:12.5px" :disabled="tfCfgSaving || !tfCfgDirty" @click="savePrintCfg">💾 Save {{ tfCfgSaving ? '…' : '' }}</button>
           </div>
         </div>

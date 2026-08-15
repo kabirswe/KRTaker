@@ -145,7 +145,7 @@ async function backToMe() {
     <div class="sb-logo">
       <img v-if="sbLogo.img" :src="sbLogo.img" :alt="sbLogo.name" class="sb-logo-img" :style="{ height: sbLogo.h + 'px' }">
       <div v-else class="logo-mark" :style="sbLogo.grad ? { background: sbLogo.grad } : {}">{{ sbLogo.mark }}</div>
-      <div class="brand" v-if="!sbLogo.img || sbLogo.showTitle">{{ sbLogo.name }}<small>Key Responsibility Taker</small></div>
+      <div class="brand" v-if="!sbLogo.img || sbLogo.showTitle">{{ sbLogo.name }}<small>{{ t('Key Responsibility Taker') }}</small></div>
     </div>
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
@@ -159,7 +159,7 @@ async function backToMe() {
       <!-- V2.37: user identity card removed — show software credit & version only -->
       <div class="sb-credit">
         <div class="sc-brand">{{ sbLogo.mark }} KRTaker</div>
-        <div class="sc-ver">v{{ APP_VERSION }} · Key Responsibility Taker</div>
+        <div class="sc-ver">v{{ APP_VERSION }} · {{ t('Key Responsibility Taker') }}</div>
         <div class="sc-copy">© {{ new Date().getFullYear() }} KRTaker — managed buildings, made simple</div>
       </div>
       <template v-if="auth.isImpersonating">

@@ -191,11 +191,11 @@ function refreshSel() {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search label, ref, notes…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All types</option>
+          <option value="">{{ t('All types') }}</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ itemMeta(t).label }}</option>
         </select>
         <select v-model="bucketFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All expiry states</option>
+          <option value="">{{ t('All expiry states') }}</option>
           <option value="expired">⏰ Expired</option>
           <option value="soon">⚠️ Expiring ≤ 90 days</option>
           <option value="ok">✅ Ok / later</option>
@@ -205,11 +205,11 @@ function refreshSel() {
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <template v-if="canManage">
-          <button @click="runRemind" class="btn-ghost" title="Email due/expired digest">📧 Remind</button>
-          <button @click="runSync" class="btn-ghost" title="Recompute from leases">🔄 Sync</button>
+          <button @click="runRemind" class="btn-ghost" :title="t('Email due/expired digest')">📧 Remind</button>
+          <button @click="runSync" class="btn-ghost" :title="t('Recompute from leases')">🔄 Sync</button>
           <button @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add item</button>
         </template>
       </div>
@@ -250,7 +250,7 @@ function refreshSel() {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Item</th><th>Entity</th><th>Ref</th><th>Status</th><th>Expiry</th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Item') }}</th><th>{{ t('Entity') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Status') }}</th><th>{{ t('Expiry') }}</th></tr></thead>
           <tbody>
             <tr v-for="c in paged" :key="c.id" style="cursor:pointer" @click="openDetail(c)">
               <td style="font-weight:700;white-space:nowrap">{{ c.id }}</td>
@@ -283,13 +283,13 @@ function refreshSel() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Type</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Type') }}</div>
               <select v-model="addForm.item" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(m, k) in ITEM_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
               </select>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Entity type</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Entity type') }}</div>
               <select v-model="addForm.entity_type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option value="property">🏢 Property</option>
                 <option value="lease">📄 Lease</option>
@@ -298,7 +298,7 @@ function refreshSel() {
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Entity</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Entity') }}</div>
             <select v-model="addForm.entity_id" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
               <option v-if="addForm.entity_type === 'property'" v-for="p in data.list('properties')" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
               <option v-if="addForm.entity_type === 'lease'" v-for="l in data.list('leases')" :key="l.id" :value="l.id">{{ l.id }} · rent {{ l.rent }}</option>
@@ -307,22 +307,22 @@ function refreshSel() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Ref no.</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Ref no.') }}</div>
               <input v-model="addForm.ref_no" placeholder="e.g. TL-2026-114" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Issue date</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Issue date') }}</div>
               <input v-model="addForm.issue_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Expiry date</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Expiry date') }}</div>
             <input v-model="addForm.expiry_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-            <div class="c-sub" style="font-size:11px;margin-top:4px">Leave blank if it never expires.</div>
+            <div class="c-sub" style="font-size:11px;margin-top:4px">{{ t('Leave blank if it never expires.') }}</div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
-            <RichEditor v-model="addForm.notes" placeholder="Optional" :min-height="'100px'" style="margin-top:5px" />
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Notes') }}</div>
+            <RichEditor v-model="addForm.notes" :placeholder="t('Optional')" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <button @click="submitAdd" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">＋ Add item</button>
         </div>
@@ -350,19 +350,19 @@ function refreshSel() {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Issue date</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Issue date') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.issue_date) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Expiry date</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Expiry date') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.expiry_date) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Ref no.</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Ref no.') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.ref_no || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Last reminded</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Last reminded') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.last_reminded || '—' }}</div>
             </div>
           </div>
@@ -376,20 +376,20 @@ function refreshSel() {
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">✏️ Update item</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div>
-                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Expiry date</div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">{{ t('Expiry date') }}</div>
                   <input v-model="editForm.expiry_date" type="date" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
                 </div>
                 <div>
-                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Status</div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">{{ t('Status') }}</div>
                   <select v-model="editForm.status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px;font-family:inherit;outline:none">
-                    <option value="active">Active</option>
-                    <option value="expired">Expired</option>
-                    <option value="completed">Completed</option>
+                    <option value="active">{{ t('Active') }}</option>
+                    <option value="expired">{{ t('Expired') }}</option>
+                    <option value="completed">{{ t('Completed') }}</option>
                   </select>
                 </div>
               </div>
-              <input v-model="editForm.ref_no" placeholder="Ref no." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;margin-top:8px">
-              <RichEditor v-model="editForm.notes" placeholder="Notes" :min-height="'100px'" style="margin-top:8px" />
+              <input v-model="editForm.ref_no" :placeholder="t('Ref no.')" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;margin-top:8px">
+              <RichEditor v-model="editForm.notes" :placeholder="t('Notes')" :min-height="'100px'" style="margin-top:8px" />
               <div style="display:flex;gap:8px;margin-top:10px">
                 <button @click="saveEdit" style="flex:1;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save changes</button>
                 <button v-if="canDelete" @click="delItem(sel)" style="padding:9px 14px;border:none;border-radius:9px;background:var(--danger);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🗑 Delete</button>

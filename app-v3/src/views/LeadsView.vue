@@ -139,11 +139,11 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search name, email, message…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="sourceFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All sources</option>
+          <option value="">{{ t('All sources') }}</option>
           <option v-for="s in sourceOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
@@ -151,7 +151,7 @@ function detailFields(row) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
           <button @click="viewMode = 'kanban'" :style="viewMode === 'kanban' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">🗂 Kanban</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -265,27 +265,27 @@ function detailFields(row) {
           <div class="c-sub" style="margin-top:4px;font-size:12.5px">{{ sourceIco(sel.source) }} {{ sel.source || '—' }} · 🕒 {{ fmtTs(sel.ts) }}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px 18px;margin-top:14px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Phone</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Phone') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.phone || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Email</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Email') }}</div>
               <div style="font-weight:700;margin-top:1px;word-break:break-word">{{ sel.email || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Property</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Property') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.prop ? propName(sel.prop) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Captured</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Captured') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtTs(sel.ts) }}</div>
             </div>
             <div v-if="sel.budget" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Budget</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Budget') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.budget }}</div>
             </div>
             <div v-if="sel.move_in" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Move-in</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Move-in') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.move_in }}</div>
             </div>
           </div>
@@ -293,7 +293,7 @@ function detailFields(row) {
 
           <!-- manage block -->
           <div v-if="canManage" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:9px">Update pipeline</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:9px">{{ t('Update pipeline') }}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button v-for="s in STATUS_ORDER" :key="s" class="btn-ghost" :style="sel.status === s ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" :disabled="busy === sel.id + ':' + s" style="padding:6px 11px;font-size:12px" @click="setStatus(sel, s)">{{ s }}</button>
             </div>

@@ -328,19 +328,19 @@ load()
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search title, contractor, site…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="kindFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All kinds</option>
+          <option value="">{{ t('All kinds') }}</option>
           <option v-for="k in kindOptions" :key="k" :value="k">{{ kindMeta(k).label }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ stLabel(s) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
-        <button v-if="canManage" @click="openCfg" class="btn-ghost" title="Build Watch settings">⚙ Settings</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
+        <button v-if="canManage" @click="openCfg" class="btn-ghost" :title="t('Build Watch settings')">⚙ Settings</button>
       </CompactFilters>
         <button v-if="canManage" @click="openNew" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New project</button>
       </div>
@@ -410,7 +410,7 @@ load()
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Project</th><th>Kind</th><th>Property</th><th>Budget</th><th>Spent</th><th>Progress</th><th>Contractor</th><th>Target end</th><th>Status</th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Project') }}</th><th>{{ t('Kind') }}</th><th>{{ t('Property') }}</th><th>{{ t('Budget') }}</th><th>{{ t('Spent') }}</th><th>{{ t('Progress') }}</th><th>{{ t('Contractor') }}</th><th>{{ t('Target end') }}</th><th>{{ t('Status') }}</th></tr></thead>
           <tbody>
             <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="font-weight:700;white-space:nowrap">{{ p.id }}</td>
@@ -449,13 +449,13 @@ load()
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Kind</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Kind') }}</div>
               <select v-model="projForm.kind" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="k in KIND_OPTS" :key="k" :value="k">{{ kindMeta(k).ico }} {{ kindMeta(k).label }}</option>
               </select>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Property</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Property') }}</div>
               <select v-model="projForm.prop" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option value="">— none —</option>
                 <option v-for="pr in propsAll" :key="pr.id" :value="pr.id">{{ pr.name }}</option>
@@ -468,30 +468,30 @@ load()
               <input v-model="projForm.budget_total" type="number" min="0" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Contractor</div>
-              <input v-model="projForm.contractor" placeholder="Firm name" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Contractor') }}</div>
+              <input v-model="projForm.contractor" :placeholder="t('Firm name')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Start date</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Start date') }}</div>
               <input v-model="projForm.start_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Target end</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Target end') }}</div>
               <input v-model="projForm.target_end" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Architect</div>
-            <input v-model="projForm.architect" placeholder="Architect / designer name" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Architect') }}</div>
+            <input v-model="projForm.architect" :placeholder="t('Architect / designer name')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Site address</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Site address') }}</div>
             <input v-model="projForm.site_address" placeholder="📍 Site location" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Notes') }}</div>
             <textarea v-model="projForm.notes" rows="3" placeholder="Scope, constraints, anything else…" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
           </div>
           <button @click="saveProject" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">{{ projForm._id ? '💾 Save changes' : '＋ Create project' }}</button>
@@ -514,13 +514,13 @@ load()
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Phase</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Phase') }}</div>
               <select v-model="msForm.phase" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(l, k) in PHASES" :key="k" :value="k">{{ l }}</option>
               </select>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Target date</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Target date') }}</div>
               <input v-model="msForm.target_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
@@ -530,16 +530,16 @@ load()
               <input v-model="msForm.cost" type="number" min="0" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Paid</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Paid') }}</div>
               <select v-model="msForm.paid" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
-                <option :value="0">Unpaid</option>
-                <option :value="1">Paid</option>
+                <option :value="0">{{ t('Unpaid') }}</option>
+                <option :value="1">{{ t('Paid') }}</option>
               </select>
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
-            <textarea v-model="msForm.notes" rows="2" placeholder="Optional detail" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Notes') }}</div>
+            <textarea v-model="msForm.notes" rows="2" :placeholder="t('Optional detail')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
           </div>
           <button @click="saveMilestone" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">{{ msForm._id ? '💾 Save milestone' : '🏁 Add milestone' }}</button>
         </div>
@@ -565,7 +565,7 @@ load()
               <input v-model="expForm.amount" type="number" min="0" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Category</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Category') }}</div>
               <select v-model="expForm.category" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(m, k) in EXP_CATS" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
               </select>
@@ -573,20 +573,20 @@ load()
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Spent on</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Spent on') }}</div>
               <input v-model="expForm.spent_on" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Paid</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Paid') }}</div>
               <select v-model="expForm.paid" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
-                <option :value="0">Unpaid</option>
-                <option :value="1">Paid</option>
+                <option :value="0">{{ t('Unpaid') }}</option>
+                <option :value="1">{{ t('Paid') }}</option>
               </select>
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
-            <textarea v-model="expForm.notes" rows="2" placeholder="Optional" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Notes') }}</div>
+            <textarea v-model="expForm.notes" rows="2" :placeholder="t('Optional')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
           </div>
           <button @click="saveExpense" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">{{ expForm._id ? '💾 Save expense' : '🧾 Add expense' }}</button>
         </div>
@@ -603,19 +603,19 @@ load()
         </div>
         <div style="padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px">
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Milestone alert days</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Milestone alert days') }}</div>
             <input v-model="cfgForm.milestone_alert_days" type="number" min="1" max="120" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-            <div class="c-sub" style="font-size:11.5px;margin-top:4px">Warn when a milestone is due within this many days.</div>
+            <div class="c-sub" style="font-size:11.5px;margin-top:4px">{{ t('Warn when a milestone is due within this many days.') }}</div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Budget overrun %</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Budget overrun %') }}</div>
             <input v-model="cfgForm.budget_overrun_pct" type="number" min="1" max="50" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-            <div class="c-sub" style="font-size:11.5px;margin-top:4px">Flag a project when spend exceeds budget by this percentage.</div>
+            <div class="c-sub" style="font-size:11.5px;margin-top:4px">{{ t('Flag a project when spend exceeds budget by this percentage.') }}</div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Default contractor</div>
-            <input v-model="cfgForm.default_contractor" placeholder="Firm name" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-            <div class="c-sub" style="font-size:11.5px;margin-top:4px">Prefilled when creating a new project.</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Default contractor') }}</div>
+            <input v-model="cfgForm.default_contractor" :placeholder="t('Firm name')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            <div class="c-sub" style="font-size:11.5px;margin-top:4px">{{ t('Prefilled when creating a new project.') }}</div>
           </div>
           <button @click="saveCfg" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">💾 Save settings</button>
         </div>
@@ -655,27 +655,27 @@ load()
           <!-- stat tiles -->
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:12px">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Budget</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Budget') }}</div>
               <div style="font-weight:800;font-size:14.5px;margin-top:2px">{{ money(sel.budget_total) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Spent</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Spent') }}</div>
               <div style="font-weight:800;font-size:14.5px;margin-top:2px" :style="sel.over_budget ? 'color:var(--danger)' : ''">{{ money(sel.spent) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Remaining</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Remaining') }}</div>
               <div style="font-weight:800;font-size:14.5px;margin-top:2px" :style="(sel.budget_variance || 0) < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(sel.budget_variance) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Milestones</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Milestones') }}</div>
               <div style="font-weight:800;font-size:14.5px;margin-top:2px">{{ sel.milestones_done || 0 }}/{{ sel.milestones_total || 0 }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Media</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Media') }}</div>
               <div style="font-weight:800;font-size:14.5px;margin-top:2px">{{ sel.media_count || 0 }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Days left</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Days left') }}</div>
               <div style="font-weight:800;font-size:14.5px;margin-top:2px" :style="sel.days_left !== null && sel.days_left < 0 ? 'color:var(--danger)' : ''">{{ sel.days_left !== null && sel.days_left !== undefined ? sel.days_left + 'd' : '—' }}</div>
             </div>
           </div>
@@ -683,11 +683,11 @@ load()
           <!-- progress bars -->
           <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
             <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px"><span>Milestone progress</span><span>{{ sel.progress || 0 }}%</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px"><span>{{ t('Milestone progress') }}</span><span>{{ sel.progress || 0 }}%</span></div>
               <div style="height:8px;background:var(--bg-alt);border-radius:99px;overflow:hidden"><div :style="'width:' + Math.min(100, sel.progress || 0) + '%;height:100%;background:linear-gradient(90deg,#16a085,#27ae60);border-radius:99px'"></div></div>
             </div>
             <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px"><span>Budget used</span><span>{{ sel.budget_used_pct || 0 }}%</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px"><span>{{ t('Budget used') }}</span><span>{{ sel.budget_used_pct || 0 }}%</span></div>
               <div style="height:8px;background:var(--bg-alt);border-radius:99px;overflow:hidden"><div :style="'width:' + Math.min(100, sel.budget_used_pct || 0) + '%;height:100%;background:' + (sel.over_budget ? '#e74c3c' : 'linear-gradient(90deg,#2980b9,#2f80ed)') + ';border-radius:99px'"></div></div>
             </div>
           </div>
@@ -703,19 +703,19 @@ load()
           <!-- info grid -->
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Start</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Start') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.start_date) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Target end</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Target end') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.target_end) }} <template v-if="endNote(sel)"><span :style="endNote(sel).includes('overdue') ? 'color:var(--danger)' : ''">({{ endNote(sel) }})</span></template></div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Contractor</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Contractor') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.contractor || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Architect</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Architect') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.architect || '—' }}</div>
             </div>
           </div>
@@ -728,10 +728,10 @@ load()
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🏁 Milestones · {{ milestones.length }} · {{ sel.milestones_done || 0 }} done</div>
               <button v-if="canManage" @click="openMsNew" style="padding:5px 10px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">＋ Add milestone</button>
             </div>
-            <div v-if="!milestones.length" class="c-sub" style="font-size:12.5px">No milestones yet — add one to start tracking progress.</div>
+            <div v-if="!milestones.length" class="c-sub" style="font-size:12.5px">{{ t('No milestones yet — add one to start tracking progress.') }}</div>
             <div v-else class="drawer-tbl-wrap" style="overflow:auto;max-height:44vh">
               <table class="kr" style="width:100%">
-                <thead><tr><th>Milestone</th><th>Phase</th><th>Target</th><th>Cost</th><th>Status</th><th v-if="canManage">Actions</th></tr></thead>
+                <thead><tr><th>{{ t('Milestone') }}</th><th>{{ t('Phase') }}</th><th>{{ t('Target') }}</th><th>{{ t('Cost') }}</th><th>{{ t('Status') }}</th><th v-if="canManage">{{ t('Actions') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="m in milestones" :key="m.id">
                     <td style="white-space:nowrap"><b>{{ m.title }}</b><div v-if="m.notes" class="c-sub" style="font-size:11px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.notes }}</div></td>
@@ -742,8 +742,8 @@ load()
                     <td v-if="canManage" style="white-space:nowrap">
                       <div style="display:flex;gap:4px;align-items:center">
                         <button v-for="ns in (MS_NEXT[m.status] || [])" :key="ns" @click="msStatus(m, ns)" :title="MS_BTN[ns].label" style="padding:3px 8px;border:none;border-radius:7px;background:var(--primary);color:#fff;font-size:10.5px;font-weight:800;cursor:pointer">{{ MS_BTN[ns].ico }} {{ MS_BTN[ns].label }}</button>
-                        <button @click="openMsEdit(m)" title="Edit" style="padding:3px 7px;border:1px solid var(--border);border-radius:7px;background:var(--bg-alt);color:var(--text);font-size:10.5px;font-weight:800;cursor:pointer">✏️</button>
-                        <button @click="askDeleteMilestone(m)" title="Delete" style="padding:3px 7px;border:1px solid #fecaca;border-radius:7px;background:#fef2f2;color:var(--danger);font-size:10.5px;font-weight:800;cursor:pointer">🗑</button>
+                        <button @click="openMsEdit(m)" :title="t('Edit')" style="padding:3px 7px;border:1px solid var(--border);border-radius:7px;background:var(--bg-alt);color:var(--text);font-size:10.5px;font-weight:800;cursor:pointer">✏️</button>
+                        <button @click="askDeleteMilestone(m)" :title="t('Delete')" style="padding:3px 7px;border:1px solid #fecaca;border-radius:7px;background:#fef2f2;color:var(--danger);font-size:10.5px;font-weight:800;cursor:pointer">🗑</button>
                       </div>
                     </td>
                   </tr>
@@ -758,10 +758,10 @@ load()
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🧾 Expenses · {{ expenses.length }} · {{ money(expTotal) }} total · {{ money(expPaid) }} paid</div>
               <button v-if="canManage" @click="openExpNew" style="padding:5px 10px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">＋ Add expense</button>
             </div>
-            <div v-if="!expenses.length" class="c-sub" style="font-size:12.5px">No expenses recorded.</div>
+            <div v-if="!expenses.length" class="c-sub" style="font-size:12.5px">{{ t('No expenses recorded.') }}</div>
             <div v-else class="drawer-tbl-wrap" style="overflow:auto;max-height:40vh">
               <table class="kr" style="width:100%">
-                <thead><tr><th>Label</th><th>Category</th><th>Spent on</th><th>Amount</th><th>Paid</th><th v-if="canManage">Actions</th></tr></thead>
+                <thead><tr><th>{{ t('Label') }}</th><th>{{ t('Category') }}</th><th>{{ t('Spent on') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Paid') }}</th><th v-if="canManage">{{ t('Actions') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="e in expenses" :key="e.id">
                     <td style="white-space:nowrap"><b>{{ e.label }}</b><div v-if="e.notes" class="c-sub" style="font-size:11px;font-weight:500;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ e.notes }}</div></td>
@@ -774,8 +774,8 @@ load()
                     </td>
                     <td v-if="canManage" style="white-space:nowrap">
                       <div style="display:flex;gap:4px;align-items:center">
-                        <button @click="openExpEdit(e)" title="Edit" style="padding:3px 7px;border:1px solid var(--border);border-radius:7px;background:var(--bg-alt);color:var(--text);font-size:10.5px;font-weight:800;cursor:pointer">✏️</button>
-                        <button @click="askDeleteExpense(e)" title="Delete" style="padding:3px 7px;border:1px solid #fecaca;border-radius:7px;background:#fef2f2;color:var(--danger);font-size:10.5px;font-weight:800;cursor:pointer">🗑</button>
+                        <button @click="openExpEdit(e)" :title="t('Edit')" style="padding:3px 7px;border:1px solid var(--border);border-radius:7px;background:var(--bg-alt);color:var(--text);font-size:10.5px;font-weight:800;cursor:pointer">✏️</button>
+                        <button @click="askDeleteExpense(e)" :title="t('Delete')" style="padding:3px 7px;border:1px solid #fecaca;border-radius:7px;background:#fef2f2;color:var(--danger);font-size:10.5px;font-weight:800;cursor:pointer">🗑</button>
                       </div>
                     </td>
                   </tr>
@@ -794,7 +794,7 @@ load()
                 </select>
                 <input ref="fileInput" type="file" accept="image/*,.mp4,.pdf,.doc,.docx" style="display:none" @change="pickFile">
                 <button @click="fileInput?.click()" style="padding:8px 13px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);font-size:12.5px;font-weight:800;cursor:pointer">📂 {{ uploadFile ? uploadFile.name.slice(0, 28) + (uploadFile.name.length > 28 ? '…' : '') : 'Choose file' }}</button>
-                <input v-model="uploadForm.name" placeholder="Caption (defaults to file name)" style="flex:1;min-width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                <input v-model="uploadForm.name" :placeholder="t('Caption (defaults to file name)')" style="flex:1;min-width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <input v-model="uploadForm.captured_at" type="datetime-local" style="padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
@@ -802,7 +802,7 @@ load()
                 <button @click="uploadMedia" style="padding:8px 16px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">⬆ Upload</button>
               </div>
             </div>
-            <div v-if="!mediaList.length" class="c-sub" style="font-size:12.5px">No site media yet — upload progress photos or documents.</div>
+            <div v-if="!mediaList.length" class="c-sub" style="font-size:12.5px">{{ t('No site media yet — upload progress photos or documents.') }}</div>
             <div v-else style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px">
               <div v-for="md in mediaList" :key="md.id" style="border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--card)">
                 <div style="height:88px;position:relative;background:var(--bg-alt);cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden" @click="openMedia(md)">
@@ -812,7 +812,7 @@ load()
                 </div>
                 <div style="padding:6px 8px;display:flex;align-items:center;justify-content:space-between;gap:4px">
                   <span style="font-size:10.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="md.name">{{ md.name }}</span>
-                  <button v-if="canManage" @click="askDeleteMedia(md)" title="Delete" style="padding:2px 6px;border:none;border-radius:6px;background:#fef2f2;color:var(--danger);font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0">🗑</button>
+                  <button v-if="canManage" @click="askDeleteMedia(md)" :title="t('Delete')" style="padding:2px 6px;border:none;border-radius:6px;background:#fef2f2;color:var(--danger);font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0">🗑</button>
                 </div>
                 <div class="c-sub" style="padding:0 8px 6px;font-size:9.5px">{{ md.id }}<template v-if="md.geo"> · 📍{{ md.geo }}</template></div>
               </div>

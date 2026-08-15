@@ -195,18 +195,18 @@ function detailFields(row) {
         <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px;font-weight:800;border-color:var(--primary);color:var(--primary)" @click="go('/wiki')">📚 Wiki</button>
         <input v-model="query" :placeholder="t('Search subject, sender…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="prioFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All priorities</option>
+          <option value="">{{ t('All priorities') }}</option>
           <option v-for="p in prioOptions" :key="p" :value="p">{{ p }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
         <button @click="showCompose = true" style="padding:9px 16px;font-size:12.5px;font-weight:800;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer">➕ {{ lang === 'bn' ? 'নতুন টিকেট' : 'New ticket' }}</button>
       </CompactFilters>
       </div>
@@ -284,20 +284,20 @@ function detailFields(row) {
         <div class="d-cover" style="height:90px;background:var(--grad);position:relative;flex-shrink:0">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:36px">🎧</div>
           <button @click="showCompose = false" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
-          <div style="position:absolute;left:16px;bottom:10px;color:#fff;font-weight:800;font-size:16px;text-shadow:0 1px 3px rgba(0,0,0,.4)">Open a support ticket</div>
+          <div style="position:absolute;left:16px;bottom:10px;color:#fff;font-weight:800;font-size:16px;text-shadow:0 1px 3px rgba(0,0,0,.4)">{{ t('Open a support ticket') }}</div>
         </div>
         <div style="padding:18px 20px 20px">
           <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">SUBJECT *</div>
           <input v-model="form.subject" :placeholder="t('What do you need help with?')" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;margin-bottom:14px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
             <div>
-              <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">CATEGORY</div>
+              <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">{{ t('CATEGORY') }}</div>
               <select v-model="form.cat" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13.5px;outline:none">
                 <option v-for="c in CATEGORIES" :key="c" :value="c">{{ catIco(c) }} {{ c }}</option>
               </select>
             </div>
             <div>
-              <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">PRIORITY</div>
+              <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">{{ t('PRIORITY') }}</div>
               <select v-model="form.prio" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13.5px;outline:none">
                 <option value="Low">🟢 Low</option>
                 <option value="Medium">🟠 Medium</option>
@@ -306,7 +306,7 @@ function detailFields(row) {
               </select>
             </div>
           </div>
-          <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">DETAILS</div>
+          <div style="font-size:12px;font-weight:800;color:var(--text-mute);margin-bottom:6px">{{ t('DETAILS') }}</div>
           <textarea v-model="form.body" rows="4" placeholder="Describe the issue — what happened, when, and any error you saw…" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13.5px;outline:none;resize:vertical;font-family:inherit"></textarea>
           <div v-if="composeErr" style="color:var(--danger);font-size:12.5px;font-weight:700;margin-top:8px">{{ composeErr }}</div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
@@ -351,8 +351,8 @@ function detailFields(row) {
           </div>
 
           <!-- thread -->
-          <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.4px;margin:4px 0 10px">Conversation</div>
-          <div v-if="!thread.length" class="c-sub" style="font-size:12.5px;padding:8px 0 14px">No replies yet — start the conversation below.</div>
+          <div style="font-size:12px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.4px;margin:4px 0 10px">{{ t('Conversation') }}</div>
+          <div v-if="!thread.length" class="c-sub" style="font-size:12.5px;padding:8px 0 14px">{{ t('No replies yet — start the conversation below.') }}</div>
           <div v-for="m in thread" :key="m.id || (m.author + m.ts)" style="margin-bottom:12px">
             <div style="display:flex;gap:10px">
               <div style="width:30px;height:30px;border-radius:50%;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">{{ (m.author || '?').charAt(0).toUpperCase() }}</div>
@@ -370,7 +370,7 @@ function detailFields(row) {
           <div style="display:flex;gap:8px;margin:14px 0 8px">
             <input v-model="reply" @keyup.enter="sendReply" placeholder="Write a reply…" :disabled="threadBusy"
               style="flex:1;padding:10px 13px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13.5px;outline:none">
-            <button @click="sendReply" :disabled="threadBusy || !reply.trim()" style="padding:10px 16px;font-size:13px;font-weight:800;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer">Send</button>
+            <button @click="sendReply" :disabled="threadBusy || !reply.trim()" style="padding:10px 16px;font-size:13px;font-weight:800;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer">{{ t('Send') }}</button>
           </div>
 
           <div v-for="[k, v] in detailFields(sel)" :key="k" style="font-size:13px;margin-bottom:8px">

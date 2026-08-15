@@ -2,7 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../api/client'
-import { lang } from '../lib/i18n'
+import { lang, t } from '../lib/i18n'
 import { track } from '../lib/analytics'
 import { notifMeta, notifTarget } from '../lib/ui'
 
@@ -100,7 +100,7 @@ onMounted(load)
         <h1>🔔 {{ lang === 'bn' ? 'নোটিফিকেশন' : 'Notifications' }}</h1>
         <div class="sub">
           <template v-if="alerts.length">{{ alerts.length }} notification{{ alerts.length === 1 ? '' : 's' }} · <span :style="unread ? 'color:var(--danger);font-weight:800' : ''">{{ unread }} unread</span></template>
-          <template v-else>Your inbox is quiet</template>
+          <template v-else>{{ t('Your inbox is quiet') }}</template>
         </div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -148,7 +148,7 @@ onMounted(load)
             <span class="c-sub" style="font-size:11px">→ open {{ notifMeta(a.type).label }}</span>
           </div>
         </div>
-        <button @click.stop="dismiss(a)" :disabled="busy" title="Dismiss" class="close"
+        <button @click.stop="dismiss(a)" :disabled="busy" :title="t('Dismiss')" class="close"
           style="color:var(--text-mute);font-size:14px;font-weight:800">✕</button>
       </div>
     </div>

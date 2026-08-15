@@ -91,14 +91,14 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search holding no, property…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -145,7 +145,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Corporation</th><th>Holding</th><th>FY</th><th>Assessed</th><th>Paid</th><th>Due</th><th>Due date</th><th>Status</th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Corporation') }}</th><th>{{ t('Holding') }}</th><th>FY</th><th>{{ t('Assessed') }}</th><th>{{ t('Paid') }}</th><th>{{ t('Due') }}</th><th>{{ t('Due date') }}</th><th>{{ t('Status') }}</th></tr></thead>
           <tbody>
             <tr v-for="h in paged" :key="h.id" style="cursor:pointer" @click="openDetail(h)">
               <td style="font-weight:700;white-space:nowrap">{{ h.id }}</td>
@@ -186,37 +186,37 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Annual value</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Annual value') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ money(sel.annual_value) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Rate</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Rate') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.rate_pct ? sel.rate_pct + '%' : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Due date</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Due date') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.due_date || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Paid date</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Paid date') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.paid_date ? fmtTs(sel.paid_date) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Receipt no</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Receipt no') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.receipt_no || '—' }}</div>
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0">
             <div style="flex:1;min-width:130px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Assessed tax</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Assessed tax') }}</div>
               <div style="font-weight:800;font-size:19px;margin-top:2px">{{ money(sel.tax_amount) }}</div>
             </div>
             <div style="flex:1;min-width:130px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Paid</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Paid') }}</div>
               <div style="font-weight:800;font-size:19px;margin-top:2px;color:var(--ok)">{{ money(sel.paid_amount) }}</div>
             </div>
             <div style="flex:1;min-width:130px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Balance</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Balance') }}</div>
               <div style="font-weight:800;font-size:19px;margin-top:2px" :style="dueOf(sel) ? 'color:var(--danger)' : 'color:var(--ok)'">{{ dueOf(sel) ? money(dueOf(sel)) : '—' }}</div>
             </div>
           </div>

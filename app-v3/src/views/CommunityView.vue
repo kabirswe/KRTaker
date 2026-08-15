@@ -65,10 +65,10 @@ const goTab = (t) => { tab.value = t }
     <div class="page-head">
       <div>
         <h1>{{ t('📢 Community') }}</h1>
-        <div class="sub">Resident community — notices, referrals, NID &amp; trust verification and support · one dashboard</div>
+        <div class="sub">{{ t('Resident community — notices, referrals, NID & trust verification and support · one dashboard') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="goTab('notices')" title="Post a new notice — opens the Notices tab">➕ New notice</button>
+        <button class="btn-ghost" @click="goTab('notices')" :title="t('Post a new notice — opens the Notices tab')">➕ New notice</button>
       </div>
     </div>
 
@@ -84,18 +84,18 @@ const goTab = (t) => { tab.value = t }
     <template v-if="tab === 'overview'">
       <!-- KPI cards -->
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">📢</span>Notices</div><div class="s-value">{{ kpis.notices }}</div><div class="s-trend">{{ kpis.pinned }} pinned</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🤝</span>Referrals</div><div class="s-value">{{ kpis.referrals }}</div><div class="s-trend">{{ kpis.refSigned }} signed up</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🪪</span>NID verifications</div><div class="s-value">{{ kpis.nid }}</div><div class="s-trend">{{ kpis.nidOk }} verified</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🎧</span>Support tickets</div><div class="s-value" :style="kpis.supportOpen > 0 ? 'color:#f39c12' : ''">{{ kpis.support }}</div><div class="s-trend">{{ kpis.supportOpen }} open</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📢</span>{{ t('Notices') }}</div><div class="s-value">{{ kpis.notices }}</div><div class="s-trend">{{ kpis.pinned }} pinned</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🤝</span>{{ t('Referrals') }}</div><div class="s-value">{{ kpis.referrals }}</div><div class="s-trend">{{ kpis.refSigned }} signed up</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🪪</span>{{ t('NID verifications') }}</div><div class="s-value">{{ kpis.nid }}</div><div class="s-trend">{{ kpis.nidOk }} verified</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🎧</span>{{ t('Support tickets') }}</div><div class="s-value" :style="kpis.supportOpen > 0 ? 'color:#f39c12' : ''">{{ kpis.support }}</div><div class="s-trend">{{ kpis.supportOpen }} open</div></div>
       </div>
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('notices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="View and post notices">📢 Notice Board</button>
-        <button @click="goTab('referrals')" class="btn-ghost" title="Referral program and rewards">🤝 Referrals</button>
-        <button @click="goTab('trust')" class="btn-ghost" title="NID verification and trust services">🪪 NID &amp; Trust</button>
-        <button @click="goTab('support')" class="btn-ghost" title="Support tickets">🎧 Support</button>
+        <button @click="goTab('notices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('View and post notices')">📢 Notice Board</button>
+        <button @click="goTab('referrals')" class="btn-ghost" :title="t('Referral program and rewards')">🤝 Referrals</button>
+        <button @click="goTab('trust')" class="btn-ghost" :title="t('NID verification and trust services')">🪪 NID &amp; Trust</button>
+        <button @click="goTab('support')" class="btn-ghost" :title="t('Support tickets')">🎧 Support</button>
       </div>
 
       <!-- lists -->
@@ -111,7 +111,7 @@ const goTab = (t) => { tab.value = t }
               <span v-if="n.pinned" class="badge badge-red">📌</span>
             </div>
           </div>
-          <div v-if="!recentNotices.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No notices yet.</div>
+          <div v-if="!recentNotices.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No notices yet.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
           <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🤝 Recent referrals</div>
@@ -124,7 +124,7 @@ const goTab = (t) => { tab.value = t }
               <span class="badge" :class="r.status === 'Paid' ? 'badge-green' : 'badge-blue'">{{ r.status || '—' }}</span>
             </div>
           </div>
-          <div v-if="!recentRefs.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No referrals yet.</div>
+          <div v-if="!recentRefs.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No referrals yet.') }}</div>
         </div>
       </div>
     </template>

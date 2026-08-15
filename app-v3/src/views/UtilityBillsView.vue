@@ -191,31 +191,31 @@ function refreshBill() {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search bill, unit, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:190px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All types</option>
+          <option value="">{{ t('All types') }}</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ typeMeta(t).label }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All months</option>
+          <option value="">{{ t('All months') }}</option>
           <option v-for="m in monthOptions" :key="m" :value="m">{{ monthLabel(m) }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="month">Sort: Month</option>
-          <option value="amount">Sort: Amount</option>
-          <option value="usage">Sort: Usage</option>
+          <option value="month">{{ t('Sort: Month') }}</option>
+          <option value="amount">{{ t('Sort: Amount') }}</option>
+          <option value="usage">{{ t('Sort: Usage') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
-        <button @click="openTariffs" class="btn-ghost" title="Utility tariffs">🏷️ Tariffs</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
+        <button @click="openTariffs" class="btn-ghost" :title="t('Utility tariffs')">🏷️ Tariffs</button>
       </CompactFilters>
         <template v-if="canManage">
-          <button @click="openBatch" class="btn-ghost" title="Generate bills for all leased units">⚡ Batch run</button>
+          <button @click="openBatch" class="btn-ghost" :title="t('Generate bills for all leased units')">⚡ Batch run</button>
           <button @click="openGenerate" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Generate bill</button>
         </template>
       </div>
@@ -244,9 +244,9 @@ function refreshBill() {
             <div class="c-sub" style="margin-top:2px">{{ typeMeta(b.type).label }} · {{ monthLabel(b.month) }} · 🚪 {{ unitName(b.unit) }}</div>
           </div>
           <div style="display:flex;gap:13px;font-size:12px;flex-wrap:wrap">
-            <span class="c-sub" title="Usage">📈 {{ (b.usage || 0).toLocaleString('en-IN') }} {{ unitLabel(b.type) }}</span>
-            <span class="c-sub" title="Rate">🏷️ ৳{{ b.rate || 0 }}/{{ unitLabel(b.type) }}</span>
-            <span class="c-sub" title="Tenant">👤 {{ tenantName(b.tenant) || '—' }}</span>
+            <span class="c-sub" :title="t('Usage')">📈 {{ (b.usage || 0).toLocaleString('en-IN') }} {{ unitLabel(b.type) }}</span>
+            <span class="c-sub" :title="t('Rate')">🏷️ ৳{{ b.rate || 0 }}/{{ unitLabel(b.type) }}</span>
+            <span class="c-sub" :title="t('Tenant')">👤 {{ tenantName(b.tenant) || '—' }}</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
             <span v-if="b.paid_at" class="badge b-green">✅ paid {{ b.paid_at }}</span>
@@ -255,7 +255,7 @@ function refreshBill() {
           </div>
           <div v-if="canManage && !['Paid', 'Void'].includes(b.status)" style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:9px;margin-top:auto">
             <button @click.stop="payBill(b)" style="flex:1;padding:7px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💰 Mark paid</button>
-            <button @click.stop="voidBill(b)" style="padding:7px 10px;border:none;border-radius:8px;background:var(--bg-alt);color:var(--text-mute);font-size:12px;font-weight:800;cursor:pointer" title="Void">⛔</button>
+            <button @click.stop="voidBill(b)" style="padding:7px 10px;border:none;border-radius:8px;background:var(--bg-alt);color:var(--text-mute);font-size:12px;font-weight:800;cursor:pointer" :title="t('Void')">⛔</button>
           </div>
         </div>
       </div>
@@ -263,7 +263,7 @@ function refreshBill() {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Bill</th><th>Type</th><th>Unit</th><th>Property</th><th>Tenant</th><th>Month</th><th>Usage</th><th>Amount</th><th>Status</th><th v-if="canManage">Action</th></tr></thead>
+          <thead><tr><th>{{ t('Bill') }}</th><th>{{ t('Type') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Month') }}</th><th>{{ t('Usage') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th><th v-if="canManage">{{ t('Action') }}</th></tr></thead>
           <tbody>
             <tr v-for="b in paged" :key="b.id" style="cursor:pointer" @click="openDetail(b)">
               <td style="white-space:nowrap"><b>{{ b.id }}</b></td>
@@ -276,8 +276,8 @@ function refreshBill() {
               <td style="font-weight:700;white-space:nowrap">{{ money(b.amount) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
               <td v-if="canManage" style="white-space:nowrap">
-                <button v-if="!['Paid', 'Void'].includes(b.status)" @click.stop="payBill(b)" title="Mark paid" style="background:none;border:none;font-size:14px;cursor:pointer">💰</button>
-                <button v-if="!['Paid', 'Void'].includes(b.status)" @click.stop="voidBill(b)" title="Void" style="background:none;border:none;font-size:14px;cursor:pointer">⛔</button>
+                <button v-if="!['Paid', 'Void'].includes(b.status)" @click.stop="payBill(b)" :title="t('Mark paid')" style="background:none;border:none;font-size:14px;cursor:pointer">💰</button>
+                <button v-if="!['Paid', 'Void'].includes(b.status)" @click.stop="voidBill(b)" :title="t('Void')" style="background:none;border:none;font-size:14px;cursor:pointer">⛔</button>
               </td>
             </tr>
           </tbody>
@@ -305,7 +305,7 @@ function refreshBill() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Type</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Type') }}</div>
               <select v-model="genForm.type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(m, k) in TYPE_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
               </select>
@@ -320,22 +320,22 @@ function refreshBill() {
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📈 Preview</div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12.5px">
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Prev</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Prev') }}</div>
                 <b>{{ (genPreview.prev_reading || 0).toLocaleString('en-IN') }}</b>
               </div>
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Curr</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Curr') }}</div>
                 <b>{{ (genPreview.curr_reading || 0).toLocaleString('en-IN') }}</b>
               </div>
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Usage</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Usage') }}</div>
                 <b>{{ (genPreview.usage || 0).toLocaleString('en-IN') }}</b>
               </div>
             </div>
             <div style="font-size:12.5px;margin-top:9px;text-align:center">💰 {{ (genPreview.usage || 0).toLocaleString('en-IN') }} × ৳{{ genPreview.rate }} = <b style="color:var(--primary)">{{ money(genPreview.amount) }}</b></div>
           </div>
           <button @click="generateBill" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">🧾 Generate bill</button>
-          <div class="c-sub" style="font-size:11px;text-align:center">Requires a meter reading for this unit + type + month. Regenerating updates the bill (UPSERT).</div>
+          <div class="c-sub" style="font-size:11px;text-align:center">{{ t('Requires a meter reading for this unit + type + month. Regenerating updates the bill (UPSERT).') }}</div>
         </div>
       </div>
     </template>
@@ -355,9 +355,9 @@ function refreshBill() {
               <input v-model="batchForm.month" type="month" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Property</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Property') }}</div>
               <select v-model="batchForm.prop" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
-                <option value="">All properties</option>
+                <option value="">{{ t('All properties') }}</option>
                 <option v-for="p in propsAll" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
               </select>
             </div>
@@ -366,15 +366,15 @@ function refreshBill() {
           <div v-if="batchResult" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px">
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;font-size:12.5px">
               <div>
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Generated</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Generated') }}</div>
                 <b style="color:var(--ok)">{{ batchResult.generated }}</b>
               </div>
               <div>
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Updated</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Updated') }}</div>
                 <b>{{ batchResult.updated }}</b>
               </div>
               <div>
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Skipped</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Skipped') }}</div>
                 <b>{{ batchResult.skipped }}</b>
               </div>
             </div>
@@ -399,7 +399,7 @@ function refreshBill() {
               <span style="font-size:18px">{{ typeMeta(t.type).ico }}</span>
               <div style="flex:1;font-weight:800;font-size:13.5px">{{ typeMeta(t.type).label }}</div>
               <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-mute);font-weight:700">
-                <input type="checkbox" v-model="t.enabled"> Enabled
+                <input type="checkbox" v-model="t.enabled"> {{ t('Enabled') }}
               </label>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px">
@@ -414,7 +414,7 @@ function refreshBill() {
             </div>
           </div>
           <button v-if="canEditTariff" @click="saveTariffs" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">💾 Save tariffs</button>
-          <button v-else style="padding:9px;border:none;border-radius:10px;background:var(--bg-alt);color:var(--text-mute);font-size:12.5px;font-weight:800;cursor:default">View only — owners/managers can edit</button>
+          <button v-else style="padding:9px;border:none;border-radius:10px;background:var(--bg-alt);color:var(--text-mute);font-size:12.5px;font-weight:800;cursor:default">{{ t('View only — owners/managers can edit') }}</button>
         </div>
       </div>
     </template>
@@ -437,19 +437,19 @@ function refreshBill() {
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Amount</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Amount') }}</div>
               <div style="font-size:15px;font-weight:800;margin-top:2px">{{ money(sel.amount) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Usage</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Usage') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ (sel.usage || 0).toLocaleString('en-IN') }} {{ unitLabel(sel.type) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rate</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Rate') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">৳{{ sel.rate || 0 }}/{{ unitLabel(sel.type) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Standing</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Standing') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sel.standing || 0) }}</div>
             </div>
           </div>
@@ -458,15 +458,15 @@ function refreshBill() {
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">📈 Meter readings</div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12.5px">
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Previous</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Previous') }}</div>
                 <b>{{ (sel.prev_reading ?? '—').toLocaleString?.('en-IN') ?? sel.prev_reading ?? '—' }}</b>
               </div>
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Current</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Current') }}</div>
                 <b>{{ (sel.curr_reading ?? '—').toLocaleString?.('en-IN') ?? sel.curr_reading ?? '—' }}</b>
               </div>
               <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;text-align:center">
-                <div class="c-sub" style="font-size:10px;text-transform:uppercase">Consumed</div>
+                <div class="c-sub" style="font-size:10px;text-transform:uppercase">{{ t('Consumed') }}</div>
                 <b>{{ (sel.usage || 0).toLocaleString('en-IN') }}</b>
               </div>
             </div>

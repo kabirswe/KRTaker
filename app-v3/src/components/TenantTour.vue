@@ -3,6 +3,7 @@
    Dismissed once per browser via krtaker_tenant_tour_<email> (same pattern as the
    subscriber setup wizard). Covers: set password, NID copy + photo, family, move-in ack. */
 import { ref } from 'vue'
+import { t } from '../lib/i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -40,9 +41,9 @@ function goPortal() { finish(); router.push('/portal') }
         <span v-for="(s, i) in steps" :key="i" :class="{ on: i === step }"></span>
       </div>
       <div class="tt-actions">
-        <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="skip">Skip tour</button>
+        <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="skip">{{ t('Skip tour') }}</button>
         <div style="flex:1"></div>
-        <button v-if="step >= 1" class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="goPortal">Open My Portal</button>
+        <button v-if="step >= 1" class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="goPortal">{{ t('Open My Portal') }}</button>
         <button class="btn-primary" style="padding:9px 18px;font-size:13px" @click="next">{{ step < steps.length - 1 ? 'Next →' : 'Finish' }}</button>
       </div>
     </div>

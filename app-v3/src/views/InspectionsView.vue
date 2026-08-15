@@ -184,7 +184,7 @@ onMounted(load)
     <div class="page-head">
       <div>
         <h1>{{ t('🔍 Inspections') }}</h1>
-        <div class="sub">Safety / Service / Maintenance checks + recurring scheduler · sign-off with pass-fail checklists</div>
+        <div class="sub">{{ t('Safety / Service / Maintenance checks + recurring scheduler · sign-off with pass-fail checklists') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn-ghost" @click="showSched = !showSched; showNew = false">🔁 Schedules</button>
@@ -197,10 +197,10 @@ onMounted(load)
 
     <!-- KPIs -->
     <div class="stats" style="margin-bottom:14px">
-      <div class="stat"><div class="s-label"><span class="s-ico">📋</span>Total</div><div class="s-value">{{ summary?.total ?? '—' }}</div><div class="s-trend">{{ summary?.by_type?.safety ?? 0 }} safety · {{ summary?.by_type?.service ?? 0 }} service · {{ summary?.by_type?.maintenance ?? 0 }} maint</div></div>
-      <div class="stat"><div class="s-label"><span class="s-ico">⏰</span>Overdue</div><div class="s-value" :style="(summary?.overdue ?? 0) > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ summary?.overdue ?? 0 }}</div><div class="s-trend">{{ summary?.due_soon ?? 0 }} due in 7 days</div></div>
-      <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Passed</div><div class="s-value" style="color:#1e8e4d">{{ summary?.by_status?.passed ?? 0 }}</div><div class="s-trend">{{ summary?.by_status?.failed ?? 0 }} failed</div></div>
-      <div class="stat"><div class="s-label"><span class="s-ico">🔁</span>Schedules</div><div class="s-value">{{ summary?.schedules_active ?? 0 }}</div><div class="s-trend">active recurring</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">📋</span>{{ t('Total') }}</div><div class="s-value">{{ summary?.total ?? '—' }}</div><div class="s-trend">{{ summary?.by_type?.safety ?? 0 }} safety · {{ summary?.by_type?.service ?? 0 }} service · {{ summary?.by_type?.maintenance ?? 0 }} maint</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">⏰</span>{{ t('Overdue') }}</div><div class="s-value" :style="(summary?.overdue ?? 0) > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ summary?.overdue ?? 0 }}</div><div class="s-trend">{{ summary?.due_soon ?? 0 }} due in 7 days</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('Passed') }}</div><div class="s-value" style="color:#1e8e4d">{{ summary?.by_status?.passed ?? 0 }}</div><div class="s-trend">{{ summary?.by_status?.failed ?? 0 }} failed</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">🔁</span>{{ t('Schedules') }}</div><div class="s-value">{{ summary?.schedules_active ?? 0 }}</div><div class="s-trend">active recurring</div></div>
     </div>
 
     <!-- tabs -->
@@ -223,7 +223,7 @@ onMounted(load)
       </div>
 
       <div v-if="loading && !list.length" style="text-align:center;padding:40px;color:var(--text-mute)">Loading…</div>
-      <div v-else-if="!filtered().length" style="text-align:center;padding:40px;color:var(--text-mute);font-size:13px">No inspections yet — create one or set up a recurring schedule.</div>
+      <div v-else-if="!filtered().length" style="text-align:center;padding:40px;color:var(--text-mute);font-size:13px">{{ t('No inspections yet — create one or set up a recurring schedule.') }}</div>
 
       <div style="display:flex;flex-direction:column;gap:9px">
         <div v-for="x in filtered()" :key="x.id" @click="openDetail(x)"
@@ -256,8 +256,8 @@ onMounted(load)
           </div>
           <div class="c-sub" style="font-size:12px;margin-top:3px"><span class="badge" :class="typeCls(s.itype)">{{ typeLabel(s.itype) }}</span> · {{ propName(s.property_id) }}</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:11px 0;font-size:12.5px">
-            <div style="background:var(--bg-alt);border-radius:9px;padding:8px 10px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Every</div><div style="font-weight:800">{{ s.interval_days }} days</div></div>
-            <div style="background:var(--bg-alt);border-radius:9px;padding:8px 10px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Next due</div><div style="font-weight:800;color:var(--primary)">{{ fmtDate(s.next_due) }}</div></div>
+            <div style="background:var(--bg-alt);border-radius:9px;padding:8px 10px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">{{ t('Every') }}</div><div style="font-weight:800">{{ s.interval_days }} days</div></div>
+            <div style="background:var(--bg-alt);border-radius:9px;padding:8px 10px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">{{ t('Next due') }}</div><div style="font-weight:800;color:var(--primary)">{{ fmtDate(s.next_due) }}</div></div>
           </div>
           <div class="c-sub" style="font-size:11.5px">👤 {{ s.assignee || 'unassigned' }} · last run {{ fmtDate(s.last_run) }}</div>
           <div v-if="canManage" style="display:flex;gap:8px;margin-top:11px">
@@ -278,7 +278,7 @@ onMounted(load)
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Type</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Type') }}</label>
             <div style="display:flex;gap:7px;margin-top:5px;flex-wrap:wrap">
               <button v-for="t in TYPES" :key="t.v" @click="form.itype = t.v"
                 :style="form.itype === t.v ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
@@ -291,24 +291,24 @@ onMounted(load)
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Property</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Property') }}</label>
               <select v-model="form.property_id" style="width:100%;margin-top:5px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
                 <option :value="0">— None —</option>
                 <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </div>
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Scheduled date</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Scheduled date') }}</label>
               <input v-model="form.scheduled_at" type="date" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Assignee</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Assignee') }}</label>
             <input v-model="form.assignee" placeholder="e.g. Rahim Steel Works / Shakil" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Checklist</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Checklist') }}</label>
               <button @click="addCheckRow" style="padding:5px 11px;border:1px dashed var(--border);border-radius:8px;background:transparent;font-weight:800;font-size:12px;cursor:pointer">＋ item</button>
             </div>
             <div v-for="(c, i) in form.checklist" :key="i" style="display:flex;gap:8px;margin-top:7px;align-items:center">
@@ -317,7 +317,7 @@ onMounted(load)
             </div>
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Findings / notes</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Findings / notes') }}</label>
             <RichEditor v-model="form.findings" placeholder="Initial notes, scope, references…" :min-height="'110px'" style="margin-top:5px" />
           </div>
           <div v-if="err" class="auth-err show">{{ err }}</div>
@@ -342,15 +342,15 @@ onMounted(load)
             <span class="badge" :class="statusMeta(sel.status).cls">{{ statusMeta(sel.status).l }}</span>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;font-size:12.5px">
-            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Property</div><div style="font-weight:700">{{ propName(sel.property_id) }}</div></div>
-            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Assignee</div><div style="font-weight:700">{{ sel.assignee || '—' }}</div></div>
-            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Scheduled</div><div style="font-weight:700">{{ fmtDate(sel.scheduled_at) }}</div></div>
-            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Completed</div><div style="font-weight:700">{{ sel.completed_at ? fmtTs(sel.completed_at) : '—' }} <template v-if="sel.completed_by">by {{ sel.completed_by }}</template></div></div>
+            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">{{ t('Property') }}</div><div style="font-weight:700">{{ propName(sel.property_id) }}</div></div>
+            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">{{ t('Assignee') }}</div><div style="font-weight:700">{{ sel.assignee || '—' }}</div></div>
+            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">{{ t('Scheduled') }}</div><div style="font-weight:700">{{ fmtDate(sel.scheduled_at) }}</div></div>
+            <div style="background:var(--bg-alt);border-radius:9px;padding:9px 11px"><div class="c-sub" style="font-size:10.5px;font-weight:800;text-transform:uppercase">{{ t('Completed') }}</div><div style="font-weight:700">{{ sel.completed_at ? fmtTs(sel.completed_at) : '—' }} <template v-if="sel.completed_by">by {{ sel.completed_by }}</template></div></div>
           </div>
 
           <!-- checklist -->
           <div style="font-weight:800;font-size:13px;margin-bottom:8px">✅ Checklist · {{ clScore(sel) }}</div>
-          <div v-if="!sel.checklist || !sel.checklist.length" class="c-sub" style="font-size:12px;margin-bottom:12px">No checklist items.</div>
+          <div v-if="!sel.checklist || !sel.checklist.length" class="c-sub" style="font-size:12px;margin-bottom:12px">{{ t('No checklist items.') }}</div>
           <div v-for="(c, i) in (sel.checklist || [])" :key="i" @click="toggleItem(sel, i)"
             style="display:flex;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;cursor:pointer;background:var(--card)">
             <span style="width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"
@@ -385,7 +385,7 @@ onMounted(load)
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Type</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Type') }}</label>
             <div style="display:flex;gap:7px;margin-top:5px;flex-wrap:wrap">
               <button v-for="t in TYPES" :key="t.v" @click="sForm.itype = t.v"
                 :style="sForm.itype === t.v ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
@@ -398,29 +398,29 @@ onMounted(load)
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Property</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Property') }}</label>
               <select v-model="sForm.property_id" style="width:100%;margin-top:5px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
                 <option :value="0">— None —</option>
                 <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </div>
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Every (days)</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Every (days)') }}</label>
               <input v-model.number="sForm.interval_days" type="number" min="1" max="3650" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">First due date</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('First due date') }}</label>
             <input v-model="sForm.next_due" type="date" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Assignee</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Assignee') }}</label>
             <input v-model="sForm.assignee" placeholder="e.g. Rahim Steel Works / Shakil" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" v-model="sForm.active" style="accent-color:var(--primary)"> Active (auto-creates inspections when due)</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" v-model="sForm.active" style="accent-color:var(--primary)"> {{ t('Active (auto-creates inspections when due)') }}</label>
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">Checklist template</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase">{{ t('Checklist template') }}</label>
               <button @click="sForm.checklist.push({ item: '', pass: null })" style="padding:5px 11px;border:1px dashed var(--border);border-radius:8px;background:transparent;font-weight:800;font-size:12px;cursor:pointer">＋ item</button>
             </div>
             <div v-for="(c, i) in sForm.checklist" :key="i" style="display:flex;gap:8px;margin-top:7px;align-items:center">

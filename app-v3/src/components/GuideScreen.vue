@@ -1,4 +1,5 @@
 <script setup>
+import { t } from '../lib/i18n'
 // GuideScreen — stylized, theme-adaptive mockups of the real KRTaker screens
 // used by the Wiki's step-by-step visual guides. Each variant renders a mini
 // representation of the actual app UI (CSS variables so it adapts to light
@@ -31,7 +32,7 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
             <div class="gs-f" style="margin-top:6px"></div>
             <div class="gs-f" style="margin-top:6px"></div>
             <div class="gs-btn" style="margin-top:8px"></div>
-            <div class="gs-link" style="margin-top:6px">Forgot password?</div>
+            <div class="gs-link" style="margin-top:6px">{{ t('Forgot password?') }}</div>
           </div>
         </div>
 
@@ -47,9 +48,9 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
               <span class="gs-bell">🔔</span>
             </div>
             <div class="gs-kpis">
-              <div class="gs-kpi"><div class="gs-kpi-t">Revenue</div><div class="gs-kpi-v">৳8.3L</div></div>
-              <div class="gs-kpi"><div class="gs-kpi-t">Occupancy</div><div class="gs-kpi-v">94%</div></div>
-              <div class="gs-kpi"><div class="gs-kpi-t">Alerts</div><div class="gs-kpi-v" style="color:var(--warn)">13</div></div>
+              <div class="gs-kpi"><div class="gs-kpi-t">{{ t('Revenue') }}</div><div class="gs-kpi-v">৳8.3L</div></div>
+              <div class="gs-kpi"><div class="gs-kpi-t">{{ t('Occupancy') }}</div><div class="gs-kpi-v">94%</div></div>
+              <div class="gs-kpi"><div class="gs-kpi-t">{{ t('Alerts') }}</div><div class="gs-kpi-v" style="color:var(--warn)">13</div></div>
             </div>
             <div class="gs-cards">
               <div class="gs-ai">
@@ -57,9 +58,9 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
                 <div class="gs-ai-q">"who is behind on rent?"</div>
               </div>
               <div class="gs-al">
-                <div class="gs-al-r"><span class="gs-chip c-r"></span><span>SLA job overdue</span></div>
-                <div class="gs-al-r"><span class="gs-chip c-y"></span><span>Compliance expires</span></div>
-                <div class="gs-al-r"><span class="gs-chip c-b"></span><span>Lease renewal</span></div>
+                <div class="gs-al-r"><span class="gs-chip c-r"></span><span>{{ t('SLA job overdue') }}</span></div>
+                <div class="gs-al-r"><span class="gs-chip c-y"></span><span>{{ t('Compliance expires') }}</span></div>
+                <div class="gs-al-r"><span class="gs-chip c-b"></span><span>{{ t('Lease renewal') }}</span></div>
               </div>
             </div>
           </div>
@@ -67,64 +68,64 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
 
         <!-- ── NOTIFICATIONS ── -->
         <div v-else-if="variant === 'notify'" class="gs-notify">
-          <div class="gs-n-head"><b>Notifications</b><span class="gs-n-mark">Mark all read</span></div>
-          <div class="gs-n-pills"><span class="gs-pill on">All</span><span class="gs-pill">SLA</span><span class="gs-pill">Compliance</span><span class="gs-pill">Arrears</span><span class="gs-pill">Renewals</span></div>
+          <div class="gs-n-head"><b>{{ t('Notifications') }}</b><span class="gs-n-mark">{{ t('Mark all read') }}</span></div>
+          <div class="gs-n-pills"><span class="gs-pill on">{{ t('All') }}</span><span class="gs-pill">{{ t('SLA') }}</span><span class="gs-pill">{{ t('Compliance') }}</span><span class="gs-pill">{{ t('Arrears') }}</span><span class="gs-pill">{{ t('Renewals') }}</span></div>
           <div class="gs-n-list">
-            <div class="gs-n-row"><span class="gs-chip c-r"></span><div><b>Maintenance SLA breached</b><div class="gs-n-sub">Unit 4B · 2h ago · critical</div></div></div>
-            <div class="gs-n-row"><span class="gs-chip c-y"></span><div><b>Fire certificate expires in 14d</b><div class="gs-n-sub">Compliance · 5h ago · warning</div></div></div>
-            <div class="gs-n-row"><span class="gs-chip c-b"></span><div><b>Tenant B missed rent payment</b><div class="gs-n-sub">Arrears · 1d ago · info</div></div></div>
+            <div class="gs-n-row"><span class="gs-chip c-r"></span><div><b>{{ t('Maintenance SLA breached') }}</b><div class="gs-n-sub">{{ t('Unit 4B · 2h ago · critical') }}</div></div></div>
+            <div class="gs-n-row"><span class="gs-chip c-y"></span><div><b>{{ t('Fire certificate expires in 14d') }}</b><div class="gs-n-sub">{{ t('Compliance · 5h ago · warning') }}</div></div></div>
+            <div class="gs-n-row"><span class="gs-chip c-b"></span><div><b>{{ t('Tenant B missed rent payment') }}</b><div class="gs-n-sub">{{ t('Arrears · 1d ago · info') }}</div></div></div>
           </div>
         </div>
 
         <!-- ── FINANCE / INVOICES ── -->
         <div v-else-if="variant === 'finance'" class="gs-fin">
-          <div class="gs-fh"><b>Invoices</b><span class="gs-btn-sm">➕ New invoice</span></div>
+          <div class="gs-fh"><b>{{ t('Invoices') }}</b><span class="gs-btn-sm">➕ New invoice</span></div>
           <div class="gs-table">
-            <div class="gs-tr gs-th"><span>Invoice</span><span>Tenant</span><span>Amount</span><span>Status</span></div>
-            <div class="gs-tr"><span>INV-1042</span><span>Tanvir A.</span><span>৳45,000</span><span class="gs-st st-sent">Sent</span></div>
-            <div class="gs-tr"><span>INV-1043</span><span>Rakib H.</span><span>৳32,000</span><span class="gs-st st-paid">Paid</span></div>
-            <div class="gs-tr"><span>INV-1044</span><span>Nadia S.</span><span>৳28,500</span><span class="gs-st st-draft">Draft</span></div>
+            <div class="gs-tr gs-th"><span>{{ t('Invoice') }}</span><span>{{ t('Tenant') }}</span><span>{{ t('Amount') }}</span><span>{{ t('Status') }}</span></div>
+            <div class="gs-tr"><span>{{ t('INV-1042') }}</span><span>{{ t('Tanvir A.') }}</span><span>৳45,000</span><span class="gs-st st-sent">{{ t('Sent') }}</span></div>
+            <div class="gs-tr"><span>{{ t('INV-1043') }}</span><span>{{ t('Rakib H.') }}</span><span>৳32,000</span><span class="gs-st st-paid">{{ t('Paid') }}</span></div>
+            <div class="gs-tr"><span>{{ t('INV-1044') }}</span><span>{{ t('Nadia S.') }}</span><span>৳28,500</span><span class="gs-st st-draft">{{ t('Draft') }}</span></div>
           </div>
         </div>
 
         <!-- ── NOTICE BOARD ── -->
         <div v-else-if="variant === 'notice'" class="gs-notice">
-          <div class="gs-fh"><b>Notice board</b><span class="gs-btn-sm">➕ New notice</span></div>
+          <div class="gs-fh"><b>{{ t('Notice board') }}</b><span class="gs-btn-sm">➕ New notice</span></div>
           <div class="gs-ncard">
-            <div class="gs-nc-t">Elevator maintenance</div>
+            <div class="gs-nc-t">{{ t('Elevator maintenance') }}</div>
             <div class="gs-nc-b">Scheduled maintenance on 14 Aug, 10:00–13:00. Lift #2 will be out of service…</div>
-            <div class="gs-email"><span class="gs-chk on"></span><span>Also email to tenants</span><span class="gs-cnt">9 recipients</span></div>
-            <div class="gs-post">Post notice</div>
+            <div class="gs-email"><span class="gs-chk on"></span><span>{{ t('Also email to tenants') }}</span><span class="gs-cnt">9 recipients</span></div>
+            <div class="gs-post">{{ t('Post notice') }}</div>
           </div>
         </div>
 
         <!-- ── SUPPORT / TICKETS ── -->
         <div v-else-if="variant === 'support'" class="gs-supp">
-          <div class="gs-fh"><b>Support</b><span class="gs-btn-sm">📚 Wiki</span><span class="gs-btn-sm prim">➕ New ticket</span></div>
+          <div class="gs-fh"><b>{{ t('Support') }}</b><span class="gs-btn-sm">📚 Wiki</span><span class="gs-btn-sm prim">➕ New ticket</span></div>
           <div class="gs-kpis2">
-            <div class="gs-kpi2">Open <b>3</b></div>
-            <div class="gs-kpi2">In progress <b>2</b></div>
-            <div class="gs-kpi2">Resolved <b>14</b></div>
+            <div class="gs-kpi2">{{ t('Open') }} <b>3</b></div>
+            <div class="gs-kpi2">{{ t('In progress') }} <b>2</b></div>
+            <div class="gs-kpi2">{{ t('Resolved') }} <b>14</b></div>
           </div>
           <div class="gs-supp-body">
             <div class="gs-tlist">
               <div class="gs-trow">
-                <span class="gs-pill2 p-bill">Billing</span>
-                <div class="gs-t-mid"><b>SUP-014</b><div class="gs-t-sub">Refund for overpaid rent</div></div>
-                <span class="gs-st st-urg">Urgent</span><span class="gs-st st-open">Open</span>
+                <span class="gs-pill2 p-bill">{{ t('Billing') }}</span>
+                <div class="gs-t-mid"><b>{{ t('SUP-014') }}</b><div class="gs-t-sub">{{ t('Refund for overpaid rent') }}</div></div>
+                <span class="gs-st st-urg">{{ t('Urgent') }}</span><span class="gs-st st-open">{{ t('Open') }}</span>
               </div>
               <div class="gs-trow">
-                <span class="gs-pill2 p-tech">Technical</span>
-                <div class="gs-t-mid"><b>SUP-015</b><div class="gs-t-sub">Push notif not arriving</div></div>
-                <span class="gs-st st-med">Medium</span><span class="gs-st st-prog">In Progress</span>
+                <span class="gs-pill2 p-tech">{{ t('Technical') }}</span>
+                <div class="gs-t-mid"><b>{{ t('SUP-015') }}</b><div class="gs-t-sub">{{ t('Push notif not arriving') }}</div></div>
+                <span class="gs-st st-med">{{ t('Medium') }}</span><span class="gs-st st-prog">{{ t('In Progress') }}</span>
               </div>
             </div>
             <div class="gs-drawer">
               <div class="gs-bub me">Hi — I need help with a refund…</div>
-              <div class="gs-bub you">Sure — checking the payment now.</div>
+              <div class="gs-bub you">{{ t('Sure — checking the payment now.') }}</div>
               <div class="gs-reply">Type a reply… (Enter to send)</div>
               <div class="gs-stats">
-                <span class="gs-st st-open">Open</span><span class="gs-st st-prog">In Progress</span><span class="gs-st st-res">Resolved</span><span class="gs-st st-clo">Closed</span>
+                <span class="gs-st st-open">{{ t('Open') }}</span><span class="gs-st st-prog">{{ t('In Progress') }}</span><span class="gs-st st-res">{{ t('Resolved') }}</span><span class="gs-st st-clo">{{ t('Closed') }}</span>
               </div>
             </div>
           </div>
@@ -132,27 +133,27 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
 
         <!-- ── SETTINGS ── -->
         <div v-else-if="variant === 'settings'" class="gs-settings">
-          <div class="gs-srow"><span>Rent reminders</span><span class="gs-tgl on"></span></div>
-          <div class="gs-srow"><span>Collections digest</span><span class="gs-tgl on"></span></div>
-          <div class="gs-srow"><span>Web push (browser)</span><span class="gs-tgl on"></span></div>
-          <div class="gs-srow"><span>Weekly email digest</span><span class="gs-tgl"></span></div>
-          <div class="gs-srow"><span>Two-factor auth (2FA)</span><span class="gs-tgl on"></span></div>
-          <div class="gs-srow"><span>Change password</span><span class="gs-link2">›</span></div>
+          <div class="gs-srow"><span>{{ t('Rent reminders') }}</span><span class="gs-tgl on"></span></div>
+          <div class="gs-srow"><span>{{ t('Collections digest') }}</span><span class="gs-tgl on"></span></div>
+          <div class="gs-srow"><span>{{ t('Web push (browser)') }}</span><span class="gs-tgl on"></span></div>
+          <div class="gs-srow"><span>{{ t('Weekly email digest') }}</span><span class="gs-tgl"></span></div>
+          <div class="gs-srow"><span>{{ t('Two-factor auth (2FA)') }}</span><span class="gs-tgl on"></span></div>
+          <div class="gs-srow"><span>{{ t('Change password') }}</span><span class="gs-link2">›</span></div>
         </div>
 
         <!-- ── TENANT PORTAL ── -->
         <div v-else-if="variant === 'tenant'" class="gs-tenant">
           <div class="gs-tcard">
-            <div class="gs-tc-t">My lease</div>
+            <div class="gs-tc-t">{{ t('My lease') }}</div>
             <div class="gs-tc-m">Unit 4B · ৳45,000/mo</div>
-            <div class="gs-tc-d">Next due: 05 Aug</div>
+            <div class="gs-tc-d">{{ t('Next due: 05 Aug') }}</div>
           </div>
           <div class="gs-tcard">
-            <div class="gs-tc-t">My invoices</div>
-            <div class="gs-trow2"><span>INV-1042 · ৳45,000</span><span class="gs-st st-draft">Unpaid</span><span class="gs-btn-sm prim" style="padding:2px 8px">Pay</span></div>
+            <div class="gs-tc-t">{{ t('My invoices') }}</div>
+            <div class="gs-trow2"><span>INV-1042 · ৳45,000</span><span class="gs-st st-draft">{{ t('Unpaid') }}</span><span class="gs-btn-sm prim" style="padding:2px 8px">{{ t('Pay') }}</span></div>
           </div>
           <div class="gs-tcard">
-            <div class="gs-tc-t">Notice board</div>
+            <div class="gs-tc-t">{{ t('Notice board') }}</div>
             <div class="gs-tc-d">📢 Elevator maintenance 14 Aug</div>
           </div>
         </div>
@@ -163,7 +164,7 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
             <div v-for="(n, i) in ['Properties','Units','Tenants','Leases','Onboarding','Leads','Documents','Insurance']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
           </div>
           <div class="gs-port-main">
-            <div class="gs-fh"><b>Portfolio</b><span class="gs-btn-sm prim">➕ New property</span></div>
+            <div class="gs-fh"><b>{{ t('Portfolio') }}</b><span class="gs-btn-sm prim">➕ New property</span></div>
             <div class="gs-port-grid">
               <div class="gs-pcard"><div class="gs-pc-t">🏢 Mirpur Heights</div><div class="gs-pc-s">12 units · 94% occupied</div><div class="gs-pc-s">৳8.3L/mo · 1 lease expiring</div></div>
               <div class="gs-pcard"><div class="gs-pc-t">🏢 Gulshan View</div><div class="gs-pc-s">8 units · 88% occupied</div><div class="gs-pc-s">৳5.1L/mo</div></div>
@@ -179,11 +180,11 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
             <div v-for="(n, i) in ['Maintenance','Vendors','Staff','Meter readings','Utility bills','Gate visits','Samity']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
           </div>
           <div class="gs-bms-main">
-            <div class="gs-fh"><b>Maintenance</b><span class="gs-btn-sm prim">➕ Raise ticket</span></div>
+            <div class="gs-fh"><b>{{ t('Maintenance') }}</b><span class="gs-btn-sm prim">➕ Raise ticket</span></div>
             <div class="gs-bms-list">
-              <div class="gs-brow"><span>💧 Leak in Unit 4B</span><span class="gs-st st-urg">SLA overdue</span><span class="gs-pill2 p-lt">Landlord</span></div>
-              <div class="gs-brow"><span>⚡ Switchboard 2A</span><span class="gs-st st-prog">2h left</span><span class="gs-pill2 p-tt">Tenant</span></div>
-              <div class="gs-brow"><span>🔧 AC service 3C</span><span class="gs-st st-sent">On track</span><span class="gs-pill2 p-sh">Shared</span></div>
+              <div class="gs-brow"><span>💧 Leak in Unit 4B</span><span class="gs-st st-urg">{{ t('SLA overdue') }}</span><span class="gs-pill2 p-lt">{{ t('Landlord') }}</span></div>
+              <div class="gs-brow"><span>⚡ Switchboard 2A</span><span class="gs-st st-prog">2h left</span><span class="gs-pill2 p-tt">{{ t('Tenant') }}</span></div>
+              <div class="gs-brow"><span>🔧 AC service 3C</span><span class="gs-st st-sent">{{ t('On track') }}</span><span class="gs-pill2 p-sh">{{ t('Shared') }}</span></div>
             </div>
           </div>
         </div>
@@ -194,13 +195,13 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
             <div v-for="(n, i) in ['Notices','Referrals','Trust (NID)','Support']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
           </div>
           <div class="gs-comm-main">
-            <div class="gs-fh"><b>Community</b><span class="gs-btn-sm prim">➕ New notice</span></div>
+            <div class="gs-fh"><b>{{ t('Community') }}</b><span class="gs-btn-sm prim">➕ New notice</span></div>
             <div class="gs-ncard" style="background:var(--card)">
               <div class="gs-nc-t">📢 Elevator maintenance</div>
               <div class="gs-nc-b">14 Aug, 10:00–13:00 · Lift #2 out of service</div>
-              <div class="gs-email"><span class="gs-chk on"></span><span>Also email to tenants</span><span class="gs-cnt">9 recipients</span></div>
+              <div class="gs-email"><span class="gs-chk on"></span><span>{{ t('Also email to tenants') }}</span><span class="gs-cnt">9 recipients</span></div>
             </div>
-            <div class="gs-ref"><span>🤝 Invite & earn ৳5,000</span><span class="gs-ref-code">KR-7F2X</span></div>
+            <div class="gs-ref"><span>🤝 Invite & earn ৳5,000</span><span class="gs-ref-code">{{ t('KR-7F2X') }}</span></div>
             <div class="gs-trust">🪪 NID trust records · <b>3 verified</b> · 1 pending</div>
           </div>
         </div>
@@ -217,12 +218,12 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
               <div class="gs-kpi2">📜 Legal notices <b>12</b><div class="gs-k2-s">generated</div></div>
             </div>
             <div class="gs-table">
-              <div class="gs-tr gs-th"><span>Item</span><span>Expires</span><span>Status</span></div>
-              <div class="gs-tr"><span>Fire certificate</span><span>2026-09-12</span><span class="gs-st st-sent">Valid</span></div>
-              <div class="gs-tr"><span>Trade license</span><span>2026-07-30</span><span class="gs-st st-urg">Expiring</span></div>
-              <div class="gs-tr"><span>Building safety</span><span>2027-01-15</span><span class="gs-st st-sent">Valid</span></div>
+              <div class="gs-tr gs-th"><span>{{ t('Item') }}</span><span>{{ t('Expires') }}</span><span>{{ t('Status') }}</span></div>
+              <div class="gs-tr"><span>{{ t('Fire certificate') }}</span><span>2026-09-12</span><span class="gs-st st-sent">{{ t('Valid') }}</span></div>
+              <div class="gs-tr"><span>{{ t('Trade license') }}</span><span>2026-07-30</span><span class="gs-st st-urg">{{ t('Expiring') }}</span></div>
+              <div class="gs-tr"><span>{{ t('Building safety') }}</span><span>2027-01-15</span><span class="gs-st st-sent">{{ t('Valid') }}</span></div>
             </div>
-            <div class="gs-case">👨‍⚖️ Dispute · Unit 4B · <span class="gs-st st-open">Open</span></div>
+            <div class="gs-case">👨‍⚖️ Dispute · Unit 4B · <span class="gs-st st-open">{{ t('Open') }}</span></div>
           </div>
         </div>
 
@@ -232,13 +233,13 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
             <div v-for="(n, i) in ['Building systems','Smart home','Land','Build','Fire safety','KYC','Inspections']" :key="n" class="gs-rail-i" :class="{ on: i === 0 }">{{ n }}</div>
           </div>
           <div class="gs-safety-main">
-            <div class="gs-fh"><b>Building systems</b><span class="gs-btn-sm prim">➕ Add device</span></div>
+            <div class="gs-fh"><b>{{ t('Building systems') }}</b><span class="gs-btn-sm prim">➕ Add device</span></div>
             <div class="gs-dev-grid">
-              <div class="gs-dev"><span>🌡️ Smart thermostat</span><span class="gs-st st-sent">Online</span></div>
-              <div class="gs-dev"><span>🚪 Access control</span><span class="gs-st st-sent">Online</span></div>
-              <div class="gs-dev"><span>💡 Lighting panel</span><span class="gs-st st-urg">Offline</span></div>
+              <div class="gs-dev"><span>🌡️ Smart thermostat</span><span class="gs-st st-sent">{{ t('Online') }}</span></div>
+              <div class="gs-dev"><span>🚪 Access control</span><span class="gs-st st-sent">{{ t('Online') }}</span></div>
+              <div class="gs-dev"><span>💡 Lighting panel</span><span class="gs-st st-urg">{{ t('Offline') }}</span></div>
             </div>
-            <div class="gs-fire">🔥 Fire certificate · valid till <b>2026-12-01</b> · <span class="gs-st st-sent">Valid</span></div>
+            <div class="gs-fire">🔥 Fire certificate · valid till <b>2026-12-01</b> · <span class="gs-st st-sent">{{ t('Valid') }}</span></div>
             <div class="gs-insp">📋 Inspections · 5 scheduled · 2 due this week</div>
           </div>
         </div>
@@ -250,15 +251,15 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
           </div>
           <div class="gs-finhub-main">
             <div class="gs-kpis2">
-              <div class="gs-kpi2">Gross <b>৳8.3L</b></div>
-              <div class="gs-kpi2">Collected <b>৳5.2L</b></div>
-              <div class="gs-kpi2">Outstanding <b>৳3.1L</b></div>
+              <div class="gs-kpi2">{{ t('Gross') }} <b>৳8.3L</b></div>
+              <div class="gs-kpi2">{{ t('Collected') }} <b>৳5.2L</b></div>
+              <div class="gs-kpi2">{{ t('Outstanding') }} <b>৳3.1L</b></div>
             </div>
             <div class="gs-table">
-              <div class="gs-tr gs-th"><span>Invoice</span><span>Tenant</span><span>Amount</span><span>Status</span></div>
-              <div class="gs-tr"><span>INV-1042</span><span>Tanvir A.</span><span>৳45,000</span><span class="gs-st st-sent">Sent</span></div>
-              <div class="gs-tr"><span>INV-1043</span><span>Rakib H.</span><span>৳32,000</span><span class="gs-st st-paid">Paid</span></div>
-              <div class="gs-tr"><span>INV-1044</span><span>Nadia S.</span><span>৳28,500</span><span class="gs-st st-draft">Draft</span></div>
+              <div class="gs-tr gs-th"><span>{{ t('Invoice') }}</span><span>{{ t('Tenant') }}</span><span>{{ t('Amount') }}</span><span>{{ t('Status') }}</span></div>
+              <div class="gs-tr"><span>{{ t('INV-1042') }}</span><span>{{ t('Tanvir A.') }}</span><span>৳45,000</span><span class="gs-st st-sent">{{ t('Sent') }}</span></div>
+              <div class="gs-tr"><span>{{ t('INV-1043') }}</span><span>{{ t('Rakib H.') }}</span><span>৳32,000</span><span class="gs-st st-paid">{{ t('Paid') }}</span></div>
+              <div class="gs-tr"><span>{{ t('INV-1044') }}</span><span>{{ t('Nadia S.') }}</span><span>৳28,500</span><span class="gs-st st-draft">{{ t('Draft') }}</span></div>
             </div>
           </div>
         </div>
@@ -266,35 +267,35 @@ const NAV = ['Overview', 'Portfolio', 'Finance', 'BMS', 'Community', 'Legal', 'S
         <!-- ── RECORD RECEIPT WORKFLOW ── -->
         <div v-else-if="variant === 'receipt'" class="gs-receipt">
           <div class="gs-receipt-l">
-            <div class="gs-fh"><b>Invoice INV-1042</b><span class="gs-st st-sent">Sent</span></div>
-            <div class="gs-rc-line">Tenant: <b>Tanvir A.</b> · Unit 4B</div>
-            <div class="gs-rc-line">Amount: <b>৳45,000</b> · Due 05 Aug</div>
-            <div class="gs-rc-line">Method: <span class="gs-st st-paid">bKash</span></div>
+            <div class="gs-fh"><b>{{ t('Invoice INV-1042') }}</b><span class="gs-st st-sent">{{ t('Sent') }}</span></div>
+            <div class="gs-rc-line">{{ t('Tenant:') }} <b>{{ t('Tanvir A.') }}</b> · Unit 4B</div>
+            <div class="gs-rc-line">{{ t('Amount:') }} <b>৳45,000</b> · Due 05 Aug</div>
+            <div class="gs-rc-line">{{ t('Method:') }} <span class="gs-st st-paid">bKash</span></div>
             <div class="gs-btn-sm prim" style="margin-top:8px;display:inline-block">💳 Record payment</div>
           </div>
           <div class="gs-receipt-r">
             <div class="gs-rc-t">🧾 Receipt issued</div>
             <div class="gs-rc-line">RCPT-2208 · ৳45,000</div>
-            <div class="gs-rc-line">Status: <span class="gs-st st-paid">Paid</span></div>
-            <div class="gs-rc-note">Collections updated automatically</div>
+            <div class="gs-rc-line">{{ t('Status:') }} <span class="gs-st st-paid">{{ t('Paid') }}</span></div>
+            <div class="gs-rc-note">{{ t('Collections updated automatically') }}</div>
           </div>
         </div>
 
         <!-- ── MAINTENANCE TICKET WORKFLOW ── -->
         <div v-else-if="variant === 'maint'" class="gs-maint">
           <div class="gs-maint-l">
-            <div class="gs-fh"><b>Raise ticket</b></div>
+            <div class="gs-fh"><b>{{ t('Raise ticket') }}</b></div>
             <div class="gs-f" style="margin-bottom:5px"></div>
             <div class="gs-f" style="margin-bottom:5px"></div>
             <div class="gs-f" style="margin-bottom:5px"></div>
             <div class="gs-btn" style="margin-top:4px"></div>
-            <div class="gs-link" style="margin-top:5px">Unit · Category · Priority · Title</div>
+            <div class="gs-link" style="margin-top:5px">{{ t('Unit · Category · Priority · Title') }}</div>
           </div>
           <div class="gs-maint-r">
             <div class="gs-rc-t">Ticket created → MT-118</div>
-            <div class="gs-rc-line">SLA: <span class="gs-st st-prog">4h left</span> · <span class="gs-pill2 p-sh">Shared</span></div>
+            <div class="gs-rc-line">{{ t('SLA:') }} <span class="gs-st st-prog">4h left</span> · <span class="gs-pill2 p-sh">{{ t('Shared') }}</span></div>
             <div class="gs-rc-line">Timeline: Created → Assigned → Done</div>
-            <div class="gs-rc-note">Staff see it instantly; SLA breach alerts fire</div>
+            <div class="gs-rc-note">{{ t('Staff see it instantly; SLA breach alerts fire') }}</div>
           </div>
         </div>
 

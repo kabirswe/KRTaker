@@ -163,22 +163,22 @@ function refreshSel() {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search title, notes, lawyer…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All types</option>
+          <option value="">{{ t('All types') }}</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ typeMeta(t).label }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="opened">Sort: Opened</option>
-          <option value="next_hearing">Sort: Next hearing</option>
+          <option value="opened">{{ t('Sort: Opened') }}</option>
+          <option value="next_hearing">{{ t('Sort: Next hearing') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openCase" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New case</button>
       </div>
@@ -221,7 +221,7 @@ function refreshSel() {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Case</th><th>Type</th><th>Status</th><th>Stage</th><th>Next hearing</th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Case') }}</th><th>{{ t('Type') }}</th><th>{{ t('Status') }}</th><th>{{ t('Stage') }}</th><th>{{ t('Next hearing') }}</th></tr></thead>
           <tbody>
             <tr v-for="c in paged" :key="c.id" style="cursor:pointer" @click="openDetail(c)">
               <td style="font-weight:700;white-space:nowrap">{{ c.id }}</td>
@@ -256,7 +256,7 @@ function refreshSel() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Type</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Type') }}</div>
               <select v-model="caseForm.type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option value="eviction">🚪 Eviction</option>
                 <option value="arrears">💰 Rent arrears</option>
@@ -265,27 +265,27 @@ function refreshSel() {
               </select>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Stage</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Stage') }}</div>
               <input v-model="caseForm.stage" placeholder="e.g. Notice / Filing" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Title</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Title') }}</div>
             <input v-model="caseForm.title" placeholder="e.g. Eviction — Sultana Rahman (L-007)" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Lawyer</div>
-              <input v-model="caseForm.lawyer" placeholder="Counsel name" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Lawyer') }}</div>
+              <input v-model="caseForm.lawyer" :placeholder="t('Counsel name')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Next hearing</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Next hearing') }}</div>
               <input v-model="caseForm.next_hearing" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
-            <RichEditor v-model="caseForm.notes" placeholder="Optional" :min-height="'100px'" style="margin-top:5px" />
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Notes') }}</div>
+            <RichEditor v-model="caseForm.notes" :placeholder="t('Optional')" :min-height="'100px'" style="margin-top:5px" />
           </div>
           <button @click="submitCase" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">⚖️ Open case</button>
         </div>
@@ -313,19 +313,19 @@ function refreshSel() {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Opened</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Opened') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.opened) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Next hearing</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Next hearing') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.next_hearing) }} <template v-if="hearingNote(sel)">({{ hearingNote(sel) }})</template></div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Lawyer</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Lawyer') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.lawyer || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Updated</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Updated') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtTs(sel.updated_at) }}</div>
             </div>
           </div>
@@ -339,22 +339,22 @@ function refreshSel() {
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">✏️ Update case</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div>
-                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Stage</div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">{{ t('Stage') }}</div>
                   <input v-model="updForm.stage" placeholder="e.g. Hearing" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
                 </div>
                 <div>
-                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Status</div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">{{ t('Status') }}</div>
                   <select v-model="updForm.status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px;font-family:inherit;outline:none">
                     <option v-for="s in CASE_STATUSES" :key="s" :value="s">{{ s }}</option>
                   </select>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-                <input v-model="updForm.lawyer" placeholder="Lawyer" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                <input v-model="updForm.lawyer" :placeholder="t('Lawyer')" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
                 <input v-model="updForm.next_hearing" type="date" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
               </div>
-              <RichEditor v-model="updForm.notes" placeholder="Notes" :min-height="'100px'" style="margin-top:8px" />
-              <input v-model="updForm.note" placeholder="Note for the timeline (optional)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;margin-top:8px">
+              <RichEditor v-model="updForm.notes" :placeholder="t('Notes')" :min-height="'100px'" style="margin-top:8px" />
+              <input v-model="updForm.note" :placeholder="t('Note for the timeline (optional)')" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none;margin-top:8px">
               <button @click="saveUpdate" style="margin-top:10px;width:100%;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save update</button>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
@@ -366,14 +366,14 @@ function refreshSel() {
                   <option value="stage">🔄 Stage</option>
                   <option value="doc">📎 Doc</option>
                 </select>
-                <input v-model="evForm.body" placeholder="What happened?" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                <input v-model="evForm.body" :placeholder="t('What happened?')" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
               </div>
               <button @click="addEvent" style="margin-top:9px;width:100%;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add event</button>
             </div>
           </template>
           <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Timeline · {{ timeline.length }} events</div>
-            <div v-if="!timeline.length" class="c-sub" style="font-size:12.5px">No events recorded.</div>
+            <div v-if="!timeline.length" class="c-sub" style="font-size:12.5px">{{ t('No events recorded.') }}</div>
             <div v-for="e in timeline" :key="e.id" style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="width:30px;height:30px;border-radius:50%;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">{{ evIco(e.ev_type) }}</div>
               <div style="min-width:0">

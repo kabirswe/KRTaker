@@ -219,7 +219,7 @@ async function viewDoc(d) {
         </div>
       </div>
       <div class="head-actions">
-        <button class="btn-ghost" @click="refresh" title="Refresh">🔄</button>
+        <button class="btn-ghost" @click="refresh" :title="t('Refresh')">🔄</button>
         <span v-if="score" class="badge" :class="score.band_color">{{ score.band }} · {{ score.score }}/100</span>
       </div>
     </div>
@@ -286,7 +286,7 @@ async function viewDoc(d) {
               <div v-for="(m, i) in family" :key="i" style="display:flex;gap:6px;margin-bottom:6px">
                 <input v-model="m.name" :placeholder="lang === 'bn' ? 'নাম' : 'Name'" style="flex:1.4;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
                 <input v-model="m.relation" :placeholder="lang === 'bn' ? 'সম্পর্ক' : 'Relation'" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-                <input v-model="m.phone" placeholder="Phone" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
+                <input v-model="m.phone" :placeholder="t('Phone')" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
                 <button style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:13px" @click="family.splice(i, 1)">✕</button>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">

@@ -147,26 +147,26 @@ onMounted(loadAll)
       <!-- ── KPI cards ── -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
         <div class="panel" style="padding:14px 16px">
-          <div class="c-sub" style="font-size:11px">UNPAID INVOICES</div>
+          <div class="c-sub" style="font-size:11px">{{ t('UNPAID INVOICES') }}</div>
           <div style="font-size:20px;font-weight:800">{{ planRows.length }}</div>
         </div>
         <div class="panel" style="padding:14px 16px">
-          <div class="c-sub" style="font-size:11px">TOTAL DUE</div>
+          <div class="c-sub" style="font-size:11px">{{ t('TOTAL DUE') }}</div>
           <div style="font-size:20px;font-weight:800">{{ money(remPlan?.total_due) }}</div>
         </div>
         <div class="panel" style="padding:14px 16px">
-          <div class="c-sub" style="font-size:11px">PLAN BY TIER</div>
+          <div class="c-sub" style="font-size:11px">{{ t('PLAN BY TIER') }}</div>
           <div style="font-size:16px;font-weight:700;display:flex;gap:8px;flex-wrap:wrap">
             <span v-for="[t, n] in byTierEntries" :key="t"><span class="badge" :class="tierBadge(+t)">T{{ t }}:{{ n }}</span></span>
             <span v-if="!byTierEntries.length" class="c-sub" style="font-size:12px">—</span>
           </div>
         </div>
         <div class="panel" style="padding:14px 16px">
-          <div class="c-sub" style="font-size:11px">LAST EMAIL RUN</div>
+          <div class="c-sub" style="font-size:11px">{{ t('LAST EMAIL RUN') }}</div>
           <div style="font-size:15px;font-weight:700">{{ fmtAgo(rem?.last_run) }}</div>
         </div>
         <div class="panel" style="padding:14px 16px">
-          <div class="c-sub" style="font-size:11px">LAST OWNER PUSH</div>
+          <div class="c-sub" style="font-size:11px">{{ t('LAST OWNER PUSH') }}</div>
           <div style="font-size:15px;font-weight:700">{{ pushRun?.last_run ? fmtAgo(pushRun.last_run) : '—' }}</div>
         </div>
       </div>
@@ -181,13 +181,13 @@ onMounted(loadAll)
         </div>
         <div class="panel-b">
           <div v-if="confirmSend" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(231,76,60,.08);padding:10px 14px;border-radius:10px;margin-bottom:12px">
-            <span style="font-size:13px;color:var(--text)">Send rent-reminder emails now? Only invoices whose escalation tier increased are emailed.</span>
+            <span style="font-size:13px;color:var(--text)">{{ t('Send rent-reminder emails now? Only invoices whose escalation tier increased are emailed.') }}</span>
             <button class="btn-primary" style="background:var(--danger);font-size:12.5px" :disabled="remRunning" @click="runReminders(true)">{{ t('Yes, send emails') }}</button>
             <button class="btn-ghost" style="font-size:12.5px" @click="confirmSend = false">{{ t('Cancel') }}</button>
           </div>
 
           <div v-if="remRun" style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px;line-height:1.6">
-            <b>Last run:</b> plan {{ remRun.plan?.length || 0 }} invoices · T1:{{ remRun.by_tier?.['1'] || 0 }} T2:{{ remRun.by_tier?.['2'] || 0 }} T3:{{ remRun.by_tier?.['3'] || 0 }} · due {{ money(remRun.total_due) }} · sent <b>{{ remRun.sent }}</b> · stamped {{ remRun.stamped }} · suppressed {{ remRun.suppressed }} · failed {{ remRun.errors?.length || 0 }} · {{ remRun.send ? '📨 EMAILS SENT' : '👁️ dry run — nothing sent' }}
+            <b>{{ t('Last run:') }}</b> plan {{ remRun.plan?.length || 0 }} invoices · T1:{{ remRun.by_tier?.['1'] || 0 }} T2:{{ remRun.by_tier?.['2'] || 0 }} T3:{{ remRun.by_tier?.['3'] || 0 }} · due {{ money(remRun.total_due) }} · sent <b>{{ remRun.sent }}</b> · stamped {{ remRun.stamped }} · suppressed {{ remRun.suppressed }} · failed {{ remRun.errors?.length || 0 }} · {{ remRun.send ? '📨 EMAILS SENT' : '👁️ dry run — nothing sent' }}
           </div>
 
           <div class="tbl-wrap" style="max-height:none">
@@ -216,14 +216,14 @@ onMounted(loadAll)
 
       <!-- ── Config editor ── -->
       <div class="panel" style="margin-bottom:16px">
-        <div class="panel-h"><div class="t"><span class="pi">⚙️</span>Escalation config</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">⚙️</span>{{ t('Escalation config') }}</div></div>
         <div class="panel-b">
           <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:12px">
-            <input type="checkbox" v-model="remCfg.enabled"> Automation enabled (scheduler may send tiered reminder emails)
+            <input type="checkbox" v-model="remCfg.enabled"> {{ t('Automation enabled (scheduler may send tiered reminder emails)') }}
           </label>
 
-          <div style="font-weight:800;font-size:13px;margin-bottom:6px">Late-fee note <span class="c-sub" style="font-weight:400">(appended to tier 3)</span></div>
-          <textarea v-model="remCfg.late_fee" rows="2" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12.5px;background:var(--bg);color:var(--text);margin-bottom:14px" placeholder="A late fee may apply per your tenancy agreement — please settle to avoid it."></textarea>
+          <div style="font-weight:800;font-size:13px;margin-bottom:6px">{{ t('Late-fee note') }} <span class="c-sub" style="font-weight:400">(appended to tier 3)</span></div>
+          <textarea v-model="remCfg.late_fee" rows="2" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12.5px;background:var(--bg);color:var(--text);margin-bottom:14px" :placeholder="t('A late fee may apply per your tenancy agreement — please settle to avoid it.')"></textarea>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px">
             <div v-for="tk in ['1', '2', '3']" :key="tk" style="border:1px solid var(--border);border-radius:12px;padding:12px 14px">
@@ -232,8 +232,8 @@ onMounted(loadAll)
                 <input v-model="remCfg.tiers[tk].label" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px;background:var(--bg);color:var(--text)" />
               </div>
               <div style="display:flex;gap:8px;margin-bottom:8px">
-                <label class="c-sub" style="font-size:11px;flex:1">Min days <input type="number" v-model.number="remCfg.tiers[tk].min_days" min="0" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--bg);color:var(--text)" /></label>
-                <label class="c-sub" style="font-size:11px;flex:1">Max days <input type="number" v-model.number="remCfg.tiers[tk].max_days" min="0" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--bg);color:var(--text)" /></label>
+                <label class="c-sub" style="font-size:11px;flex:1">{{ t('Min days') }} <input type="number" v-model.number="remCfg.tiers[tk].min_days" min="0" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--bg);color:var(--text)" /></label>
+                <label class="c-sub" style="font-size:11px;flex:1">{{ t('Max days') }} <input type="number" v-model.number="remCfg.tiers[tk].max_days" min="0" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--bg);color:var(--text)" /></label>
               </div>
               <textarea v-model="remCfg.tiers[tk].note" rows="3" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;background:var(--bg);color:var(--text)" placeholder="Message — use {{ '{{month}}' }} for the invoice month"></textarea>
             </div>
@@ -246,9 +246,9 @@ onMounted(loadAll)
 
       <!-- ── Owner web-push channel ── -->
       <div class="panel" style="margin-bottom:16px">
-        <div class="panel-h"><div class="t"><span class="pi">🔔</span>Owner web-push digest <span class="badge b-green" style="margin-left:8px">push</span></div>
+        <div class="panel-h"><div class="t"><span class="pi">🔔</span>{{ t('Owner web-push digest') }} <span class="badge b-green" style="margin-left:8px">push</span></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <label class="c-sub" style="font-size:12px">Lookahead
+            <label class="c-sub" style="font-size:12px">{{ t('Lookahead') }}
               <select v-model.number="pushLookahead" style="border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;background:var(--bg);color:var(--text);margin-left:6px">
                 <option v-for="n in 6" :key="n" :value="n">{{ n }} mo</option>
               </select>
@@ -260,12 +260,12 @@ onMounted(loadAll)
         <div class="panel-b">
           <div class="c-sub" style="font-size:12.5px;margin-bottom:10px">Proactive browser-notification digest to owners with a subscribed device — overdue / due-this-month / due-next-month per property. Respects the rent_reminders switch and per-user opt-out.</div>
           <div v-if="confirmPush" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(231,76,60,.08);padding:10px 14px;border-radius:10px;margin-bottom:12px">
-            <span style="font-size:13px">Send web-push digests to <b>{{ pushRun?.targeted || '?' }}</b> owner(s)?</span>
+            <span style="font-size:13px">{{ t('Send web-push digests to') }} <b>{{ pushRun?.targeted || '?' }}</b> owner(s)?</span>
             <button class="btn-primary" style="background:var(--danger);font-size:12.5px" :disabled="pushRunning" @click="runPush(true)">{{ t('Yes, send push') }}</button>
             <button class="btn-ghost" style="font-size:12.5px" @click="confirmPush = false">{{ t('Cancel') }}</button>
           </div>
           <div v-if="pushRun" style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px">
-            <b>Last run:</b> targeted {{ pushRun.targeted }} · sent {{ pushRun.sent }} · suppressed {{ pushRun.suppressed }} · overdue {{ money(pushTotals.overdue) }} · due soon {{ money(pushTotals.due_soon) }} · upcoming {{ money(pushTotals.upcoming) }} · {{ pushRun.dry_run ? '👁️ dry run' : '🔔 SENT' }}
+            <b>{{ t('Last run:') }}</b> targeted {{ pushRun.targeted }} · sent {{ pushRun.sent }} · suppressed {{ pushRun.suppressed }} · overdue {{ money(pushTotals.overdue) }} · due soon {{ money(pushTotals.due_soon) }} · upcoming {{ money(pushTotals.upcoming) }} · {{ pushRun.dry_run ? '👁️ dry run' : '🔔 SENT' }}
           </div>
           <div class="tbl-wrap" style="max-height:none">
             <table class="kr" style="width:100%;font-size:12.5px">
@@ -304,7 +304,7 @@ onMounted(loadAll)
                   <td style="text-align:center"><span class="badge" :class="h.via === 'email' ? 'b-blue' : (h.via === 'email+sms' ? 'b-green' : 'b-gray')">{{ h.via || '—' }}</span></td>
                   <td>{{ h.sent_at }}</td>
                 </tr>
-                <tr v-if="!history.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:24px 0">No reminders sent yet</td></tr>
+                <tr v-if="!history.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:24px 0">{{ t('No reminders sent yet') }}</td></tr>
               </tbody>
             </table>
           </div>

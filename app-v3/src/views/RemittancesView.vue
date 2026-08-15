@@ -87,18 +87,18 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search ref, form C, owner…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="monthFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All months</option>
+          <option value="">{{ t('All months') }}</option>
           <option v-for="m in monthOptions" :key="m" :value="m">{{ monthLabel(m) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -126,7 +126,7 @@ function detailFields(row) {
           <div class="c-sub" style="font-size:12px">{{ r.id }} · {{ monthLabel(r.month) }}<template v-if="r.prop"> · {{ propName(r.prop) }}</template></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <span class="badge b-blue">💱 {{ r.amount_fx ? r.amount_fx.toLocaleString('en-US') : '—' }} {{ r.currency || '' }}</span>
-            <span v-if="r.rate" class="badge b-gray">Rate {{ r.rate }}</span>
+            <span v-if="r.rate" class="badge b-gray">{{ t('Rate') }} {{ r.rate }}</span>
             <span v-if="r.method" class="badge b-orange">{{ r.method }}</span>
           </div>
           <div style="display:flex;gap:13px;font-size:11.5px;margin-top:auto" class="c-sub">
@@ -141,7 +141,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Owner</th><th>Month</th><th>Amount</th><th>FX</th><th>Rate</th><th>Status</th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Owner') }}</th><th>{{ t('Month') }}</th><th>{{ t('Amount') }}</th><th>FX</th><th>{{ t('Rate') }}</th><th>{{ t('Status') }}</th></tr></thead>
           <tbody>
             <tr v-for="r in paged" :key="r.id" style="cursor:pointer" @click="openDetail(r)">
               <td style="font-weight:700;white-space:nowrap">{{ r.id }}</td>
@@ -180,36 +180,36 @@ function detailFields(row) {
           <div class="c-sub" style="margin-top:4px;font-size:12.5px">{{ monthLabel(sel.month) }} · {{ fmtTs(sel.ts) }}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0">
             <span class="badge b-blue">💱 {{ sel.amount_fx ? sel.amount_fx.toLocaleString('en-US') : '—' }} {{ sel.currency || '' }}</span>
-            <span v-if="sel.rate" class="badge b-gray">Rate {{ sel.rate }}</span>
+            <span v-if="sel.rate" class="badge b-gray">{{ t('Rate') }} {{ sel.rate }}</span>
             <button v-if="propRef(sel)" class="btn-ghost" style="padding:4px 10px;font-size:12px" @click="go(propRef(sel).path, propRef(sel).query)">↗ {{ propName(sel.prop) }}</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Amount (BDT)</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Amount (BDT)') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ money(sel.amount) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">FX amount</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('FX amount') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.amount_fx ? sel.amount_fx.toLocaleString('en-US') : '—' }} {{ sel.currency || '' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Rate</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Rate') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.rate || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Method</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.method || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Bank ref</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Bank ref') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.ref || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Form C</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Form C') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.form_c || '—' }}</div>
             </div>
             <div v-if="sel.confirmed_at" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Confirmed</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Confirmed') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtTs(sel.confirmed_at) }}</div>
             </div>
           </div>

@@ -197,27 +197,27 @@ async function setStatus(u, st) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search unit, property, tenant…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="propFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All properties</option>
+          <option value="">{{ t('All properties') }}</option>
           <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="name">Sort: Name</option>
-          <option value="property">Sort: Property</option>
-          <option value="rent">Sort: Rent</option>
-          <option value="sqft">Sort: Area</option>
+          <option value="name">{{ t('Sort: Name') }}</option>
+          <option value="property">{{ t('Sort: Property') }}</option>
+          <option value="rent">{{ t('Sort: Rent') }}</option>
+          <option value="sqft">{{ t('Sort: Area') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Add a new unit (flat/shop) to a property">＋ New unit</button>
-        <button v-if="canManage" @click="openImport" class="btn-ghost" style="padding:9px 16px;font-weight:700" title="Bulk import units from CSV">⬆ Import</button>
+        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" :title="t('Add a new unit (flat/shop) to a property')">＋ New unit</button>
+        <button v-if="canManage" @click="openImport" class="btn-ghost" style="padding:9px 16px;font-weight:700" :title="t('Bulk import units from CSV')">⬆ Import</button>
       </div>
     </div>
 
@@ -244,11 +244,11 @@ async function setStatus(u, st) {
             <div class="c-sub" style="margin-top:2px">🏢 {{ propName(u.p) }}<template v-if="u.floor && u.floor !== '—'"> · {{ u.floor }} floor</template></div>
           </div>
           <div style="display:flex;gap:13px;font-size:12px">
-            <span class="c-sub" title="Area">📐 {{ (u.sqft || 0).toLocaleString('en-IN') }} sqft</span>
-            <span class="c-sub" title="Rent">💵 {{ money(u.rent) }}/mo</span>
-            <span v-if="u.beds && u.beds !== '0'" class="c-sub" title="Beds">🛏️ {{ u.beds }}</span>
-            <span v-if="u.baths && u.baths !== '0'" class="c-sub" title="Baths">🛁 {{ u.baths }}</span>
-            <span v-if="String(u.furnished) === '1'" class="c-sub" title="Furnished">🛋️</span>
+            <span class="c-sub" :title="t('Area')">📐 {{ (u.sqft || 0).toLocaleString('en-IN') }} sqft</span>
+            <span class="c-sub" :title="t('Rent')">💵 {{ money(u.rent) }}/mo</span>
+            <span v-if="u.beds && u.beds !== '0'" class="c-sub" :title="t('Beds')">🛏️ {{ u.beds }}</span>
+            <span v-if="u.baths && u.baths !== '0'" class="c-sub" :title="t('Baths')">🛁 {{ u.baths }}</span>
+            <span v-if="String(u.furnished) === '1'" class="c-sub" :title="t('Furnished')">🛋️</span>
           </div>
           <div v-if="selLeaseFor(u)" style="font-size:12px;display:flex;justify-content:space-between;align-items:center;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:7px 10px">
             <span>👤 {{ tenantName(selLeaseFor(u).t) }}</span>
@@ -269,7 +269,7 @@ async function setStatus(u, st) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>Unit</th><th>Property</th><th>Status</th><th>Rent / mo</th><th>Tenant</th><th>Lease end</th><th>Collection</th><th>Tickets</th><th v-if="canManage">Actions</th></tr></thead>
+          <thead><tr><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th>{{ t('Status') }}</th><th>{{ t('Rent / mo') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Lease end') }}</th><th>{{ t('Collection') }}</th><th>{{ t('Tickets') }}</th><th v-if="canManage">{{ t('Actions') }}</th></tr></thead>
           <tbody>
             <tr v-for="u in paged" :key="u.id" style="cursor:pointer" @click="openDetail(u)">
               <td style="white-space:nowrap"><b>{{ u.name }}</b> <span class="c-sub">{{ u.id }}</span><template v-if="u.floor && u.floor !== '—'"> · {{ u.floor }} floor</template></td>
@@ -329,7 +329,7 @@ async function setStatus(u, st) {
 
           <div v-if="tab === 'lease'" class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-            <thead><tr><th>Lease</th><th>Tenant</th><th>Start</th><th>End</th><th>Advance</th><th>Registered</th><th>Status</th></tr></thead>
+            <thead><tr><th>{{ t('Lease') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Start') }}</th><th>{{ t('End') }}</th><th>{{ t('Advance') }}</th><th>{{ t('Registered') }}</th><th>{{ t('Status') }}</th></tr></thead>
             <tbody>
               <tr v-if="selLease">
                 <td style="font-weight:700">{{ selLease.id }}</td>
@@ -340,46 +340,46 @@ async function setStatus(u, st) {
                 <td>{{ selLease.reg_office ? selLease.reg_office + ' · ' + (selLease.reg_deed || '') : '—' }}</td>
                 <td><span class="badge" :class="badge(selLease.status)">{{ selLease.status }}</span></td>
               </tr>
-              <tr v-else><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No lease for this unit.</td></tr>
+              <tr v-else><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No lease for this unit.') }}</td></tr>
             </tbody>
           </table>
           </div>
 
           <div v-else-if="tab === 'invoices'" class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-            <thead><tr><th>Invoice</th><th>Month</th><th>Gross</th><th>TDS</th><th>Net</th><th>Status</th></tr></thead>
+            <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Month') }}</th><th>{{ t('Gross') }}</th><th>{{ t('TDS') }}</th><th>{{ t('Net') }}</th><th>{{ t('Status') }}</th></tr></thead>
             <tbody>
               <tr v-for="i in selInvoices" :key="i.id">
                 <td style="font-weight:700"><a @click.stop="go('/invoices', { open: i.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ i.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td><td>{{ i.m || '—' }}</td><td>{{ money(i.gross) }}</td><td>{{ money(i.tds) }}</td><td style="font-weight:700">{{ money(i.net) }}</td>
                 <td><span class="badge" :class="badge(i.status)">{{ i.status }}</span></td>
               </tr>
-              <tr v-if="!selInvoices.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No invoices.</td></tr>
+              <tr v-if="!selInvoices.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No invoices.') }}</td></tr>
             </tbody>
           </table>
           </div>
 
           <div v-else-if="tab === 'tickets'" class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-            <thead><tr><th>Ticket</th><th>Issue</th><th>Reported</th><th>Liability</th><th>Cost</th><th>Status</th></tr></thead>
+            <thead><tr><th>{{ t('Ticket') }}</th><th>{{ t('Issue') }}</th><th>{{ t('Reported') }}</th><th>{{ t('Liability') }}</th><th>{{ t('Cost') }}</th><th>{{ t('Status') }}</th></tr></thead>
             <tbody>
               <tr v-for="t in selTickets" :key="t.id">
                 <td style="font-weight:700"><a @click.stop="go('/maintenance', { open: t.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ t.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td><td>{{ t.desc }}</td><td>{{ t.reported || '—' }}</td><td>{{ t.liab || '—' }}</td><td>{{ money(t.cost) }}</td>
                 <td><span class="badge" :class="badge(t.status)">{{ t.status }}</span></td>
               </tr>
-              <tr v-if="!selTickets.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No maintenance tickets.</td></tr>
+              <tr v-if="!selTickets.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No maintenance tickets.') }}</td></tr>
             </tbody>
           </table>
           </div>
 
           <div v-else class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-            <thead><tr><th>Bill</th><th>Type</th><th>Month</th><th>Usage</th><th>Amount</th><th>Status</th></tr></thead>
+            <thead><tr><th>{{ t('Bill') }}</th><th>{{ t('Type') }}</th><th>{{ t('Month') }}</th><th>{{ t('Usage') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th></tr></thead>
             <tbody>
               <tr v-for="b in selUtils" :key="b.id">
                 <td style="font-weight:700">{{ b.id }}</td><td>{{ b.type }}</td><td>{{ b.month || '—' }}</td><td>{{ b.usage ?? '—' }}</td><td style="font-weight:700">{{ money(b.amount) }}</td>
                 <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
               </tr>
-              <tr v-if="!selUtils.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No utility bills.</td></tr>
+              <tr v-if="!selUtils.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No utility bills.') }}</td></tr>
             </tbody>
           </table>
           </div>
@@ -408,11 +408,11 @@ async function setStatus(u, st) {
             </select>
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Floor</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Floor') }}</label>
             <input v-model="form.floor" placeholder="3rd" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Area (sqft)</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Area (sqft)') }}</label>
             <input v-model="form.sqft" type="number" min="0" placeholder="1450" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
@@ -420,29 +420,29 @@ async function setStatus(u, st) {
             <input v-model="form.rent" type="number" min="0" placeholder="25000" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Status</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Status') }}</label>
             <select v-model="form.status" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
               <option v-for="s in ['Vacant','Leased','Maintenance']" :key="s" :value="s">{{ s }}</option>
             </select>
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Beds</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Beds') }}</label>
             <input v-model="form.beds" placeholder="3" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Baths</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Baths') }}</label>
             <input v-model="form.baths" placeholder="2" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Furnished</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Furnished') }}</label>
             <select v-model="form.furnished" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-              <option value="">—</option><option value="0">No</option><option value="1">Yes</option>
+              <option value="">—</option><option value="0">No</option><option value="1">{{ t('Yes') }}</option>
             </select>
           </div>
           <div v-if="formErr" style="grid-column:1/-1;color:var(--danger);font-size:12.5px;font-weight:600">{{ formErr }}</div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="closeModal">Cancel</button>
+          <button class="btn-ghost" @click="closeModal">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="saving" @click="submitForm" style="padding:9px 18px">{{ saving ? 'Saving…' : modal.mode === 'edit' ? 'Save changes' : 'Create unit' }}</button>
         </div>
       </div>

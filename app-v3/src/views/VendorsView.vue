@@ -419,7 +419,7 @@ function exportCsv(kind) {
         <template v-else-if="tab === 'jobs'">
           <input v-model="jq" placeholder="Search jobs…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:190px">
           <select v-model="jStatus" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <option value="">All statuses</option>
+            <option value="">{{ t('All statuses') }}</option>
             <option v-for="s in jStatusOptions" :key="s" :value="s">{{ s }}</option>
           </select>
           <button v-if="filteredJobs.length" @click="exportCsv('jobs')" class="btn-ghost">⬇ CSV</button>
@@ -427,7 +427,7 @@ function exportCsv(kind) {
         <template v-else-if="tab === 'board'">
           <input v-model="bq" placeholder="Search tasks, requester, WO…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
           <select v-model="bCat" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <option value="">All categories</option>
+            <option value="">{{ t('All categories') }}</option>
             <option v-for="c in cats" :key="c" :value="c">{{ c }}</option>
           </select>
           <button v-if="canManage" @click="openNew" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">＋ New service task</button>
@@ -435,7 +435,7 @@ function exportCsv(kind) {
         <template v-else-if="tab === 'invoices'">
           <input v-model="iq" placeholder="Search invoices…" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:190px">
           <select v-model="iStatus" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <option value="">All statuses</option>
+            <option value="">{{ t('All statuses') }}</option>
             <option v-for="s in iStatusOptions" :key="s" :value="s">{{ s }}</option>
           </select>
           <button v-if="canManage" @click="openInvoiceAdd" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px">🧾 Submit invoice</button>
@@ -472,7 +472,7 @@ function exportCsv(kind) {
     <template v-if="tab === 'partners'">
       <div class="chip-row">
         <CompactFilters>
-        <button class="chip" :class="{ on: catFilter === '' }" @click="catFilter = ''">All <b>{{ partners.length }}</b></button>
+        <button class="chip" :class="{ on: catFilter === '' }" @click="catFilter = ''">{{ t('All') }} <b>{{ partners.length }}</b></button>
         <button v-for="c in catOptions" :key="c" class="chip" :class="{ on: catFilter === c }" @click="catFilter = catFilter === c ? '' : c">{{ c }} <b>{{ catCounts[c] || 0 }}</b></button>
         <div style="flex:1"></div>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
@@ -480,11 +480,11 @@ function exportCsv(kind) {
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
         <select v-model="tradeFilter" style="padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-          <option value="">All trades</option>
+          <option value="">{{ t('All trades') }}</option>
           <option v-for="t in tradeOptions" :key="t" :value="t">{{ t }}</option>
         </select>
         <select v-model="statusFilter" style="padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         </CompactFilters>
@@ -515,7 +515,7 @@ function exportCsv(kind) {
               <span v-if="p.avg_rating" class="badge b-orange">★ {{ p.avg_rating }}<template v-if="p.rating_count"> ({{ p.rating_count }})</template></span>
             </div>
             <div style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:9px">
-              <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px">👁 View profile</button>
+              <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px">👁 {{ t('View profile') }}</button>
             </div>
           </div>
         </div>
@@ -523,7 +523,7 @@ function exportCsv(kind) {
       <div v-if="filteredPartners.length && viewMode === 'list'" class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>Partner</th><th>Category</th><th>Trade</th><th>Phone</th><th>Status</th><th>Rating</th><th>Jobs</th><th>Paid</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Partner') }}</th><th>{{ t('Category') }}</th><th>{{ t('Trade') }}</th><th>{{ t('Phone') }}</th><th>{{ t('Status') }}</th><th>{{ t('Rating') }}</th><th>{{ t('Jobs') }}</th><th>{{ t('Paid') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="p in filteredPartners" :key="p.id" style="cursor:pointer" @click="openPartner(p)">
                 <td style="white-space:nowrap"><b>{{ p.name }}</b><div class="c-sub" style="font-size:11.5px">{{ p.id }}<template v-if="p.sub_email"> · {{ p.sub_email }}</template></div></td>
@@ -534,14 +534,14 @@ function exportCsv(kind) {
                 <td style="white-space:nowrap">⭐ {{ p.rating || 0 }}<template v-if="p.avg_rating"> · ★{{ p.avg_rating }}</template></td>
                 <td style="white-space:nowrap" class="c-sub">{{ p.jobs || 0 }}<template v-if="p.open_jobs"> <span style="color:var(--danger)">({{ p.open_jobs }} open)</span></template></td>
                 <td style="white-space:nowrap;font-weight:700">{{ money(p.paid_total || 0) }}</td>
-                <td style="white-space:nowrap" class="c-sub" title="View profile">👁</td>
+                <td style="white-space:nowrap" class="c-sub" :title="t('View profile')">👁</td>
               </tr>
-              <tr v-if="!filteredPartners.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:22px">No partners found.</td></tr>
+              <tr v-if="!filteredPartners.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No partners found.') }}</td></tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div v-if="!filteredPartners.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No partners found.</div>
+      <div v-if="!filteredPartners.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">{{ t('No partners found.') }}</div>
     </template>
 
     <!-- ── SERVICE BOARD ── -->
@@ -597,7 +597,7 @@ function exportCsv(kind) {
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>Job</th><th>Vendor</th><th>Unit</th><th>Category</th><th>Priority</th><th>Cost</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Job') }}</th><th>{{ t('Vendor') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Category') }}</th><th>{{ t('Priority') }}</th><th>{{ t('Cost') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="j in filteredJobs" :key="j.id">
                 <td style="white-space:nowrap"><b>{{ j.id }}</b><div class="c-sub" style="font-size:11.5px">{{ j.title || '—' }}</div></td>
@@ -622,7 +622,7 @@ function exportCsv(kind) {
                   </div>
                 </td>
               </tr>
-              <tr v-if="!filteredJobs.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:22px">No jobs.</td></tr>
+              <tr v-if="!filteredJobs.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No jobs.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -634,7 +634,7 @@ function exportCsv(kind) {
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>Invoice</th><th>Partner</th><th>Job</th><th>Amount</th><th>Status</th><th>Decided</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Partner') }}</th><th>{{ t('Job') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th><th>{{ t('Decided') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="i in filteredInvoices" :key="i.id">
                 <td style="white-space:nowrap"><b>{{ i.id }}</b></td>
@@ -653,7 +653,7 @@ function exportCsv(kind) {
                   </div>
                 </td>
               </tr>
-              <tr v-if="!filteredInvoices.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No invoices.</td></tr>
+              <tr v-if="!filteredInvoices.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No invoices.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -665,7 +665,7 @@ function exportCsv(kind) {
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap">
           <table class="kr" style="width:100%">
-            <thead><tr><th>ID</th><th>Partner</th><th>Month</th><th>Method</th><th>Ref</th><th>Amount</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Partner') }}</th><th>{{ t('Month') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th></tr></thead>
             <tbody>
               <tr v-for="p in filteredPayouts" :key="p.id">
                 <td style="white-space:nowrap;font-weight:700">{{ p.id }}</td>
@@ -676,7 +676,7 @@ function exportCsv(kind) {
                 <td style="white-space:nowrap;font-weight:700">{{ money(p.amount) }}</td>
                 <td style="white-space:nowrap"><span class="badge" :class="badge(p.status)">{{ p.status }}</span></td>
               </tr>
-              <tr v-if="!filteredPayouts.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No payouts recorded.</td></tr>
+              <tr v-if="!filteredPayouts.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No payouts recorded.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -710,21 +710,21 @@ function exportCsv(kind) {
 
           <!-- budget box -->
           <div class="budget-box" :class="selJob.budget_type">
-            <div class="bb-label">Budget</div>
+            <div class="bb-label">{{ t('Budget') }}</div>
             <div class="bb-line">
               <span class="bb-type">{{ selJob.budget_type === 'fixed' ? '🎯 Fixed rate' : selJob.budget_type === 'tentative' ? '~ Tentative budget' : '💬 Open quote' }}</span>
               <b>{{ selJob.budget_amount ? money(selJob.budget_amount) : 'Partners name their price' }}</b>
             </div>
-            <div v-if="bestOffer" class="bb-best">Best offer so far: <b>{{ money(bestOffer) }}</b> ({{ pendingOffers.length }} quote{{ pendingOffers.length === 1 ? '' : 's' }})</div>
+            <div v-if="bestOffer" class="bb-best">{{ t('Best offer so far:') }} <b>{{ money(bestOffer) }}</b> ({{ pendingOffers.length }} quote{{ pendingOffers.length === 1 ? '' : 's' }})</div>
           </div>
 
           <!-- description -->
           <div v-if="selJob.desc" class="drawer-sec">
-            <div class="ds-h">📝 Description</div>
+            <div class="ds-h">📝 {{ t('Description') }}</div>
             <div style="font-size:13px;color:var(--text);line-height:1.65;white-space:pre-wrap">{{ selJob.desc }}</div>
           </div>
           <div v-if="selJob.notes" class="drawer-sec">
-            <div class="ds-h">📌 Notes</div>
+            <div class="ds-h">📌 {{ t('Notes') }}</div>
             <div style="font-size:12.5px;color:var(--text-mute);white-space:pre-wrap">{{ selJob.notes }}</div>
           </div>
 
@@ -746,7 +746,7 @@ function exportCsv(kind) {
           <!-- offers -->
           <div class="drawer-sec">
             <div class="ds-h">💬 Offers ({{ selOffers.length }})</div>
-            <div v-if="!selOffers.length" class="c-sub" style="font-size:12.5px;padding:6px 0">No offers yet.</div>
+            <div v-if="!selOffers.length" class="c-sub" style="font-size:12.5px;padding:6px 0">{{ t('No offers yet.') }}</div>
             <div v-for="o in selOffers" :key="o.id" class="offer-row" :class="o.status">
               <div class="off-ava" :style="{ background: avatarColor(o.partner_name) }">{{ initials(o.partner_name) }}</div>
               <div style="flex:1;min-width:0">
@@ -778,7 +778,7 @@ function exportCsv(kind) {
               <label class="lbl">Your amount (৳) *</label>
               <input v-model="offerForm.amount" type="number" min="1" placeholder="e.g. 95000" class="fld">
             </div>
-            <label class="lbl">Note (optional)</label>
+            <label class="lbl">{{ t('Note (optional)') }}</label>
             <textarea v-model="offerForm.note" rows="2" placeholder="Timeline, materials, inclusions…" class="fld" style="resize:vertical"></textarea>
             <button class="btn-primary" style="margin-top:8px;width:100%" @click="submitOffer">💬 Submit offer</button>
             <div v-if="myOffer" class="c-sub" style="font-size:11.5px;margin-top:6px">You already have {{ myOffer.id }} ({{ myOffer.status }}) — resubmitting replaces it.</div>
@@ -807,7 +807,7 @@ function exportCsv(kind) {
           </template>
           <template v-if="selJob.status === 'resolved'">
             <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" @click="rfqStatus('closed', 'closed')">🏁 Close</button>
-            <a v-if="selJob.mt_id" :href="'#/jobs'" @click="drawerOpen = false" class="btn-ghost" style="padding:8px 14px;font-size:12.5px;text-decoration:none">🔗 QC in Jobs</a>
+            <a v-if="selJob.mt_id" :href="'#/jobs'" @click="drawerOpen = false" class="btn-ghost" style="padding:8px 14px;font-size:12.5px;text-decoration:none">🔗 QC in {{ t('Jobs') }}</a>
           </template>
           <template v-if="['open', 'offers'].includes(selJob.status)">
             <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;color:var(--danger)" @click="rfqAction('rfq-cancel', 'cancelled')">🚫 Cancel task</button>
@@ -861,14 +861,14 @@ function exportCsv(kind) {
               <span v-if="selPartner.specialties" class="badge b-gray">🧩 {{ selPartner.specialties }}</span>
             </div>
             <div v-if="selPartner.notes" class="drawer-sec">
-              <div class="ds-h">📌 Notes</div>
+              <div class="ds-h">📌 {{ t('Notes') }}</div>
               <div style="font-size:12.5px;color:var(--text-mute);white-space:pre-wrap">{{ selPartner.notes }}</div>
             </div>
 
             <!-- service work orders -->
             <div class="drawer-sec">
               <div class="ds-h">📋 Service work orders ({{ pSvc.length }})</div>
-              <div v-if="!pSvc.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No work orders yet.</div>
+              <div v-if="!pSvc.length" class="c-sub" style="font-size:12.5px;padding:4px 0">{{ t('No work orders yet.') }}</div>
               <div v-for="s in pSvc.slice(0, 8)" :key="s.id" class="p-row" @click="openSvcFromPartner(s)">
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -886,7 +886,7 @@ function exportCsv(kind) {
             <!-- maintenance jobs -->
             <div class="drawer-sec">
               <div class="ds-h">🔧 Maintenance jobs ({{ pJobs.length }})</div>
-              <div v-if="!pJobs.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No maintenance jobs.</div>
+              <div v-if="!pJobs.length" class="c-sub" style="font-size:12.5px;padding:4px 0">{{ t('No maintenance jobs.') }}</div>
               <div v-for="j in pJobs.slice(0, 8)" :key="j.id" class="p-row">
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -904,7 +904,7 @@ function exportCsv(kind) {
             <!-- offer activity -->
             <div class="drawer-sec">
               <div class="ds-h">💬 Quotation activity ({{ pOffers.length }})</div>
-              <div v-if="!pOffers.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No offers made yet.</div>
+              <div v-if="!pOffers.length" class="c-sub" style="font-size:12.5px;padding:4px 0">{{ t('No offers made yet.') }}</div>
               <div v-for="o in pOffers.slice(0, 8)" :key="o.id" class="p-row">
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -922,7 +922,7 @@ function exportCsv(kind) {
             <!-- invoices -->
             <div class="drawer-sec">
               <div class="ds-h">🧾 Invoices ({{ pInvoices.length }})</div>
-              <div v-if="!pInvoices.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No invoices.</div>
+              <div v-if="!pInvoices.length" class="c-sub" style="font-size:12.5px;padding:4px 0">{{ t('No invoices.') }}</div>
               <div v-for="i in pInvoices.slice(0, 8)" :key="i.id" class="p-row">
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -938,7 +938,7 @@ function exportCsv(kind) {
             <!-- payouts -->
             <div class="drawer-sec">
               <div class="ds-h">💵 Payouts ({{ pPayouts.length }})</div>
-              <div v-if="!pPayouts.length" class="c-sub" style="font-size:12.5px;padding:4px 0">No payouts.</div>
+              <div v-if="!pPayouts.length" class="c-sub" style="font-size:12.5px;padding:4px 0">{{ t('No payouts.') }}</div>
               <div v-for="x in pPayouts.slice(0, 8)" :key="x.id" class="p-row">
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -965,7 +965,7 @@ function exportCsv(kind) {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div v-if="mtCandidates.length" class="mt-poster" style="flex-direction:column;align-items:flex-start">
-            <span style="font-size:12px;font-weight:800">Or convert a maintenance job already requested (tenant/manager):</span>
+            <span style="font-size:12px;font-weight:800">{{ t('Or convert a maintenance job already requested (tenant/manager):') }}</span>
             <div style="display:flex;flex-wrap:wrap;gap:6px">
               <button v-for="m in mtCandidates.slice(0, 6)" :key="m.id" class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="newForm.from_mt = newForm.from_mt === m.id ? '' : m.id; newForm.title = m.title" :style="newForm.from_mt === m.id ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''">{{ m.id }} · {{ m.title.slice(0, 22) }}</button>
             </div>
@@ -976,13 +976,13 @@ function exportCsv(kind) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label class="lbl">Category</label>
+              <label class="lbl">{{ t('Category') }}</label>
               <select v-model="newForm.cat" class="fld">
                 <option v-for="c in cats" :key="c" :value="c">{{ c }}</option>
               </select>
             </div>
             <div>
-              <label class="lbl">Property</label>
+              <label class="lbl">{{ t('Property') }}</label>
               <select v-model="newForm.prop" class="fld">
                 <option value="">— Any —</option>
                 <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.name }}</option>
@@ -990,19 +990,19 @@ function exportCsv(kind) {
             </div>
           </div>
           <div>
-            <label class="lbl">Unit</label>
+            <label class="lbl">{{ t('Unit') }}</label>
             <select v-model="newForm.unit" class="fld">
               <option value="">— Any —</option>
               <option v-for="u in unitsList" :key="u.id" :value="u.id">{{ u.name }}</option>
             </select>
           </div>
           <div>
-            <label class="lbl">Description</label>
+            <label class="lbl">{{ t('Description') }}</label>
             <textarea v-model="newForm.desc" rows="3" placeholder="Scope of work, materials, expectations…" class="fld" style="resize:vertical"></textarea>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label class="lbl">Budget</label>
+              <label class="lbl">{{ t('Budget') }}</label>
               <select v-model="newForm.budget_type" class="fld">
                 <option value="tentative">~ Tentative budget</option>
                 <option value="fixed">🎯 Fixed rate</option>
@@ -1010,21 +1010,21 @@ function exportCsv(kind) {
               </select>
             </div>
             <div v-if="newForm.budget_type !== 'quote'">
-              <label class="lbl">Amount (৳) *</label>
+              <label class="lbl">{{ t('Amount') }} (৳) *</label>
               <input v-model="newForm.budget_amount" type="number" min="1" placeholder="e.g. 85000" class="fld">
             </div>
             <div v-else>
-              <label class="lbl">Deadline</label>
+              <label class="lbl">{{ t('Deadline') }}</label>
               <input v-model="newForm.deadline" type="date" class="fld">
             </div>
           </div>
           <div v-if="newForm.budget_type !== 'quote'">
-            <label class="lbl">Deadline</label>
+            <label class="lbl">{{ t('Deadline') }}</label>
             <input v-model="newForm.deadline" type="date" class="fld">
           </div>
           <div>
-            <label class="lbl">Notes</label>
-            <input v-model="newForm.notes" placeholder="Internal notes (not visible to partners)" class="fld">
+            <label class="lbl">{{ t('Notes') }}</label>
+            <input v-model="newForm.notes" :placeholder="t('Internal notes (not visible to partners)')" class="fld">
           </div>
           <div class="c-sub" style="font-size:11.5px">ℹ️ {{ isOwner ? 'You are the owner — this task posts for quotation immediately.' : 'Your request goes to the owner for approval before partners can quote.' }}</div>
           <button @click="createJob" class="btn-primary" style="margin-top:4px">📢 {{ isOwner ? 'Create & post' : 'Submit for approval' }}</button>
@@ -1046,18 +1046,18 @@ function exportCsv(kind) {
             <input v-model="editForm.title" class="fld">
           </div>
           <div>
-            <label class="lbl">Category</label>
+            <label class="lbl">{{ t('Category') }}</label>
             <select v-model="editForm.cat" class="fld">
               <option v-for="c in cats" :key="c" :value="c">{{ c }}</option>
             </select>
           </div>
           <div>
-            <label class="lbl">Description</label>
+            <label class="lbl">{{ t('Description') }}</label>
             <textarea v-model="editForm.desc" rows="3" class="fld" style="resize:vertical"></textarea>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label class="lbl">Budget</label>
+              <label class="lbl">{{ t('Budget') }}</label>
               <select v-model="editForm.budget_type" class="fld">
                 <option value="tentative">~ Tentative budget</option>
                 <option value="fixed">🎯 Fixed rate</option>
@@ -1065,12 +1065,12 @@ function exportCsv(kind) {
               </select>
             </div>
             <div v-if="editForm.budget_type !== 'quote'">
-              <label class="lbl">Amount (৳) *</label>
+              <label class="lbl">{{ t('Amount') }} (৳) *</label>
               <input v-model="editForm.budget_amount" type="number" min="1" class="fld">
             </div>
           </div>
           <div>
-            <label class="lbl">Deadline</label>
+            <label class="lbl">{{ t('Deadline') }}</label>
             <input v-model="editForm.deadline" type="date" class="fld">
           </div>
           <button @click="saveEdit" class="btn-primary" style="margin-top:4px">💾 Save</button>
@@ -1088,17 +1088,17 @@ function exportCsv(kind) {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label class="lbl">Job *</label>
+            <label class="lbl">{{ t('Job') }} *</label>
             <select v-model="invoiceForm.job" class="fld">
               <option v-for="j in jobOptions" :key="j.id" :value="j.id">{{ j.id }} — {{ j.title }}</option>
             </select>
           </div>
           <div>
-            <label class="lbl">Amount (৳) *</label>
+            <label class="lbl">{{ t('Amount') }} (৳) *</label>
             <input v-model="invoiceForm.amount" type="number" min="0" placeholder="0" class="fld">
           </div>
           <div>
-            <label class="lbl">Description</label>
+            <label class="lbl">{{ t('Description') }}</label>
             <textarea v-model="invoiceForm.desc" rows="3" placeholder="Work done, materials…" class="fld" style="resize:vertical"></textarea>
           </div>
           <button @click="submitInvoice" class="btn-primary" style="margin-top:4px">🧾 Submit</button>
@@ -1116,42 +1116,42 @@ function exportCsv(kind) {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label class="lbl">Partner *</label>
+            <label class="lbl">{{ t('Partner') }} *</label>
             <select v-model="payoutForm.partner" class="fld">
               <option v-for="p in partners" :key="p.id" :value="p.id">{{ p.id }} — {{ p.name }}</option>
             </select>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label class="lbl">Month</label>
+              <label class="lbl">{{ t('Month') }}</label>
               <input v-model="payoutForm.month" type="month" class="fld">
             </div>
             <div>
-              <label class="lbl">Amount (৳) *</label>
+              <label class="lbl">{{ t('Amount') }} (৳) *</label>
               <input v-model="payoutForm.amount" type="number" min="0" placeholder="0" class="fld">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label class="lbl">Status</label>
+              <label class="lbl">{{ t('Status') }}</label>
               <select v-model="payoutForm.status" class="fld">
-                <option value="Paid">Paid</option>
-                <option value="Scheduled">Scheduled</option>
-                <option value="Pending">Pending</option>
+                <option value="Paid">{{ t('Paid') }}</option>
+                <option value="Scheduled">{{ t('Scheduled') }}</option>
+                <option value="Pending">{{ t('Pending') }}</option>
               </select>
             </div>
             <div>
-              <label class="lbl">Method</label>
+              <label class="lbl">{{ t('Method') }}</label>
               <select v-model="payoutForm.method" class="fld">
-                <option value="Bank">Bank</option>
+                <option value="Bank">{{ t('Bank') }}</option>
                 <option value="bKash">bKash</option>
-                <option value="Nagad">Nagad</option>
-                <option value="Cash">Cash</option>
+                <option value="Nagad">{{ t('Nagad') }}</option>
+                <option value="Cash">{{ t('Cash') }}</option>
               </select>
             </div>
           </div>
           <div>
-            <label class="lbl">Ref</label>
+            <label class="lbl">{{ t('Ref') }}</label>
             <input v-model="payoutForm.ref" placeholder="e.g. NPSB-44002" class="fld">
           </div>
           <button @click="recordPayout" class="btn-primary" style="margin-top:4px">💵 Record</button>

@@ -254,25 +254,25 @@ async function delDoc(d) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search lease, tenant, unit…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="propFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All properties</option>
+          <option value="">{{ t('All properties') }}</option>
           <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="sortBy" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="id">Sort: ID</option>
-          <option value="end">Sort: End date</option>
-          <option value="rent">Sort: Rent</option>
+          <option value="id">{{ t('Sort: ID') }}</option>
+          <option value="end">{{ t('Sort: End date') }}</option>
+          <option value="rent">{{ t('Sort: Rent') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" title="Create a new lease agreement">＋ New lease</button>
+        <button v-if="canManage" @click="openAdd" class="btn-primary" style="padding:9px 16px" :title="t('Create a new lease agreement')">＋ New lease</button>
       </div>
     </div>
 
@@ -299,9 +299,9 @@ async function delDoc(d) {
             <div class="c-sub" style="margin-top:2px">🚪 {{ unitName(l.u) }} · 🏢 {{ propName(unitProp(l.u)) }}</div>
           </div>
           <div style="display:flex;gap:13px;font-size:12px;flex-wrap:wrap">
-            <span class="c-sub" title="Rent">💵 {{ money(l.rent) }}/mo</span>
-            <span class="c-sub" title="Advance">🏦 {{ money(l.adv) }}</span>
-            <span class="c-sub" title="Term">{{ l.start }} → {{ l.end }}</span>
+            <span class="c-sub" :title="t('Rent')">💵 {{ money(l.rent) }}/mo</span>
+            <span class="c-sub" :title="t('Advance')">🏦 {{ money(l.adv) }}</span>
+            <span class="c-sub" :title="t('Term')">{{ l.start }} → {{ l.end }}</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
             <span v-if="String(l.status).toLowerCase() === 'active' && daysLeft(l) !== null" class="badge" :class="daysLeft(l) <= 90 ? 'b-orange' : 'b-gray'">⏳ {{ daysLeft(l) }}d left</span>
@@ -364,19 +364,19 @@ async function delDoc(d) {
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rent / mo</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Rent / mo') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sel.rent) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Advance</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Advance') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sel.adv) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Invoiced</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Invoiced') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(selNetTotal) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Collected</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Collected') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(selPaidTotal) }}</div>
             </div>
           </div>
@@ -411,19 +411,19 @@ async function delDoc(d) {
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px">
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🪪 Registration (TPA §107)</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px">
-                <div><span class="c-sub">Status</span><br><b :style="sel.res == 1 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ sel.res == 1 ? '✅ Registered' : '⚠️ Not registered' }}</b></div>
-                <div><span class="c-sub">Reg. office</span><br><b>{{ sel.reg_office || '—' }}</b></div>
-                <div><span class="c-sub">Deed no.</span><br><b>{{ sel.reg_deed || '—' }}</b></div>
-                <div><span class="c-sub">Term</span><br><b>{{ sel.start }} → {{ sel.end }}</b></div>
+                <div><span class="c-sub">{{ t('Status') }}</span><br><b :style="sel.res == 1 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ sel.res == 1 ? '✅ Registered' : '⚠️ Not registered' }}</b></div>
+                <div><span class="c-sub">{{ t('Reg. office') }}</span><br><b>{{ sel.reg_office || '—' }}</b></div>
+                <div><span class="c-sub">{{ t('Deed no.') }}</span><br><b>{{ sel.reg_deed || '—' }}</b></div>
+                <div><span class="c-sub">{{ t('Term') }}</span><br><b>{{ sel.start }} → {{ sel.end }}</b></div>
               </div>
             </div>
 
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">🔄 Renewals</div>
-                <button v-if="canManage" class="btn-primary" style="padding:5px 12px;font-size:11.5px" @click="openOffer" title="Offer a renewal to the tenant">＋ Offer renewal</button>
+                <button v-if="canManage" class="btn-primary" style="padding:5px 12px;font-size:11.5px" @click="openOffer" :title="t('Offer a renewal to the tenant')">＋ Offer renewal</button>
               </div>
-              <div v-if="!selRenewals.length" class="c-sub" style="font-size:12px">No renewal requests yet.</div>
+              <div v-if="!selRenewals.length" class="c-sub" style="font-size:12px">{{ t('No renewal requests yet.') }}</div>
               <div v-for="r in selRenewals" :key="r.id" style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px 11px;margin-bottom:7px">
                 <div style="flex:1;min-width:0">
                   <div style="font-weight:700;font-size:12.5px">{{ r.id }} · {{ r.months }} months @ {{ money(r.new_rent) }}/mo</div>
@@ -437,10 +437,10 @@ async function delDoc(d) {
             <div v-else-if="stmt" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 15px">
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧾 Move-out statement</div>
               <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0">
-                <span>Status</span><span class="badge" :class="badge(stmt.status)">{{ stmt.status }}</span>
+                <span>{{ t('Status') }}</span><span class="badge" :class="badge(stmt.status)">{{ stmt.status }}</span>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0">
-                <span>Total due</span><b>৳{{ ((stmt.totals?.total_due) || 0).toLocaleString('en-IN') }}</b>
+                <span>{{ t('Total due') }}</span><b>৳{{ ((stmt.totals?.total_due) || 0).toLocaleString('en-IN') }}</b>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0">
                 <span>Balance {{ stmt.status === 'DUE' ? 'payable' : 'refund' }}</span>
@@ -454,7 +454,7 @@ async function delDoc(d) {
           <div v-if="tab === 'payments'">
             <div class="drawer-tbl-wrap">
               <table class="kr" style="width:100%">
-              <thead><tr><th>Invoice</th><th>Month</th><th>Net</th><th>Paid</th><th>Due</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>{{ t('Invoice') }}</th><th>{{ t('Month') }}</th><th>{{ t('Net') }}</th><th>{{ t('Paid') }}</th><th>{{ t('Due') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="i in selInvoices" :key="i.id">
                   <td style="font-weight:700"><a @click.stop="go('/invoices', { open: i.id })" style="color:var(--primary);cursor:pointer;text-decoration:none;font-weight:800">{{ i.id }}</a> <span class="c-sub" style="font-size:10.5px">↗</span></td>
@@ -467,7 +467,7 @@ async function delDoc(d) {
                     <button v-if="canManage && invDue(i) > 0" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" @click.stop="openPay(i)">💳 Pay</button>
                   </td>
                 </tr>
-                <tr v-if="!selInvoices.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:20px">No invoices for this lease yet.</td></tr>
+                <tr v-if="!selInvoices.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:20px">{{ t('No invoices for this lease yet.') }}</td></tr>
               </tbody>
             </table>
             </div>
@@ -483,7 +483,7 @@ async function delDoc(d) {
                 <input type="file" style="display:none" @change="onDocPick">
               </label>
             </div>
-            <div v-if="!selDocs.length" class="c-sub" style="font-size:12px;padding:8px 0">No scanned agreement attached to this lease yet.</div>
+            <div v-if="!selDocs.length" class="c-sub" style="font-size:12px;padding:8px 0">{{ t('No scanned agreement attached to this lease yet.') }}</div>
             <div v-for="d in selDocs" :key="d.id" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:8px">
               <div style="flex:1;min-width:0">
                 <div style="font-weight:700;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</div>
@@ -499,7 +499,7 @@ async function delDoc(d) {
           <div v-if="tab === 'handover'">
             <div class="c-sub" style="font-size:11.5px;margin-bottom:9px">Move-in / move-out checklists for this lease. Full editing lives in the tenant drawer → 📦 Handover.</div>
             <div v-if="hovoLoading" class="c-sub" style="font-size:12px">Loading…</div>
-            <div v-else-if="!hovoList.length" class="c-sub" style="font-size:12px;padding:8px 0">No handover checklists yet.</div>
+            <div v-else-if="!hovoList.length" class="c-sub" style="font-size:12px;padding:8px 0">{{ t('No handover checklists yet.') }}</div>
             <div v-for="h in hovoList" :key="h.id" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;align-items:center">
                 <div style="font-weight:800;font-size:13px">{{ h.id }} · {{ h.kind === 'move_in' ? '🚪 Move-in' : '📦 Move-out' }}</div>
@@ -523,7 +523,7 @@ async function delDoc(d) {
         </div>
         <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Months</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Months') }}</label>
             <input v-model.number="offerModal.months" type="number" min="1" max="36" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
@@ -531,12 +531,12 @@ async function delDoc(d) {
             <input v-model.number="offerModal.new_rent" type="number" min="0" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Note (conditions)</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Note (conditions)') }}</label>
             <textarea v-model="offerModal.note" rows="2" placeholder="e.g. new parking rate applies, service charge 5%…" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="offerModal = null">Cancel</button>
+          <button class="btn-ghost" @click="offerModal = null">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="offerSaving" @click="submitOffer" style="padding:9px 18px">{{ offerSaving ? 'Sending…' : '📤 Send offer to tenant' }}</button>
         </div>
       </div>
@@ -582,30 +582,30 @@ async function delDoc(d) {
             <input v-model.number="form.adv" type="number" min="0" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Status</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Status') }}</label>
             <select v-model="form.status" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
               <option v-for="s in LEASE_STATUSES" :key="s" :value="s">{{ s }}</option>
             </select>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Registered</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Registered') }}</label>
             <select v-model="form.res" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <option :value="1">Yes — registered</option>
-              <option :value="0">No — not yet</option>
+              <option :value="1">{{ t('Yes — registered') }}</option>
+              <option :value="0">{{ t('No — not yet') }}</option>
             </select>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Reg. office</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Reg. office') }}</label>
             <input v-model="form.reg_office" placeholder="e.g. Dhaka Sub-registry" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Deed no.</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Deed no.') }}</label>
             <input v-model="form.reg_deed" placeholder="e.g. 3850/2026" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
           </div>
           <div v-if="formErr" style="grid-column:1/-1;color:var(--danger);font-size:12.5px">{{ formErr }}</div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="form = null">Cancel</button>
+          <button class="btn-ghost" @click="form = null">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="saving" @click="saveLease" style="padding:9px 18px">{{ saving ? 'Saving…' : '💾 Save lease' }}</button>
         </div>
       </div>
@@ -627,23 +627,23 @@ async function delDoc(d) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Date</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Date') }}</label>
               <input v-model="payModal.date" type="date" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
             <div>
-              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Method</label>
+              <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Method') }}</label>
               <select v-model="payModal.method" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
                 <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ m }}</option>
               </select>
             </div>
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Reference / signature</label>
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Reference / signature') }}</label>
             <input v-model="payModal.sig" placeholder="e.g. BK-7f2a, cheque no…" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="payModal = null">Cancel</button>
+          <button class="btn-ghost" @click="payModal = null">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="paySaving" @click="submitPay" style="padding:9px 18px">{{ paySaving ? 'Recording…' : '💳 Record payment' }}</button>
         </div>
       </div>

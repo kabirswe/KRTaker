@@ -17,7 +17,7 @@ defineProps({
     </button>
     <div class="cf-panel" :class="{ open }">
       <slot />
-      <button class="cf-close" type="button" @click="open = false">✓ Done</button>
+      <button class="cf-close" type="button" @click="open = false">{{ t('Done') }}</button>
     </div>
   </div>
 </template>

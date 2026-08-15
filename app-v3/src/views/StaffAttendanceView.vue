@@ -133,18 +133,18 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search staff, notes…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ stLabel(s) }}</option>
         </select>
         <select v-model="staffFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All staff</option>
+          <option value="">{{ t('All staff') }}</option>
           <option v-for="s in staffOptions" :key="s" :value="s">{{ staffName(s) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openAttModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Mark attendance</button>
       </div>
@@ -195,8 +195,8 @@ function detailFields(row) {
               <td style="white-space:nowrap" class="c-sub">{{ hoursWorked(a) || '—' }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="stCls(a.status)">{{ stLabel(a.status) }}</span></td>
               <td style="white-space:nowrap">
-                <button v-if="canManage" @click.stop="openAttModal(a)" title="Edit" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
-                <button v-if="canManage" @click.stop="delAttendance(a)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+                <button v-if="canManage" @click.stop="openAttModal(a)" :title="t('Edit')" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
+                <button v-if="canManage" @click.stop="delAttendance(a)" :title="t('Delete')" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
               </td>
             </tr>
           </tbody>
@@ -228,7 +228,7 @@ function detailFields(row) {
               <input v-model="attForm.work_date" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Status</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Status') }}</div>
               <select v-model="attForm.status" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
                 <option value="present">✅ Present</option>
                 <option value="late">⏰ Late</option>
@@ -239,20 +239,20 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Check-in</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Check-in') }}</div>
               <input v-model="attForm.check_in" type="time" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Check-out</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Check-out') }}</div>
               <input v-model="attForm.check_out" type="time" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
           </div>
           <div>
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Notes</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Notes') }}</div>
             <input v-model="attForm.notes" placeholder="Optional…" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
           </div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-            <button @click="attModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="attModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">{{ t('Cancel') }}</button>
             <button @click="saveAttendance" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save entry</button>
           </div>
         </div>
@@ -280,19 +280,19 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px 18px;margin-top:14px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Check-in</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Check-in') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.check_in || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Check-out</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Check-out') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.check_out || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Hours</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Hours') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ hoursWorked(sel) || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Staff ID</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Staff ID') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.staff || '—' }}</div>
             </div>
           </div>

@@ -190,10 +190,10 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
     <div class="page-head">
       <div>
         <h1>{{ t('💼 Accounts') }}</h1>
-        <div class="sub">Bank &amp; cash ledger — receive, expense, withdraw, deposit, reconcile · live from API</div>
+        <div class="sub">{{ t('Bank & cash ledger — receive, expense, withdraw, deposit, reconcile · live from API') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-ghost" @click="loadSummary(); loadTx(); loadRecon()">🔄 Refresh</button>
+        <button class="btn-ghost" @click="loadSummary(); loadTx(); loadRecon()">{{ t('Refresh') }}</button>
         <button v-if="canWrite" @click="openAcct" style="padding:10px 16px;border:none;border-radius:10px;background:var(--bg-alt);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">＋ Account</button>
       </div>
     </div>
@@ -211,11 +211,11 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
       <div v-if="loading" class="panel" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
       <template v-else>
         <div class="stats">
-          <div class="stat"><div class="s-label"><span class="s-ico">📥</span>Money in</div><div class="s-value" style="color:var(--ok,#12a150)">{{ money(totals.inflow) }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">📤</span>Money out</div><div class="s-value" style="color:var(--danger,#e74c3c)">{{ money(totals.outflow) }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Net balance</div><div class="s-value" :style="(totals.balance||0) >= 0 ? 'color:var(--ok,#12a150)' : 'color:var(--danger,#e74c3c)'">{{ money(totals.balance) }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">🔁</span>Unreconciled</div><div class="s-value" :style="unreconciled ? 'color:#f39c12' : ''">{{ unreconciled }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Transactions</div><div class="s-value">{{ totals.count }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">📥</span>{{ t('Money in') }}</div><div class="s-value" style="color:var(--ok,#12a150)">{{ money(totals.inflow) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">📤</span>{{ t('Money out') }}</div><div class="s-value" style="color:var(--danger,#e74c3c)">{{ money(totals.outflow) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>{{ t('Net balance') }}</div><div class="s-value" :style="(totals.balance||0) >= 0 ? 'color:var(--ok,#12a150)' : 'color:var(--danger,#e74c3c)'">{{ money(totals.balance) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🔁</span>{{ t('Unreconciled') }}</div><div class="s-value" :style="unreconciled ? 'color:#f39c12' : ''">{{ unreconciled }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Transactions') }}</div><div class="s-value">{{ totals.count }}</div></div>
         </div>
 
         <!-- account cards -->
@@ -228,8 +228,8 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
               </div>
               <div style="display:flex;gap:6px;align-items:center">
                 <span class="badge" :class="a.status === 'active' ? 'b-green' : 'b-gray'">{{ a.status }}</span>
-                <button v-if="canWrite" @click="toggleAcct(a)" title="Toggle active" style="border:none;background:transparent;cursor:pointer;font-size:13px">🔃</button>
-                <button v-if="canWrite && a.status === 'inactive'" @click="delAcct(a)" title="Delete account + transactions" style="border:none;background:transparent;cursor:pointer;font-size:13px">🗑️</button>
+                <button v-if="canWrite" @click="toggleAcct(a)" :title="t('Toggle active')" style="border:none;background:transparent;cursor:pointer;font-size:13px">🔃</button>
+                <button v-if="canWrite && a.status === 'inactive'" @click="delAcct(a)" :title="t('Delete account + transactions')" style="border:none;background:transparent;cursor:pointer;font-size:13px">🗑️</button>
               </div>
             </div>
             <div style="font-size:22px;font-weight:900;margin-top:10px" :style="(a.balance||0) >= 0 ? '' : 'color:var(--danger)'">{{ money(a.balance) }}</div>
@@ -242,13 +242,13 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
           <CompactFilters>
           <select v-model="fAcct" @change="loadTx" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <option value="">All accounts</option>
+            <option value="">{{ t('All accounts') }}</option>
             <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
           <select v-model="fType" @change="loadTx" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-            <option value="">All types</option>
-            <option value="receive">Receive</option><option value="expense">Expense</option>
-            <option value="withdraw">Withdraw</option><option value="deposit">Deposit</option>
+            <option value="">{{ t('All types') }}</option>
+            <option value="receive">{{ t('Receive') }}</option><option value="expense">{{ t('Expense') }}</option>
+            <option value="withdraw">{{ t('Withdraw') }}</option><option value="deposit">{{ t('Deposit') }}</option>
           </select>
           <input v-model="fQ" @input="loadTx" :placeholder="t('Search label, ref, payee…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;flex:1;min-width:200px">
           </CompactFilters>
@@ -273,10 +273,10 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
                   <td style="text-align:right;font-weight:800;white-space:nowrap" :style="{ color: typeColor(t.type) }">{{ sign(t.type) }} {{ money(t.amount) }}</td>
                   <td><span class="badge" :class="reconBadge(t)">{{ t.reconciled == 1 ? '✓' : '—' }}</span></td>
                   <td style="white-space:nowrap">
-                    <button v-if="canWrite" @click="delTx(t)" style="border:none;background:transparent;color:var(--text-mute);cursor:pointer;font-size:13px" title="Delete">🗑️</button>
+                    <button v-if="canWrite" @click="delTx(t)" style="border:none;background:transparent;color:var(--text-mute);cursor:pointer;font-size:13px" :title="t('Delete')">🗑️</button>
                   </td>
                 </tr>
-                <tr v-if="!txList.length"><td colspan="12" style="text-align:center;color:var(--text-mute);padding:30px">No transactions found.</td></tr>
+                <tr v-if="!txList.length"><td colspan="12" style="text-align:center;color:var(--text-mute);padding:30px">{{ t('No transactions found.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -284,7 +284,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
 
         <!-- by type -->
         <div class="panel" style="padding:16px 18px;margin-top:14px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">By type</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">{{ t('By type') }}</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <span v-for="b in byType" :key="b.type" class="badge" :class="badge(b.type)" style="font-size:12.5px;padding:6px 12px">{{ typeLabel(b.type) }}: {{ b.n }} · {{ money(b.total) }}</span>
           </div>
@@ -303,21 +303,21 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
               <option v-for="a in accounts.filter(x => x.status === 'active')" :key="a.id" :value="a.id">{{ a.name }} ({{ a.id }})</option>
             </select>
           </div>
-          <div class="form-field"><label>Category</label>
+          <div class="form-field"><label>{{ t('Category') }}</label>
             <select v-model="postForm.cat" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
               <option v-for="[v, l] in CATS[tab] || []" :key="v" :value="v">{{ l }}</option>
             </select>
           </div>
           <div class="form-field" style="grid-column:1/-1"><label>Label *</label><input v-model="postForm.label" placeholder="e.g. June rent — Unit 7B" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
           <div class="form-field"><label>Amount (৳) *</label><input v-model="postForm.amount" type="number" min="1" placeholder="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-          <div class="form-field"><label>Method</label>
+          <div class="form-field"><label>{{ t('Method') }}</label>
             <select v-model="postForm.method" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
               <option v-for="m in METHODS" :key="m" :value="m">{{ m }}</option>
             </select>
           </div>
-          <div class="form-field"><label>Reference</label><input v-model="postForm.ref" placeholder="trx ID, cheque no…" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-          <div class="form-field"><label v-if="tab === 'receive' || tab === 'expense'">Payee / Payer</label><label v-else>Note</label><input v-model="postForm.payee" :placeholder="tab === 'receive' ? 'Who paid (tenant, client…)' : (tab === 'expense' ? 'Paid to (vendor, staff…)' : 'optional note')" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-          <div class="form-field" style="grid-column:1/-1"><label>Date / time</label><input v-model="postForm.date" type="datetime-local" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+          <div class="form-field"><label>{{ t('Reference') }}</label><input v-model="postForm.ref" placeholder="trx ID, cheque no…" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+          <div class="form-field"><label v-if="tab === 'receive' || tab === 'expense'">{{ t('Payee / Payer') }}</label><label v-else>{{ t('Note') }}</label><input v-model="postForm.payee" :placeholder="tab === 'receive' ? 'Who paid (tenant, client…)' : (tab === 'expense' ? 'Paid to (vendor, staff…)' : 'optional note')" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+          <div class="form-field" style="grid-column:1/-1"><label>{{ t('Date / time') }}</label><input v-model="postForm.date" type="datetime-local" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:16px">
           <button @click="submitPost" :disabled="postBusy" style="padding:11px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:13px;cursor:pointer">{{ typeIco(tab) }} Post {{ typeLabel(tab) }} {{ postBusy ? '…' : '' }}</button>
@@ -328,7 +328,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
         <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">🕓</span>Recent {{ typeLabel(tab) }}s</div></div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>ID</th><th>Date</th><th>Account</th><th>Label</th><th>Payee</th><th style="text-align:right">Amount</th><th>Recon</th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Label') }}</th><th>{{ t('Payee') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Recon') }}</th></tr></thead>
             <tbody>
               <tr v-for="t in recent.filter(x => x.type === tab)" :key="t.id">
                 <td style="font-weight:700">{{ t.id }}</td>
@@ -349,15 +349,15 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
     <!-- ══ RECONCILE ══ -->
     <template v-if="tab === 'reconcile'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Pending</div><div class="s-value" :style="reconPending.length ? 'color:#f39c12' : ''">{{ reconPending.length }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Reconciled</div><div class="s-value" style="color:var(--ok,#12a150)">{{ reconDone.length }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Pending') }}</div><div class="s-value" :style="reconPending.length ? 'color:#f39c12' : ''">{{ reconPending.length }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('Reconciled') }}</div><div class="s-value" style="color:var(--ok,#12a150)">{{ reconDone.length }}</div></div>
       </div>
 
       <div class="panel" style="overflow:hidden;margin-top:14px">
-        <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">⏳</span>Pending reconciliation</div></div>
+        <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">⏳</span>{{ t('Pending reconciliation') }}</div></div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>ID</th><th>Date</th><th>Account</th><th>Type</th><th>Label</th><th style="text-align:right">Amount</th><th>Statement ref</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th>{{ t('Label') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Statement ref') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="t in reconPending" :key="t.id">
                 <td style="font-weight:700">{{ t.id }}</td>
@@ -376,10 +376,10 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
       </div>
 
       <div class="panel" style="overflow:hidden;margin-top:14px">
-        <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">✅</span>Reconciled history</div></div>
+        <div class="panel-h" style="padding:14px 18px"><div class="t"><span class="pi">✅</span>{{ t('Reconciled history') }}</div></div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>ID</th><th>Date</th><th>Account</th><th>Label</th><th style="text-align:right">Amount</th><th>Ref</th><th>Reconciled at</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Label') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Reconciled at') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="t in reconDone" :key="t.id">
                 <td style="font-weight:700">{{ t.id }}</td>
@@ -391,7 +391,7 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
                 <td class="c-sub">{{ t.reconciled_at }}</td>
                 <td><button v-if="canWrite" @click="undoReconcile(t)" style="border:none;background:transparent;color:var(--text-mute);cursor:pointer;font-size:12.5px;font-weight:700">↩ Undo</button></td>
               </tr>
-              <tr v-if="!reconDone.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:26px">Nothing reconciled yet.</td></tr>
+              <tr v-if="!reconDone.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:26px">{{ t('Nothing reconciled yet.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -404,16 +404,16 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
         <div class="modal-h"><span class="t">＋ New account</span><button class="close" @click="acctOpen = false">✕</button></div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
           <div class="form-field"><label>Name *</label><input v-model="acctForm.name" placeholder="e.g. Bank Asia — Gulshan" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-          <div class="form-field"><label>Type</label>
+          <div class="form-field"><label>{{ t('Type') }}</label>
             <select v-model="acctForm.type" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
               <option value="bank">🏦 Bank</option><option value="cash">💵 Cash</option><option value="mobile">📱 Mobile wallet</option>
             </select>
           </div>
           <div class="form-field"><label>Opening balance (৳)</label><input v-model="acctForm.opening_balance" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-          <div class="form-field"><label>Notes</label><input v-model="acctForm.notes" placeholder="optional" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+          <div class="form-field"><label>{{ t('Notes') }}</label><input v-model="acctForm.notes" placeholder="optional" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="acctOpen = false">Cancel</button>
+          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="acctOpen = false">{{ t('Cancel') }}</button>
           <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="acctBusy" @click="createAcct">💾 Create {{ acctBusy ? '…' : '' }}</button>
         </div>
       </div>

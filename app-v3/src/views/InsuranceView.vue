@@ -121,18 +121,18 @@ const pendingClaim = (p) => canManage.value && p.claim && !p.claim_amt
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search tenant, plan, claim…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ stLabel(s) }}</option>
         </select>
         <select v-model="tenantFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All tenants</option>
+          <option value="">{{ t('All tenants') }}</option>
           <option v-for="t in tenantOptions" :key="t" :value="t">{{ tenantName(t) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -175,7 +175,7 @@ const pendingClaim = (p) => canManage.value && p.claim && !p.claim_amt
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Tenant</th><th>Plan</th><th>Premium</th><th>Coverage</th><th>Score</th><th>Status</th><th>Expires</th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Tenant') }}</th><th>{{ t('Plan') }}</th><th>{{ t('Premium') }}</th><th>{{ t('Coverage') }}</th><th>{{ t('Score') }}</th><th>{{ t('Status') }}</th><th>{{ t('Expires') }}</th></tr></thead>
           <tbody>
             <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="font-weight:700;white-space:nowrap">{{ p.id }}</td>
@@ -219,19 +219,19 @@ const pendingClaim = (p) => canManage.value && p.claim && !p.claim_amt
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Start</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Start') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.start) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Expires</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Expires') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtDate(sel.end) }} <template v-if="daysLeft(sel) !== null"><span v-if="daysLeft(sel) < 0" style="color:var(--danger)">(expired {{ -daysLeft(sel) }}d ago)</span><span v-else>({{ daysLeft(sel) }}d left)</span></template></div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Lease</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Lease') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.lease || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Plan</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Plan') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.plan || '—' }}</div>
             </div>
           </div>

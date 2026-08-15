@@ -162,10 +162,10 @@ onMounted(load)
       <div>
         <h1>{{ t('🪪 Tenant KYC') }}</h1>
         <div class="sub" v-if="!isTenant">Know Your Customer — verify tenant identities for payment compliance (required for SSLCommerz card payments)</div>
-        <div class="sub" v-else>Verify your identity to unlock card payments (NID/TIN + ID document)</div>
+        <div class="sub" v-else>{{ t('Verify your identity to unlock card payments (NID/TIN + ID document)') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button v-if="canReview" class="btn-ghost" @click="load">🔄 Refresh</button>
+        <button v-if="canReview" class="btn-ghost" @click="load">{{ t('Refresh') }}</button>
       </div>
     </div>
 
@@ -176,25 +176,25 @@ onMounted(load)
     <template v-if="isTenant">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
         <div class="stat" style="flex:1;min-width:220px">
-          <div class="s-label"><span class="s-ico">🪪</span>KYC status</div>
+          <div class="s-label"><span class="s-ico">🪪</span>{{ t('KYC status') }}</div>
           <div class="s-value" style="font-size:20px">
             <span class="badge" :class="stMeta(record?.status || 'unverified').cls" style="font-size:13px;padding:5px 12px">
               {{ stMeta(record?.status || 'unverified').ico }} {{ stMeta(record?.status || 'unverified').l }}
             </span>
           </div>
-          <div class="s-trend" v-if="record?.submitted_at">Submitted {{ fmtTs(record.submitted_at) }}</div>
-          <div class="s-trend" v-else>No KYC submitted yet</div>
+          <div class="s-trend" v-if="record?.submitted_at">{{ t('Submitted') }} {{ fmtTs(record.submitted_at) }}</div>
+          <div class="s-trend" v-else>{{ t('No KYC submitted yet') }}</div>
         </div>
       </div>
 
       <div v-if="record?.status === 'verified'" style="background:#27ae6022;border:1px solid #27ae6055;color:#27ae60;padding:12px 16px;border-radius:12px;font-size:13.5px;margin-bottom:16px">
-        ✅ <b>KYC verified</b> — you can now pay invoices by card (SSLCommerz).
+        ✅ <b>{{ t('KYC verified') }}</b> — you can now pay invoices by card (SSLCommerz).
       </div>
       <div v-else-if="record?.status === 'pending'" style="background:#f39c1222;border:1px solid #f39c1255;color:#f39c12;padding:12px 16px;border-radius:12px;font-size:13.5px;margin-bottom:16px">
-        ⏳ <b>Pending review</b> — your KYC is being checked. Card payments unlock once approved. You may still pay by bKash/Nagad/manual methods.
+        ⏳ <b>{{ t('Pending review') }}</b> — your KYC is being checked. Card payments unlock once approved. You may still pay by bKash/Nagad/manual methods.
       </div>
       <div v-else-if="record?.status === 'rejected'" style="background:#e74c3c22;border:1px solid #e74c3c55;color:#e74c3c;padding:12px 16px;border-radius:12px;font-size:13.5px;margin-bottom:16px">
-        ❌ <b>Rejected</b><template v-if="record?.notes"> — {{ record.notes }}</template> Please correct the details below and resubmit.
+        ❌ <b>{{ t('Rejected') }}</b><template v-if="record?.notes"> — {{ record.notes }}</template> {{ t('Please correct the details below and resubmit.') }}
       </div>
       <div v-else style="background:var(--bg-alt);border:1px solid var(--border);padding:12px 16px;border-radius:12px;font-size:13.5px;margin-bottom:16px">
         🪪 Complete your KYC below — <b>required for card (SSLCommerz) payments</b>. Wallets (bKash/Nagad) and manual payments don't need it.
@@ -204,37 +204,37 @@ onMounted(load)
         <div style="font-weight:800;font-size:14px;margin-bottom:14px">📋 Identity details</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">Full name (as on NID) *</label>
+            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">{{ t('Full name') }} (as on {{ t('NID') }}) *</label>
             <input v-model="form.full_name" placeholder="e.g. Rahim Uddin" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">NID number *</label>
+            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">{{ t('NID') }} number *</label>
             <input v-model="form.nid" placeholder="e.g. 1234567890" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">TIN (optional)</label>
+            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">{{ t('TIN (optional)') }}</label>
             <input v-model="form.tin" placeholder="e.g. 987654321" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">Date of birth</label>
+            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">{{ t('Date of birth') }}</label>
             <input v-model="form.dob" type="date" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
           <div style="grid-column:1/-1">
-            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">Present address</label>
-            <input v-model="form.address" placeholder="House, road, area, city" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">{{ t('Present address') }}</label>
+            <input v-model="form.address" :placeholder="t('House, road, area, city')" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           </div>
         </div>
 
         <div style="font-weight:800;font-size:14px;margin:18px 0 10px">🪪 ID documents</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">Front side</label>
+            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">{{ t('Front side') }}</label>
             <input type="file" accept="image/*,.pdf" @change="pickFront" style="display:block;margin-top:4px;font-size:12px">
             <button class="btn-ghost" :disabled="submitBusy" @click="uploadDoc('doc_front', frontFile)" style="margin-top:6px;font-size:12px">⬆️ Upload front</button>
             <button v-if="record?.doc_front" class="btn-ghost" @click="docBlob(record, 'doc_front')" style="margin-top:6px;font-size:12px">👁 View uploaded</button>
           </div>
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">Back side</label>
+            <label style="font-size:12px;font-weight:700;color:var(--text-mute)">{{ t('Back side') }}</label>
             <input type="file" accept="image/*,.pdf" @change="pickBack" style="display:block;margin-top:4px;font-size:12px">
             <button class="btn-ghost" :disabled="submitBusy" @click="uploadDoc('doc_back', backFile)" style="margin-top:6px;font-size:12px">⬆️ Upload back</button>
             <button v-if="record?.doc_back" class="btn-ghost" @click="docBlob(record, 'doc_back')" style="margin-top:6px;font-size:12px">👁 View uploaded</button>
@@ -251,11 +251,11 @@ onMounted(load)
     <template v-else>
       <!-- KPI chips -->
       <div class="stats" v-if="summary">
-        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>Tenants</div><div class="s-value">{{ summary.tenants }}</div><div class="s-trend">total</div></div>
-        <div class="stat" @click="fStatus=''"><div class="s-label"><span class="s-ico">🪪</span>Unverified</div><div class="s-value" style="cursor:pointer">{{ summary.unverified }}</div><div class="s-trend">no KYC yet</div></div>
-        <div class="stat" @click="fStatus='pending'"><div class="s-label"><span class="s-ico">⏳</span>Pending</div><div class="s-value" style="cursor:pointer;color:var(--warning,#f39c12)">{{ summary.pending }}</div><div class="s-trend">awaiting review</div></div>
-        <div class="stat" @click="fStatus='verified'"><div class="s-label"><span class="s-ico">✅</span>Verified</div><div class="s-value" style="cursor:pointer;color:#27ae60">{{ summary.verified }}</div><div class="s-trend">card payments OK</div></div>
-        <div class="stat" @click="fStatus='rejected'"><div class="s-label"><span class="s-ico">❌</span>Rejected</div><div class="s-value" style="cursor:pointer;color:var(--danger,#e74c3c)">{{ summary.rejected }}</div><div class="s-trend">needs resubmit</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>{{ t('Tenants') }}</div><div class="s-value">{{ summary.tenants }}</div><div class="s-trend">total</div></div>
+        <div class="stat" @click="fStatus=''"><div class="s-label"><span class="s-ico">🪪</span>{{ t('Unverified') }}</div><div class="s-value" style="cursor:pointer">{{ summary.unverified }}</div><div class="s-trend">no KYC yet</div></div>
+        <div class="stat" @click="fStatus='pending'"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Pending') }}</div><div class="s-value" style="cursor:pointer;color:var(--warning,#f39c12)">{{ summary.pending }}</div><div class="s-trend">awaiting review</div></div>
+        <div class="stat" @click="fStatus='verified'"><div class="s-label"><span class="s-ico">✅</span>{{ t('Verified') }}</div><div class="s-value" style="cursor:pointer;color:#27ae60">{{ summary.verified }}</div><div class="s-trend">card payments OK</div></div>
+        <div class="stat" @click="fStatus='rejected'"><div class="s-label"><span class="s-ico">❌</span>{{ t('Rejected') }}</div><div class="s-value" style="cursor:pointer;color:var(--danger,#e74c3c)">{{ summary.rejected }}</div><div class="s-trend">needs resubmit</div></div>
       </div>
 
       <!-- Filter bar -->
@@ -269,16 +269,16 @@ onMounted(load)
       </div>
 
       <div v-if="loading" style="text-align:center;padding:40px;color:var(--text-mute)">Loading…</div>
-      <div v-else-if="!filtered.length" style="text-align:center;padding:40px;color:var(--text-mute)">No KYC records match.</div>
+      <div v-else-if="!filtered.length" style="text-align:center;padding:40px;color:var(--text-mute)">{{ t('No KYC records match.') }}</div>
       <div v-else class="panel" style="overflow:auto">
         <table class="kr" style="width:100%;border-collapse:collapse;font-size:13px">
           <thead>
             <tr style="text-align:left;color:var(--text-mute);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px">
-              <th style="padding:10px 12px">Tenant</th>
-              <th style="padding:10px 12px">NID</th>
-              <th style="padding:10px 12px">Submitted</th>
-              <th style="padding:10px 12px">Status</th>
-              <th style="padding:10px 12px">Reviewed by</th>
+              <th style="padding:10px 12px">{{ t('Tenant') }}</th>
+              <th style="padding:10px 12px">{{ t('NID') }}</th>
+              <th style="padding:10px 12px">{{ t('Submitted') }}</th>
+              <th style="padding:10px 12px">{{ t('Status') }}</th>
+              <th style="padding:10px 12px">{{ t('Reviewed by') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -313,11 +313,11 @@ onMounted(load)
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;font-size:13px;margin-bottom:14px">
-            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">Full name</div><b>{{ sel.full_name || '—' }}</b></div>
-            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">NID</div><b style="font-family:monospace">{{ sel.nid || '—' }}</b></div>
-            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">TIN</div><b style="font-family:monospace">{{ sel.tin || '—' }}</b></div>
-            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">Date of birth</div><b>{{ sel.dob || '—' }}</b></div>
-            <div style="grid-column:1/-1"><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">Address</div><b>{{ sel.address || '—' }}</b></div>
+            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">{{ t('Full name') }}</div><b>{{ sel.full_name || '—' }}</b></div>
+            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">{{ t('NID') }}</div><b style="font-family:monospace">{{ sel.nid || '—' }}</b></div>
+            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">{{ t('TIN') }}</div><b style="font-family:monospace">{{ sel.tin || '—' }}</b></div>
+            <div><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">{{ t('Date of birth') }}</div><b>{{ sel.dob || '—' }}</b></div>
+            <div style="grid-column:1/-1"><div class="c-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.3px">{{ t('Address') }}</div><b>{{ sel.address || '—' }}</b></div>
           </div>
 
           <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute);margin-bottom:8px">🪪 ID documents</div>
@@ -327,8 +327,8 @@ onMounted(load)
             <button v-if="sel.doc_front || sel.doc_back" class="btn-ghost" @click="resetKyc(sel)" style="font-size:12.5px;color:var(--danger,#e74c3c)" :disabled="reviewBusy">🗑 Reset to unverified</button>
           </div>
 
-          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute);margin-bottom:6px">Review note (shown to tenant)</div>
-          <textarea v-model="reviewNote" rows="3" placeholder="Optional note — e.g. reason for rejection / confirmation details"
+          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute);margin-bottom:6px">{{ t('Review note (shown to tenant)') }}</div>
+          <textarea v-model="reviewNote" rows="3" :placeholder="t('Optional note — e.g. reason for rejection / confirmation details')"
             style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical;margin-bottom:14px"></textarea>
 
           <div style="display:flex;gap:10px;flex-wrap:wrap">

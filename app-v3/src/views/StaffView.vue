@@ -138,24 +138,24 @@ function detailFields(row) {
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <select v-model="propFilter" title="Manage this property" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;font-weight:700;color:var(--text);outline:none">
+        <select v-model="propFilter" :title="t('Manage this property')" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;font-weight:700;color:var(--text);outline:none">
           <option value="">🏢 All properties</option>
           <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
         </select>
         <input v-model="query" :placeholder="t('Search name, phone…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:180px">
         <select v-model="roleFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All roles</option>
+          <option value="">{{ t('All roles') }}</option>
           <option v-for="r in roleOptions" :key="r" :value="r">{{ roleMeta(r).label }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ stLabel(s) }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
         <button v-if="canManage" @click="openStaffModal()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add staff</button>
       </div>
@@ -204,7 +204,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Shift</th><th>Phone</th><th>Salary</th><th>Property</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Name') }}</th><th>{{ t('Role') }}</th><th>{{ t('Shift') }}</th><th>{{ t('Phone') }}</th><th>{{ t('Salary') }}</th><th>{{ t('Property') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
           <tbody>
             <tr v-for="s in paged" :key="s.id" style="cursor:pointer" @click="openDetail(s)">
               <td style="font-weight:700;white-space:nowrap">{{ s.id }}</td>
@@ -216,8 +216,8 @@ function detailFields(row) {
               <td style="white-space:nowrap" class="c-sub">{{ s.prop ? propName(s.prop) : '—' }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="stCls(s.status)">{{ stLabel(s.status) }}</span></td>
               <td style="white-space:nowrap">
-                <button v-if="canManage" @click.stop="openStaffModal(s)" title="Edit" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
-                <button v-if="canManage" @click.stop="delStaff(s)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+                <button v-if="canManage" @click.stop="openStaffModal(s)" :title="t('Edit')" style="background:none;border:none;font-size:14px;cursor:pointer">✏️</button>
+                <button v-if="canManage" @click.stop="delStaff(s)" :title="t('Delete')" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
               </td>
             </tr>
           </tbody>
@@ -238,18 +238,18 @@ function detailFields(row) {
         </div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:13px">
           <div>
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Name *</div>
-            <input v-model="staffForm.name" placeholder="Full name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Name') }} *</div>
+            <input v-model="staffForm.name" :placeholder="t('Full name')" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Role</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Role') }}</div>
               <select v-model="staffForm.role" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
                 <option v-for="(meta, r) in ROLE_META" :key="r" :value="r">{{ meta.ico }} {{ meta.label }}</option>
               </select>
             </div>
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Shift</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Shift') }}</div>
               <select v-model="staffForm.shift" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
                 <option v-for="(label, sh) in SHIFT_META" :key="sh" :value="sh">{{ label }}</option>
               </select>
@@ -257,7 +257,7 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Phone</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Phone') }}</div>
               <input v-model="staffForm.phone" placeholder="01XXXXXXXXX" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
             <div>
@@ -267,11 +267,11 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Join date</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Join date') }}</div>
               <input v-model="staffForm.join_date" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
             </div>
             <div>
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Property</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Property') }}</div>
               <select v-model="staffForm.prop" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
                 <option value="">—</option>
                 <option v-for="p in propsList" :key="p.id" :value="p.id">{{ p.id }} · {{ p.name }}</option>
@@ -279,11 +279,11 @@ function detailFields(row) {
             </div>
           </div>
           <div>
-            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Notes</div>
+            <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ t('Notes') }}</div>
             <input v-model="staffForm.notes" placeholder="e.g. Main gate — day shift" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none;box-sizing:border-box">
           </div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-            <button @click="staffModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">Cancel</button>
+            <button @click="staffModal = false" class="btn-ghost" style="padding:9px 16px;font-size:13px">{{ t('Cancel') }}</button>
             <button @click="saveStaff" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save staff</button>
           </div>
         </div>
@@ -311,35 +311,35 @@ function detailFields(row) {
             </div>
           </div>
           <div v-if="canManage" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;font-weight:700" @click="openStaffModal(sel)">✏️ Edit</button>
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px;font-weight:700" @click="openStaffModal(sel)">✏️ {{ t('Edit') }}</button>
             <button v-if="sel.status !== 'active'" style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:var(--ok);color:#fff;cursor:pointer" @click="setStaffStatus(sel, 'active')">✅ Activate</button>
             <button v-if="sel.status !== 'on_leave'" style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(230,126,34,.15);color:var(--warn);cursor:pointer" @click="setStaffStatus(sel, 'on_leave')">🏖 On leave</button>
             <button v-if="sel.status !== 'terminated'" style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="setStaffStatus(sel, 'terminated')">⛔ Terminate</button>
-            <button style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="delStaff(sel)">🗑 Delete</button>
+            <button style="padding:8px 14px;font-size:12.5px;font-weight:700;border:none;border-radius:10px;background:rgba(231,76,60,.12);color:var(--danger);cursor:pointer" @click="delStaff(sel)">🗑 {{ t('Delete') }}</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px;margin-top:16px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Phone</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Phone') }}</div>
               <div style="font-weight:700;margin-top:1px"><a v-if="sel.phone" :href="'tel:' + sel.phone" style="color:var(--primary)">{{ sel.phone }}</a><template v-else>—</template></div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Shift</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Shift') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ SHIFT_META[sel.shift] || sel.shift || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Salary</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Salary') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ money(sel.monthly_salary) }}/mo</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Joined</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Joined') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ (sel.join_date || '').slice(0, 10) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Property</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Property') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.prop ? propName(sel.prop) : '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Owner</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Owner') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.owner_email || '—' }}</div>
             </div>
           </div>

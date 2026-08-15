@@ -252,7 +252,7 @@ onMounted(() => {
         <div class="sub">Documents &amp; email templates in English and বাংলা — placeholders auto-detected</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-ghost" @click="loadAll">🔄 Refresh</button>
+        <button class="btn-ghost" @click="loadAll">{{ t('Refresh') }}</button>
       </div>
     </div>
 
@@ -260,7 +260,7 @@ onMounted(() => {
     <div class="tpl-stats">
       <div class="stat-chip"><span class="stat-ico">📄</span><b>{{ stats.docs }}</b> documents</div>
       <div class="stat-chip"><span class="stat-ico">✉️</span><b>{{ stats.emails }}</b> emails</div>
-      <div class="stat-chip en"><span class="stat-ico">🇬🇧</span><b>{{ stats.en }}</b> English</div>
+      <div class="stat-chip en"><span class="stat-ico">🇬🇧</span><b>{{ stats.en }}</b> {{ t('English') }}</div>
       <div class="stat-chip bn"><span class="stat-ico">🇧🇩</span><b>{{ stats.bn }}</b> বাংলা</div>
     </div>
 
@@ -278,7 +278,7 @@ onMounted(() => {
       <div class="tpl-toolbar">
         <CompactFilters>
         <select v-model="kindFilter" class="tpl-select">
-          <option value="">All kinds</option>
+          <option value="">{{ t('All kinds') }}</option>
           <option v-for="(l, k) in KIND" :key="k" :value="k">{{ l }}</option>
         </select>
         <div class="lang-seg">
@@ -323,7 +323,7 @@ onMounted(() => {
     <template v-if="tab === 'emails'">
       <div class="tpl-toolbar">
         <div class="lang-seg">
-          <button class="lang-pill" :class="{ on: langFilter === '' }" @click="langFilter = ''">All</button>
+          <button class="lang-pill" :class="{ on: langFilter === '' }" @click="langFilter = ''">{{ t('All') }}</button>
           <button class="lang-pill en" :class="{ on: langFilter === 'en' }" @click="langFilter = 'en'">🇬🇧 EN</button>
           <button class="lang-pill bn" :class="{ on: langFilter === 'bn' }" @click="langFilter = 'bn'">🇧🇩 বাংলা</button>
         </div>
@@ -358,28 +358,28 @@ onMounted(() => {
       <div class="modal" style="width:680px;max-width:94vw">
         <div class="modal-h"><span class="t">{{ edit.id ? '✏️ ' + edit.id : '＋ New ' + (KIND[edit.kind] || edit.kind) }}</span><button class="close" @click="editOpen = false">✕</button></div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
-          <div class="form-field"><label>Language</label>
+          <div class="form-field"><label>{{ t('Language') }}</label>
             <div class="lang-seg" style="margin-top:4px">
               <button type="button" class="lang-pill en" :class="{ on: edit.lang === 'en' }" @click="edit.lang = 'en'">🇬🇧 English</button>
               <button type="button" class="lang-pill bn" :class="{ on: edit.lang === 'bn' }" @click="edit.lang = 'bn'">🇧🇩 বাংলা</button>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="form-field"><label>Name</label><input v-model="edit.name" placeholder="e.g. Standard lease agreement" class="tpl-input"></div>
-            <div class="form-field"><label>Title (optional)</label><input v-model="edit.title" placeholder="Document title line" class="tpl-input"></div>
+            <div class="form-field"><label>{{ t('Name') }}</label><input v-model="edit.name" placeholder="e.g. Standard lease agreement" class="tpl-input"></div>
+            <div class="form-field"><label>{{ t('Title (optional)') }}</label><input v-model="edit.title" :placeholder="t('Document title line')" class="tpl-input"></div>
           </div>
-          <div class="form-field"><label>Placeholders — click to insert</label>
+          <div class="form-field"><label>{{ t('Placeholders — click to insert') }}</label>
             <div style="display:flex;flex-wrap:wrap;gap:5px">
               <button v-for="p in paletteFor" :key="p[0]" type="button" class="btn-ghost tpl-tok" @click="insertTok(p[0])" :title="p[1]">{{ tplTag(p[0]) }}</button>
-              <span v-if="!paletteFor.length" class="c-sub">Choose a kind to see placeholders.</span>
+              <span v-if="!paletteFor.length" class="c-sub">{{ t('Choose a kind to see placeholders.') }}</span>
             </div>
           </div>
-          <div class="form-field"><label>Body <span class="c-sub" style="font-weight:400">— {{ edit.body.replace(/<[^>]*>/g, ' ').length }} chars · rich text</span></label>
+          <div class="form-field"><label>{{ t('Body') }} <span class="c-sub" style="font-weight:400">— {{ edit.body.replace(/<[^>]*>/g, ' ').length }} chars · rich text</span></label>
             <RichEditor ref="docEditor" v-model="edit.body" :min-height="'280px'" placeholder="Write your document — use {{placeholders}}…" />
           </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="editOpen = false">Cancel</button>
+          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="editOpen = false">{{ t('Cancel') }}</button>
           <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="showPreview(edit.title || edit.name, edit.body, 'doc')">👁 Preview</button>
           <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="loading" @click="saveTpl">💾 Save</button>
         </div>
@@ -391,19 +391,19 @@ onMounted(() => {
       <div class="modal" style="width:680px;max-width:94vw">
         <div class="modal-h"><span class="t">✏️ {{ emEdit.id }} · {{ emEdit.name }}</span><button class="close" @click="emOpen = false">✕</button></div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
-          <div class="form-field"><label>Language</label>
+          <div class="form-field"><label>{{ t('Language') }}</label>
             <div class="lang-seg" style="margin-top:4px">
               <button type="button" class="lang-pill en" :class="{ on: emEdit.lang === 'en' }" @click="emEdit.lang = 'en'">🇬🇧 English</button>
               <button type="button" class="lang-pill bn" :class="{ on: emEdit.lang === 'bn' }" @click="emEdit.lang = 'bn'">🇧🇩 বাংলা</button>
             </div>
           </div>
-          <div class="form-field"><label>Subject <span class="c-sub" style="font-weight:400">— {{ emEdit.subject.length }} chars</span></label><input v-model="emEdit.subject" class="tpl-input"></div>
-          <div class="form-field"><label>Body <span class="c-sub" style="font-weight:400">— {{ emEdit.body.replace(/<[^>]*>/g, ' ').length }} chars · rich text</span></label>
+          <div class="form-field"><label>{{ t('Subject') }} <span class="c-sub" style="font-weight:400">— {{ emEdit.subject.length }} chars</span></label><input v-model="emEdit.subject" class="tpl-input"></div>
+          <div class="form-field"><label>{{ t('Body') }} <span class="c-sub" style="font-weight:400">— {{ emEdit.body.replace(/<[^>]*>/g, ' ').length }} chars · rich text</span></label>
             <RichEditor ref="emailEditor" v-model="emEdit.body" :min-height="'280px'" placeholder="Email body — use {{placeholders}}…" />
           </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="emOpen = false">Cancel</button>
+          <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="emOpen = false">{{ t('Cancel') }}</button>
           <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="showPreview(emEdit.name, emEdit.body, 'email', emEdit.subject)">👁 Preview</button>
           <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="loading" @click="saveEmail">💾 Save</button>
         </div>
@@ -417,9 +417,9 @@ onMounted(() => {
         <div style="padding:16px 20px">
           <!-- email chrome -->
           <div v-if="previewKind === 'email'" class="prev-mail">
-            <div class="pm-row"><span>From</span><b>{{ SAMPLE.org_name }} &lt;{{ SAMPLE.org_email }}&gt;</b></div>
+            <div class="pm-row"><span>{{ t('From') }}</span><b>{{ SAMPLE.org_name }} &lt;{{ SAMPLE.org_email }}&gt;</b></div>
             <div class="pm-row"><span>To</span><b>{{ SAMPLE.tenant_email }}</b></div>
-            <div class="pm-row"><span>Subject</span><b class="pm-subj">{{ previewSubject }}</b></div>
+            <div class="pm-row"><span>{{ t('Subject') }}</span><b class="pm-subj">{{ previewSubject }}</b></div>
           </div>
           <!-- rendered body -->
           <div class="prev-paper" :class="previewKind">
@@ -434,13 +434,13 @@ onMounted(() => {
           </div>
           <!-- placeholder legend -->
           <div v-if="previewTokens.length" class="prev-tokens">
-            <span class="c-sub" style="font-size:11px;font-weight:700">Placeholders:</span>
+            <span class="c-sub" style="font-size:11px;font-weight:700">{{ t('Placeholders:') }}</span>
             <span v-for="t in previewTokens" :key="t" class="prev-tok">{{ tokTag(t) }}</span>
           </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
           <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="copyPreview">📋 Copy</button>
-          <button class="btn-primary" style="padding:9px 16px;font-size:13px" @click="previewOpen = false">Close</button>
+          <button class="btn-primary" style="padding:9px 16px;font-size:13px" @click="previewOpen = false">{{ t('Close') }}</button>
         </div>
       </div>
     </div>

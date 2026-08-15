@@ -168,22 +168,22 @@ async function delWatch(w) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search name, vehicle, property…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:200px">
         <select v-model="typeFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All types</option>
+          <option value="">{{ t('All types') }}</option>
           <option v-for="t in typeOptions" :key="t" :value="t">{{ typeMeta(t).label }}</option>
         </select>
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
-        <button @click="flaggedOnly = !flaggedOnly" class="btn-ghost" :style="flaggedOnly ? 'background:var(--danger);color:#fff;border-color:var(--danger)' : ''" title="Watchlist matches only">🚩 {{ flaggedOnly ? 'Flagged only' : 'All entries' }}</button>
-        <button @click="loadWatchlist" class="btn-ghost" title="Watchlist">🚨 Watchlist</button>
+        <button @click="flaggedOnly = !flaggedOnly" class="btn-ghost" :style="flaggedOnly ? 'background:var(--danger);color:#fff;border-color:var(--danger)' : ''" :title="t('Watchlist matches only')">🚩 {{ flaggedOnly ? 'Flagged only' : 'All entries' }}</button>
+        <button @click="loadWatchlist" class="btn-ghost" :title="t('Watchlist')">🚨 {{ t('Watchlist') }}</button>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
-        <button @click="openCheckIn" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Check-in</button>
+        <button @click="openCheckIn" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ {{ t('Check-in') }}</button>
       </div>
     </div>
 
@@ -204,7 +204,7 @@ async function delWatch(w) {
             <span class="badge" :class="typeMeta(v.vtype).cls" style="background:#ffffff">{{ typeMeta(v.vtype).label }}</span>
           </div>
           <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ v.id }}</div>
-          <div v-if="v.flagged" style="position:absolute;top:10px;right:12px;font-size:20px" title="Watchlist match">🚩</div>
+          <div v-if="v.flagged" style="position:absolute;top:10px;right:12px;font-size:20px" :title="t('Watchlist match')">🚩</div>
         </div>
         <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
           <div style="font-weight:800;font-size:14.5px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.name || '—' }}</div>
@@ -239,11 +239,11 @@ async function delWatch(w) {
               <td style="white-space:nowrap" class="c-sub">{{ fmtTs(v.check_in) }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="v.status === 'Inside' ? 'b-blue' : 'b-gray'">{{ v.status || '—' }}</span></td>
               <td v-if="canManage" style="white-space:nowrap">
-                <button v-if="v.status === 'Inside'" @click.stop="checkOut(v)" title="Check out" style="background:none;border:none;font-size:14px;cursor:pointer">🚪</button>
-                <button @click.stop="delVisit(v)" title="Delete" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
+                <button v-if="v.status === 'Inside'" @click.stop="checkOut(v)" :title="t('Check out')" style="background:none;border:none;font-size:14px;cursor:pointer">🚪</button>
+                <button @click.stop="delVisit(v)" :title="t('Delete')" style="background:none;border:none;font-size:15px;cursor:pointer">🗑</button>
               </td>
             </tr>
-            <tr v-if="!filtered.length"><td :colspan="canManage ? 8 : 7" style="text-align:center;color:var(--text-mute);padding:30px">No visits found.</td></tr>
+            <tr v-if="!filtered.length"><td :colspan="canManage ? 8 : 7" style="text-align:center;color:var(--text-mute);padding:30px">{{ t('No visits found.') }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -257,7 +257,7 @@ async function delWatch(w) {
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:70" @click="cinModal = false"></div>
       <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(500px,94vw);background:var(--card);z-index:71;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden">
         <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
-          <div style="font-weight:800;font-size:15.5px">🚪 Check-in entry</div>
+          <div style="font-weight:800;font-size:15.5px">🚪 {{ t('Check-in') }} entry</div>
           <button @click="cinModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
         </div>
         <div style="padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px">
@@ -269,7 +269,7 @@ async function delWatch(w) {
               </select>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Type</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Type') }}</div>
               <select v-model="cinForm.vtype" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(m, k) in TYPE_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
               </select>
@@ -277,21 +277,21 @@ async function delWatch(w) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Name</div>
-              <input v-model="cinForm.name" placeholder="Visitor name" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Name') }}</div>
+              <input v-model="cinForm.name" :placeholder="t('Visitor name')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Phone</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Phone') }}</div>
               <input v-model="cinForm.phone" placeholder="01XXXXXXXXX" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Vehicle no</div>
-              <input v-model="cinForm.vehicle_no" placeholder="DHAKA-METRO-1234" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Vehicle no') }}</div>
+              <input v-model="cinForm.vehicle_no" :placeholder="t('DHAKA-METRO-1234')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Unit</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Unit') }}</div>
               <select v-model="cinForm.unit" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option value="">— none —</option>
                 <option v-for="u in data.list('units')" :key="u.id" :value="u.id">{{ u.name }}</option>
@@ -300,17 +300,17 @@ async function delWatch(w) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Purpose</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Purpose') }}</div>
               <input v-model="cinForm.purpose" placeholder="Meeting, delivery…" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Host</div>
-              <input v-model="cinForm.host_name" placeholder="Host name" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Host') }}</div>
+              <input v-model="cinForm.host_name" :placeholder="t('Host name')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Notes</div>
-            <textarea v-model="cinForm.notes" rows="2" placeholder="Optional" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Notes') }}</div>
+            <textarea v-model="cinForm.notes" rows="2" :placeholder="t('Optional')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical"></textarea>
           </div>
           <button @click="submitCheckIn" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">🚪 Check in</button>
           <div class="c-sub" style="font-size:11px;text-align:center">Auto-flagged 🚩 if vehicle/name matches the watchlist</div>
@@ -330,13 +330,13 @@ async function delWatch(w) {
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">➕ Add to watchlist</div>
             <div style="display:flex;flex-direction:column;gap:7px">
-              <input v-model="wlForm.vehicle_no" placeholder="Vehicle number (e.g. DHAKA-METRO-9999)" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
-              <input v-model="wlForm.name" placeholder="Person / name" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
-              <input v-model="wlForm.reason" placeholder="Reason (e.g. suspicious activity)" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+              <input v-model="wlForm.vehicle_no" :placeholder="t('Vehicle number (e.g. DHAKA-METRO-9999)')" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+              <input v-model="wlForm.name" :placeholder="t('Person / name')" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+              <input v-model="wlForm.reason" :placeholder="t('Reason (e.g. suspicious activity)')" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
               <button @click="addWatch" style="padding:9px;border:none;border-radius:9px;background:var(--danger);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🚨 Add to watchlist</button>
             </div>
           </div>
-          <div v-if="!wlItems.length" style="padding:28px;text-align:center;color:var(--text-mute)">Watchlist is empty.</div>
+          <div v-if="!wlItems.length" style="padding:28px;text-align:center;color:var(--text-mute)">{{ t('Watchlist is empty.') }}</div>
           <div v-for="w in wlItems" :key="w.id" style="display:flex;gap:10px;align-items:flex-start;background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:11px 13px;margin-bottom:8px">
             <div style="font-size:19px">🚨</div>
             <div style="flex:1;min-width:0">
@@ -345,7 +345,7 @@ async function delWatch(w) {
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
               <span class="badge" :class="w.active ? 'b-danger' : 'b-gray'">{{ w.active ? 'Active' : 'Off' }}</span>
-              <button v-if="canManage" @click="delWatch(w)" title="Remove" style="background:none;border:none;font-size:14px;cursor:pointer">🗑</button>
+              <button v-if="canManage" @click="delWatch(w)" :title="t('Remove')" style="background:none;border:none;font-size:14px;cursor:pointer">🗑</button>
             </div>
           </div>
         </div>
@@ -362,7 +362,7 @@ async function delWatch(w) {
           <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="badge" style="background:#ffffff">{{ sel.id }}</span>
             <span class="badge" style="background:#ffffff">{{ typeMeta(sel.vtype).label }}</span>
-            <span v-if="sel.flagged" class="badge" style="background:#ffffff;color:var(--danger)">🚩 Watchlist</span>
+            <span v-if="sel.flagged" class="badge" style="background:#ffffff;color:var(--danger)">🚩 {{ t('Watchlist') }}</span>
           </div>
         </div>
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
@@ -375,27 +375,27 @@ async function delWatch(w) {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Check-in</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Check-in') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtTs(sel.check_in) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Check-out</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Check-out') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ fmtTs(sel.check_out) }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Phone</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Phone') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.phone || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Vehicle</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Vehicle') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.vehicle_no || '—' }}</div>
             </div>
             <div v-if="sel.purpose" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Purpose</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Purpose') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.purpose }}</div>
             </div>
             <div v-if="sel.host_name" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Host</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Host') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.host_name }}</div>
             </div>
           </div>
@@ -405,8 +405,8 @@ async function delWatch(w) {
             <div style="font-weight:600;word-break:break-word;margin-top:1px">{{ String(v) }}</div>
           </div>
           <div v-if="canManage" style="display:flex;gap:8px;margin-top:16px">
-            <button v-if="sel.status === 'Inside'" @click="checkOut(sel)" style="flex:1;padding:10px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🚪 Check out</button>
-            <button @click="delVisit(sel)" style="flex:1;padding:10px;border:none;border-radius:10px;background:var(--danger);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🗑 Delete entry</button>
+            <button v-if="sel.status === 'Inside'" @click="checkOut(sel)" style="flex:1;padding:10px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🚪 {{ t('Check out') }}</button>
+            <button @click="delVisit(sel)" style="flex:1;padding:10px;border:none;border-radius:10px;background:var(--danger);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🗑 {{ t('Delete') }} entry</button>
           </div>
           <div style="height:24px"></div>
         </div>

@@ -78,7 +78,7 @@ const goTab = (t) => { tab.value = t }
     <div class="page-head">
       <div>
         <h1>{{ t('🏠 Safety & Security') }}</h1>
-        <div class="sub">Physical security — building systems, land guard, build watch &amp; fire safety · one dashboard</div>
+        <div class="sub">{{ t('Physical security — building systems, land guard, build watch & fire safety · one dashboard') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn-ghost" @click="goTab('smarthome')">➕ Add system</button>
@@ -97,12 +97,12 @@ const goTab = (t) => { tab.value = t }
     <template v-if="tab === 'overview'">
       <!-- KPI cards -->
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🏠</span>Building systems</div><div class="s-value">{{ kpis.sys }}</div><div class="s-trend">assets tracked</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🔒</span>Smart locks</div><div class="s-value">{{ kpis.locks }}</div><div class="s-trend">{{ kpis.cams }} CCTV cameras</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🛰️</span>Land parcels</div><div class="s-value">{{ kpis.land }}</div><div class="s-trend">{{ kpis.landSecure }} secure · {{ kpis.landReview }} review</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🏗️</span>Build projects</div><div class="s-value">{{ kpis.build }}</div><div class="s-trend">{{ kpis.buildActive }} active</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🧯</span>Fire assets</div><div class="s-value">{{ kpis.fire }}</div><div class="s-trend">registered</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🚨</span>Fire incidents</div><div class="s-value" :style="kpis.fireOpen > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ kpis.fireOpen }}</div><div class="s-trend">open</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏠</span>{{ t('Building systems') }}</div><div class="s-value">{{ kpis.sys }}</div><div class="s-trend">assets tracked</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔒</span>{{ t('Smart locks') }}</div><div class="s-value">{{ kpis.locks }}</div><div class="s-trend">{{ kpis.cams }} CCTV cameras</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🛰️</span>{{ t('Land parcels') }}</div><div class="s-value">{{ kpis.land }}</div><div class="s-trend">{{ kpis.landSecure }} secure · {{ kpis.landReview }} review</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏗️</span>{{ t('Build projects') }}</div><div class="s-value">{{ kpis.build }}</div><div class="s-trend">{{ kpis.buildActive }} active</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧯</span>{{ t('Fire assets') }}</div><div class="s-value">{{ kpis.fire }}</div><div class="s-trend">registered</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🚨</span>{{ t('Fire incidents') }}</div><div class="s-value" :style="kpis.fireOpen > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ kpis.fireOpen }}</div><div class="s-trend">open</div></div>
       </div>
 
       <!-- Quick actions -->
@@ -128,7 +128,7 @@ const goTab = (t) => { tab.value = t }
               <div style="font-weight:800;font-size:11.5px;color:var(--primary)">{{ v.scheduled_for || '—' }}</div>
             </div>
           </div>
-          <div v-if="!upcomingVisits.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No upcoming visits.</div>
+          <div v-if="!upcomingVisits.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No upcoming visits.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
           <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🚨 Recent fire incidents</div>
@@ -141,7 +141,7 @@ const goTab = (t) => { tab.value = t }
               <span class="badge" :class="['Resolved','Closed'].includes(f.status) ? 'badge-green' : 'badge-red'">{{ f.status || '—' }}</span>
             </div>
           </div>
-          <div v-if="!fireRecent.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No fire incidents recorded.</div>
+          <div v-if="!fireRecent.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No fire incidents recorded.') }}</div>
         </div>
       </div>
     </template>

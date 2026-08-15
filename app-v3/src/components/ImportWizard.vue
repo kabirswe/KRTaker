@@ -2,6 +2,7 @@
 /* CSV Import Wizard (GO-LIVE 4.1) — shared by UnitsView + TenantsView.
    Three steps: template → paste/preview → commit. Mirrors app-import API. */
 import { ref, computed } from 'vue'
+import { t } from '../lib/i18n'
 import { apiCall } from '../api/client'
 
 const props = defineProps({
@@ -75,7 +76,7 @@ function close() { emit('close') }
     <div style="background:var(--bg,#fff);border-radius:18px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.28)">
       <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
         <h3 style="font-size:16px;font-weight:800;margin:0">{{ title }}</h3>
-        <button @click="close" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-mute)" title="Close">✕</button>
+        <button @click="close" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-mute)" :title="t('Close')">✕</button>
       </div>
 
       <div style="padding:20px 22px;overflow:auto;flex:1">
@@ -83,7 +84,7 @@ function close() { emit('close') }
         <div v-if="step === 'template'">
           <p style="font-size:13px;color:var(--text-mute);margin:0 0 12px">Paste your CSV below (or pick a file). Headers must match the template — invalid rows are skipped safely.</p>
           <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text-mute);line-height:1.7">
-            <b style="color:var(--text)">Columns:</b>
+            <b style="color:var(--text)">{{ t('Columns:') }}</b>
             <span v-for="(d,k) in columns" :key="k" style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px 8px;margin:3px 4px 3px 0"><code style="font-weight:700">{{ k }}</code> · {{ d }}</span>
           </div>
           <textarea v-model="csv" rows="10" spellcheck="false" style="width:100%;box-sizing:border-box;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text);outline:none;resize:vertical"></textarea>
@@ -96,14 +97,14 @@ function close() { emit('close') }
         <!-- STEP: preview -->
         <div v-if="step === 'preview'">
           <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">
-            <div style="background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3);border-radius:12px;padding:10px 16px"><div style="font-size:11px;color:var(--text-mute)">VALID</div><div style="font-size:20px;font-weight:800;color:var(--ok)">{{ preview.valid }}</div></div>
-            <div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:12px;padding:10px 16px"><div style="font-size:11px;color:var(--text-mute)">SKIPPED</div><div style="font-size:20px;font-weight:800;color:var(--danger)">{{ preview.invalid }}</div></div>
-            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:10px 16px"><div style="font-size:11px;color:var(--text-mute)">TOTAL ROWS</div><div style="font-size:20px;font-weight:800;color:var(--text)">{{ preview.total }}</div></div>
+            <div style="background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3);border-radius:12px;padding:10px 16px"><div style="font-size:11px;color:var(--text-mute)">{{ t('VALID') }}</div><div style="font-size:20px;font-weight:800;color:var(--ok)">{{ preview.valid }}</div></div>
+            <div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:12px;padding:10px 16px"><div style="font-size:11px;color:var(--text-mute)">{{ t('SKIPPED') }}</div><div style="font-size:20px;font-weight:800;color:var(--danger)">{{ preview.invalid }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:10px 16px"><div style="font-size:11px;color:var(--text-mute)">{{ t('TOTAL ROWS') }}</div><div style="font-size:20px;font-weight:800;color:var(--text)">{{ preview.total }}</div></div>
           </div>
           <div v-if="preview.limit_error" style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:var(--danger);font-weight:600">⚠️ {{ preview.limit_error }}</div>
           <div style="max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:12px">
             <table style="width:100%;border-collapse:collapse;font-size:12px">
-              <thead><tr style="background:var(--bg-alt)"><th style="padding:8px 10px;text-align:left;position:sticky;top:0;background:var(--bg-alt)">Line</th><th style="padding:8px 10px;text-align:left;position:sticky;top:0;background:var(--bg-alt)">Data</th><th style="padding:8px 10px;text-align:left;position:sticky;top:0;background:var(--bg-alt)">Status</th></tr></thead>
+              <thead><tr style="background:var(--bg-alt)"><th style="padding:8px 10px;text-align:left;position:sticky;top:0;background:var(--bg-alt)">{{ t('Line') }}</th><th style="padding:8px 10px;text-align:left;position:sticky;top:0;background:var(--bg-alt)">{{ t('Data') }}</th><th style="padding:8px 10px;text-align:left;position:sticky;top:0;background:var(--bg-alt)">{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="row in preview.rows" :key="row.line" :style="row.ok ? '' : 'background:rgba(231,76,60,.05)'">
                   <td style="padding:7px 10px;color:var(--text-mute)">{{ row.line }}</td>
@@ -134,10 +135,10 @@ function close() { emit('close') }
           <button v-if="step === 'preview'" class="btn-ghost" style="font-size:12.5px" @click="step = 'template'">← Back</button>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn-ghost" style="font-size:12.5px" @click="close">Cancel</button>
+          <button class="btn-ghost" style="font-size:12.5px" @click="close">{{ t('Cancel') }}</button>
           <button v-if="step === 'template'" class="btn-primary" style="padding:9px 18px;font-size:13px" :disabled="busy || !csv.trim()" @click="doPreview">{{ busy ? 'Checking…' : 'Preview →' }}</button>
           <button v-if="step === 'preview'" class="btn-primary" style="padding:9px 18px;font-size:13px" :disabled="busy || preview.valid === 0 || preview.limit_error" @click="doCommit">{{ busy ? 'Importing…' : 'Import ' + preview.valid + ' row' + (preview.valid === 1 ? '' : 's') + ' →' }}</button>
-          <button v-if="step === 'done'" class="btn-primary" style="padding:9px 18px;font-size:13px" @click="close">Done</button>
+          <button v-if="step === 'done'" class="btn-primary" style="padding:9px 18px;font-size:13px" @click="close">{{ t('Done') }}</button>
         </div>
       </div>
     </div>

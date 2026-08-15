@@ -444,7 +444,7 @@ const loadingRow = () => loading.value
         <div class="sub">{{ lang === 'bn' ? 'পার্কিং, বুকিং, ভোট, ফোরাম, ইভেন্ট ও সমিতি' : 'Parking, bookings, voting, forums, events & samity' }}</div>
       </div>
       <div class="head-actions">
-        <button class="btn-ghost" @click="load(tab); loadStats()" title="Refresh">🔄</button>
+        <button class="btn-ghost" @click="load(tab); loadStats()" :title="t('Refresh')">🔄</button>
       </div>
     </div>
 
@@ -517,7 +517,7 @@ const loadingRow = () => loading.value
                   <td><span class="badge" :class="badge(r.status)">{{ r.status }}</span></td>
                   <td style="text-align:right;white-space:nowrap">
                     <button v-if="r.status === 'Active' && isStaff" class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="releaseParking(r.id)">🆓 {{ t('Release') }}</button>
-                    <button v-if="isStaff" class="btn-ghost" style="padding:4px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('parking', r)">✕</button>
+                    <button v-if="isStaff" class="btn-ghost" style="padding:4px 8px;font-size:11px;color:var(--danger)" :title="t('Delete')" @click="delRow('parking', r)">✕</button>
                   </td>
                 </tr>
                 <tr v-if="!loading && !parkFiltered.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:26px">{{ rows.length ? t('No match') : t('No vehicles registered') }}</td></tr>
@@ -581,9 +581,9 @@ const loadingRow = () => loading.value
                   <td>{{ r.name || '—' }}</td>
                   <td><span class="badge" :class="badge(r.status)">{{ r.status }}</span></td>
                   <td v-if="isStaff" style="text-align:right;white-space:nowrap">
-                    <template v-if="r.status === 'Pending'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Confirmed')" title="Confirm">✅</button></template>
-                    <template v-if="r.status !== 'Cancelled'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Cancelled')" title="Cancel">✕</button></template>
-                    <button class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('bookings', r)">🗑</button>
+                    <template v-if="r.status === 'Pending'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Confirmed')" :title="t('Confirm')">✅</button></template>
+                    <template v-if="r.status !== 'Cancelled'"><button class="btn-ghost" style="padding:3px 9px;font-size:11px" @click="bkgStatus(r.id, 'Cancelled')" :title="t('Cancel')">✕</button></template>
+                    <button class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" :title="t('Delete')" @click="delRow('bookings', r)">🗑</button>
                   </td>
                 </tr>
                 <tr v-if="!loading && !bkgFiltered.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:26px">{{ rows.length ? t('No match') : t('No bookings yet') }}</td></tr>
@@ -826,7 +826,7 @@ const loadingRow = () => loading.value
               <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
                 <span class="badge" :class="evtDate(r.date) !== '—' && evtDate(r.date) < todayStr() ? 'b-gray' : 'b-blue'">{{ evtDate(r.date) !== '—' && evtDate(r.date) < todayStr() ? t('Past') : t('Upcoming') }}</span>
                 <span class="badge" :class="r.full ? 'b-red' : 'b-blue'">{{ r.rsvps || 0 }}/{{ r.capacity || '∞' }} {{ t('going') }}</span>
-                <button v-if="isStaff" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" title="Delete" @click="delRow('events', r)">🗑</button>
+                <button v-if="isStaff" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--danger)" :title="t('Delete')" @click="delRow('events', r)">🗑</button>
               </div>
             </div>
             <div class="c-sub" style="font-size:12px;margin:6px 0 10px">

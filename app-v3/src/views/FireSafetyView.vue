@@ -224,15 +224,15 @@ function timelineOf(i) {
           <span class="c-sub" style="font-size:12px">{{ filteredAssets.length }} shown</span>
           <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
             <select v-model="aStatus" style="padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <option value="">All statuses</option>
+              <option value="">{{ t('All statuses') }}</option>
               <option v-for="s in aStatusOptions" :key="s" :value="s">{{ fireCap(s) }}</option>
             </select>
             <select v-model="aType" style="padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <option value="">All types</option>
+              <option value="">{{ t('All types') }}</option>
               <option v-for="t in aTypeOptions" :key="t" :value="t">{{ assetTypeLabel(t) }}</option>
             </select>
             <select v-model="aProp" style="padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <option value="">All properties</option>
+              <option value="">{{ t('All properties') }}</option>
               <option v-for="p in aPropOptions" :key="p" :value="p">{{ propName(p) }}</option>
             </select>
           </div>
@@ -248,7 +248,7 @@ function timelineOf(i) {
                 <td style="white-space:nowrap" class="c-sub">{{ a.location || '—' }}</td>
                 <td style="white-space:nowrap">
                   {{ fmtDate(a.expiry_date) }}
-                  <span v-if="a.expired" class="badge b-red">EXPIRED</span>
+                  <span v-if="a.expired" class="badge b-red">{{ t('EXPIRED') }}</span>
                   <span v-else-if="a.expiring" class="badge b-orange">expiring {{ a.days_to_expiry }}d</span>
                 </td>
                 <td style="white-space:nowrap">
@@ -259,12 +259,12 @@ function timelineOf(i) {
                 <td style="white-space:nowrap">
                   <div style="display:flex;gap:6px;justify-content:flex-end">
                     <button v-if="canManage" @click="openAssetEdit(a)" class="btn-ghost" style="padding:4px 9px;font-size:11.5px">✏️</button>
-                    <button v-if="canManage" @click="inspectAsset(a)" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" title="Mark inspected">✅ Inspect</button>
-                    <button v-if="canDelete" @click="deleteAsset(a)" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" title="Delete">🗑</button>
+                    <button v-if="canManage" @click="inspectAsset(a)" class="btn-ghost" style="padding:4px 9px;font-size:11.5px" :title="t('Mark inspected')">✅ Inspect</button>
+                    <button v-if="canDelete" @click="deleteAsset(a)" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)" :title="t('Delete')">🗑</button>
                   </div>
                 </td>
               </tr>
-              <tr v-if="!filteredAssets.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:22px">No fire assets found.</td></tr>
+              <tr v-if="!filteredAssets.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No fire assets found.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -278,11 +278,11 @@ function timelineOf(i) {
           <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
             <input v-model="iQuery" placeholder="Search incidents…" style="padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none;width:160px">
             <select v-model="iSev" style="padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <option value="">All severities</option>
+              <option value="">{{ t('All severities') }}</option>
               <option v-for="s in iSevOptions" :key="s" :value="s">{{ fireCap(s) }}</option>
             </select>
             <select v-model="iStatus" style="padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none">
-              <option value="">All statuses</option>
+              <option value="">{{ t('All statuses') }}</option>
               <option v-for="s in iStatusOptions" :key="s" :value="s">{{ s }}</option>
             </select>
           </div>
@@ -299,7 +299,7 @@ function timelineOf(i) {
               <div class="ri-s">{{ i.location || '—' }}<template v-if="i.property_name"> · {{ i.property_name }}</template><template v-if="i.occurred_at"> · {{ fmtTs(i.occurred_at) }}</template></div>
               <div class="ri-s" v-if="i.description">{{ i.description }}</div>
               <div class="ri-s" v-if="timelineOf(i).length">
-                <b>Timeline:</b>
+                <b>{{ t('Timeline:') }}</b>
                 <span v-for="(e, ei) in timelineOf(i)" :key="ei" style="display:inline-block;margin-right:8px">• {{ e.t?.slice(0, 16) }} {{ e.note || '' }}<template v-if="e.by"> ({{ e.by }})</template></span>
               </div>
             </div>
@@ -310,7 +310,7 @@ function timelineOf(i) {
               <button v-if="canDelete" @click="deleteIncident(i)" class="btn-ghost" style="padding:4px 9px;font-size:11.5px;color:var(--danger)">🗑</button>
             </div>
           </div>
-          <div v-if="!filteredIncidents.length" style="padding:24px;text-align:center;color:var(--text-mute)">No incidents reported.</div>
+          <div v-if="!filteredIncidents.length" style="padding:24px;text-align:center;color:var(--text-mute)">{{ t('No incidents reported.') }}</div>
         </div>
       </div>
 
@@ -326,7 +326,7 @@ function timelineOf(i) {
                 <div class="ri-s" v-if="p.drill_date">Last drill: {{ fmtDate(p.drill_date) }}<span v-if="p.drill_overdue" class="badge b-red" style="margin-left:6px">drill overdue</span></div>
               </div>
             </div>
-            <div v-if="!plans.length" style="color:var(--text-mute);font-size:12.5px">No evacuation plans on file.</div>
+            <div v-if="!plans.length" style="color:var(--text-mute);font-size:12.5px">{{ t('No evacuation plans on file.') }}</div>
           </div>
         </div>
         <div class="panel" style="overflow:hidden">
@@ -339,7 +339,7 @@ function timelineOf(i) {
                 <div class="ri-s" v-if="c.phone">📱 {{ c.phone }}<template v-if="c.alt_phone"> · {{ c.alt_phone }}</template></div>
               </div>
             </div>
-            <div v-if="!contacts.length" style="color:var(--text-mute);font-size:12.5px">No emergency contacts.</div>
+            <div v-if="!contacts.length" style="color:var(--text-mute);font-size:12.5px">{{ t('No emergency contacts.') }}</div>
           </div>
         </div>
       </div>
@@ -355,7 +355,7 @@ function timelineOf(i) {
         </div>
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Type</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Type') }}</label>
             <select v-model="assetForm.asset_type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option v-for="t in ASSET_TYPES" :key="t.v" :value="t.v">{{ t.l }}</option>
             </select>
@@ -365,43 +365,43 @@ function timelineOf(i) {
             <input v-model="assetForm.location" placeholder="e.g. Lobby — ground floor" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Property</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Property') }}</label>
             <select v-model="assetForm.prop" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Model</label>
-              <input v-model="assetForm.model" placeholder="ABC-4kg" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Model') }}</label>
+              <input v-model="assetForm.model" :placeholder="t('ABC-4kg')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Serial no.</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Serial no.') }}</label>
               <input v-model="assetForm.serial_no" placeholder="SN-…" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Install date</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Install date') }}</label>
               <input v-model="assetForm.install_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Expiry date</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Expiry date') }}</label>
               <input v-model="assetForm.expiry_date" type="date" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
             </div>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Status</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Status') }}</label>
             <select v-model="assetForm.status" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
-              <option value="active">Active</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="expired">Expired</option>
-              <option value="retired">Retired</option>
+              <option value="active">{{ t('Active') }}</option>
+              <option value="maintenance">{{ t('Maintenance') }}</option>
+              <option value="expired">{{ t('Expired') }}</option>
+              <option value="retired">{{ t('Retired') }}</option>
             </select>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Notes</label>
-            <textarea v-model="assetForm.notes" rows="2" placeholder="Optional notes" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Notes') }}</label>
+            <textarea v-model="assetForm.notes" rows="2" :placeholder="t('Optional notes')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea>
           </div>
           <button @click="saveAsset" class="btn-primary" style="margin-top:4px">💾 Save asset</button>
         </div>
@@ -419,13 +419,13 @@ function timelineOf(i) {
         <div style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:13px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Type</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Type') }}</label>
               <select v-model="incidentForm.incident_type" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
                 <option v-for="t in INCIDENT_TYPES" :key="t" :value="t">{{ fireCap(t) }}</option>
               </select>
             </div>
             <div>
-              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Severity</label>
+              <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Severity') }}</label>
               <select v-model="incidentForm.severity" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
                 <option v-for="s in SEVERITIES" :key="s" :value="s">{{ fireCap(s) }}</option>
               </select>
@@ -436,14 +436,14 @@ function timelineOf(i) {
             <input v-model="incidentForm.location" placeholder="e.g. Kitchen — 3rd floor" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Property</label>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Property') }}</label>
             <select v-model="incidentForm.prop" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px">
               <option v-for="p in propOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Description</label>
-            <textarea v-model="incidentForm.description" rows="3" placeholder="What happened?" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea>
+            <label style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Description') }}</label>
+            <textarea v-model="incidentForm.description" rows="3" :placeholder="t('What happened?')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;margin-top:5px;resize:vertical"></textarea>
           </div>
           <button @click="saveIncident" class="btn-primary" style="margin-top:4px">💾 Save incident</button>
         </div>

@@ -134,19 +134,19 @@ async function deleteNotice(n) {
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
-        <input v-model="query" :placeholder="t('Search title, body, author…')" title="Search notices by title, body text, or author name" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
-        <button @click="pinnedOnly = !pinnedOnly" class="btn-ghost" :style="pinnedOnly ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" title="Show pinned only">📌 {{ pinnedOnly ? 'Pinned only' : 'All notices' }}</button>
-        <select v-model="sortBy" title="Sort order: newest first or by title" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="ts">Sort: Newest</option>
-          <option value="title">Sort: Title</option>
+        <input v-model="query" :placeholder="t('Search title, body, author…')" :title="t('Search notices by title, body text, or author name')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
+        <button @click="pinnedOnly = !pinnedOnly" class="btn-ghost" :style="pinnedOnly ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" :title="t('Show pinned only')">📌 {{ pinnedOnly ? 'Pinned only' : 'All notices' }}</button>
+        <select v-model="sortBy" :title="t('Sort order: newest first or by title')" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
+          <option value="ts">{{ t('Sort: Newest') }}</option>
+          <option value="title">{{ t('Sort: Title') }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
-          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer" title="Card grid view">▦ Grid</button>
-          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer" title="Compact table list view">☰ List</button>
+          <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer" :title="t('Card grid view')">▦ Grid</button>
+          <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer" :title="t('Compact table list view')">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
-        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="openCompose" title="Compose and post a new notice to the board">＋ {{ lang === 'bn' ? 'নতুন নোটিশ' : 'New notice' }}</button>
+        <button v-if="canPost" class="btn-primary" style="padding:9px 14px;font-size:12.5px" @click="openCompose" :title="t('Compose and post a new notice to the board')">＋ {{ lang === 'bn' ? 'নতুন নোটিশ' : 'New notice' }}</button>
       </div>
     </div>
 
@@ -164,7 +164,7 @@ async function deleteNotice(n) {
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">{{ n.pinned ? '📌' : '📢' }}</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
             <span v-if="n.pinned" class="badge b-blue" style="background:#ffffff">📌 Pinned</span>
-            <span v-else class="badge" style="background:#ffffff">Notice</span>
+            <span v-else class="badge" style="background:#ffffff">{{ t('Notice') }}</span>
             <span v-if="n.emailed" class="badge" style="background:#ffffff" title="Emailed to {{ n.email_count }} tenant(s)">📨 {{ n.email_count || '' }}</span>
           </div>
           <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ n.id }}</div>
@@ -239,27 +239,27 @@ async function deleteNotice(n) {
         <div style="padding:18px 22px;display:flex;flex-direction:column;gap:13px">
           <div>
             <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Title *</label>
-            <input v-model="newTitle" placeholder="e.g. Utility schedule for August" title="Required: short headline for the notice" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
+            <input v-model="newTitle" placeholder="e.g. Utility schedule for August" :title="t('Required: short headline for the notice')" style="width:100%;margin-top:5px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13.5px;color:var(--text);outline:none">
           </div>
           <div>
-            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Body</label>
-            <RichEditor v-model="newBody" placeholder="Write the notice… visible to tenants and staff" :min-height="'160px'" style="margin-top:5px" title="Full notice text — supports formatting, visible to tenants and staff" />
+            <label style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Body') }}</label>
+            <RichEditor v-model="newBody" placeholder="Write the notice… visible to tenants and staff" :min-height="'160px'" style="margin-top:5px" :title="t('Full notice text — supports formatting, visible to tenants and staff')" />
           </div>
           <!-- V2.22: broadcast toggle -->
           <div style="display:flex;align-items:center;gap:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:10px 14px;flex-wrap:wrap">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer" title="Email a copy of this notice to all active tenants with an email address">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer" :title="t('Email a copy of this notice to all active tenants with an email address')">
               <input type="checkbox" v-model="emailNotice" style="width:16px;height:16px">
               📨 Also email to tenants
             </label>
             <span style="font-size:12px;color:var(--text-mute)">
               <template v-if="rcptLoading">Checking recipients…</template>
               <template v-else-if="rcptInfo">{{ rcptInfo.with_email }} of {{ rcptInfo.total }} active tenants have email · respects opt-outs &amp; docs switch</template>
-              <template v-else>Recipient count unavailable</template>
+              <template v-else>{{ t('Recipient count unavailable') }}</template>
             </span>
           </div>
         </div>
         <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-          <button class="btn-ghost" @click="newModal = false" title="Discard and close without posting">Cancel</button>
+          <button class="btn-ghost" @click="newModal = false" :title="t('Discard and close without posting')">{{ t('Cancel') }}</button>
           <button class="btn-primary" :disabled="saving" @click="submitNotice" style="padding:9px 18px" :title="saving ? 'Posting…' : 'Publish this notice to the notice board'">{{ saving ? 'Posting…' : '📢 Post notice' }}</button>
         </div>
       </div>

@@ -395,13 +395,13 @@ function printReport() {
     <div class="page-head">
       <div>
         <h1>{{ t('📈 Analytics') }}</h1>
-        <div class="sub">Portfolio intelligence — P&amp;L, cashflow, collections, expenses, tenants &amp; risk</div>
+        <div class="sub">{{ t('Portfolio intelligence — P&L, cashflow, collections, expenses, tenants & risk') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
         <input v-model="month" type="month" style="padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none" @change="switchTab(tab)">
         <button class="btn-ghost" @click="switchTab(tab)" :disabled="loading">{{ loading ? '⏳…' : '🔄 Refresh' }}</button>
-        <button class="btn-ghost" @click="printReport" title="Print this report">🖨 Print</button>
+        <button class="btn-ghost" @click="printReport" :title="t('Print this report')">{{ t('Print') }}</button>
       </CompactFilters>
       </div>
     </div>
@@ -410,28 +410,28 @@ function printReport() {
     <div v-if="err" style="padding:10px 14px;border-radius:10px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);margin-bottom:14px;font-weight:600;font-size:13.5px">⚠️ {{ err }}</div>
 
     <ScrollTabs style="gap:6px">
-      <button v-for="t in TABS" :key="t[0]" class="btn-ghost" :style="tab === t[0] ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" @click="switchTab(t[0])">{{ t[1] }}</button>
+      <button v-for="tb in TABS" :key="tb[0]" class="btn-ghost" :style="tab === tb[0] ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : ''" @click="switchTab(tb[0])">{{ t(tb[1]) }}</button>
     </ScrollTabs>
 
     <!-- ══ OVERVIEW ══ -->
     <template v-if="tab === 'overview'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Gross rent</div><div class="s-value">{{ money(pnlTotals.gross) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Collected</div><div class="s-value">{{ money(pnlTotals.collected) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Net</div><div class="s-value" :style="kpiStyle((pnlTotals.net || 0) >= 0 ? C.green : C.red)">{{ money(pnlTotals.net) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💳</span>Collection rate</div><div class="s-value">{{ forecast?.collection_rate ?? '—' }}%</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🏠</span>Occupancy</div><div class="s-value">{{ occupancy?.occupancy ?? trends?.occupancy ?? 0 }}%</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>Vacancy loss</div><div class="s-value" style="color:var(--danger)">{{ money(occupancy?.vacancy_loss ?? vacancy?.monthly_loss) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Arrears</div><div class="s-value" style="color:var(--danger)">{{ money(agingTotal) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Gross rent') }}</div><div class="s-value">{{ money(pnlTotals.gross) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>{{ t('Collected') }}</div><div class="s-value">{{ money(pnlTotals.collected) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>{{ t('Net') }}</div><div class="s-value" :style="kpiStyle((pnlTotals.net || 0) >= 0 ? C.green : C.red)">{{ money(pnlTotals.net) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💳</span>{{ t('Collection rate') }}</div><div class="s-value">{{ forecast?.collection_rate ?? '—' }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏠</span>{{ t('Occupancy') }}</div><div class="s-value">{{ occupancy?.occupancy ?? trends?.occupancy ?? 0 }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>{{ t('Vacancy loss') }}</div><div class="s-value" style="color:var(--danger)">{{ money(occupancy?.vacancy_loss ?? vacancy?.monthly_loss) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Arrears') }}</div><div class="s-value" style="color:var(--danger)">{{ money(agingTotal) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">💸</span>12-mo net flow</div><div class="s-value" :style="kpiStyle((cashflow?.total_net || 0) >= 0 ? C.green : C.red)">{{ money(cashflow?.total_net) }}</div></div>
       </div>
       <!-- V2.39.5: portfolio deadline calendar card -->
       <div class="panel" style="margin-bottom:14px">
         <div class="panel-h">
-          <div class="t"><span class="pi">📅</span>Deadline calendar · upcoming portfolio dates</div>
+          <div class="t"><span class="pi">📅</span>{{ t('Deadline calendar · upcoming portfolio dates') }}</div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span style="font-size:11px;font-weight:700;color:var(--text-mute)">🔑 {{ calKindCount('lease') }} · 📜 {{ calKindCount('compliance') }} · 🛠 {{ calKindCount('maintenance') }} · 🔄 {{ calKindCount('renewal') }} · 🧾 {{ calKindCount('invoice') }}</span>
-            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="calToday">Today</button>
+            <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="calToday">{{ t('Today') }}</button>
           </div>
         </div>
         <div class="panel-b">
@@ -456,8 +456,8 @@ function printReport() {
               </div>
             </div>
             <div>
-              <div style="font-weight:800;font-size:12.5px;margin-bottom:8px">⏭ Upcoming</div>
-              <div v-if="!calUpcoming.length" class="c-sub" style="font-size:12px">No upcoming dates in the next 120 days.</div>
+              <div style="font-weight:800;font-size:12.5px;margin-bottom:8px">{{ t('Upcoming') }}</div>
+              <div v-if="!calUpcoming.length" class="c-sub" style="font-size:12px">{{ t('No upcoming dates in the next 120 days.') }}</div>
               <div v-for="e in calUpcoming" :key="e.kind + e.ref + e.date" style="display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px dashed var(--border)">
                 <div style="width:34px;height:34px;border-radius:9px;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">{{ KIND_ICON[e.kind] || '📌' }}</div>
                 <div style="flex:1;min-width:0">
@@ -475,29 +475,29 @@ function printReport() {
       </div>
       <div class="panel">
         <div class="panel-h">
-          <div class="t"><span class="pi">💸</span>Cash flow · income vs expenses</div>
+          <div class="t"><span class="pi">💸</span>{{ t('Cash flow · income vs expenses') }}</div>
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvCashflow">⬇ CSV</button>
         </div>
         <div class="panel-b">
           <LineChart :series="[
-            { name: 'Income', color: C.blue, points: cfMonths.map(m => m.income) },
-            { name: 'Expenses', color: C.red, points: cfMonths.map(m => m.expenses) },
+            { name: t('Income'), color: C.blue, points: cfMonths.map(m => m.income) },
+            { name: t('Expenses'), color: C.red, points: cfMonths.map(m => m.expenses) },
           ]" :labels="cfLabels" :fmt="money" />
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">⏰</span>Arrears aging · {{ money(agingTotal) }}</div></div>
-          <div class="panel-b"><Donut :segments="agingSegs" center-label="arrears" :center-value="money(agingTotal)" :fmt="money" /></div>
+          <div class="panel-h"><div class="t"><span class="pi">⏰</span>{{ t('Arrears aging') }} · {{ money(agingTotal) }}</div></div>
+          <div class="panel-b"><Donut :segments="agingSegs" :center-label="t('arrears')" :center-value="money(agingTotal)" :fmt="money" /></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">💳</span>Payment methods</div></div>
-          <div class="panel-b"><Donut :segments="methodSegs" center-label="collected" :center-value="money((collections?.by_method || []).reduce((s, m) => s + m.amount, 0))" :fmt="money" /></div>
+          <div class="panel-h"><div class="t"><span class="pi">💳</span>{{ t('Payment methods') }}</div></div>
+          <div class="panel-b"><Donut :segments="methodSegs" :center-label="t('collected')" :center-value="money((collections?.by_method || []).reduce((s, m) => s + m.amount, 0))" :fmt="money" /></div>
         </div>
       </div>
       <div class="panel">
         <div class="panel-h">
-          <div class="t"><span class="pi">🏢</span>Profit &amp; loss · {{ pnl?.month ? shortMonth(pnl.month) : shortMonth(month) }}</div>
+          <div class="t"><span class="pi">🏢</span>{{ t('Profit & loss') }} · {{ pnl?.month ? shortMonth(pnl.month) : shortMonth(month) }}</div>
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvOverview">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
@@ -510,11 +510,11 @@ function printReport() {
                 <td>{{ money(p.service) }}</td><td>{{ money(p.expenses) }}</td>
                 <td style="font-weight:800" :style="kpiStyle(p.net >= 0 ? C.green : C.red)">{{ money(p.net) }}</td>
               </tr>
-              <tr v-if="!pnlRows.length"><td colspan="7" class="m">No data for this month.</td></tr>
+              <tr v-if="!pnlRows.length"><td colspan="7" class="m">{{ t('No data for this month.') }}</td></tr>
             </tbody>
             <tfoot v-if="pnlRows.length">
               <tr style="background:var(--bg-alt);font-weight:800">
-                <td>Total</td><td>{{ money(pnlTotals.gross) }}</td><td>{{ money(pnlTotals.collected) }}</td>
+                <td>{{ t('Total') }}</td><td>{{ money(pnlTotals.gross) }}</td><td>{{ money(pnlTotals.collected) }}</td>
                 <td>{{ money(pnlTotals.tds) }}</td><td>{{ money(pnlTotals.service) }}</td><td>{{ money(pnlTotals.expenses) }}</td>
                 <td :style="{ color: (pnlTotals.net || 0) >= 0 ? C.green : C.red }">{{ money(pnlTotals.net) }}</td>
               </tr>
@@ -529,32 +529,32 @@ function printReport() {
       <div class="stats">
         <div class="stat"><div class="s-label"><span class="s-ico">📥</span>12-mo income</div><div class="s-value">{{ money(cashflow?.total_income) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">📤</span>12-mo expenses</div><div class="s-value" style="color:var(--danger)">{{ money(cashflow?.total_expenses) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Net flow</div><div class="s-value" :style="kpiStyle((cashflow?.total_net || 0) >= 0 ? C.green : C.red)">{{ money(cashflow?.total_net) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Expense ratio</div><div class="s-value">{{ cashflow?.expense_ratio ?? 0 }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>{{ t('Net flow') }}</div><div class="s-value" :style="kpiStyle((cashflow?.total_net || 0) >= 0 ? C.green : C.red)">{{ money(cashflow?.total_net) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Expense ratio') }}</div><div class="s-value">{{ cashflow?.expense_ratio ?? 0 }}%</div></div>
       </div>
       <div class="panel">
         <div class="panel-h">
-          <div class="t"><span class="pi">💸</span>Income vs expenses · 12 months</div>
+          <div class="t"><span class="pi">💸</span>{{ t('Income vs expenses · 12 months') }}</div>
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvCashflow">⬇ CSV</button>
         </div>
         <div class="panel-b">
           <LineChart :series="[
-            { name: 'Income', color: C.blue, points: cfMonths.map(m => m.income) },
-            { name: 'Expenses', color: C.red, points: cfMonths.map(m => m.expenses) },
+            { name: t('Income'), color: C.blue, points: cfMonths.map(m => m.income) },
+            { name: t('Expenses'), color: C.red, points: cfMonths.map(m => m.expenses) },
           ]" :labels="cfLabels" :fmt="money" />
         </div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">📈</span>Cumulative net position</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">📈</span>{{ t('Cumulative net position') }}</div></div>
         <div class="panel-b">
-          <LineChart :series="[{ name: 'Cumulative', color: C.green, points: cfMonths.map(m => m.cumulative) }]" :labels="cfLabels" :fmt="money" :area="false" />
+          <LineChart :series="[{ name: t('Cumulative'), color: C.green, points: cfMonths.map(m => m.cumulative) }]" :labels="cfLabels" :fmt="money" :area="false" />
         </div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">📅</span>Monthly detail</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">📅</span>{{ t('Monthly detail') }}</div></div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Net</th><th>Cumulative</th></tr></thead>
+            <thead><tr><th>{{ t('Month') }}</th><th>{{ t('Income') }}</th><th>{{ t('Expenses') }}</th><th>{{ t('Net') }}</th><th>{{ t('Cumulative') }}</th></tr></thead>
             <tbody>
               <tr v-for="m in cfMonths" :key="m.month">
                 <td><span class="c-name">{{ shortMonth(m.month) }}</span></td>
@@ -562,7 +562,7 @@ function printReport() {
                 <td :style="{ fontWeight: 800, color: m.net >= 0 ? C.green : C.red }">{{ money(m.net) }}</td>
                 <td :style="{ fontWeight: 700, color: m.cumulative >= 0 ? 'var(--text)' : C.red }">{{ money(m.cumulative) }}</td>
               </tr>
-              <tr v-if="!cfMonths.length"><td colspan="5" class="m">No data.</td></tr>
+              <tr v-if="!cfMonths.length"><td colspan="5" class="m">{{ t('No data.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -572,21 +572,21 @@ function printReport() {
     <!-- ══ COLLECTIONS ══ -->
     <template v-if="tab === 'collections'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>On-time rate</div><div class="s-value" :style="kpiStyle((collections?.on_time_rate || 0) >= 70 ? C.green : C.orange)">{{ collections?.on_time_rate ?? 0 }}%</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🐢</span>Avg days late</div><div class="s-value">{{ collections?.avg_days_late ?? 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>Late amount</div><div class="s-value" style="color:var(--danger)">{{ money(collections?.late_amount) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Payments</div><div class="s-value">{{ collections?.payments ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('On-time rate') }}</div><div class="s-value" :style="kpiStyle((collections?.on_time_rate || 0) >= 70 ? C.green : C.orange)">{{ collections?.on_time_rate ?? 0 }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🐢</span>{{ t('Avg days late') }}</div><div class="s-value">{{ collections?.avg_days_late ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>{{ t('Late amount') }}</div><div class="s-value" style="color:var(--danger)">{{ money(collections?.late_amount) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Payments') }}</div><div class="s-value">{{ collections?.payments ?? 0 }}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
         <div class="panel">
           <div class="panel-h">
-            <div class="t"><span class="pi">💳</span>By payment method</div>
+            <div class="t"><span class="pi">💳</span>{{ t('By payment method') }}</div>
             <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvCollections">⬇ CSV</button>
           </div>
-          <div class="panel-b"><Donut :segments="methodSegs" center-label="collected" :center-value="money((collections?.by_method || []).reduce((s, m) => s + m.amount, 0))" :fmt="money" /></div>
+          <div class="panel-b"><Donut :segments="methodSegs" :center-label="t('collected')" :center-value="money((collections?.by_method || []).reduce((s, m) => s + m.amount, 0))" :fmt="money" /></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">📈</span>Collection rate · 12 months</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">📈</span>{{ t('Collection rate · 12 months') }}</div></div>
           <div class="panel-b">
             <div v-for="m in collections?.by_month || []" :key="m.month" style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
               <span style="width:60px;font-size:11.5px;font-weight:700;color:var(--text-mute)">{{ shortMonth(m.month) }}</span>
@@ -595,7 +595,7 @@ function printReport() {
               </div>
               <span style="width:86px;text-align:right;font-size:11.5px;font-weight:700">{{ money(m.collected) }} <span style="color:var(--text-mute);font-weight:600">· {{ m.rate }}%</span></span>
             </div>
-            <div v-if="!(collections?.by_month || []).length" class="c-sub">No data.</div>
+            <div v-if="!(collections?.by_month || []).length" class="c-sub">{{ t('No data.') }}</div>
           </div>
         </div>
       </div>
@@ -604,42 +604,42 @@ function printReport() {
     <!-- ══ EXPENSES ══ -->
     <template v-if="tab === 'expenses'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total cost</div><div class="s-value">{{ money(expenses?.total_all) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Paid out</div><div class="s-value">{{ money(expenses?.total_paid) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Open est.</div><div class="s-value" style="color:var(--danger)">{{ money(expenses?.estimated_open) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🛠️</span>Avg job cost</div><div class="s-value">{{ money(expenses?.avg_job_cost) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>{{ t('Total cost') }}</div><div class="s-value">{{ money(expenses?.total_all) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('Paid out') }}</div><div class="s-value">{{ money(expenses?.total_paid) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Open est.') }}</div><div class="s-value" style="color:var(--danger)">{{ money(expenses?.estimated_open) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🛠️</span>{{ t('Avg job cost') }}</div><div class="s-value">{{ money(expenses?.avg_job_cost) }}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
         <div class="panel">
           <div class="panel-h">
-            <div class="t"><span class="pi">🗂️</span>By category</div>
+            <div class="t"><span class="pi">🗂️</span>{{ t('By category') }}</div>
             <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvExpenses">⬇ CSV</button>
           </div>
-          <div class="panel-b"><Donut :segments="expCatSegs" center-label="total" :center-value="money(expenses?.total_all)" :fmt="money" /></div>
+          <div class="panel-b"><Donut :segments="expCatSegs" :center-label="t('total')" :center-value="money(expenses?.total_all)" :fmt="money" /></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🧑‍🔧</span>Top vendors by cost</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">🧑‍🔧</span>{{ t('Top vendors by cost') }}</div></div>
           <div class="panel-b"><HBars :rows="expVendorRows" color="#e67e22" :fmt="money" /></div>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">📅</span>Paid expense trend · 12 months</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">📅</span>{{ t('Paid expense trend · 12 months') }}</div></div>
         <div class="panel-b">
-          <LineChart :series="[{ name: 'Expenses', color: C.orange, points: (expenses?.trend || []).map(t => t.cost) }]" :labels="(expenses?.trend || []).map(t => shortMonth(t.month))" :fmt="money" />
+          <LineChart :series="[{ name: t('Expenses'), color: C.orange, points: (expenses?.trend || []).map(t => t.cost) }]" :labels="(expenses?.trend || []).map(t => shortMonth(t.month))" :fmt="money" />
         </div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🏢</span>By property</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🏢</span>{{ t('By property') }}</div></div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Property</th><th>Jobs</th><th>Open</th><th>Cost</th></tr></thead>
+            <thead><tr><th>{{ t('Property') }}</th><th>{{ t('Jobs') }}</th><th>{{ t('Open') }}</th><th>{{ t('Cost') }}</th></tr></thead>
             <tbody>
               <tr v-for="p in expenses?.by_property || []" :key="p.prop">
                 <td><span class="c-name">{{ p.name || p.prop }}</span></td><td>{{ p.n }}</td>
                 <td><span :style="{ color: p.open ? C.orange : C.green, fontWeight: 700 }">{{ p.open }}</span></td>
                 <td>{{ money(p.cost) }}</td>
               </tr>
-              <tr v-if="!(expenses?.by_property || []).length"><td colspan="4" class="m">No expenses.</td></tr>
+              <tr v-if="!(expenses?.by_property || []).length"><td colspan="4" class="m">{{ t('No expenses.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -649,32 +649,32 @@ function printReport() {
     <!-- ══ MAINTENANCE ══ -->
     <template v-if="tab === 'maintenance'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total cost</div><div class="s-value">{{ money(maintenance?.total_cost) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>Open tickets</div><div class="s-value" style="color:var(--danger)">{{ maintenance?.open_count ?? 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Resolved</div><div class="s-value">{{ maintenance?.done_count ?? 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏱️</span>Avg resolve</div><div class="s-value">{{ maintenance?.avg_resolve_days ?? 0 }} d</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>{{ t('Total cost') }}</div><div class="s-value">{{ money(maintenance?.total_cost) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>{{ t('Open tickets') }}</div><div class="s-value" style="color:var(--danger)">{{ maintenance?.open_count ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('Resolved') }}</div><div class="s-value">{{ maintenance?.done_count ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏱️</span>{{ t('Avg resolve') }}</div><div class="s-value">{{ maintenance?.avg_resolve_days ?? 0 }} d</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🚦</span>By status</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">🚦</span>{{ t('By status') }}</div></div>
           <div class="panel-b">
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
               <span v-for="s in maintenance?.by_status || []" :key="s.status" style="padding:6px 12px;border-radius:20px;font-size:12px;font-weight:800;background:rgba(47,128,237,.1);color:var(--text)">{{ s.status }} · {{ s.n }}</span>
-              <span v-if="!(maintenance?.by_status || []).length" class="c-sub">No tickets.</span>
+              <span v-if="!(maintenance?.by_status || []).length" class="c-sub">{{ t('No tickets.') }}</span>
             </div>
             <HBars :rows="mPrioRows" empty="No priorities." />
           </div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🧾</span>Charge to</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">🧾</span>{{ t('Charge to') }}</div></div>
           <div class="panel-b">
             <table class="kr compact">
-              <thead><tr><th>Party</th><th>Jobs</th><th>Cost</th></tr></thead>
+              <thead><tr><th>{{ t('Party') }}</th><th>{{ t('Jobs') }}</th><th>{{ t('Cost') }}</th></tr></thead>
               <tbody>
                 <tr v-for="c in maintenance?.by_charge || []" :key="c.charge_to">
                   <td><span class="c-name">{{ c.charge_to }}</span></td><td>{{ c.n }}</td><td>{{ money(c.cost) }}</td>
                 </tr>
-                <tr v-if="!(maintenance?.by_charge || []).length"><td colspan="3" class="m">No data.</td></tr>
+                <tr v-if="!(maintenance?.by_charge || []).length"><td colspan="3" class="m">{{ t('No data.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -682,12 +682,12 @@ function printReport() {
       </div>
       <div class="panel">
         <div class="panel-h">
-          <div class="t"><span class="pi">⏰</span>Oldest open tickets</div>
+          <div class="t"><span class="pi">⏰</span>{{ t('Oldest open tickets') }}</div>
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvMaintenance">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Open days</th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Title') }}</th><th>{{ t('Status') }}</th><th>{{ t('Priority') }}</th><th>{{ t('Open days') }}</th></tr></thead>
             <tbody>
               <tr v-for="a in maintenance?.aging || []" :key="a.id">
                 <td><span class="c-name">{{ a.id }}</span></td>
@@ -706,34 +706,34 @@ function printReport() {
     <!-- ══ TENANTS ══ -->
     <template v-if="tab === 'tenants'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>Scored tenants</div><div class="s-value">{{ scores?.total ?? 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>Avg score</div><div class="s-value">{{ scores?.avg_score ?? 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>At risk</div><div class="s-value" style="color:var(--danger)">{{ (scores?.at_risk || []).length }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>{{ t('Scored tenants') }}</div><div class="s-value">{{ scores?.total ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🎯</span>{{ t('Avg score') }}</div><div class="s-value">{{ scores?.avg_score ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>{{ t('At risk') }}</div><div class="s-value" style="color:var(--danger)">{{ (scores?.at_risk || []).length }}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🏆</span>Risk distribution</div></div>
-          <div class="panel-b"><Donut :segments="bandSegs" center-label="tenants" :center-value="String(scores?.total ?? 0)" :fmt="(v) => String(v)" /></div>
+          <div class="panel-h"><div class="t"><span class="pi">🏆</span>{{ t('Risk distribution') }}</div></div>
+          <div class="panel-b"><Donut :segments="bandSegs" :center-label="t('tenants')" :center-value="String(scores?.total ?? 0)" :fmt="(v) => String(v)" /></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🎚️</span>Band legend</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">🎚️</span>{{ t('Band legend') }}</div></div>
           <div class="panel-b">
             <div v-for="(v, k) in scores?.bands || {}" :key="k" style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border)">
               <span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px"><i :style="{ width: 10, height: 10, borderRadius: 3, background: BAND_COLORS[k], display: 'inline-block' }"></i>{{ k }}</span>
               <span style="font-weight:800">{{ v }}</span>
             </div>
-            <div v-if="!scores?.total" class="c-sub">No tenants scored.</div>
+            <div v-if="!scores?.total" class="c-sub">{{ t('No tenants scored.') }}</div>
           </div>
         </div>
       </div>
       <div class="panel">
         <div class="panel-h">
-          <div class="t"><span class="pi">🚨</span>At-risk tenants (Fair / Risky)</div>
+          <div class="t"><span class="pi">🚨</span>{{ t('At-risk tenants (Fair / Risky)') }}</div>
           <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvTenants">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Tenant</th><th>Band</th><th>Score</th><th>Overdue</th><th>On-time</th><th>Tenure</th><th>Tickets</th></tr></thead>
+            <thead><tr><th>{{ t('Tenant') }}</th><th>{{ t('Band') }}</th><th>{{ t('Score') }}</th><th>{{ t('Overdue') }}</th><th>{{ t('On-time') }}</th><th>{{ t('Tenure') }}</th><th>{{ t('Tickets') }}</th></tr></thead>
             <tbody>
               <tr v-for="t in scores?.at_risk || []" :key="t.id">
                 <td><span class="c-name">{{ t.name }}</span><div class="c-sub">{{ t.id }} · {{ t.kind }}</div></td>
@@ -752,52 +752,52 @@ function printReport() {
     <!-- ══ AGING ══ -->
     <template v-if="tab === 'aging'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Total arrears</div><div class="s-value" style="color:var(--danger)">{{ money(agingTotal) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Total arrears') }}</div><div class="s-value" style="color:var(--danger)">{{ money(agingTotal) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>90+ days</div><div class="s-value" style="color:var(--danger)">{{ money(aging.value?.d90) }}</div></div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">⏰</span>Outstanding by age</div></div>
-        <div class="panel-b"><Donut :segments="agingSegs" center-label="arrears" :center-value="money(agingTotal)" :fmt="money" /></div>
+        <div class="panel-h"><div class="t"><span class="pi">⏰</span>{{ t('Outstanding by age') }}</div></div>
+        <div class="panel-b"><Donut :segments="agingSegs" :center-label="t('arrears')" :center-value="money(agingTotal)" :fmt="money" /></div>
       </div>
     </template>
 
     <!-- ══ VACANCY ══ -->
     <template v-if="tab === 'vacancy'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>Vacant units</div><div class="s-value">{{ occupancy?.vacant ?? vacancy?.count ?? 0 }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Monthly loss</div><div class="s-value" style="color:var(--danger)">{{ money(occupancy?.vacancy_loss ?? vacancy?.monthly_loss) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Annual loss</div><div class="s-value" style="color:var(--danger)">{{ money((occupancy?.vacancy_loss ?? (vacancy?.monthly_loss || 0)) * 12) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🔑</span>Rent roll</div><div class="s-value">{{ money(occupancy?.rent_roll) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏚️</span>{{ t('Vacant units') }}</div><div class="s-value">{{ occupancy?.vacant ?? vacancy?.count ?? 0 }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>{{ t('Monthly loss') }}</div><div class="s-value" style="color:var(--danger)">{{ money(occupancy?.vacancy_loss ?? vacancy?.monthly_loss) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>{{ t('Annual loss') }}</div><div class="s-value" style="color:var(--danger)">{{ money((occupancy?.vacancy_loss ?? (vacancy?.monthly_loss || 0)) * 12) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔑</span>{{ t('Rent roll') }}</div><div class="s-value">{{ money(occupancy?.rent_roll) }}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
         <div class="panel">
           <div class="panel-h">
-            <div class="t"><span class="pi">🏢</span>Occupancy by property</div>
+            <div class="t"><span class="pi">🏢</span>{{ t('Occupancy by property') }}</div>
             <button class="btn-ghost" style="padding:5px 10px;font-size:11.5px" @click="csvOccupancy">⬇ CSV</button>
           </div>
           <div class="panel-b"><HBars :rows="occBars" color="#2F80ED" :fmt="(v) => v + '%'" /></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">⏳</span>Leases expiring · 90 days</div></div>
+          <div class="panel-h"><div class="t"><span class="pi">⏳</span>{{ t('Leases expiring · 90 days') }}</div></div>
           <div class="tbl-wrap">
             <table class="kr compact">
-              <thead><tr><th>Lease</th><th>Unit</th><th>Tenant</th><th>Expires</th></tr></thead>
+              <thead><tr><th>{{ t('Lease') }}</th><th>{{ t('Unit') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Expires') }}</th></tr></thead>
               <tbody>
                 <tr v-for="e in occupancy?.expiries || []" :key="e.id">
                   <td><span class="c-name">{{ e.id }}</span></td><td>{{ e.unit }}</td><td>{{ e.tenant }}</td>
                   <td style="font-weight:700" :style="{ color: C.orange }">{{ shortDate(e.end) }}</td>
                 </tr>
-                <tr v-if="!(occupancy?.expiries || []).length"><td colspan="4" class="m">No expiries in the next 90 days.</td></tr>
+                <tr v-if="!(occupancy?.expiries || []).length"><td colspan="4" class="m">{{ t('No expiries in the next 90 days.') }}</td></tr>
               </tbody>
             </table>
           </div>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🏚️</span>Vacant units</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🏚️</span>{{ t('Vacant units') }}</div></div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>Unit</th><th>Property</th><th>Rent</th></tr></thead>
+            <thead><tr><th>{{ t('Unit') }}</th><th>{{ t('Property') }}</th><th>{{ t('Rent') }}</th></tr></thead>
             <tbody>
               <tr v-for="u in vacancy?.units || []" :key="u.id">
                 <td><span class="c-name">{{ u.name }}</span><div class="c-sub">{{ u.id }}</div></td>
@@ -813,13 +813,13 @@ function printReport() {
     <!-- ══ FORECAST ══ -->
     <template v-if="tab === 'forecast'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>Collection rate</div><div class="s-value">{{ forecast?.collection_rate || 0 }}%</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Avg / month</div><div class="s-value">{{ money(forecast?.avg_collected) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>{{ t('Collection rate') }}</div><div class="s-value">{{ forecast?.collection_rate || 0 }}%</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>{{ t('Avg / month') }}</div><div class="s-value">{{ money(forecast?.avg_collected) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">🗓️</span>12-mo forecast</div><div class="s-value">{{ money(forecast?.total_forecast) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>Top risk</div><div class="s-value" style="font-size:12px;color:var(--danger)">{{ forecast?.top_risk || '—' }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚠️</span>{{ t('Top risk') }}</div><div class="s-value" style="font-size:12px;color:var(--danger)">{{ forecast?.top_risk || '—' }}</div></div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🔮</span>Next 12 months projection</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🔮</span>{{ t('Next 12 months projection') }}</div></div>
         <div class="panel-b">
           <LineChart :series="[
             { name: 'Expected', color: C.blue, points: fcMonths.map(m => m.expected) },
@@ -834,7 +834,7 @@ function printReport() {
       <div class="panel">
         <div class="panel-h"><div class="t"><span class="pi">📋</span>Board report · {{ boardMonth || month }}</div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" :disabled="!boardMd" @click="printReport">🖨 Print</button>
+            <button class="btn-ghost" style="padding:8px 14px;font-size:12.5px" :disabled="!boardMd" @click="printReport">{{ t('Print') }}</button>
             <button class="btn-primary" style="padding:8px 14px;font-size:12.5px" :disabled="loading" @click="genBoard">＋ Generate</button>
           </div>
         </div>
@@ -844,16 +844,16 @@ function printReport() {
         </div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="t"><span class="pi">🗂️</span>Past reports</div></div>
+        <div class="panel-h"><div class="t"><span class="pi">🗂️</span>{{ t('Past reports') }}</div></div>
         <div class="tbl-wrap">
           <table class="kr">
-            <thead><tr><th>ID</th><th>Month</th><th>Created by</th><th>When</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>{{ t('Month') }}</th><th>{{ t('Created by') }}</th><th>{{ t('When') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="b in boards" :key="b.id">
                 <td><span class="c-name">{{ b.id }}</span></td><td>{{ b.month }}</td><td>{{ b.created_by }}</td><td>{{ b.ts }}</td>
                 <td><button class="btn-ghost" style="padding:4px 10px;font-size:11.5px" @click="viewBoard(b)">👁 View</button></td>
               </tr>
-              <tr v-if="!boards.length"><td colspan="5" class="m">No reports yet.</td></tr>
+              <tr v-if="!boards.length"><td colspan="5" class="m">{{ t('No reports yet.') }}</td></tr>
             </tbody>
           </table>
         </div>

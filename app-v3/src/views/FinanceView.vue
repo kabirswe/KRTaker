@@ -165,7 +165,7 @@ onMounted(loadOverview)
         <div class="sub">Everything money — invoices, payments, collections, remittances, statements &amp; accounts · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="refreshAll" title="Refresh all finance data from the server">🔄 Refresh</button>
+        <button class="btn-ghost" @click="refreshAll" :title="t('Refresh all finance data from the server')">{{ t('Refresh') }}</button>
       </div>
     </div>
 
@@ -185,23 +185,23 @@ onMounted(loadOverview)
 
         <!-- KPI cards -->
         <div class="stats">
-          <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Gross billed</div><div class="s-value">{{ money(kpis.gross) }}</div><div class="s-trend">{{ invAll.length }} invoices</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">💳</span>Collected</div><div class="s-value" style="color:var(--ok,#12a150)">{{ money(kpis.collected) }}</div><div class="s-trend">{{ kpis.rate }}% collection rate</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Outstanding</div><div class="s-value" :style="kpis.outstanding > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ money(kpis.outstanding) }}</div><div class="s-trend">{{ kpis.unpaidN }} unpaid invoice(s)</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">📅</span>This month due</div><div class="s-value">{{ money(kpis.monthDue) }}</div><div class="s-trend">{{ shortMonth(thisMonth()) }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">⏰</span>Arrears (aging)</div><div class="s-value" :style="agingTotal > 0 ? 'color:#f39c12' : ''">{{ money(agingTotal) }}</div><div class="s-trend">90d+ {{ money(aging90) }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">💼</span>Cash balance</div><div class="s-value" :style="(acct?.totals?.balance || 0) >= 0 ? 'color:var(--ok,#12a150)' : 'color:var(--danger,#e74c3c)'">{{ money(acct?.totals?.balance || 0) }}</div><div class="s-trend">{{ acct?.totals?.count || 0 }} transactions</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Gross billed') }}</div><div class="s-value">{{ money(kpis.gross) }}</div><div class="s-trend">{{ invAll.length }} invoices</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">💳</span>{{ t('Collected') }}</div><div class="s-value" style="color:var(--ok,#12a150)">{{ money(kpis.collected) }}</div><div class="s-trend">{{ kpis.rate }}% collection rate</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Outstanding') }}</div><div class="s-value" :style="kpis.outstanding > 0 ? 'color:var(--danger,#e74c3c)' : ''">{{ money(kpis.outstanding) }}</div><div class="s-trend">{{ kpis.unpaidN }} unpaid invoice(s)</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">📅</span>{{ t('This month due') }}</div><div class="s-value">{{ money(kpis.monthDue) }}</div><div class="s-trend">{{ shortMonth(thisMonth()) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">⏰</span>{{ t('Arrears (aging)') }}</div><div class="s-value" :style="agingTotal > 0 ? 'color:#f39c12' : ''">{{ money(agingTotal) }}</div><div class="s-trend">90d+ {{ money(aging90) }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">💼</span>{{ t('Cash balance') }}</div><div class="s-value" :style="(acct?.totals?.balance || 0) >= 0 ? 'color:var(--ok,#12a150)' : 'color:var(--danger,#e74c3c)'">{{ money(acct?.totals?.balance || 0) }}</div><div class="s-trend">{{ acct?.totals?.count || 0 }} transactions</div></div>
         </div>
 
         <!-- Quick actions -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
           <button @click="goTab('invoices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="Open Invoices tab and auto-generate this month's invoices">⚡ Auto-generate invoices</button>
-          <button @click="goTab('invoices')" class="btn-ghost" title="Open Invoices tab to record a tenant payment">💳 Record payment</button>
-          <button @click="goTab('collections')" class="btn-ghost" title="Open Collections tab — bank collections and reconciliation">📮 Collections &amp; recon</button>
-          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" title="Post a money-in entry to the accounts ledger">📥 Post receive</button>
-          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" title="Post a money-out entry to the accounts ledger">📤 Post expense</button>
-          <button @click="goTab('accounts')" class="btn-ghost" title="Open the full accounts ledger (receive / expense / deposit / withdraw)">💱 Accounts ledger</button>
-          <button @click="goTab('subscriptions')" class="btn-ghost" title="Open Subscriptions tab — plan, billing and premium features">💎 Subscriptions</button>
+          <button @click="goTab('invoices')" class="btn-ghost" :title="t('Open Invoices tab to record a tenant payment')">💳 Record payment</button>
+          <button @click="goTab('collections')" class="btn-ghost" :title="t('Open Collections tab — bank collections and reconciliation')">📮 Collections &amp; recon</button>
+          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" :title="t('Post a money-in entry to the accounts ledger')">📥 Post receive</button>
+          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" :title="t('Post a money-out entry to the accounts ledger')">📤 Post expense</button>
+          <button @click="goTab('accounts')" class="btn-ghost" :title="t('Open the full accounts ledger (receive / expense / deposit / withdraw)')">💱 Accounts ledger</button>
+          <button @click="goTab('subscriptions')" class="btn-ghost" :title="t('Open Subscriptions tab — plan, billing and premium features')">💎 Subscriptions</button>
         </div>
 
         <!-- charts row -->
@@ -214,7 +214,7 @@ onMounted(loadOverview)
           <div class="panel" style="padding:16px 18px">
             <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">💳 Collections by method</div>
             <div class="c-sub" style="font-size:11.5px;margin-bottom:12px">on-time {{ collections?.on_time_rate || 0 }}% · avg {{ collections?.avg_days_late || 0 }}d late · late {{ money(collections?.late_amount || 0) }}</div>
-            <Donut :segments="methodSegs" :size="170" :thickness="26" center-label="Collected" :center-value="money(collections ? collections.by_method.reduce((s, m) => s + (m.amount || 0), 0) : 0)" :fmt="money" />
+            <Donut :segments="methodSegs" :size="170" :thickness="26" :center-label="t('Collected')" :center-value="money(collections ? collections.by_method.reduce((s, m) => s + (m.amount || 0), 0) : 0)" :fmt="money" />
           </div>
         </div>
 
@@ -250,7 +250,7 @@ onMounted(loadOverview)
                 <div class="c-sub" style="font-size:11px">{{ p.invId }}</div>
               </div>
             </div>
-            <div v-if="!recentPayments.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No payments yet.</div>
+            <div v-if="!recentPayments.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No payments yet.') }}</div>
           </div>
         </div>
       </template>

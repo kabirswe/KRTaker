@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useDataStore } from '../stores/data'
 import { useAuthStore } from '../stores/auth'
-import { lang } from '../lib/i18n'
+import { lang, t } from '../lib/i18n'
 
 const data = useDataStore()
 const auth = useAuthStore()
@@ -163,7 +163,7 @@ const setupChecklist = computed(() => {
       </div>
       <div class="head-actions">
         <span class="badge" :class="role === 'superadmin' ? 'b-blue' : isResident ? 'b-green' : 'b-gray'">{{ roleLabel }}</span>
-        <button @click="refresh" class="btn-ghost" title="Refresh data">🔄 Refresh</button>
+        <button @click="refresh" class="btn-ghost" :title="t('Refresh data')">{{ t('Refresh') }}</button>
       </div>
     </div>
 
@@ -242,7 +242,7 @@ const setupChecklist = computed(() => {
                 </g>
               </svg>
             </div>
-            <div v-else class="c-sub">No invoice data yet.</div>
+            <div v-else class="c-sub">{{ t('No invoice data yet.') }}</div>
           </div>
         </div>
 
@@ -293,7 +293,7 @@ const setupChecklist = computed(() => {
                 </tbody>
               </table>
             </div>
-            <div v-else class="c-sub">No receipts yet.</div>
+            <div v-else class="c-sub">{{ t('No receipts yet.') }}</div>
           </div>
         </div>
       </div>
@@ -323,38 +323,38 @@ const setupChecklist = computed(() => {
     <template v-else-if="isTenant">
       <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
         <div class="stat">
-          <div class="s-label"><span class="s-ico">🏠</span>My unit</div>
+          <div class="s-label"><span class="s-ico">🏠</span>{{ t('My unit') }}</div>
           <div class="s-value" style="font-size:17px">{{ myUnit?.name || myLease?.u || '—' }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">🏢</span>Property</div>
+          <div class="s-label"><span class="s-ico">🏢</span>{{ t('Property') }}</div>
           <div class="s-value" style="font-size:17px">{{ myProp?.name || '—' }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">📄</span>Rent / month</div>
+          <div class="s-label"><span class="s-ico">📄</span>{{ t('Rent / month') }}</div>
           <div class="s-value" style="font-size:17px">{{ money(myLease?.rent || myUnit?.rent) }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">🧾</span>Due balance</div>
+          <div class="s-label"><span class="s-ico">🧾</span>{{ t('Due balance') }}</div>
           <div class="s-value" :style="{ fontSize: '17px', color: myDue ? 'var(--danger)' : 'var(--ok)' }">{{ money(myDue) }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">💳</span>Paid to date</div>
+          <div class="s-label"><span class="s-ico">💳</span>{{ t('Paid to date') }}</div>
           <div class="s-value" style="font-size:17px">{{ money(myPaid) }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">🔧</span>Open tickets</div>
+          <div class="s-label"><span class="s-ico">🔧</span>{{ t('Open tickets') }}</div>
           <div class="s-value" style="font-size:17px">{{ myOpenTickets.length }}</div>
         </div>
       </div>
 
       <div class="grid grid-2">
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🧾</span>My invoices</div><router-link to="/invoices" class="link">View all →</router-link></div>
+          <div class="panel-h"><div class="t"><span class="pi">🧾</span>{{ t('My invoices') }}</div><router-link to="/invoices" class="link">View all →</router-link></div>
           <div class="panel-b">
             <div v-if="myInvoices.length" class="tbl-wrap" style="max-height:340px;overflow:auto">
               <table class="kr">
-                <thead><tr><th>ID</th><th>Month</th><th>Amount</th><th>Status</th></tr></thead>
+                <thead><tr><th>ID</th><th>{{ t('Month') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="i in [...myInvoices].sort((a,b)=>(b.m||'').localeCompare(a.m||''))" :key="i.id">
                     <td style="font-weight:700">{{ i.id }}</td>
@@ -365,12 +365,12 @@ const setupChecklist = computed(() => {
                 </tbody>
               </table>
             </div>
-            <div v-else class="c-sub">No invoices yet.</div>
+            <div v-else class="c-sub">{{ t('No invoices yet.') }}</div>
           </div>
         </div>
 
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🔧</span>My tickets</div><router-link to="/maintenance" class="link">View all →</router-link></div>
+          <div class="panel-h"><div class="t"><span class="pi">🔧</span>{{ t('My tickets') }}</div><router-link to="/maintenance" class="link">View all →</router-link></div>
           <div class="panel-b">
             <div v-if="myTickets.length">
               <div v-for="t in myTickets.slice(0, 5)" :key="t.id" style="padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px">
@@ -378,7 +378,7 @@ const setupChecklist = computed(() => {
                 <div class="c-sub">{{ t.liab }} liability · <span class="badge" :class="t.status === 'Open' ? 'b-red' : 'b-green'" style="font-size:10px">{{ t.status }}</span></div>
               </div>
             </div>
-            <div v-else class="c-sub">No tickets yet.</div>
+            <div v-else class="c-sub">{{ t('No tickets yet.') }}</div>
           </div>
         </div>
       </div>
@@ -386,13 +386,13 @@ const setupChecklist = computed(() => {
       <!-- V2.39.3: ongoing/pending maintenance & service work on the tenant's unit -->
       <div class="panel" style="margin-top:16px">
         <div class="panel-h">
-          <div class="t"><span class="pi">🛠️</span>Maintenance & service</div>
+          <div class="t"><span class="pi">🛠️</span>{{ t('Maintenance & service') }}</div>
           <span style="margin-left:auto" class="badge" :class="myMaintOpen.length ? 'b-orange' : 'b-green'">{{ myMaintOpen.length }} ongoing</span>
         </div>
         <div class="panel-b" style="padding:0">
           <div v-if="myMaint.length" class="tbl-wrap">
             <table class="kr">
-              <thead><tr><th>ID</th><th>Work</th><th>Status</th><th>Priority</th><th>Reported</th></tr></thead>
+              <thead><tr><th>ID</th><th>{{ t('Work') }}</th><th>{{ t('Status') }}</th><th>{{ t('Priority') }}</th><th>{{ t('Reported') }}</th></tr></thead>
               <tbody>
                 <tr v-for="m in [...myMaint].sort((a,b)=>(a.status === 'Closed') - (b.status === 'Closed') || String(b.ts||'').localeCompare(String(a.ts||'')))" :key="m.id">
                   <td style="font-weight:700">{{ m.id }}</td>
@@ -413,26 +413,26 @@ const setupChecklist = computed(() => {
     <template v-else>
       <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
         <div class="stat">
-          <div class="s-label"><span class="s-ico">🔧</span>My tickets</div>
+          <div class="s-label"><span class="s-ico">🔧</span>{{ t('My tickets') }}</div>
           <div class="s-value" style="font-size:17px">{{ myTickets.length }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">✅</span>Open</div>
+          <div class="s-label"><span class="s-ico">✅</span>{{ t('Open') }}</div>
           <div class="s-value" style="font-size:17px">{{ myOpenTickets.length }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">🧾</span>Invoices</div>
+          <div class="s-label"><span class="s-ico">🧾</span>{{ t('Invoices') }}</div>
           <div class="s-value" style="font-size:17px">{{ myPartnerInvoices.length }}</div>
         </div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">💰</span>Payouts</div>
+          <div class="s-label"><span class="s-ico">💰</span>{{ t('Payouts') }}</div>
           <div class="s-value" style="font-size:17px">{{ money(myPayouts) }}</div>
         </div>
       </div>
 
       <div class="grid grid-2">
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🔧</span>Assigned tickets</div><router-link to="/maintenance" class="link">View all →</router-link></div>
+          <div class="panel-h"><div class="t"><span class="pi">🔧</span>{{ t('Assigned tickets') }}</div><router-link to="/maintenance" class="link">View all →</router-link></div>
           <div class="panel-b">
             <div v-if="myTickets.length">
               <div v-for="t in myTickets.slice(0, 6)" :key="t.id" style="padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px">
@@ -440,16 +440,16 @@ const setupChecklist = computed(() => {
                 <div class="c-sub">{{ t.liab }} liability · <span class="badge" :class="t.status === 'Open' ? 'b-red' : 'b-green'" style="font-size:10px">{{ t.status }}</span></div>
               </div>
             </div>
-            <div v-else class="c-sub">No tickets assigned yet.</div>
+            <div v-else class="c-sub">{{ t('No tickets assigned yet.') }}</div>
           </div>
         </div>
 
         <div class="panel">
-          <div class="panel-h"><div class="t"><span class="pi">🧾</span>Partner invoices</div><router-link to="/partner-invoices" class="link">View all →</router-link></div>
+          <div class="panel-h"><div class="t"><span class="pi">🧾</span>{{ t('Partner invoices') }}</div><router-link to="/partner-invoices" class="link">View all →</router-link></div>
           <div class="panel-b">
             <div v-if="myPartnerInvoices.length" class="tbl-wrap">
               <table class="kr">
-                <thead><tr><th>ID</th><th>Amount</th><th>Status</th></tr></thead>
+                <thead><tr><th>ID</th><th>{{ t('Amount') }}</th><th>{{ t('Status') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="i in myPartnerInvoices.slice(0, 6)" :key="i.id">
                     <td style="font-weight:700">{{ i.id }}</td>
@@ -459,7 +459,7 @@ const setupChecklist = computed(() => {
                 </tbody>
               </table>
             </div>
-            <div v-else class="c-sub">No invoices yet.</div>
+            <div v-else class="c-sub">{{ t('No invoices yet.') }}</div>
           </div>
         </div>
       </div>

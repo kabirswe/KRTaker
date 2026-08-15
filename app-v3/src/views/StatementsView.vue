@@ -308,7 +308,7 @@ onMounted(async () => {
     <div class="page-head">
       <div>
         <h1>{{ t('💰 Statements & Rent Config') }}</h1>
-        <div class="sub">Monthly owner statements — per-property P&amp;L, line items, payouts &amp; rent settings</div>
+        <div class="sub">{{ t('Monthly owner statements — per-property P&L, line items, payouts & rent settings') }}</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
@@ -318,7 +318,7 @@ onMounted(async () => {
           <button class="btn-ghost" style="padding:5px 10px;font-size:12.5px" @click="shiftMonth(1)">▶</button>
         </div>
         <button v-if="!isCurrentMonth" class="btn-ghost" style="font-size:12.5px" @click="month = now.toISOString().slice(0, 7); loadList()">{{ t('Today') }}</button>
-        <button class="btn-ghost" @click="loadList">🔄 Refresh</button>
+        <button class="btn-ghost" @click="loadList">{{ t('Refresh') }}</button>
         <button v-if="tab === 'statements'" class="btn-ghost" style="font-weight:700" @click="openPrint">🖨️ Print</button>
       </CompactFilters>
       </div>
@@ -343,12 +343,12 @@ onMounted(async () => {
       <!-- Hero summary -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px">
         <div class="stat" style="border-left:4px solid #3b82f6">
-          <div class="s-label"><span class="s-ico">🧾</span>Gross rent</div>
+          <div class="s-label"><span class="s-ico">🧾</span>{{ t('Gross rent') }}</div>
           <div class="s-value">{{ money(totals.gross) }}</div>
           <div class="s-trend">{{ monthLabel }}</div>
         </div>
         <div class="stat" style="border-left:4px solid #10b981">
-          <div class="s-label"><span class="s-ico">💰</span>Collected</div>
+          <div class="s-label"><span class="s-ico">💰</span>{{ t('Collected') }}</div>
           <div class="s-value">{{ money(totals.collected) }}</div>
           <div class="s-trend" style="display:flex;align-items:center;gap:8px;margin-top:4px">
             <div style="flex:1;height:6px;background:var(--bg-alt);border-radius:99px;overflow:hidden">
@@ -358,17 +358,17 @@ onMounted(async () => {
           </div>
         </div>
         <div class="stat" style="border-left:4px solid #f59e0b">
-          <div class="s-label"><span class="s-ico">📉</span>TDS + Service</div>
+          <div class="s-label"><span class="s-ico">📉</span>{{ t('TDS + Service') }}</div>
           <div class="s-value">{{ money(totals.tds + totals.service) }}</div>
           <div class="s-trend">deductions</div>
         </div>
         <div class="stat" style="border-left:4px solid #ef4444">
-          <div class="s-label"><span class="s-ico">🛠️</span>Expenses</div>
+          <div class="s-label"><span class="s-ico">🛠️</span>{{ t('Expenses') }}</div>
           <div class="s-value">{{ money(totals.expenses) }}</div>
           <div class="s-trend">owner-charged</div>
         </div>
         <div class="stat" style="border-left:4px solid #8b5cf6">
-          <div class="s-label"><span class="s-ico">🎯</span>Net payout</div>
+          <div class="s-label"><span class="s-ico">🎯</span>{{ t('Net payout') }}</div>
           <div class="s-value" :style="netStyle(totals.net)">{{ money(totals.net) }}</div>
           <div class="s-trend">{{ list.length }} propert{{ list.length === 1 ? 'y' : 'ies' }}</div>
         </div>
@@ -377,14 +377,14 @@ onMounted(async () => {
       <!-- Statements table -->
       <div class="panel">
         <div class="panel-h" style="flex-wrap:wrap;row-gap:6px">
-          <div class="t"><span class="pi">🏢</span>Statements <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📅 {{ monthLabel }}</span></div>
+          <div class="t"><span class="pi">🏢</span>{{ t('Statements') }} <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📅 {{ monthLabel }}</span></div>
           <span class="badge" :class="list.length ? 'b-blue' : 'b-gray'" style="font-size:11px;flex-shrink:0;white-space:nowrap;margin-left:auto">{{ list.length ? list.length + ' propert' + (list.length === 1 ? 'y' : 'ies') + ' · ' + money(totals.gross) + ' gross' : 'No statements' }}</span>
         </div>
         <div v-if="loading" style="padding:36px;text-align:center;color:var(--text-mute)">Loading…</div>
         <div v-else-if="!list.length" style="padding:42px 20px;text-align:center">
           <div style="font-size:34px;margin-bottom:10px">🗓️</div>
           <div style="font-weight:800;font-size:14.5px;margin-bottom:4px">No statements for {{ monthLabel }}</div>
-          <div style="color:var(--text-mute);font-size:12.5px;margin-bottom:16px">No rent invoices were generated for this period.</div>
+          <div style="color:var(--text-mute);font-size:12.5px;margin-bottom:16px">{{ t('No rent invoices were generated for this period.') }}</div>
           <button class="btn-ghost" style="font-size:12px" @click="openLatestWithData()">↩ Jump to nearest month with data</button>
         </div>
         <div v-else class="tbl-wrap">
@@ -426,7 +426,7 @@ onMounted(async () => {
             </tbody>
             <tfoot>
               <tr style="background:var(--bg-alt);font-weight:800;border-top:2px solid var(--border)">
-                <td style="padding:10px 13px">Total</td>
+                <td style="padding:10px 13px">{{ t('Total') }}</td>
                 <td>{{ money(totals.gross) }}</td>
                 <td>{{ money(totals.collected) }}</td>
                 <td>{{ money(totals.tds) }}</td>
@@ -443,7 +443,7 @@ onMounted(async () => {
       <!-- Payout ledger -->
       <div class="panel" style="margin-top:14px">
         <div class="panel-h" style="flex-wrap:wrap;row-gap:6px">
-          <div class="t"><span class="pi">💸</span>Payout ledger <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📅 {{ monthLabel }}</span></div>
+          <div class="t"><span class="pi">💸</span>{{ t('Payout ledger') }} <span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:11.5px;font-weight:800;color:var(--text);letter-spacing:.2px;white-space:nowrap;flex-shrink:0">📅 {{ monthLabel }}</span></div>
           <span class="badge" :class="payouts.length ? (paidCount === payouts.length ? 'b-green' : 'b-orange') : 'b-gray'" style="font-size:11px;flex-shrink:0;white-space:nowrap;margin-left:auto">{{ payouts.length ? paidCount + '/' + payouts.length + ' paid · ' + money(payoutTotal) : 'No payouts yet' }}</span>
         </div>
         <div class="tbl-wrap">
@@ -479,27 +479,27 @@ onMounted(async () => {
             <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
               <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
                 <div style="background:var(--bg-alt);border-radius:12px;padding:12px 14px">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">Gross</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">{{ t('Gross') }}</div>
                   <div style="font-weight:800;font-size:16px;margin-top:2px">{{ money(detail.gross) }}</div>
                 </div>
                 <div style="background:var(--bg-alt);border-radius:12px;padding:12px 14px">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">Collected</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">{{ t('Collected') }}</div>
                   <div style="font-weight:800;font-size:16px;margin-top:2px;color:#10b981">{{ money(detail.collected) }}</div>
                 </div>
                 <div style="background:var(--bg-alt);border-radius:12px;padding:12px 14px">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">Net</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">{{ t('Net') }}</div>
                   <div style="font-weight:800;font-size:16px;margin-top:2px" :style="netStyle(detail.net)">{{ money(detail.net) }}</div>
                 </div>
                 <div style="background:var(--bg-alt);border-radius:12px;padding:12px 14px">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">TDS</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">{{ t('TDS') }}</div>
                   <div style="font-weight:700;font-size:14px;margin-top:2px">{{ money(detail.tds) }}</div>
                 </div>
                 <div style="background:var(--bg-alt);border-radius:12px;padding:12px 14px">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">Service</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">{{ t('Service') }}</div>
                   <div style="font-weight:700;font-size:14px;margin-top:2px">{{ money(detail.service) }}</div>
                 </div>
                 <div style="background:var(--bg-alt);border-radius:12px;padding:12px 14px">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">Expenses</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">{{ t('Expenses') }}</div>
                   <div style="font-weight:700;font-size:14px;margin-top:2px;color:var(--danger)">{{ money(detail.expenses) }}</div>
                 </div>
               </div>
@@ -523,11 +523,11 @@ onMounted(async () => {
                       <td style="font-weight:700">{{ money(l.net) }}</td>
                       <td><span class="badge" :class="l.inv_status === 'Paid' ? 'b-green' : 'b-orange'" style="font-size:11px">{{ l.inv_status }}</span></td>
                     </tr>
-                    <tr v-if="!(detail.lines || []).length"><td colspan="9" class="m">No invoices this month.</td></tr>
+                    <tr v-if="!(detail.lines || []).length"><td colspan="9" class="m">{{ t('No invoices this month.') }}</td></tr>
                   </tbody>
                   <tfoot v-if="(detail.lines || []).length">
                     <tr style="background:var(--bg-alt);font-weight:700;border-top:2px solid var(--border)">
-                      <td colspan="3" style="padding:8px 13px">Total</td>
+                      <td colspan="3" style="padding:8px 13px">{{ t('Total') }}</td>
                       <td>{{ money(dTot('gross')) }}</td>
                       <td>{{ money(dTot('collected')) }}</td>
                       <td>{{ money(dTot('tds')) }}</td>
@@ -553,7 +553,7 @@ onMounted(async () => {
                       <td>{{ e.category || '—' }}</td>
                       <td style="font-weight:700">{{ money(e.actual_cost) }}</td>
                     </tr>
-                    <tr v-if="!(detail.expense_items || []).length"><td colspan="4" class="m">No owner-charged expenses this month.</td></tr>
+                    <tr v-if="!(detail.expense_items || []).length"><td colspan="4" class="m">{{ t('No owner-charged expenses this month.') }}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -567,7 +567,7 @@ onMounted(async () => {
                 <span v-if="detail.payout.method" class="c-sub">via {{ detail.payout.method }}</span>
                 <span v-if="detail.payout.ref" class="c-sub" style="font-family:monospace">{{ detail.payout.ref }}</span>
               </div>
-              <div v-else class="c-sub">No payout recorded for this month.</div>
+              <div v-else class="c-sub">{{ t('No payout recorded for this month.') }}</div>
             </div>
             <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
               <button v-if="['superadmin','owner','accountant'].includes(auth.user?.role || '')" class="btn-primary" style="padding:9px 16px;font-size:13px" @click="openPayout({ ...sel, net: detail.net, payout: detail.payout, name: detail.name })">💸 Record payout</button>
@@ -583,21 +583,21 @@ onMounted(async () => {
           <div class="modal-h"><span class="t">💸 Payout · {{ pay.name }} · {{ pay.month }}</span><button class="close" @click="payOpen = false">✕</button></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
             <div class="form-field"><label>Amount (৳)</label><input v-model="pay.amount" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-            <div class="form-field"><label>Status</label>
+            <div class="form-field"><label>{{ t('Status') }}</label>
               <select v-model="pay.status" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-                <option>Scheduled</option><option>Paid</option>
+                <option>{{ t('Scheduled') }}</option><option>{{ t('Paid') }}</option>
               </select>
             </div>
-            <div class="form-field"><label>Method</label>
+            <div class="form-field"><label>{{ t('Method') }}</label>
               <select v-model="pay.method" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-                <option>Bank</option><option>bKash</option><option>Nagad</option><option>Cheque</option><option>Cash</option>
+                <option>{{ t('Bank') }}</option><option>bKash</option><option>{{ t('Nagad') }}</option><option>{{ t('Cheque') }}</option><option>{{ t('Cash') }}</option>
               </select>
             </div>
-            <div class="form-field"><label>Reference</label><input v-model="pay.ref" placeholder="trx ID, cheque no…" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+            <div class="form-field"><label>{{ t('Reference') }}</label><input v-model="pay.ref" placeholder="trx ID, cheque no…" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="payOpen = false">Cancel</button>
-            <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="busy" @click="savePayout">Save payout</button>
+            <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="payOpen = false">{{ t('Cancel') }}</button>
+            <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="busy" @click="savePayout">{{ t('Save payout') }}</button>
           </div>
         </div>
       </div>
@@ -608,8 +608,8 @@ onMounted(async () => {
           <div class="modal-h" style="flex-shrink:0">
             <span class="t">🖨️ Print statement</span>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" v-model="printIncludePayouts" style="accent-color:var(--primary)"> Payouts</label>
-              <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" v-model="printSignatures" style="accent-color:var(--primary)"> Signatures</label>
+              <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" v-model="printIncludePayouts" style="accent-color:var(--primary)"> {{ t('Payouts') }}</label>
+              <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" v-model="printSignatures" style="accent-color:var(--primary)"> {{ t('Signatures') }}</label>
               <button class="btn-primary" style="padding:7px 14px;font-size:12.5px" @click="doPrint">🖨️ Print / PDF</button>
               <button class="close" @click="printOpen = false">✕</button>
             </div>
@@ -621,7 +621,7 @@ onMounted(async () => {
                 <div>
                   <img v-if="ph.img" :src="ph.img" :alt="ph.name" :style="{ height: ph.h + 'px', display: 'block', width: 'auto', maxWidth: '240px', objectFit: 'contain' }">
                   <span v-if="!ph.img || ph.showTitle" style="display:block;font-size:19px;font-weight:800;color:#1E5EB8;letter-spacing:-.3px">{{ ph.name }}</span>
-                  <div style="font-size:9.5px;color:#8a94a6;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Owner statement</div>
+                  <div style="font-size:9.5px;color:#8a94a6;letter-spacing:2px;text-transform:uppercase;margin-top:2px">{{ t('Owner statement') }}</div>
                 </div>
                 <div style="text-align:right;font-size:11px;color:#444">
                   <div style="font-weight:800;font-size:15px;color:#111">{{ monthLabel }}</div>
@@ -632,41 +632,41 @@ onMounted(async () => {
               <!-- summary -->
               <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
                 <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
-                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Gross rent</div>
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">{{ t('Gross rent') }}</div>
                   <div style="font-size:13.5px;font-weight:800;margin-top:2px">{{ money(totals.gross) }}</div>
                 </div>
                 <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
-                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Collected</div>
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">{{ t('Collected') }}</div>
                   <div style="font-size:13.5px;font-weight:800;margin-top:2px;color:#12924f">{{ money(totals.collected) }}</div>
                   <div style="font-size:9.5px;color:#666;margin-top:1px">{{ collectRate }}%</div>
                 </div>
                 <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
-                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">TDS + service</div>
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">{{ t('TDS + service') }}</div>
                   <div style="font-size:13.5px;font-weight:800;margin-top:2px">{{ money(totals.tds + totals.service) }}</div>
                 </div>
                 <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
-                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Expenses</div>
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">{{ t('Expenses') }}</div>
                   <div style="font-size:13.5px;font-weight:800;margin-top:2px;color:#c0392b">{{ money(totals.expenses) }}</div>
                 </div>
                 <div style="border:1px solid #dde3ec;border-radius:8px;padding:9px 10px">
-                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">Net payout</div>
+                  <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6">{{ t('Net payout') }}</div>
                   <div style="font-size:13.5px;font-weight:800;margin-top:2px" :style="netStyle(totals.net)">{{ money(totals.net) }}</div>
                 </div>
               </div>
 
               <!-- statements table -->
-              <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#1E5EB8;margin:20px 0 6px">Property statements</div>
+              <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#1E5EB8;margin:20px 0 6px">{{ t('Property statements') }}</div>
               <table style="width:100%;border-collapse:collapse;font-size:11px">
                 <thead>
                   <tr>
-                    <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Property</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Gross</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Collected</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">TDS</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Service</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Expenses</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Net</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Payout</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Property') }}</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Gross') }}</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Collected') }}</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('TDS') }}</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Service') }}</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Expenses') }}</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Net') }}</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Payout') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -684,7 +684,7 @@ onMounted(async () => {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;font-weight:800">Total</td>
+                    <td style="padding:7px 8px;border-top:2px solid #1E5EB8;font-weight:800">{{ t('Total') }}</td>
                     <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.gross) }}</td>
                     <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.collected) }}</td>
                     <td style="padding:7px 8px;border-top:2px solid #1E5EB8;text-align:right;font-weight:800">{{ money(totals.tds) }}</td>
@@ -698,16 +698,16 @@ onMounted(async () => {
 
               <!-- payout ledger -->
               <template v-if="printIncludePayouts">
-                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#1E5EB8;margin:20px 0 6px">Payout ledger</div>
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#1E5EB8;margin:20px 0 6px">{{ t('Payout ledger') }}</div>
                 <table style="width:100%;border-collapse:collapse;font-size:11px">
                   <thead>
                     <tr>
-                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Property</th>
-                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Month</th>
-                      <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Amount</th>
-                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Status</th>
-                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Method</th>
-                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">Ref</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Property') }}</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Month') }}</th>
+                      <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Amount') }}</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Status') }}</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Method') }}</th>
+                      <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #1E5EB8;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#8a94a6">{{ t('Ref') }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -726,9 +726,9 @@ onMounted(async () => {
 
               <!-- signatures -->
               <div v-if="printSignatures" style="display:flex;gap:40px;margin-top:42px;font-size:11px;color:#444">
-                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">Owner signature</div></div>
-                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">Date</div></div>
-                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">KRTaker seal</div></div>
+                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">{{ t('Owner signature') }}</div></div>
+                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">{{ t('Date') }}</div></div>
+                <div style="flex:1;text-align:center"><div style="border-top:1px solid #999;padding-top:5px">{{ t('KRTaker seal') }}</div></div>
               </div>
 
               <div style="margin-top:26px;padding-top:10px;border-top:1px dashed #dde3ec;font-size:9.5px;color:#8a94a6;text-align:center">Generated by KRTaker · computer-generated owner statement · {{ genDate }}</div>
@@ -745,29 +745,29 @@ onMounted(async () => {
         <!-- KPI row -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px">
           <div class="stat" style="border-left:4px solid #3b82f6">
-            <div class="s-label"><span class="s-ico">🏢</span>Properties</div>
+            <div class="s-label"><span class="s-ico">🏢</span>{{ t('Properties') }}</div>
             <div class="s-value">{{ rentCfg.length }}</div>
             <div class="s-trend">configured</div>
           </div>
           <div class="stat" style="border-left:4px solid #8b5cf6">
-            <div class="s-label"><span class="s-ico">🧮</span>Base rent</div>
+            <div class="s-label"><span class="s-ico">🧮</span>{{ t('Base rent') }}</div>
             <div class="s-value">{{ money(rcTotals.base) }}</div>
             <div class="s-trend">monthly</div>
           </div>
           <div class="stat" style="border-left:4px solid #f59e0b">
-            <div class="s-label"><span class="s-ico">🧹</span>Service charges</div>
+            <div class="s-label"><span class="s-ico">🧹</span>{{ t('Service charges') }}</div>
             <div class="s-value">{{ money(rcTotals.service) }}</div>
             <div class="s-trend">+ parking {{ money(rcTotals.parking) }}</div>
           </div>
           <div class="stat" style="border-left:4px solid #10b981">
-            <div class="s-label"><span class="s-ico">🎯</span>Rent mix total</div>
+            <div class="s-label"><span class="s-ico">🎯</span>{{ t('Rent mix total') }}</div>
             <div class="s-value">{{ money(rcTotals.total) }}</div>
             <div class="s-trend">avg escalation {{ avgEsc }}%</div>
           </div>
         </div>
 
         <!-- property config cards -->
-        <div v-if="!rentCfg.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">No properties found.</div>
+        <div v-if="!rentCfg.length" class="panel" style="padding:40px;text-align:center;color:var(--text-mute)">{{ t('No properties found.') }}</div>
         <div v-for="p in rentCfg" :key="p.prop" class="panel" style="padding:18px 20px;margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
             <div style="display:flex;align-items:center;gap:12px">
@@ -779,7 +779,7 @@ onMounted(async () => {
             </div>
             <div style="display:flex;align-items:center;gap:10px">
               <div style="text-align:right">
-                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">Monthly mix</div>
+                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-mute)">{{ t('Monthly mix') }}</div>
                 <div style="font-weight:800;font-size:15px;margin-top:1px">{{ money(p.mix?.total) }}</div>
               </div>
               <button v-if="canEditRent" class="btn-ghost" style="padding:8px 14px;font-size:12.5px" @click="openEdit(p)">✏️ Edit</button>
@@ -788,9 +788,9 @@ onMounted(async () => {
 
           <!-- rent mix stacked bar -->
           <div style="display:flex;height:10px;border-radius:99px;overflow:hidden;margin:14px 0 4px;background:var(--bg-alt)">
-            <div :style="{ width: mixBar(p).base + '%', background: '#3b82f6' }" title="Base rent"></div>
-            <div :style="{ width: mixBar(p).svc + '%', background: '#f59e0b' }" title="Service charge"></div>
-            <div :style="{ width: mixBar(p).pk + '%', background: '#10b981' }" title="Parking"></div>
+            <div :style="{ width: mixBar(p).base + '%', background: '#3b82f6' }" :title="t('Base rent')"></div>
+            <div :style="{ width: mixBar(p).svc + '%', background: '#f59e0b' }" :title="t('Service charge')"></div>
+            <div :style="{ width: mixBar(p).pk + '%', background: '#10b981' }" :title="t('Parking')"></div>
           </div>
           <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text-mute);margin-bottom:12px">
             <span><span style="display:inline-block;width:8px;height:8px;border-radius:99px;background:#3b82f6;margin-right:4px"></span>Base {{ money(p.mix?.base) }}</span>
@@ -801,35 +801,35 @@ onMounted(async () => {
           <!-- config chips -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Service charge</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Service charge') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ p.config.service_charge_pct || 0 }}%</div>
             </div>
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Utility advance</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Utility advance') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ money(p.config.utility_advance) }}</div>
             </div>
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Parking fee</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Parking fee') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ money(p.config.parking_fee) }}</div>
             </div>
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Escalation</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Escalation') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ p.config.escalation_pct || 0 }}%</div>
             </div>
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Advance months</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Advance months') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ p.config.advance_months || 0 }}</div>
             </div>
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Due day</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Due day') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ p.config.due_day || 5 }}</div>
             </div>
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Late fee</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Late fee') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ p.config.late_fee_pct || 0 }}%</div>
             </div>
             <div style="background:var(--bg-alt);border-radius:10px;padding:8px 11px">
-              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Rent / sqft</div>
+              <div style="color:var(--text-mute);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Rent / sqft') }}</div>
               <div style="font-weight:800;font-size:13px;margin-top:1px">{{ money(p.config.rent_per_sqft) }}</div>
             </div>
           </div>
@@ -841,18 +841,18 @@ onMounted(async () => {
           <div class="modal" style="max-width:560px">
             <div class="modal-h"><span class="t">⚙️ Rent config · {{ rentCfg.find(p => p.prop === editProp)?.property }}</span><button class="close" @click="editProp = null">✕</button></div>
             <div style="padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;overflow-y:auto;max-height:60vh">
-              <div class="form-field"><label>Service charge (%)</label><input v-model="editForm.service_charge_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>{{ t('Service charge (%)') }}</label><input v-model="editForm.service_charge_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
               <div class="form-field"><label>Utility advance (৳)</label><input v-model="editForm.utility_advance" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
               <div class="form-field"><label>Parking fee (৳)</label><input v-model="editForm.parking_fee" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-              <div class="form-field"><label>Escalation (%)</label><input v-model="editForm.escalation_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-              <div class="form-field"><label>Advance months</label><input v-model="editForm.advance_months" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-              <div class="form-field"><label>Due day</label><input v-model="editForm.due_day" type="number" min="1" max="31" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-              <div class="form-field"><label>Late fee (%)</label><input v-model="editForm.late_fee_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>{{ t('Escalation (%)') }}</label><input v-model="editForm.escalation_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>{{ t('Advance months') }}</label><input v-model="editForm.advance_months" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>{{ t('Due day') }}</label><input v-model="editForm.due_day" type="number" min="1" max="31" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
+              <div class="form-field"><label>{{ t('Late fee (%)') }}</label><input v-model="editForm.late_fee_pct" type="number" step="0.1" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
               <div class="form-field"><label>Rent / sqft (৳)</label><input v-model="editForm.rent_per_sqft" type="number" min="0" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none"></div>
-              <div class="form-field" style="grid-column:1/-1"><label>Notes</label><textarea v-model="editForm.notes" rows="2" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea></div>
+              <div class="form-field" style="grid-column:1/-1"><label>{{ t('Notes') }}</label><textarea v-model="editForm.notes" rows="2" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea></div>
             </div>
             <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-              <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="editProp = null">Cancel</button>
+              <button class="btn-ghost" style="padding:9px 16px;font-size:13px" @click="editProp = null">{{ t('Cancel') }}</button>
               <button class="btn-primary" style="padding:9px 16px;font-size:13px" :disabled="rentSaving" @click="saveRentConfig">💾 Save config {{ rentSaving ? '…' : '' }}</button>
             </div>
           </div>
@@ -873,7 +873,7 @@ onMounted(async () => {
             </div>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer">
               <input type="checkbox" v-model="emailCfg.enabled" :disabled="!canEmail" style="width:16px;height:16px">
-              Auto-send enabled
+              {{ t('Auto-send enabled') }}
             </label>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px">
@@ -882,11 +882,11 @@ onMounted(async () => {
               <input v-model.number="emailCfg.day" type="number" min="1" max="28" :disabled="!canEmail" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
             <div class="form-field">
-              <label>Owner salutation name</label>
+              <label>{{ t('Owner salutation name') }}</label>
               <input v-model="emailCfg.owner_name" placeholder="e.g. Alamgir Kabir" :disabled="!canEmail" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
             <div class="form-field">
-              <label>BCC (optional)</label>
+              <label>{{ t('BCC (optional)') }}</label>
               <input v-model="emailCfg.bcc" placeholder="accounts@…" :disabled="!canEmail" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
             </div>
           </div>
@@ -897,18 +897,18 @@ onMounted(async () => {
             <div v-if="emailLastRun" class="c-sub" style="font-size:12px">Last run: {{ emailLastRun }}</div>
           </div>
           <div v-if="confirmSendEmails" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(231,76,60,.08);padding:10px 14px;border-radius:10px;margin-top:12px">
-            <span style="font-size:13px;color:var(--text)">Send owner statement emails for <b>{{ monthLabel }}</b> now? One email per property, queued through the mail worker. Already-sent properties are skipped.</span>
+            <span style="font-size:13px;color:var(--text)">{{ t('Send owner statement emails for') }} <b>{{ monthLabel }}</b> now? One email per property, queued through the mail worker. Already-sent properties are skipped.</span>
             <button class="btn-primary" style="font-size:12.5px" :disabled="emailRunning" @click="sendEmails">Yes, send {{ emailRunning ? '…' : '' }}</button>
-            <button class="btn-ghost" style="font-size:12.5px" @click="confirmSendEmails = false">Cancel</button>
+            <button class="btn-ghost" style="font-size:12.5px" @click="confirmSendEmails = false">{{ t('Cancel') }}</button>
           </div>
         </div>
 
         <!-- totals -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
-          <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>Properties</div><div class="s-value">{{ emailPlan.length }}</div><div class="s-trend">{{ emailTotals.emailable }} emailable · {{ emailTotals.no_email }} no email · {{ emailTotals.already }} done</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Gross billed</div><div class="s-value">{{ money(emailTotals.gross) }}</div><div class="s-trend">for {{ monthLabel }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Collected</div><div class="s-value" style="color:var(--ok)">{{ money(emailTotals.collected) }}</div><div class="s-trend">to owners</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">📤</span>Net payable</div><div class="s-value" style="color:var(--primary)">{{ money(emailTotals.net) }}</div><div class="s-trend">across properties</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>{{ t('Properties') }}</div><div class="s-value">{{ emailPlan.length }}</div><div class="s-trend">{{ emailTotals.emailable }} emailable · {{ emailTotals.no_email }} no email · {{ emailTotals.already }} done</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">💰</span>{{ t('Gross billed') }}</div><div class="s-value">{{ money(emailTotals.gross) }}</div><div class="s-trend">for {{ monthLabel }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('Collected') }}</div><div class="s-value" style="color:var(--ok)">{{ money(emailTotals.collected) }}</div><div class="s-trend">to owners</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">📤</span>{{ t('Net payable') }}</div><div class="s-value" style="color:var(--primary)">{{ money(emailTotals.net) }}</div><div class="s-trend">across properties</div></div>
         </div>
 
         <!-- plan table -->
@@ -916,7 +916,7 @@ onMounted(async () => {
           <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:800;font-size:13.5px">📋 Send plan — {{ monthLabel }}</div>
           <div class="tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>Property</th><th>Gross</th><th>Collected</th><th>Net</th><th>Owner email</th><th>Status</th></tr></thead>
+              <thead><tr><th>{{ t('Property') }}</th><th>{{ t('Gross') }}</th><th>{{ t('Collected') }}</th><th>{{ t('Net') }}</th><th>{{ t('Owner email') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="p in emailPlanRows" :key="p.prop">
                   <td style="white-space:nowrap"><b>{{ p.name }}</b></td>
@@ -945,7 +945,7 @@ onMounted(async () => {
           <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:800;font-size:13.5px">🕓 Send history (last 20)</div>
           <div class="tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>When</th><th>Property</th><th>Month</th><th>Net</th><th>To</th></tr></thead>
+              <thead><tr><th>{{ t('When') }}</th><th>{{ t('Property') }}</th><th>{{ t('Month') }}</th><th>{{ t('Net') }}</th><th>To</th></tr></thead>
               <tbody>
                 <tr v-for="h in emailHistory" :key="h.id">
                   <td style="white-space:nowrap" class="c-sub">{{ h.ts }}</td>
@@ -954,7 +954,7 @@ onMounted(async () => {
                   <td>{{ money(h.net) }}</td>
                   <td class="c-sub">{{ h.to_addr }}</td>
                 </tr>
-                <tr v-if="!emailHistory.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No statement emails sent yet.</td></tr>
+                <tr v-if="!emailHistory.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No statement emails sent yet.') }}</td></tr>
               </tbody>
             </table>
           </div>

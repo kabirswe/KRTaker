@@ -149,11 +149,11 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search title, unit, property…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:210px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="prioFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All priorities</option>
+          <option value="">{{ t('All priorities') }}</option>
           <option v-for="(m, k) in PRIO_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
@@ -166,10 +166,10 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>Open</div><div class="s-value">{{ openCount }}</div><div class="s-trend">{{ requests.length }} total</div></div>
-      <div class="stat"><div class="s-label"><span class="s-ico">✅</span>Resolved</div><div class="s-value">{{ resolvedCount }}</div><div class="s-trend">done</div></div>
-      <div class="stat"><div class="s-label"><span class="s-ico">🔴</span>Urgent</div><div class="s-value" :style="urgentCount ? 'color:var(--danger)' : ''">{{ urgentCount }}</div><div class="s-trend">not resolved</div></div>
-      <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Est. cost</div><div class="s-value">{{ money(estCost) }}</div><div class="s-trend">actual {{ money(actCost) }}</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>{{ t('Open') }}</div><div class="s-value">{{ openCount }}</div><div class="s-trend">{{ requests.length }} total</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">✅</span>{{ t('Resolved') }}</div><div class="s-value">{{ resolvedCount }}</div><div class="s-trend">done</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">🔴</span>{{ t('Urgent') }}</div><div class="s-value" :style="urgentCount ? 'color:var(--danger)' : ''">{{ urgentCount }}</div><div class="s-trend">not resolved</div></div>
+      <div class="stat"><div class="s-label"><span class="s-ico">💰</span>{{ t('Est. cost') }}</div><div class="s-value">{{ money(estCost) }}</div><div class="s-trend">actual {{ money(actCost) }}</div></div>
     </div>
 
     <!-- GRID -->
@@ -181,7 +181,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
             <span class="badge" :class="badge(r.status)" style="background:#ffffff">{{ r.status }}</span>
           </div>
           <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ r.id }}</div>
-          <div v-if="r.priority === 'urgent'" style="position:absolute;top:10px;right:12px;font-size:19px" title="Urgent">🔴</div>
+          <div v-if="r.priority === 'urgent'" style="position:absolute;top:10px;right:12px;font-size:19px" :title="t('Urgent')">🔴</div>
         </div>
         <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
           <div>
@@ -219,7 +219,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
               <td style="white-space:nowrap">{{ r.actual_cost ? money(r.actual_cost) : (r.cost_estimate ? money(r.cost_estimate) + ' est' : '—') }}</td>
               <td style="white-space:nowrap"><span class="badge" :class="badge(r.status)">{{ r.status }}</span></td>
             </tr>
-            <tr v-if="!filtered.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:30px">No requests found.</td></tr>
+            <tr v-if="!filtered.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:30px">{{ t('No requests found.') }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -245,13 +245,13 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Category</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Category') }}</div>
               <select v-model="raiseForm.category" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(m, k) in CAT_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
               </select>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Priority</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Priority') }}</div>
               <select v-model="raiseForm.priority" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:13px;font-family:inherit;outline:none">
                 <option v-for="(m, k) in PRIO_META" :key="k" :value="k">{{ m.ico }} {{ m.label }}</option>
               </select>
@@ -262,7 +262,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
             <input v-model="raiseForm.title" :placeholder="t('e.g. Kitchen sink leakage')" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           </div>
           <div>
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Description</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">{{ t('Description') }}</div>
             <RichEditor v-model="raiseForm.desc" :placeholder="t('What\'s the issue?')" :min-height="'120px'" style="margin-top:5px" />
           </div>
           <button @click="submitRaise" style="padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">＋ Raise request</button>
@@ -280,7 +280,7 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
           <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="badge" :class="badge(sel.status)" style="background:#ffffff">{{ sel.status }}</span>
             <span class="badge" style="background:#ffffff">{{ sel.id }}</span>
-            <span v-if="sel.priority === 'urgent'" class="badge" style="background:#ffffff;color:var(--danger)">🔴 Urgent</span>
+            <span v-if="sel.priority === 'urgent'" class="badge" style="background:#ffffff;color:var(--danger)">🔴 {{ t('Urgent') }}</span>
           </div>
         </div>
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
@@ -296,19 +296,19 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:14px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Est. cost</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Est. cost') }}</div>
               <div style="font-size:15px;font-weight:800;margin-top:2px">{{ sel.cost_estimate ? money(sel.cost_estimate) : '—' }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Actual</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Actual') }}</div>
               <div style="font-size:15px;font-weight:800;margin-top:2px">{{ sel.actual_cost ? money(sel.actual_cost) : '—' }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Vendor</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Vendor') }}</div>
               <div style="font-size:14px;font-weight:800;margin-top:2px">{{ partnerName(sel.vendor) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Charge to</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Charge to') }}</div>
               <div style="font-size:14px;font-weight:800;margin-top:2px">{{ sel.charge_to || '—' }}</div>
             </div>
           </div>
@@ -327,12 +327,12 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
             </div>
 
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧰 Assign work</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">🧰 {{ t('Assign') }} work</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <input v-model="assignForm.assigned_to" placeholder="Technician name" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
-                <input v-model="assignForm.vendor" placeholder="Vendor / contractor" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                <input v-model="assignForm.assigned_to" :placeholder="t('Technician name')" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
+                <input v-model="assignForm.vendor" :placeholder="t('Vendor / contractor')" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
               </div>
-              <button @click="doAssign" style="margin-top:9px;width:100%;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">Assign</button>
+              <button @click="doAssign" style="margin-top:9px;width:100%;padding:9px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('Assign') }}</button>
             </div>
 
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:14px">
@@ -343,18 +343,18 @@ const selTenant = computed(() => sel.value ? tenantsAll.value.find(t => t.id ===
                   <input v-model.number="costForm.cost_estimate" type="number" min="0" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
                 </div>
                 <div>
-                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">Actual (৳)</div>
+                  <div class="c-sub" style="font-size:10.5px;margin-bottom:3px">{{ t('Actual') }} (৳)</div>
                   <input v-model.number="costForm.actual_cost" type="number" min="0" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:12.5px;outline:none">
                 </div>
               </div>
               <div style="display:flex;gap:8px;margin-top:9px">
                 <select v-model="costForm.charge_to" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12.5px;font-family:inherit;outline:none">
-                  <option value="owner">Owner</option>
-                  <option value="tenant">Tenant</option>
-                  <option value="service">Service</option>
-                  <option value="insurance">Insurance</option>
+                  <option value="owner">{{ t('Owner') }}</option>
+                  <option value="tenant">{{ t('Tenant') }}</option>
+                  <option value="service">{{ t('Service') }}</option>
+                  <option value="insurance">{{ t('Insurance') }}</option>
                 </select>
-                <button @click="doCost" style="padding:8px 16px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">Save</button>
+                <button @click="doCost" style="padding:8px 16px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('Save') }}</button>
               </div>
             </div>
           </template>

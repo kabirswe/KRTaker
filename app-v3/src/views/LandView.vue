@@ -97,18 +97,18 @@ function detailFields(row) {
       <CompactFilters>
         <input v-model="query" :placeholder="t('Search name, khatian, dag…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="s in statusOptions" :key="s" :value="s">{{ s }}</option>
         </select>
         <select v-model="districtFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
-          <option value="">All districts</option>
+          <option value="">{{ t('All districts') }}</option>
           <option v-for="d in districtOptions" :key="d" :value="d">{{ d }}</option>
         </select>
         <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <button @click="viewMode = 'grid'" :style="viewMode === 'grid' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">▦ Grid</button>
           <button @click="viewMode = 'list'" :style="viewMode === 'list' ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'" style="padding:8px 12px;border:none;font-size:12.5px;font-weight:800;cursor:pointer">☰ List</button>
         </div>
-        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" title="Download CSV">⬇ CSV</button>
+        <button v-if="filtered.length" @click="exportCsv" class="btn-ghost" :title="t('Download CSV')">⬇ CSV</button>
       </CompactFilters>
       </div>
     </div>
@@ -151,7 +151,7 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>ID</th><th>Parcel</th><th>District</th><th>Khatian</th><th>Dag</th><th>Area</th><th>Status</th><th>Risk</th></tr></thead>
+          <thead><tr><th>ID</th><th>{{ t('Parcel') }}</th><th>{{ t('District') }}</th><th>{{ t('Khatian') }}</th><th>{{ t('Dag') }}</th><th>{{ t('Area') }}</th><th>{{ t('Status') }}</th><th>{{ t('Risk') }}</th></tr></thead>
           <tbody>
             <tr v-for="p in paged" :key="p.id" style="cursor:pointer" @click="openDetail(p)">
               <td style="font-weight:700;white-space:nowrap">{{ p.id }}</td>
@@ -193,23 +193,23 @@ function detailFields(row) {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px">
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Area</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Area') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.area || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Khatian</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Khatian') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.khatian || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Dag</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Dag') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.dag || '—' }}</div>
             </div>
             <div style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Monitor</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Monitor') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ MONITOR_LABEL[sel.monitor] || '—' }}</div>
             </div>
             <div v-if="sel.lat && sel.lng" style="font-size:13px">
-              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">Coordinates</div>
+              <div style="color:var(--text-mute);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px">{{ t('Coordinates') }}</div>
               <div style="font-weight:700;margin-top:1px">{{ sel.lat }}, {{ sel.lng }}</div>
             </div>
           </div>
@@ -220,7 +220,7 @@ function detailFields(row) {
           </div>
           <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Activity · {{ timeline.length }} events</div>
-            <div v-if="!timeline.length" class="c-sub" style="font-size:12.5px">No events recorded.</div>
+            <div v-if="!timeline.length" class="c-sub" style="font-size:12.5px">{{ t('No events recorded.') }}</div>
             <div v-for="e in timeline" :key="e.id" style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="width:30px;height:30px;border-radius:50%;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">{{ EV_ICO[e.ev_type] || EV_ICO.default }}</div>
               <div style="min-width:0">

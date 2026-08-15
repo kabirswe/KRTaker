@@ -86,7 +86,7 @@ const goTab = (t) => { tab.value = t }
         <div class="sub">Building management — maintenance, gate, staff, attendance, payroll, meters &amp; utilities · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="goTab('maintenance')" title="Create a new maintenance request — opens the Maintenance tab">➕ New request</button>
+        <button class="btn-ghost" @click="goTab('maintenance')" :title="t('Create a new maintenance request — opens the Maintenance tab')">➕ New request</button>
       </div>
     </div>
 
@@ -102,23 +102,23 @@ const goTab = (t) => { tab.value = t }
     <template v-if="tab === 'overview'">
       <!-- KPI cards -->
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>Open maintenance</div><div class="s-value" :style="kpis.open > 0 ? 'color:#f39c12' : ''">{{ kpis.open }}</div><div class="s-trend">{{ kpis.urgent }} urgent</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">👷</span>Staff</div><div class="s-value">{{ kpis.staff }}</div><div class="s-trend">{{ kpis.active }} active · {{ kpis.onLeave }} on leave</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏱️</span>Present today</div><div class="s-value" style="color:var(--ok,#12a150)">{{ kpis.present }}</div><div class="s-trend">{{ kpis.late }} late</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Payroll this month</div><div class="s-value">{{ money(kpis.payroll) }}</div><div class="s-trend">{{ thisMonth() }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🔌</span>Utility bills</div><div class="s-value">{{ money(kpis.util) }}</div><div class="s-trend">{{ thisMonth() }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🚪</span>Gate visits</div><div class="s-value">{{ kpis.gate }}</div><div class="s-trend">{{ kpis.meter }} meter readings · {{ kpis.onLeave }} on leave</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>{{ t('Open maintenance') }}</div><div class="s-value" :style="kpis.open > 0 ? 'color:#f39c12' : ''">{{ kpis.open }}</div><div class="s-trend">{{ kpis.urgent }} urgent</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👷</span>{{ t('Staff') }}</div><div class="s-value">{{ kpis.staff }}</div><div class="s-trend">{{ kpis.active }} active · {{ kpis.onLeave }} on leave</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏱️</span>{{ t('Present today') }}</div><div class="s-value" style="color:var(--ok,#12a150)">{{ kpis.present }}</div><div class="s-trend">{{ kpis.late }} late</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>{{ t('Payroll this month') }}</div><div class="s-value">{{ money(kpis.payroll) }}</div><div class="s-trend">{{ thisMonth() }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔌</span>{{ t('Utility bills') }}</div><div class="s-value">{{ money(kpis.util) }}</div><div class="s-trend">{{ thisMonth() }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🚪</span>{{ t('Gate visits') }}</div><div class="s-value">{{ kpis.gate }}</div><div class="s-trend">{{ kpis.meter }} meter readings · {{ kpis.onLeave }} on leave</div></div>
       </div>
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('maintenance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="Maintenance requests and work orders">🔧 Maintenance</button>
-        <button @click="goTab('gate')" class="btn-ghost" title="Visitor and gate visit log">🚪 Gate Visits</button>
-        <button @click="goTab('staff')" class="btn-ghost" title="Building staff directory">👷 Staff</button>
-        <button @click="goTab('attendance')" class="btn-ghost" title="Staff attendance tracking">⏱️ Attendance</button>
-        <button @click="goTab('payroll')" class="btn-ghost" title="Staff payroll management">💵 Payroll</button>
-        <button @click="goTab('meter')" class="btn-ghost" title="Meter readings">⚡ Meters</button>
-        <button @click="goTab('utilities')" class="btn-ghost" title="Utility bills (electric, gas, water)">🔌 Utilities</button>
+        <button @click="goTab('maintenance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Maintenance requests and work orders')">🔧 Maintenance</button>
+        <button @click="goTab('gate')" class="btn-ghost" :title="t('Visitor and gate visit log')">🚪 Gate Visits</button>
+        <button @click="goTab('staff')" class="btn-ghost" :title="t('Building staff directory')">👷 {{ t('Staff') }}</button>
+        <button @click="goTab('attendance')" class="btn-ghost" :title="t('Staff attendance tracking')">⏱️ Attendance</button>
+        <button @click="goTab('payroll')" class="btn-ghost" :title="t('Staff payroll management')">💵 Payroll</button>
+        <button @click="goTab('meter')" class="btn-ghost" :title="t('Meter readings')">⚡ Meters</button>
+        <button @click="goTab('utilities')" class="btn-ghost" :title="t('Utility bills (electric, gas, water)')">🔌 Utilities</button>
       </div>
 
       <!-- lists -->
@@ -134,7 +134,7 @@ const goTab = (t) => { tab.value = t }
               <span class="badge" :class="['Resolved','Closed'].includes(r.status) ? 'badge-green' : 'badge-blue'">{{ r.status || '—' }}</span>
             </div>
           </div>
-          <div v-if="!recentMnt.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No maintenance requests yet.</div>
+          <div v-if="!recentMnt.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No maintenance requests yet.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
           <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🚪 Recent gate visits</div>
@@ -147,7 +147,7 @@ const goTab = (t) => { tab.value = t }
               <span class="badge" :class="g.status === 'Checked out' ? 'badge-green' : 'badge-blue'">{{ g.status || '—' }}</span>
             </div>
           </div>
-          <div v-if="!recentGate.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No gate visits yet.</div>
+          <div v-if="!recentGate.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No gate visits yet.') }}</div>
         </div>
       </div>
     </template>

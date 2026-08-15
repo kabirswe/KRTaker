@@ -91,7 +91,7 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
         <div class="sub">Everything property — properties, units, tenants, leases, insurance, onboarding, leads, documents &amp; templates · one dashboard</div>
       </div>
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn-ghost" @click="goTab('properties')" title="Add a new property — opens the Properties tab">➕ New property</button>
+        <button class="btn-ghost" @click="goTab('properties')" :title="t('Add a new property — opens the Properties tab')">➕ New property</button>
       </div>
     </div>
 
@@ -107,23 +107,23 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
     <template v-if="tab === 'overview'">
       <!-- KPI cards -->
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>Properties</div><div class="s-value">{{ kpis.props }}</div><div class="s-trend">{{ kpis.units }} units total</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🚪</span>Units</div><div class="s-value">{{ kpis.units }}</div><div class="s-trend">{{ kpis.occupancy }}% occupied</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">👤</span>Tenants</div><div class="s-value">{{ kpis.tenants }}</div><div class="s-trend">{{ kpis.active }} active leases</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📄</span>Monthly rent roll</div><div class="s-value" style="color:var(--ok,#12a150)">{{ money(kpis.rent) }}</div><div class="s-trend">from active leases</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🛡️</span>Insurance</div><div class="s-value">{{ kpis.ins }}</div><div class="s-trend">policies</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📥</span>Leads</div><div class="s-value">{{ kpis.leads }}</div><div class="s-trend">{{ kpis.docs }} documents</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>{{ t('Properties') }}</div><div class="s-value">{{ kpis.props }}</div><div class="s-trend">{{ kpis.units }} units total</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🚪</span>{{ t('Units') }}</div><div class="s-value">{{ kpis.units }}</div><div class="s-trend">{{ kpis.occupancy }}% occupied</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👤</span>{{ t('Tenants') }}</div><div class="s-value">{{ kpis.tenants }}</div><div class="s-trend">{{ kpis.active }} active leases</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📄</span>{{ t('Monthly rent roll') }}</div><div class="s-value" style="color:var(--ok,#12a150)">{{ money(kpis.rent) }}</div><div class="s-trend">from active leases</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🛡️</span>{{ t('Insurance') }}</div><div class="s-value">{{ kpis.ins }}</div><div class="s-trend">policies</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📥</span>{{ t('Leads') }}</div><div class="s-value">{{ kpis.leads }}</div><div class="s-trend">{{ kpis.docs }} documents</div></div>
       </div>
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('properties')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="Manage your properties">🏢 Properties</button>
-        <button @click="goTab('units')" class="btn-ghost" title="Manage units within your properties">🚪 Units</button>
-        <button @click="goTab('tenants')" class="btn-ghost" title="Manage tenants and their profiles">👤 Tenants</button>
-        <button @click="goTab('leases')" class="btn-ghost" title="Manage lease agreements">📄 Leases</button>
-        <button @click="goTab('onboarding')" class="btn-ghost" title="Tenant onboarding checklists">📋 Onboarding</button>
-        <button @click="goTab('leads')" class="btn-ghost" title="Track property leads">📥 Leads</button>
-        <button @click="goTab('documents')" class="btn-ghost" title="Documents vault and templates">📁 Documents</button>
+        <button @click="goTab('properties')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Manage your properties')">🏢 Properties</button>
+        <button @click="goTab('units')" class="btn-ghost" :title="t('Manage units within your properties')">🚪 Units</button>
+        <button @click="goTab('tenants')" class="btn-ghost" :title="t('Manage tenants and their profiles')">👤 Tenants</button>
+        <button @click="goTab('leases')" class="btn-ghost" :title="t('Manage lease agreements')">📄 Leases</button>
+        <button @click="goTab('onboarding')" class="btn-ghost" :title="t('Tenant onboarding checklists')">📋 Onboarding</button>
+        <button @click="goTab('leads')" class="btn-ghost" :title="t('Track property leads')">📥 Leads</button>
+        <button @click="goTab('documents')" class="btn-ghost" :title="t('Documents vault and templates')">📁 Documents</button>
       </div>
 
       <!-- lists -->
@@ -139,7 +139,7 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
               <span class="badge" :class="a.status === 'Completed' ? 'badge-green' : 'badge-blue'">{{ a.status || '—' }}</span>
             </div>
           </div>
-          <div v-if="!recentOnboarding.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No onboarding applications yet.</div>
+          <div v-if="!recentOnboarding.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No onboarding applications yet.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
           <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📥 Recent leads</div>
@@ -152,7 +152,7 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
               <span class="badge" :class="l.status === 'Converted' ? 'badge-green' : 'badge-blue'">{{ l.status || '—' }}</span>
             </div>
           </div>
-          <div v-if="!recentLeads.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">No leads yet.</div>
+          <div v-if="!recentLeads.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No leads yet.') }}</div>
         </div>
       </div>
     </template>

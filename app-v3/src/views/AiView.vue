@@ -46,14 +46,14 @@ function scroll() { nextTick(() => { if (box.value) box.value.scrollTop = box.va
     <div class="page-head">
       <div>
         <h1>{{ t('🤖 AI Caretaker (KR)') }}</h1>
-        <div class="sub">Ask about your portfolio — rent, arrears, compliance, anything</div>
+        <div class="sub">{{ t('Ask about your portfolio — rent, arrears, compliance, anything') }}</div>
       </div>
     </div>
 
     <div class="panel" style="max-width:760px;display:flex;flex-direction:column;max-height:72vh">
       <div class="panel-b" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px" ref="box">
         <div v-if="!msgs.length" class="c-sub" style="text-align:center;padding:26px 10px 10px">
-          Try a question:
+          {{ t('Try a question:') }}
         </div>
         <div v-if="!msgs.length" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding-bottom:14px">
           <button v-for="s in suggestions" :key="s" @click="ask(s)" class="btn-ghost" style="font-size:12px">{{ s }}</button>
