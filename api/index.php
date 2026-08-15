@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260922) {
+        if ($__sv < 20260923) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1030,6 +1030,11 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             user TEXT, mode TEXT, query TEXT, tool TEXT, result TEXT)");
         $aiCols = $pdo->query('PRAGMA table_info(ai_log)')->fetchAll(PDO::FETCH_ASSOC);
         if (!in_array('ms', array_column($aiCols, 'name'), true)) $pdo->exec('ALTER TABLE ai_log ADD COLUMN ms INTEGER DEFAULT 0');
+        /* V2.40.5: AI usage guardrails — per-user key + token/cost accounting */
+        $aiCols = $pdo->query('PRAGMA table_info(ai_log)')->fetchAll(PDO::FETCH_ASSOC);
+        foreach (['user_key' => "TEXT DEFAULT ''", 'ptok' => 'INTEGER DEFAULT 0', 'ctok' => 'INTEGER DEFAULT 0', 'cost' => 'REAL DEFAULT 0'] as $col => $ddl) {
+            if (!in_array($col, array_column($aiCols, 'name'), true)) $pdo->exec("ALTER TABLE ai_log ADD COLUMN $col $ddl");
+        }
 
         /* Add password_hash / last_login to subscribers if missing (idempotent) */
         $cols = [];
@@ -1165,7 +1170,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260922'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260923'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -2396,6 +2401,53 @@ function AI_CONFIG($pdo = null) {
     return ['key' => $key ?: 'REPLACE_ME', 'model' => $model, 'url' => $url, 'provider' => $provider];
 }
 function ai_mode($pdo = null) { return AI_CONFIG($pdo)['key'] !== 'REPLACE_ME' ? 'llm' : 'offline'; }
+
+/* ═══════════ V2.40.5 — AI usage guardrails (GO-LIVE §3.3) ═══════════
+   Per-user rate limit (calls/min), daily quota (LLM calls/day) and a
+   MONTHLY COST CAP (USD) computed from actual usage tokens. Fail-closed:
+   any limit hit → the chat call is rejected with a 429-style message.
+   Config lives in admin_settings (superadmin AI caretaker console):
+     ai_quota_enabled   '1'|'0'      master switch (default 1)
+     ai_rate_per_min    int          max chat calls per user per minute (default 6)
+     ai_daily_quota     int          max LLM chat calls per user per day (default 40)
+     ai_monthly_cost    float        monthly cost cap in USD, 0 = unlimited (default 15)
+   Offline (free) mode is metered for RATE only; cost/daily meter LLM calls. */
+function AI_USAGE($pdo, $u) {
+    $key = user_key_for($u);
+    $st = $pdo->prepare("SELECT COUNT(*) FROM ai_log WHERE user_key=? AND ts >= datetime('now','-60 seconds')");
+    $st->execute([$key]);
+    $rate_used = (int)$st->fetchColumn();
+    $st = $pdo->prepare("SELECT COUNT(*) FROM ai_log WHERE user_key=? AND mode='llm' AND ts >= date('now')");
+    $st->execute([$key]);
+    $daily_used = (int)$st->fetchColumn();
+    $st = $pdo->prepare("SELECT COALESCE(SUM(cost),0) FROM ai_log WHERE user_key=? AND ts >= date('now','start of month')");
+    $st->execute([$key]);
+    $month_cost = (float)$st->fetchColumn();
+    return [
+        'enabled'      => (int)admin_cfg($pdo, 'ai_quota_enabled', 1),
+        'rate_per_min' => max(1, (int)admin_cfg($pdo, 'ai_rate_per_min', 6)),
+        'daily_quota'  => max(1, (int)admin_cfg($pdo, 'ai_daily_quota', 40)),
+        'monthly_cost' => max(0, (float)admin_cfg($pdo, 'ai_monthly_cost', 15)),
+        'rate_used'    => $rate_used,
+        'daily_used'   => $daily_used,
+        'month_cost'   => $month_cost,
+    ];
+}
+function ai_guard($pdo, $u) {
+    $u2 = AI_USAGE($pdo, $u);
+    if (!$u2['enabled']) return ['ok' => true];
+    if ($u2['rate_used'] >= $u2['rate_per_min'])
+        return ['ok' => false, 'quota' => 'rate', 'error' => "AI rate limit reached — please wait a moment and try again. ({$u2['rate_per_min']} calls/min)", 'used' => $u2['rate_used'], 'limit' => $u2['rate_per_min']];
+    if ($u2['daily_used'] >= $u2['daily_quota'])
+        return ['ok' => false, 'quota' => 'daily', 'error' => "Your daily AI caretaker limit is reached ({$u2['daily_quota']} messages/day). Try again tomorrow.", 'used' => $u2['daily_used'], 'limit' => $u2['daily_quota']];
+    if ($u2['monthly_cost'] > 0 && $u2['month_cost'] >= $u2['monthly_cost'])
+        return ['ok' => false, 'quota' => 'cost', 'error' => 'AI caretaker is temporarily unavailable (monthly usage budget reached). Please contact support.', 'used' => round($u2['month_cost'], 4), 'limit' => $u2['monthly_cost']];
+    return ['ok' => true, 'usage' => $u2];
+}
+function ai_cost_usd($ptok, $ctok) {
+    /* Rough per-1M-token rates (deepseek-chat / gpt-4o-mini class); overestimates slightly on purpose (fail-safe). */
+    return round(($ptok / 1e6) * 0.30 + ($ctok / 1e6) * 0.60, 6);
+}
 
 /* Curated Bangladeshi property-law knowledge base (PRCA 1991 / TPA 1882 / IT Act 2023 / holding tax / NRB) */
 function LEGAL_KB() {
@@ -5402,7 +5454,10 @@ function ai_llm_call($messages, $pdo = null) {
         $msg = $j['error']['message'] ?? substr($resp, 0, 300);
         return ['error' => $msg];
     }
-    return $j['choices'][0]['message'];
+    /* V2.40.5: attach usage (prompt/completion tokens) so callers can meter cost */
+    $ret = $j['choices'][0]['message'];
+    $ret['usage'] = $j['usage'] ?? [];
+    return $ret;
 }
 function ai_tool_defs() {
     $f = function ($name, $desc, $props, $req = []) {
@@ -6137,6 +6192,8 @@ function ADMIN_SETTING_DEFAULTS() {
         'trial_days' => '14', 'invoice_prefix' => 'INV-', 'currency' => 'BDT',
         'default_plan' => 'starter', 'admin_email' => 'kabir.swe@gmail.com',
         'ai_provider' => 'deepseek', 'ai_model' => 'deepseek-chat',
+        // ── AI usage guardrails (V2.40.5, GO-LIVE §3.3) ──
+        'ai_quota_enabled' => '1', 'ai_rate_per_min' => '6', 'ai_daily_quota' => '40', 'ai_monthly_cost' => '15',
         // ── Security & access ──
         'sec_password_min_len' => '6', 'sec_password_complex' => '0',
         'sec_login_attempts' => '10', 'sec_lockout_minutes' => '15', 'sec_session_ttl_days' => '7',
@@ -11715,7 +11772,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-ai-quota', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -14876,12 +14933,23 @@ case 'app-ai-chat': {
     $_t0 = microtime(true);
     $mode = ai_mode($pdo);
 
+    /* V2.40.5: fail-closed usage guardrails (GO-LIVE §3.3) — rate/daily/cost */
+    $guard = ai_guard($pdo, $u);
+    if (!$guard['ok']) json_out(['ok' => false, 'error' => $guard['error'], 'quota' => $guard['quota'], 'used' => $guard['used'] ?? null, 'limit' => $guard['limit'] ?? null], 429);
+
+    $ptok = 0; $ctok = 0;
+    $meter = function ($m) use (&$ptok, &$ctok) {
+        $us = $m['usage'] ?? [];
+        $ptok += (int)($us['prompt_tokens'] ?? 0);
+        $ctok += (int)($us['completion_tokens'] ?? 0);
+    };
+
     if ($mode === 'llm') {
         $msgs = array_merge([['role' => 'system', 'content' => ai_system_prompt($u)]], array_slice($messages, -12));
         $actions = [];
         $reply = '';
         try {
-            $msg = ai_llm_call($msgs, $pdo);
+            $msg = ai_llm_call($msgs, $pdo); $meter($msg);
             for ($i = 0; $i < 3; $i++) {
                 if (isset($msg['error'])) { $reply = 'KR is having trouble reaching the model: ' . $msg['error']; break; }
                 if (!empty($msg['tool_calls'])) {
@@ -14894,7 +14962,7 @@ case 'app-ai-chat': {
                         $msgs[] = ['role' => 'tool', 'tool_call_id' => $tc['id'] ?? '', 'content' => $res['text']];
                         if ($res['ok'] && isset($res['data'])) $actions[] = ['tool' => $name, 'ok' => true, 'data' => $res['data']];
                     }
-                    $msg = ai_llm_call($msgs, $pdo);
+                    $msg = ai_llm_call($msgs, $pdo); $meter($msg);
                     continue;
                 }
                 $reply = $msg['content'] ?? 'No response.';
@@ -14912,9 +14980,22 @@ case 'app-ai-chat': {
         $log_r = substr($reply, 0, 300);
         $mode = 'offline';
     }
-    $pdo->prepare('INSERT INTO ai_log (user, mode, query, tool, result, ms) VALUES (?,?,?,?,?,?)')
-        ->execute([$u['name'], $mode, substr($q, 0, 200), $actions[0]['tool'] ?? '', $log_r, (int)round((microtime(true) - $_t0) * 1000)]);
-    json_out(['ok' => true, 'reply' => $reply, 'mode' => $mode, 'actions' => $actions]);
+    $pdo->prepare('INSERT INTO ai_log (user, user_key, mode, query, tool, result, ms, ptok, ctok, cost) VALUES (?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$u['name'], user_key_for($u), $mode, substr($q, 0, 200), $actions[0]['tool'] ?? '', $log_r, (int)round((microtime(true) - $_t0) * 1000), $ptok, $ctok, ai_cost_usd($ptok, $ctok)]);
+    json_out(['ok' => true, 'reply' => $reply, 'mode' => $mode, 'actions' => $actions, 'usage' => ['prompt_tokens' => $ptok, 'completion_tokens' => $ctok]]);
+}
+
+case 'app-ai-quota': {
+    /* V2.40.5: current user's AI usage vs limits (GET) — drives the UI meter */
+    $u = require_user();
+    require_module($u, 'ai');
+    $pdo = db();
+    $u2 = AI_USAGE($pdo, $u);
+    json_out(['ok' => true,
+        'enabled' => $u2['enabled'], 'mode' => ai_mode($pdo),
+        'rate' => ['used' => $u2['rate_used'], 'limit' => $u2['rate_per_min']],
+        'daily' => ['used' => $u2['daily_used'], 'limit' => $u2['daily_quota']],
+        'cost' => ['used' => round($u2['month_cost'], 4), 'limit' => $u2['monthly_cost']]]);
 }
 
 case 'app-crud': {
@@ -22794,7 +22875,11 @@ case 'app-admin': {
         if ($sub === 'get') {
             $ac = AI_CONFIG($pdo);
             json_out(['ok' => true, 'mode' => ai_mode($pdo), 'provider' => $ac['provider'], 'model' => $ac['model'],
-                      'url' => $ac['url'], 'key_set' => $ac['key'] !== 'REPLACE_ME', 'env_key' => (bool)getenv('KRT_DS_KEY')]);
+                      'url' => $ac['url'], 'key_set' => $ac['key'] !== 'REPLACE_ME', 'env_key' => (bool)getenv('KRT_DS_KEY'),
+                      'quota_enabled' => (int)admin_cfg($pdo, 'ai_quota_enabled', 1),
+                      'rate_per_min' => (int)admin_cfg($pdo, 'ai_rate_per_min', 6),
+                      'daily_quota' => (int)admin_cfg($pdo, 'ai_daily_quota', 40),
+                      'monthly_cost' => (float)admin_cfg($pdo, 'ai_monthly_cost', 15)]);
         }
         if ($sub === 'save') {
             $prov = trim($body['provider'] ?? '');
@@ -22804,6 +22889,11 @@ case 'app-admin': {
             admin_cfg_save($pdo, 'ai_provider', $prov);
             admin_cfg_save($pdo, 'ai_model', $model);
             admin_cfg_save($pdo, 'ai_base_url', trim($body['base_url'] ?? ''));
+            /* V2.40.5 quota guardrails — numeric clamping so a bad value can't disable the safety net */
+            if (isset($body['quota_enabled'])) admin_cfg_save($pdo, 'ai_quota_enabled', in_array($body['quota_enabled'], [1, '1', true, 'true'], true) ? '1' : '0');
+            if (isset($body['rate_per_min'])) admin_cfg_save($pdo, 'ai_rate_per_min', (string)max(1, min(600, (int)$body['rate_per_min'])));
+            if (isset($body['daily_quota'])) admin_cfg_save($pdo, 'ai_daily_quota', (string)max(1, min(100000, (int)$body['daily_quota'])));
+            if (isset($body['monthly_cost'])) admin_cfg_save($pdo, 'ai_monthly_cost', (string)max(0, (float)$body['monthly_cost']));
             $key = trim($body['key'] ?? '');
             if ($key === 'CLEAR') $pdo->exec("DELETE FROM admin_settings WHERE k='ai_key'");
             elseif ($key !== '' && $key !== '********') admin_cfg_save($pdo, 'ai_key', $key);
@@ -22827,8 +22917,12 @@ case 'app-admin': {
             $h24 = (int)$pdo->query("SELECT COUNT(*) FROM ai_log WHERE ts >= datetime('now','-1 day')")->fetchColumn();
             $avg = (int)$pdo->query("SELECT COALESCE(ROUND(AVG(ms)),0) FROM ai_log WHERE ms > 0")->fetchColumn();
             $top = $pdo->query("SELECT query, COUNT(*) AS n FROM ai_log WHERE query != '' GROUP BY query ORDER BY n DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
-            $recent = $pdo->query("SELECT id, ts, user, mode, query, result, ms FROM ai_log ORDER BY id DESC LIMIT 15")->fetchAll(PDO::FETCH_ASSOC);
-            json_out(['ok' => true, 'total' => $total, 'llm' => $llm, 'offline' => $off, 'h24' => $h24, 'avg_ms' => $avg, 'top' => $top, 'recent' => $recent]);
+            $recent = $pdo->query("SELECT id, ts, user, mode, query, result, ms, ptok, ctok, cost FROM ai_log ORDER BY id DESC LIMIT 15")->fetchAll(PDO::FETCH_ASSOC);
+            /* V2.40.5: cost accounting — month totals + per-user leaders */
+            $cost = (float)$pdo->query("SELECT COALESCE(SUM(cost),0) FROM ai_log WHERE ts >= date('now','start of month')")->fetchColumn();
+            $leaders = $pdo->query("SELECT user, COUNT(*) AS n, ROUND(COALESCE(SUM(cost),0),4) AS cost, SUM(ptok+ctok) AS toks FROM ai_log WHERE ts >= date('now','start of month') GROUP BY user ORDER BY cost DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+            json_out(['ok' => true, 'total' => $total, 'llm' => $llm, 'offline' => $off, 'h24' => $h24, 'avg_ms' => $avg, 'top' => $top, 'recent' => $recent,
+                      'month_cost' => round($cost, 4), 'month_cost_limit' => (float)admin_cfg($pdo, 'ai_monthly_cost', 15), 'leaders' => $leaders]);
         }
         if ($sub === 'clear-log') {
             $n = (int)$pdo->query("SELECT COUNT(*) FROM ai_log")->fetchColumn();
