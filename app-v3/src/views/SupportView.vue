@@ -95,11 +95,11 @@ async function submitTicket() {
     track('support_ticket_created', { cat: form.value.cat, prio: form.value.prio })
     window.__krToast?.('✅ ' + t('Ticket {id} opened').replace('{id}', r.id))
     // put into overlay so it appears instantly, then open it
-    const t = { id: r.id, from_t: (data.user?.name || 'You') + ' (' + ((data.user?.role || 'owner').charAt(0).toUpperCase() + (data.user?.role || 'owner').slice(1)) + ')', subject: form.value.subject, status: 'Open', prio: form.value.prio, cat: form.value.cat, age: 'just now', created_at: new Date().toISOString().replace('T', ' ').slice(0, 19) }
-    overlay.value = { ...overlay.value, [t.id]: t }
+    const nt = { id: r.id, from_t: (data.user?.name || 'You') + ' (' + ((data.user?.role || 'owner').charAt(0).toUpperCase() + (data.user?.role || 'owner').slice(1)) + ')', subject: form.value.subject, status: 'Open', prio: form.value.prio, cat: form.value.cat, age: 'just now', created_at: new Date().toISOString().replace('T', ' ').slice(0, 19) }
+    overlay.value = { ...overlay.value, [nt.id]: nt }
     showCompose.value = false
     form.value = { subject: '', cat: 'General', prio: 'Medium', body: '' }
-    openDetail(t)
+    openDetail(nt)
   } finally { busy.value = false }
 }
 
@@ -138,6 +138,39 @@ const timeAgo = (ts) => {
   if (s < 86400) return Math.floor(s / 3600) + t('h ago')
   if (s < 604800) return Math.floor(s / 86400) + t('d ago')
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// ── GO-LIVE 4.2: support-ticket SLA ──
+// Mirrors the maintenance SLA config (app-sla): response/resolve hours per priority.
+const SLA_HOURS = { Urgent: [4, 24], High: [24, 72], Medium: [72, 168], Low: [120, 240] }
+function slaOf(tk) {
+  const prio = tk.prio || 'Medium'
+  const [rh, rvh] = SLA_HOURS[prio] || SLA_HOURS.Medium
+  const created = tk.created_at ? new Date(String(tk.created_at).replace(' ', 'T')) : null
+  if (!created || isNaN(created)) return null
+  const done = ['Resolved', 'Closed'].includes(tk.status)
+  const now = Date.now()
+  const respDue = created.getTime() + rh * 3600000
+  const resvDue = created.getTime() + rvh * 3600000
+  let status = 'on_track'
+  if (done) status = 'done'
+  else if (now > resvDue) status = 'breached'
+  else if (now > respDue && ['Open', 'Assigned'].includes(tk.status)) status = 'breached'
+  else if (now > (resvDue - rvh * 900000)) status = 'at_risk'
+  const hrsLeft = Math.max(0, Math.round((resvDue - now) / 3600000))
+  return { status, rh, rvh, hrsLeft, respDue, resvDue }
+}
+const slaChip = (tk) => {
+  const s = slaOf(tk)
+  if (!s) return null
+  const map = {
+    done: { cls: 'b-green', ico: '✓', label: lang.value === 'bn' ? 'SLA পূরণ' : 'SLA met' },
+    on_track: { cls: 'b-blue', ico: '🟢', label: lang.value === 'bn' ? `SLA চলছে · ${s.hrsLeft}ঘণ্টা বাকি` : `SLA on track · ${s.hrsLeft}h left` },
+    at_risk: { cls: 'b-orange', ico: '🟠', label: lang.value === 'bn' ? `SLA ঝুঁকিতে · ${s.hrsLeft}ঘণ্টা বাকি` : `SLA at risk · ${s.hrsLeft}h left` },
+    breached: { cls: 'b-red', ico: '🔴', label: lang.value === 'bn' ? 'SLA লঙ্ঘিত' : 'SLA breached' },
+  }
+  const m = map[s.status]
+  return { cls: m.cls, label: m.ico + ' ' + m.label, title: `${tk.id} · ${tk.prio || 'Medium'}: ${s.rh}h response / ${s.rvh}h resolve` }
 }
 
 async function sendReply() {
@@ -193,6 +226,7 @@ function detailFields(row) {
       <div class="head-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <CompactFilters>
         <button class="btn-ghost" style="padding:9px 14px;font-size:12.5px;font-weight:800;border-color:var(--primary);color:var(--primary)" @click="go('/wiki')">📚 {{ lang === 'bn' ? 'উইকি' : 'Wiki' }}</button>
+        <a href="https://krtaker.com/docs.html" target="_blank" rel="noopener" class="btn-ghost" style="padding:9px 14px;font-size:12.5px;font-weight:800;text-decoration:none;display:inline-flex;align-items:center">📖 {{ lang === 'bn' ? 'সাহায্য কেন্দ্র' : 'Help center' }}</a>
         <input v-model="query" :placeholder="t('Search subject, sender…')" style="padding:9px 13px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none;width:220px">
         <select v-model="statusFilter" style="padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);font-family:inherit;font-size:13px;color:var(--text);outline:none">
           <option value="">{{ t('All statuses') }}</option>
@@ -234,21 +268,22 @@ function detailFields(row) {
 
     <!-- GRID -->
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
-      <div v-for="t in paged" :key="t.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(t)">
+      <div v-for="tk in paged" :key="tk.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(tk)">
         <div style="height:84px;position:relative;background:var(--grad)">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px">🎧</div>
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
-            <span class="badge" :class="prioCls(t.prio)" style="background:#ffffff">{{ t.prio ? t(t.prio) : '—' }}</span>
-            <span class="badge" style="background:#ffffff">{{ catIco(t.cat) }} {{ t(t.cat || 'General') }}</span>
+            <span class="badge" :class="prioCls(tk.prio)" style="background:#ffffff">{{ tk.prio ? t(tk.prio) : '—' }}</span>
+            <span class="badge" style="background:#ffffff">{{ catIco(tk.cat) }} {{ t(tk.cat || 'General') }}</span>
           </div>
-          <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ t.id }}</div>
+          <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ tk.id }}</div>
         </div>
         <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
-          <div style="font-weight:800;font-size:14px;letter-spacing:-.2px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ t.subject }}</div>
-          <div class="c-sub" style="font-size:12px">{{ t.from_t || '—' }}</div>
+          <div style="font-weight:800;font-size:14px;letter-spacing:-.2px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ tk.subject }}</div>
+          <div class="c-sub" style="font-size:12px">{{ tk.from_t || '—' }}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
-            <span class="badge" :class="badge(t.status)">{{ t.status ? t(t.status) : '—' }}</span>
-            <span v-if="t.age" class="badge b-gray">🕒 {{ t.age }}</span>
+            <span class="badge" :class="badge(tk.status)">{{ tk.status ? t(tk.status) : '—' }}</span>
+            <span v-if="slaChip(tk)" class="badge" :class="slaChip(tk).cls" :title="slaChip(tk).title">{{ slaChip(tk).label }}</span>
+            <span v-if="tk.age" class="badge b-gray">🕒 {{ tk.age }}</span>
           </div>
         </div>
       </div>
@@ -258,16 +293,17 @@ function detailFields(row) {
     <div v-if="filtered.length && viewMode === 'list'" class="panel" style="overflow:hidden">
       <div class="tbl-wrap">
         <table class="kr" style="width:100%">
-          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Subject') }}</th><th>{{ t('From') }}</th><th>{{ t('Category') }}</th><th>{{ t('Status') }}</th><th>{{ t('Prio') }}</th><th>{{ t('Age') }}</th></tr></thead>
+          <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Subject') }}</th><th>{{ t('From') }}</th><th>{{ t('Category') }}</th><th>{{ t('Status') }}</th><th>{{ t('Prio') }}</th><th>{{ t('SLA') }}</th><th>{{ t('Age') }}</th></tr></thead>
           <tbody>
-            <tr v-for="t in paged" :key="t.id" style="cursor:pointer" @click="openDetail(t)">
-              <td style="font-weight:700;white-space:nowrap">{{ t.id }}</td>
-              <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.subject }}</td>
-              <td style="white-space:nowrap" class="c-sub">{{ t.from_t || '—' }}</td>
-              <td style="white-space:nowrap"><span class="badge b-gray">{{ catIco(t.cat) }} {{ t(t.cat || 'General') }}</span></td>
-              <td style="white-space:nowrap"><span class="badge" :class="badge(t.status)">{{ t.status ? t(t.status) : '—' }}</span></td>
-              <td style="white-space:nowrap"><span class="badge" :class="prioCls(t.prio)">{{ t.prio ? t(t.prio) : '—' }}</span></td>
-              <td style="white-space:nowrap" class="c-sub">{{ t.age || '—' }}</td>
+            <tr v-for="tk in paged" :key="tk.id" style="cursor:pointer" @click="openDetail(tk)">
+              <td style="font-weight:700;white-space:nowrap">{{ tk.id }}</td>
+              <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ tk.subject }}</td>
+              <td style="white-space:nowrap" class="c-sub">{{ tk.from_t || '—' }}</td>
+              <td style="white-space:nowrap"><span class="badge b-gray">{{ catIco(tk.cat) }} {{ t(tk.cat || 'General') }}</span></td>
+              <td style="white-space:nowrap"><span class="badge" :class="badge(tk.status)">{{ tk.status ? t(tk.status) : '—' }}</span></td>
+              <td style="white-space:nowrap"><span class="badge" :class="prioCls(tk.prio)">{{ tk.prio ? t(tk.prio) : '—' }}</span></td>
+              <td style="white-space:nowrap"><span v-if="slaChip(tk)" class="badge" :class="slaChip(tk).cls" :title="slaChip(tk).title">{{ slaChip(tk).label }}</span><span v-else class="c-sub">—</span></td>
+              <td style="white-space:nowrap" class="c-sub">{{ tk.age || '—' }}</td>
             </tr>
           </tbody>
         </table>
@@ -328,6 +364,7 @@ function detailFields(row) {
             <span class="badge" style="background:#ffffff">{{ sel.id }}</span>
             <span class="badge" style="background:#ffffff">{{ catIco(sel.cat) }} {{ t(sel.cat || 'General') }}</span>
             <span class="badge" style="background:#ffffff">{{ sel.prio ? t(sel.prio) : '—' }}</span>
+            <span v-if="slaChip(sel)" class="badge" :class="slaChip(sel).cls" :title="slaChip(sel).title">{{ slaChip(sel).label }}</span>
           </div>
         </div>
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">

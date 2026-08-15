@@ -1196,6 +1196,24 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             }
         }
     } catch (Exception $e) { /* non-fatal */ }
+    /* ── V2.43 (unconditional, GO-LIVE 4.2): support desk reachable on EVERY plan ── */
+    try {
+        foreach ($pdo->query('SELECT code, modules FROM plan_catalog') as $pcrow) {
+            $mat = json_decode($pcrow['modules'] ?? '[]', true);
+            if (!is_array($mat) || !$mat) continue;
+            $changed = false;
+            foreach ($mat as $role => $mods) {
+                if (is_array($mods) && !in_array('support', $mods, true)) {
+                    $mat[$role][] = 'support';
+                    $changed = true;
+                }
+            }
+            if ($changed) {
+                $pdo->prepare('UPDATE plan_catalog SET modules=? WHERE lower(code)=?')
+                    ->execute([json_encode($mat), strtolower($pcrow['code'])]);
+            }
+        }
+    } catch (Exception $e) { /* non-fatal */ }
     /* ── V2.39.4 (unconditional): owner scoping for community + elections ── */
     try {
         foreach (['community_parking', 'community_bookings', 'community_votes', 'community_threads', 'community_events'] as $ct) {
@@ -10851,8 +10869,8 @@ function seed_app() {
         $pdo->exec("UPDATE maintenance_requests SET status='Closed', assigned_to='', vendor='', cost_estimate=1500, actual_cost=1500, charge_to='owner', ts=datetime('now','-30 days'), updated_at=datetime('now','-30 days') WHERE id='MR-005'");
         $pdo->exec("UPDATE leases SET rent=25000, status='Active' WHERE id='L-001'");
     }
-    $starter_mods = json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','notices','documents','subscriptions','analytics'], 'tenant' => ['dashboard','invoices','receipts','payments','maintenance','notices','documents']]);
-    $business_mods = json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','referrals','subscriptions','analytics','ai'], 'manager' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','analytics','ai'], 'tenant' => ['dashboard','invoices','receipts','payments','maintenance','notices','documents','ai']]);
+    $starter_mods = json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','notices','documents','subscriptions','analytics','support'], 'tenant' => ['dashboard','invoices','receipts','payments','maintenance','notices','documents','support']]);
+    $business_mods = json_encode(['owner' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','referrals','subscriptions','analytics','ai','support'], 'manager' => ['dashboard','properties','units','tenants','leases','renewals','invoices','receipts','payments','taxes','statements','remit','maintenance','vendors','utilities','compliance','legal','trust','onboarding','leads','notices','documents','templates','analytics','ai','support'], 'tenant' => ['dashboard','invoices','receipts','payments','maintenance','notices','documents','ai','support']]);
     $enterprise_mods = json_encode(['owner' => ROLE_MODULES()['owner'], 'manager' => ROLE_MODULES()['manager'], 'svc_mgr' => ROLE_MODULES()['svc_mgr'], 'tenant' => ROLE_MODULES()['tenant'], 'partner' => ROLE_MODULES()['partner'], 'legal' => ROLE_MODULES()['legal'], 'crm' => ROLE_MODULES()['crm'], 'accountant' => ROLE_MODULES()['accountant'], 'hr' => ROLE_MODULES()['hr']]);
     $has = (int)$pdo->query('SELECT COUNT(*) FROM plan_catalog')->fetchColumn();
     if ($has === 0) {
@@ -10884,6 +10902,23 @@ function seed_app() {
             /* SA1 v18: '[]' (empty JSON array) is also stale — live DB catalog was written
                with array limits, so per-plan caps never applied there. Backfill the object. */
             $pdo->prepare('UPDATE plan_catalog SET limits=? WHERE lower(code)=?')->execute([$blims[$bcode], $bcode]);
+        }
+    }
+    /* V2.43 (GO-LIVE 4.2): support desk must be reachable on EVERY plan — inject
+       the 'support' module into each role's matrix (idempotent; no-op when present). */
+    foreach ($pdo->query('SELECT code, modules FROM plan_catalog') as $pcrow) {
+        $mat = json_decode($pcrow['modules'] ?? '[]', true);
+        if (!is_array($mat) || !$mat) continue;
+        $changed = false;
+        foreach ($mat as $role => $mods) {
+            if (is_array($mods) && !in_array('support', $mods, true)) {
+                $mat[$role][] = 'support';
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $pdo->prepare('UPDATE plan_catalog SET modules=? WHERE lower(code)=?')
+                ->execute([json_encode($mat), strtolower($pcrow['code'])]);
         }
     }
 

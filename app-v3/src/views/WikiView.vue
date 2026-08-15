@@ -148,7 +148,15 @@ const SECTIONS = [
       },
       {
         t: tr('How do I get help or support?'),
-        b: tr('Open the Support module (Community hub) for the built-in support desk. For urgent issues, contact support@krtaker.com. The AI Caretaker (KR) in the Overview hub can also answer operational questions.'),
+        b: tr('Open the Support module (Community hub) for the built-in support desk — raise a ticket and the team replies within the SLA for its priority. For urgent issues, contact support@krtaker.com or WhatsApp +880 1844-680068. The public 📖 Help center (krtaker.com/docs.html) has step-by-step guides for every role, and the AI Caretaker (KR) in the Overview hub answers operational questions 24/7.'),
+      },
+      {
+        t: tr('What are the support SLAs?'),
+        b: tr('Support tickets carry a service-level target based on priority:\n\n• 🚨 Urgent — first response within 4 hours, resolution within 24 hours\n• 🔴 High — response within 24 hours, resolution within 72 hours\n• 🟠 Medium — response within 72 hours, resolution within 7 days\n• 🟢 Low — response within 5 days, resolution within 10 days\n\nEvery ticket shows a live SLA chip (🟢 on track / 🟠 at risk / 🔴 breached) in the Support list and drawer. Breached tickets are escalated to the operations lead automatically.'),
+      },
+      {
+        t: tr('How do refunds and cancellations work?'),
+        b: tr('Subscriptions are billed monthly or annually via bKash, Nagad, SSLCommerz or bank transfer. You can cancel any time from Settings → Subscription (or by emailing support@krtaker.com) — access continues until the end of the paid period, no lock-in. Refunds: within the first 14 days of a paid plan, if you have not used the paid features, we refund the full amount within 7 business days. After 14 days, fees are non-refundable except where required by law (see the Terms, section 3). Annual plans are prorated only in the 14-day window.'),
       },
     ],
   },

@@ -121,10 +121,10 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [x] Welcome email sequence: welcome → set up property → invite tenant (app already has tenant-facing portal) → first rent reminder. (V2.42.0: welcome fires at OTP verify; setup nudge + tenant nudge daily cron `krtaker-setup-nudge` 08:00, both idempotent; rent reminders via `krtaker-rent-reminder-scheduler` 03:00.)
 
 ### 4.2 Support
-- [ ] Help center: extend faq.html + a docs page (tools.html exists); link from dashboard.
-- [ ] Support channels: contact form → inbox, WhatsApp Business (+8801844680068 — wired in v3.72), in-app ticket (app-ticket-thread exists — verify it's user-visible).
-- [ ] Define SLAs: response times, severity levels, escalation to Kabir.
-- [ ] Refund/cancellation workflow documented for support staff.
+- [x] Help center: extend faq.html + a docs page (tools.html exists); link from dashboard. (V2.43: wiki + docs.html FAQ extended with support/SLA/refund sections; terms.html §3 refund workflow; 📖 Help center button in Support toolbar → docs.html; dashboard already links to 📚 Wiki.)
+- [x] Support channels: contact form → inbox, WhatsApp Business (+880****0068 — wired in v3.72), in-app ticket (app-ticket-thread exists — verify it's user-visible). (V2.43: in-app ticket creation verified end-to-end live — compose → SUP-008 created with thread + drawer. Pre-existing bugs fixed: `support` module was missing from EVERY plan matrix (access denied on all plans) → unconditional boot backfill; submitTicket TDZ shadowing + template v-for `t` shadowing (crashed on non-empty list).)
+- [x] Define SLAs: response times, severity levels, escalation to Kabir. (V2.43: SLA hours mirror maintenance — Urgent 4/24, High 24/72, Medium 72/168, Low 120/240; live 🟢/🟠/🔴 chips in grid cards, list SLA column, drawer; wiki article "What are the support SLAs?" + docs.html.)
+- [x] Refund/cancellation workflow documented for support staff. (V2.43: terms.html §3 full 14-day refund / cancel-anytime workflow; wiki article "How do refunds and cancellations work?"; docs.html FAQ.)
 
 ### 4.3 Launch sequence (recommended)
 1. **Soft launch (2–4 weeks):** invite 10–20 real owners/buildings (network, LinkedIn, the 128 list if real) at free/discounted annual rate. Collect feedback; fix crash bugs; validate payment UX with real ৳ transactions.
