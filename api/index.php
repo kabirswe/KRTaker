@@ -3936,6 +3936,24 @@ HTML,
 </div>
 HTML,
 ],
+'tenant_nudge' => [
+'Add your first tenant {{name}} 👥 — get rent flowing',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#27AE60,#1E8449);padding:22px 32px">
+    <div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">KRTaker<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KEY RESPONSIBILITY TAKER</span></div>
+  </div>
+  <div style="padding:32px">
+    <h1 style="margin:0 0 8px;font-size:20px;color:#101828">Your property is up — now add tenants, {{name}} 👥</h1>
+    <p style="margin:0 0 8px;color:#475467;font-size:14px;line-height:1.7">You added a property, but it has no tenants yet. Adding your first tenant takes about a minute — then KR can bill rent, track receipts and handle TDS for you.</p>
+    <p style="margin:0 0 22px;color:#475467;font-size:14px;line-height:1.7">With a tenant on your unit you get: <b>automatic rent invoices</b>, <b>payment tracking</b>, <b>tenant portal access</b> (they can pay online) and <b>reminder emails</b>.</p>
+    <a href="{{workspace_url}}" style="display:inline-block;background:#27AE60;color:#fff;padding:13px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px">Add my first tenant →</a>
+    <p style="margin:22px 0 0;color:#8A94A6;font-size:12.5px;line-height:1.7">Need a hand? Reply to this email — we reply within 24 hours. 🇧🇩 Built for Bangladeshi property owners.</p>
+  </div>
+  <div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh<br>support@krtaker.com · +880 1722-759646</div>
+</div>
+HTML,
+],
 'collections' => [
 'KRTaker — {{unpaid}} unpaid rent invoice(s)',
 <<<'HTML'
@@ -4348,7 +4366,7 @@ function seed_templates($pdo) {
                 ->execute([$id, $n[0], $n[1], $n[2], $body, 'system', $n[3]]);
         }
     }
-    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'owner_digest' => ['Owner Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en'], 'tenant_welcome' => ['Tenant Portal Welcome Email', 'en'], 'setup_nudge' => ['First Property Setup Nudge', 'en'], 'payment_failed' => ['Payment Failed Notice', 'en']];
+    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'owner_digest' => ['Owner Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en'], 'tenant_welcome' => ['Tenant Portal Welcome Email', 'en'], 'setup_nudge' => ['First Property Setup Nudge', 'en'], 'tenant_nudge' => ['Add Your First Tenant Nudge', 'en'], 'payment_failed' => ['Payment Failed Notice', 'en']];
     foreach ($emails as $id => $em) {
         list($subj, $body) = seed_email_tpl($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM email_templates WHERE id=?'); $st->execute([$id]);
@@ -4494,6 +4512,7 @@ function email_sample_vars($id) {
         case 'otp': return ['code' => '483920', 'name' => 'Tahmina Akter', 'expiry' => '5 minutes'];
         case 'welcome': return ['name' => 'Tahmina Akter', 'trial_end' => '26 Jun 2026', 'workspace_url' => 'https://krtaker.com/app-v3/'];
         case 'setup_nudge': return ['name' => 'Tahmina Akter', 'trial_end' => '26 Jun 2026', 'workspace_url' => 'https://krtaker.com/app-v3/#/setup'];
+        case 'tenant_nudge': return ['name' => 'Tahmina Akter', 'workspace_url' => 'https://krtaker.com/app-v3/#/tenants'];
         case 'collections': return ['unpaid' => '3', 'total' => '৳4,82,000', 'items' => '<tr><td style="padding:8px 10px;border-bottom:1px solid #E4EAF3;font-size:13px"><b>INV-2026-0011</b><br><span style="color:#8A94A6;font-size:11px">Sultana Rahman · Green View Residency</span></td><td style="padding:8px 10px;border-bottom:1px solid #E4EAF3;font-size:13px">2026-06</td><td style="padding:8px 10px;border-bottom:1px solid #E4EAF3;font-size:13px;text-align:right">৳32,000</td></tr><tr><td style="padding:8px 10px;font-size:13px"><b>INV-2026-0012</b><br><span style="color:#8A94A6;font-size:11px">Rahim Steel · Banani Commercial Tower</span></td><td style="padding:8px 10px;font-size:13px">2026-06</td><td style="padding:8px 10px;font-size:13px;text-align:right">৳4,50,000</td></tr>'];
         case 'rent_reminder': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'amount' => '32,000', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)'];
         case 'invoice': return ['tenant_name' => 'Sultana Rahman', 'invoice_id' => 'INV-2026-0011', 'month' => '2026-06', 'property' => 'Green View Residency', 'unit' => 'Flat 3B (U-001)', 'amount' => '32,000', 'due' => '32,000', 'due_color' => '#B91C1C'];
@@ -17404,6 +17423,80 @@ case 'app-setup-nudge': {
                 }
             }
             audit($u['name'], 'Setup nudge run', 'subscribers', 'nudge', 'queued=' . $queued . ' skipped=' . $skipped);
+        }
+        json_out(['ok' => true, 'dry_run' => !$send, 'candidates' => count($plan), 'queued' => $queued, 'skipped' => $skipped, 'sent_list' => $sentList]);
+    }
+
+    json_out(['ok' => false, 'error' => 'action must be preview|run.'], 400);
+}
+
+case 'app-tenant-nudge': {
+    /* Welcome sequence step 3 (GO-LIVE 4.1): owners who added at least one
+       property but have NO tenants yet get ONE nudge to add their first
+       tenant. Service-key gated (daily cron) or staff roles may preview/run.
+       Idempotent via platform_meta (tnudge_done_<md5(email)>). */
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true))
+            json_out(['ok' => false, 'error' => 'Your role cannot run tenant nudges.'], 403);
+    } else {
+        $u = ['name' => 'system', 'role' => 'service', 'email' => ''];
+    }
+    $pdo = db();
+    $action = trim($body['action'] ?? $_GET['action'] ?? '');
+    if ($action === '') $action = 'preview';
+
+    /* Candidates: active subscribers, verified ≥24h ago, trial not expired,
+       owning ≥1 property but with NO tenant rows under their email. */
+    $cand = $pdo->query(
+        "SELECT s.id, s.name, s.email, s.trial_end, s.verified_at,
+                (SELECT COUNT(*) FROM properties p WHERE p.sub_email = s.email) AS props
+           FROM subscribers s
+          WHERE s.status='active'
+            AND s.verified_at IS NOT NULL
+            AND s.verified_at <= datetime('now', '-1 day')
+            AND (s.trial_end IS NULL OR s.trial_end >= date('now'))
+            AND EXISTS (SELECT 1 FROM properties p WHERE p.sub_email = s.email)
+            AND NOT EXISTS (SELECT 1 FROM tenants t WHERE lower(t.sub_email) = lower(s.email))
+          ORDER BY s.verified_at"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $plan = [];
+    foreach ($cand as $c) {
+        $done = (string)$pdo->query("SELECT v FROM platform_meta WHERE k='" . 'tnudge_done_' . md5($c['email']) . "'")->fetchColumn();
+        $plan[] = [
+            'id' => (int)$c['id'], 'name' => $c['name'], 'email' => $c['email'],
+            'trial_end' => $c['trial_end'], 'verified_at' => $c['verified_at'],
+            'props' => (int)$c['props'], 'already' => $done !== '',
+        ];
+    }
+    $nudgable = array_values(array_filter($plan, fn($r) => !$r['already']));
+
+    if ($action === 'preview') {
+        json_out(['ok' => true, 'candidates' => count($plan), 'to_nudge' => count($nudgable), 'plan' => $plan]);
+    }
+
+    if ($action === 'run') {
+        $send = !empty($body['send']);
+        $queued = 0; $skipped = 0;
+        $sentList = [];
+        if ($send) {
+            foreach ($nudgable as $r) {
+                if (!mail_switch($pdo, 'welcome')) { $skipped++; continue; }   /* same class of mail */
+                list($subj, $html) = email_render('tenant_nudge', [
+                    'org_name' => 'KRTaker', 'name' => $r['name'],
+                    'workspace_url' => 'https://krtaker.com/app-v3/#/tenants',
+                ]);
+                $ok = send_mail($r['email'], $subj, $html, null, true);
+                if ($ok) {
+                    $queued++;
+                    $pdo->prepare("INSERT OR REPLACE INTO platform_meta (k, v) VALUES (?, ?)")
+                        ->execute(['tnudge_done_' . md5($r['email']), gmdate('Y-m-d H:i:s')]);
+                    $sentList[] = ['name' => $r['name'], 'email' => $r['email']];
+                }
+            }
+            audit($u['name'], 'Tenant nudge run', 'subscribers', 'nudge', 'queued=' . $queued . ' skipped=' . $skipped);
         }
         json_out(['ok' => true, 'dry_run' => !$send, 'candidates' => count($plan), 'queued' => $queued, 'skipped' => $skipped, 'sent_list' => $sentList]);
     }
