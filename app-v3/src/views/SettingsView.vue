@@ -103,6 +103,7 @@ onMounted(async () => {
   loadTwofa()
   loadSessions()
   loadLoginHistory()
+  loadPrivacy()
   if (auth.user?.role === 'superadmin') loadAudit()
 })
 
@@ -194,6 +195,47 @@ async function saveSettings() {
   const r = await apiCall('app-settings-save', { settings: prefs.value })
   if (r.ok) saved.value = t('Preferences saved.')
   else err.value = r.error || t('Failed to save.')
+}
+
+// ── V2.45: Privacy & data (DPA-2023) — consent ledger, right of access, right to erasure ──
+const privacy = ref({ loading: true, records: [], state: {}, err: '', busy: false, delConfirm: '' })
+const isSub = computed(() => !auth.user?.is_staff)
+async function loadPrivacy() {
+  privacy.value.loading = true
+  try {
+    const r = await apiCall('app-consent-list', {})
+    if (r.ok) { privacy.value.records = r.records || []; privacy.value.state = r.state || {} }
+    else privacy.value.err = r.error || ''
+  } finally { privacy.value.loading = false }
+}
+async function setConsent(kind, granted) {
+  privacy.value.busy = true
+  try {
+    const r = await apiCall('app-consent-set', { kind, granted: granted ? '1' : '0' })
+    if (r.ok) { privacy.value.state = r.state || {}; toast(t('Consent updated.'), 'ok'); if (kind === 'push' && !granted) await loadPrivacy() }
+    else toast(r.error || t('Failed.'), 'error')
+  } finally { privacy.value.busy = false }
+}
+async function exportMyData() {
+  privacy.value.busy = true
+  try {
+    const res = await fetch('https://krtaker.com/api/app-gdpr-export', { headers: { Authorization: 'Bearer ' + (auth.token || '') } })
+    if (!res.ok) { const j = await res.json().catch(() => ({})); toast(j.error || 'Export failed.', 'error'); return }
+    const blob = await res.blob()
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'krtaker-my-data.json'; a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+    toast(t('Your data export is downloading.'), 'ok')
+  } finally { privacy.value.busy = false }
+}
+async function deleteMyData() {
+  privacy.value.busy = true
+  try {
+    const r = await apiCall('app-gdpr-delete', { confirm: privacy.value.delConfirm.trim() })
+    if (r.ok) {
+      toast('Your account data has been erased. Logging out…', 'ok')
+      setTimeout(() => { try { auth.logout && auth.logout() } catch (e) {}; location.href = 'https://krtaker.com/' }, 1200)
+    } else toast(r.error || 'Delete failed.', 'error')
+  } finally { privacy.value.busy = false }
 }
 
 const roleLabel = computed(() => {
@@ -693,6 +735,39 @@ async function downloadExport() {
               <template v-else-if="pushState.notifPermission === 'denied'">⚠️ Notification permission is blocked in this browser — unblock it from the site settings (padlock icon) to enable.</template>
               <template v-else>{{ t('No devices registered on this browser yet.') }}</template>
             </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Privacy & data (V2.45 / DPA-2023) -->
+      <div class="panel" style="margin-top:18px">
+        <div class="panel-h"><div class="t"><span class="pi">🛡️</span>{{ t('Privacy & data') }}</div></div>
+        <div class="panel-b">
+          <div class="c-sub" style="font-size:12.5px;margin-bottom:12px">Under the Bangladesh Data Protection Act 2023 you have the right to access, port and erase your personal data. Consent to marketing is recorded per-email in our ledger — you can change it any time.</div>
+          <div v-if="privacy.loading" style="color:var(--text-mute);font-size:13px">Loading…</div>
+          <template v-else>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+              <label v-for="c in [['marketing', t('Marketing emails (product updates & tips)')], ['push', t('Browser push notifications')]]" :key="c[0]" style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:11px 14px">
+                <input type="checkbox" style="width:16px;height:16px" :checked="!!privacy.state[c[0]]" :disabled="privacy.busy" @change="setConsent(c[0], $event.target.checked)">
+                {{ c[1] }}
+                <span class="badge" :class="privacy.state[c[0]] ? 'b-green' : 'b-gray'" style="margin-left:auto">{{ privacy.state[c[0]] ? t('On') : t('Off') }}</span>
+              </label>
+            </div>
+            <div v-if="privacy.records.length" style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">
+              <div style="font-weight:800;font-size:13px;margin-bottom:8px">📜 {{ t('Consent ledger') }}</div>
+              <div v-for="(r, i) in privacy.records.slice(0, 8)" :key="i" style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:4px 0;border-bottom:1px dashed var(--border)">
+                <span><b>{{ r.kind }}</b> — {{ r.granted ? '✅ granted' : '🚫 withdrawn' }} <span class="c-sub">v{{ r.version }}</span></span>
+                <span class="c-sub">{{ fmtDate(r.created_at) }}</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:14px">
+              <button class="btn-ghost" :disabled="privacy.busy" @click="exportMyData" style="font-size:12.5px">📦 {{ t('Export my data') }}</button>
+              <template v-if="isSub">
+                <input v-model="privacy.delConfirm" placeholder="Type DELETE to erase" style="flex:1;min-width:180px;font-size:12.5px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-alt);color:var(--text)">
+                <button class="btn-ghost" style="color:var(--danger);font-size:12.5px" :disabled="privacy.busy || privacy.delConfirm !== 'DELETE'" @click="deleteMyData">🗑️ {{ t('Erase my data') }}</button>
+              </template>
+            </div>
+            <div v-if="privacy.err" style="margin-top:10px;font-size:12.5px;color:var(--danger)">{{ privacy.err }}</div>
           </template>
         </div>
       </div>

@@ -99,6 +99,13 @@ const BN = {
   'Email OTP': 'ইমেইল ওটিপি', 'Authenticator app': 'অথেন্টিকেটর অ্যাপ', 'Enable 2FA': '2FA চালু করুন',
   'Disable 2FA': '2FA বন্ধ করুন', 'Current password': 'বর্তমান পাসওয়ার্ড', 'New password': 'নতুন পাসওয়ার্ড',
   'Confirm password': 'পাসওয়ার্ড নিশ্চিত করুন', 'Browser notifications': 'ব্রাউজার নোটিফিকেশন',
+ 'Privacy & data': 'গোপনীয়তা ও ডেটা',
+ 'Marketing emails (product updates & tips)': 'মার্কেটিং ইমেইল (পণ্য আপডেট ও টিপস)',
+ 'Consent ledger': 'সম্মতি লেজার',
+ 'Export my data': 'আমার ডেটা এক্সপোর্ট',
+ 'Erase my data': 'আমার ডেটা মুছুন',
+ 'Consent updated.': 'সম্মতি আপডেট হয়েছে।',
+ 'Your data export is downloading.': 'আপনার ডেটা এক্সপোর্ট ডাউনলোড হচ্ছে।',
   'Subscribe push': 'পুশ সাবস্ক্রাইব', 'Rent reminders': 'ভাড়া রিমাইন্ডার', 'Collections digest': 'আদায় ডাইজেস্ট',
   'Weekly digest': 'সাপ্তাহিক ডাইজেস্ট', 'Language': 'ভাষা', 'বাংলা': 'বাংলা', 'English': 'English',
 

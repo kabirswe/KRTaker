@@ -150,6 +150,7 @@
         email: hasEmail ? email : '',
         phone: hasPhone ? fullPhone() : '',
         role: state.role, pass, agree: '1',
+        marketing_ok: ($('rMarketing') && $('rMarketing').checked) ? '1' : '0',
       }, bg);
       const ref = refCode || (function(){ try { return localStorage.getItem('krtaker_ref') || ''; } catch (x) { return ''; } })();
       if (ref) body.ref = ref;

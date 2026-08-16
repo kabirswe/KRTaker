@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260924) {
+        if ($__sv < 20260925) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1175,7 +1175,21 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260924'); } catch (Exception $e) {}
+        /* V2.45: DPA-2023 consent ledger — one row per (email, kind) grant/withdraw.
+           terms/privacy recorded at registration (mandatory); marketing is explicit
+           opt-in; push recorded when a device subscription is saved. Rows are kept
+           as audit evidence even after account erasure (proves consent was given). */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS consent_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            granted INTEGER NOT NULL DEFAULT 1,
+            version TEXT DEFAULT '',
+            ip TEXT DEFAULT '',
+            ua TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_consent_email_kind ON consent_records(email, kind)");
+        try { $pdo->exec('PRAGMA user_version=20260925'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -8125,6 +8139,22 @@ function gdpr_account_row($pdo, $email) {
     $r['password_hash'] = '[redacted]'; $r['otp_hash'] = '[redacted]';
     return $r;
 }
+/* V2.45: DPA-2023 consent ledger — append-only record of a consent grant/withdraw.
+   Every write is a NEW row (the ledger is an audit trail); latest row per
+   (email, kind) is the current state. Kept even after account erasure. */
+function record_consent($pdo, $email, $kind, $granted, $version = '1.0') {
+    $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 200);
+    $st = $pdo->prepare('INSERT INTO consent_records (email, kind, granted, version, ip, ua) VALUES (?,?,?,?,?,?)');
+    $st->execute([$email, $kind, $granted ? 1 : 0, $version, client_ip(), $ua]);
+}
+function consent_state($pdo, $email) {
+    if (!$email) return [];
+    $st = $pdo->prepare('SELECT kind, granted, MAX(created_at) AS at FROM consent_records WHERE email=? GROUP BY kind ORDER BY kind');
+    $st->execute([$email]);
+    $out = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $out[$r['kind']] = (int)$r['granted'] === 1;
+    return $out;
+}
 function user_profile($pdo, $u) {
     $profile = [
         'id' => $u['id'], 'name' => $u['name'], 'email' => $u['email'],
@@ -11903,7 +11933,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-ai-quota', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history', 'app-kpi-daily'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-ai-quota', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-consent-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history', 'app-kpi-daily'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -11976,6 +12006,14 @@ case 'register': {
     if (($body['agree'] ?? '') !== '1') {
         json_out(['ok' => false, 'error' => 'You must accept the Terms of Service and Privacy Policy to register.'], 400);
     }
+    /* V2.45 (DPA-2023): record the consent ledger. Terms + privacy are mandatory
+       (proven by the agree flag above); marketing is explicit opt-in and stays
+       OFF unless the register form checkbox was ticked. Ledger rows are appended
+       per attempt so the audit trail shows the exact moment consent was given. */
+    $pdo0 = db();
+    record_consent($pdo0, $email, 'terms', true);
+    record_consent($pdo0, $email, 'privacy', true);
+    record_consent($pdo0, $email, 'marketing', (($body['marketing_ok'] ?? '') === '1'));
     /* Email OR phone — at least one is required (V2.33) */
     $phoneRaw = trim((string)($body['phone'] ?? ''));
     if ($email === '' && $phoneRaw === '') {
@@ -13028,6 +13066,7 @@ case 'push-save': {
     $pdo->prepare('INSERT INTO push_subs (sub_email, endpoint, p256dh, auth, ua) VALUES (?,?,?,?,?)
         ON CONFLICT(endpoint) DO UPDATE SET sub_email=excluded.sub_email, p256dh=excluded.p256dh, auth=excluded.auth, ua=excluded.ua, created_at=datetime(\'now\')')
         ->execute([$u['email'], $ep, $p256, $auth, $ua]);
+    record_consent($pdo, $u['email'], 'push', true);   /* V2.45: browser push = explicit consent, ledgered */
     audit($u['name'], 'Push device registered', 'notifications', substr($ep, 0, 60));
     json_out(['ok' => true]);
 }
@@ -16711,6 +16750,30 @@ case 'app-gdpr-export': {
         if (!$mine) json_out(['ok' => false, 'error' => 'No tenant profile.'], 404);
         if ($tid && $tid !== $mine) json_out(['ok' => false, 'error' => 'Not your data.'], 403);
         $tid = $mine;
+    } elseif (($u['kind'] ?? '') === 'sub' && !$tid) {
+        /* V2.45: self-service right-of-access export — a subscriber's OWN data
+           (account row, consent ledger, settings, owned properties). */
+        $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
+        $st = $pdo->prepare('SELECT * FROM subscribers WHERE email=?'); $st->execute([$u['email']]);
+        $sub = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$sub) json_out(['ok' => false, 'error' => 'Account not found.'], 404);
+        $cs = $pdo->prepare('SELECT kind, granted, version, ip, created_at FROM consent_records WHERE email=? ORDER BY id'); $cs->execute([$u['email']]);
+        $data = [
+            'generated_at' => gmdate('Y-m-d H:i:s') . ' UTC',
+            'exported_by' => $u['name'],
+            'note' => 'Machine-readable copy of YOUR personal data held by KRTaker (right of access, DPA-2023). Tenant data inside your portfolio is exported from the Tenants tab (Data export per tenant).',
+            'account' => gdpr_account_row($pdo, $u['email']),
+            'consents' => $cs->fetchAll(PDO::FETCH_ASSOC),
+            'settings' => settings_get($pdo, user_key_for($u)),
+            'owned_properties' => $q('SELECT id, name, type, jur, address, status, created_at FROM properties WHERE sub_email=? ORDER BY id', [$u['email']]),
+        ];
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $fn = 'krtaker-my-data-' . gmdate('Ymd') . '.json';
+        audit($u['name'], 'GDPR self data export', 'privacy', $u['email']);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $fn . '"');
+        echo $json;
+        exit;
     } elseif (in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) {
         if (!$tid) json_out(['ok' => false, 'error' => 't (tenant) required.'], 400);
         $st = $pdo->prepare('SELECT COUNT(*) FROM tenants WHERE id=?'); $st->execute([$tid]);
@@ -16761,6 +16824,75 @@ case 'app-gdpr-export': {
     header('Content-Disposition: attachment; filename="' . $fn . '"');
     echo $json;
     exit;
+}
+
+/* ── V2.45 (DPA-2023): consent ledger + right to erasure ── */
+case 'app-consent-list': {
+    $u = require_user();
+    $pdo = db();
+    $st = $pdo->prepare('SELECT kind, granted, version, ip, created_at FROM consent_records WHERE email=? ORDER BY id DESC');
+    $st->execute([$u['email']]);
+    json_out(['ok' => true, 'email' => $u['email'], 'records' => $st->fetchAll(PDO::FETCH_ASSOC), 'state' => consent_state($pdo, $u['email'])]);
+}
+case 'app-consent-set': {
+    $u = require_user();
+    $kind = trim((string)($body['kind'] ?? ''));
+    if (!in_array($kind, ['marketing', 'push', 'terms', 'privacy'], true))
+        json_out(['ok' => false, 'error' => 'Invalid consent kind.'], 400);
+    $g = $body['granted'] ?? '';
+    $granted = ($g === '1' || $g === 1 || $g === true || $g === 'true');
+    if (in_array($kind, ['terms', 'privacy'], true) && !$granted)
+        json_out(['ok' => false, 'error' => 'Terms and Privacy consent cannot be withdrawn while the account exists.'], 400);
+    $pdo = db();
+    record_consent($pdo, $u['email'], $kind, $granted);
+    if ($kind === 'push' && !$granted) {
+        $pdo->prepare('DELETE FROM push_subs WHERE sub_email=?')->execute([$u['email']]);
+    }
+    audit($u['name'], 'Consent ' . ($granted ? 'granted' : 'withdrawn') . ': ' . $kind, 'privacy', $u['email']);
+    json_out(['ok' => true, 'state' => consent_state($pdo, $u['email'])]);
+}
+case 'app-gdpr-delete': {
+    /* DPA-2023 right to erasure — self-service, subscriber accounts only.
+       Erases the subscriber's personal data (PII, sessions, devices, settings),
+       detaches ownership references, deactivates the login. Financial and
+       operational records are retained with anonymized references (they involve
+       other data subjects — tenants), and the consent ledger is kept as legal
+       evidence that consent was given. */
+    $u = require_user();
+    if (($u['kind'] ?? 'sub') !== 'sub')
+        json_out(['ok' => false, 'error' => 'Platform staff accounts cannot be self-deleted — contact support.'], 403);
+    if (trim((string)($body['confirm'] ?? '')) !== 'DELETE')
+        json_out(['ok' => false, 'error' => 'Type DELETE to confirm permanent erasure.'], 400);
+    $pdo = db();
+    $email = $u['email'];
+    $erased = [];
+    $st = $pdo->prepare('SELECT COUNT(*) FROM push_subs WHERE sub_email=?'); $st->execute([$email]);
+    $erased['push_subscriptions'] = (int)$st->fetchColumn();
+    $pdo->prepare('DELETE FROM push_subs WHERE sub_email=?')->execute([$email]);
+    $st = $pdo->prepare('SELECT COUNT(*) FROM app_tokens WHERE user_id=? AND kind=?'); $st->execute([$u['id'], 'sub']);
+    $erased['sessions'] = (int)$st->fetchColumn();
+    $pdo->prepare('DELETE FROM app_tokens WHERE user_id=? AND kind=?')->execute([$u['id'], 'sub']);
+    $st = $pdo->prepare('SELECT COUNT(*) FROM user_settings WHERE user_key=?'); $st->execute(['sub:' . $email]);
+    $erased['settings'] = (int)$st->fetchColumn();
+    $pdo->prepare('DELETE FROM user_settings WHERE user_key=?')->execute(['sub:' . $email]);
+    $st = $pdo->prepare("UPDATE tenants SET sub_email='' WHERE sub_email=?"); $st->execute([$email]);
+    $erased['linked_tenant_detached'] = $st->rowCount();
+    $st = $pdo->prepare("UPDATE properties SET sub_email='' WHERE sub_email=?"); $st->execute([$email]);
+    $erased['property_links_detached'] = $st->rowCount();
+    $alias = 'deleted-' . substr(hash('sha256', $email), 0, 10) . '@krtaker.invalid';
+    $st = $pdo->prepare("UPDATE subscribers SET name='Deleted User', org='', phone='', email=?, password_hash=?, otp_hash='', otp_expires='', trial_end='', status='deleted', verified_at=NULL WHERE email=?");
+    $st->execute([$alias, password_hash(bin2hex(random_bytes(8)), PASSWORD_DEFAULT), $email]);
+    $erased['account'] = $email . ' → ' . $alias;
+    audit('Deleted User', 'GDPR data erasure', 'auth', $alias);
+    json_out([
+        'ok' => true,
+        'erased' => $erased,
+        'retained' => [
+            'consent_records (kept as legal evidence of consent, DPA-2023)',
+            'financial & operational records (tenant/lease/invoice rows kept with anonymized references)',
+        ],
+        'note' => 'Account deactivated — login no longer works. You will receive no further emails or pushes.',
+    ]);
 }
 
 /* ── Phase 18: per-user settings (profile lives in the unified app-profile case) ── */
