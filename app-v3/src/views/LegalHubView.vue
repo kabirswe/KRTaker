@@ -108,16 +108,16 @@ const goTab = (t) => { tab.value = t }
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('compliance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">⚖️ Compliance</button>
-        <button @click="goTab('legal')" class="btn-ghost">📜 Legal Engine</button>
-        <button @click="goTab('cases')" class="btn-ghost">👨‍⚖️ Cases</button>
-        <button @click="goTab('concierge')" class="btn-ghost">🗂️ Legal Concierge</button>
+        <button @click="goTab('compliance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">⚖️ {{ t('Compliance') }}</button>
+        <button @click="goTab('legal')" class="btn-ghost">📜 {{ t('Legal Engine') }}</button>
+        <button @click="goTab('cases')" class="btn-ghost">👨‍⚖️ {{ t('Cases') }}</button>
+        <button @click="goTab('concierge')" class="btn-ghost">🗂️ {{ t('Legal Concierge') }}</button>
       </div>
 
       <!-- lists -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">⚖️ Compliance <span class="c-sub">— by expiry</span></div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">⚖️ {{ t('Compliance') }} <span class="c-sub">{{ t('— by expiry') }}</span></div>
           <div v-for="c in soonComp" :key="c.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label || c.id }}</div>
@@ -130,7 +130,7 @@ const goTab = (t) => { tab.value = t }
           <div v-if="!soonComp.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No compliance items.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">👨‍⚖️ Recent cases</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">👨‍⚖️ {{ t('Recent cases') }}</div>
           <div v-for="c in recentCases" :key="c.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.title || c.id }}</div>

@@ -107,18 +107,18 @@ const goTab = (t) => { tab.value = t }
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('smarthome')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">🏠 Building Systems</button>
-        <button @click="goTab('land')" class="btn-ghost">🛰️ Land Guard</button>
-        <button @click="goTab('build')" class="btn-ghost">🏗️ Build Watch</button>
-        <button @click="goTab('firesafety')" class="btn-ghost">🧯 Fire Safety</button>
-        <button @click="goTab('inspections')" class="btn-ghost">🔍 Inspections</button>
-        <button @click="goTab('kyc')" class="btn-ghost">🪪 Tenant KYC</button>
+        <button @click="goTab('smarthome')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">🏠 {{ t('Building Systems') }}</button>
+        <button @click="goTab('land')" class="btn-ghost">🛰️ {{ t('Land Guard') }}</button>
+        <button @click="goTab('build')" class="btn-ghost">🏗️ {{ t('Build Watch') }}</button>
+        <button @click="goTab('firesafety')" class="btn-ghost">🧯 {{ t('Fire Safety') }}</button>
+        <button @click="goTab('inspections')" class="btn-ghost">🔍 {{ t('Inspections') }}</button>
+        <button @click="goTab('kyc')" class="btn-ghost">🪪 {{ t('Tenant KYC') }}</button>
       </div>
 
       <!-- lists -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🛰️ Upcoming land visits</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🛰️ {{ t('Upcoming land visits') }}</div>
           <div v-for="v in upcomingVisits" :key="v.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.parcel || v.purpose || v.id }}</div>
@@ -131,7 +131,7 @@ const goTab = (t) => { tab.value = t }
           <div v-if="!upcomingVisits.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No upcoming visits.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🚨 Recent fire incidents</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🚨 {{ t('Recent fire incidents') }}</div>
           <div v-for="f in fireRecent" :key="f.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.title || f.location || f.id }}</div>

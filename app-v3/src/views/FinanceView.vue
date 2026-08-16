@@ -195,24 +195,24 @@ onMounted(loadOverview)
 
         <!-- Quick actions -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-          <button @click="goTab('invoices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" title="Open Invoices tab and auto-generate this month's invoices">⚡ Auto-generate invoices</button>
-          <button @click="goTab('invoices')" class="btn-ghost" :title="t('Open Invoices tab to record a tenant payment')">💳 Record payment</button>
-          <button @click="goTab('collections')" class="btn-ghost" :title="t('Open Collections tab — bank collections and reconciliation')">📮 Collections &amp; recon</button>
-          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" :title="t('Post a money-in entry to the accounts ledger')">📥 Post receive</button>
-          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" :title="t('Post a money-out entry to the accounts ledger')">📤 Post expense</button>
-          <button @click="goTab('accounts')" class="btn-ghost" :title="t('Open the full accounts ledger (receive / expense / deposit / withdraw)')">💱 Accounts ledger</button>
-          <button @click="goTab('subscriptions')" class="btn-ghost" :title="t('Open Subscriptions tab — plan, billing and premium features')">💎 Subscriptions</button>
+          <button @click="goTab('invoices')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Open Invoices tab and auto-generate this month\'s invoices')">⚡ {{ t('Auto-generate invoices') }}</button>
+          <button @click="goTab('invoices')" class="btn-ghost" :title="t('Open Invoices tab to record a tenant payment')">💳 {{ t('Record payment') }}</button>
+          <button @click="goTab('collections')" class="btn-ghost" :title="t('Open Collections tab — bank collections and reconciliation')">📮 {{ t('Collections & recon') }}</button>
+          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" :title="t('Post a money-in entry to the accounts ledger')">📥 {{ t('Post receive') }}</button>
+          <button v-if="canManage" @click="goTab('accounts')" class="btn-ghost" :title="t('Post a money-out entry to the accounts ledger')">📤 {{ t('Post expense') }}</button>
+          <button @click="goTab('accounts')" class="btn-ghost" :title="t('Open the full accounts ledger (receive / expense / deposit / withdraw)')">💱 {{ t('Accounts ledger') }}</button>
+          <button @click="goTab('subscriptions')" class="btn-ghost" :title="t('Open Subscriptions tab — plan, billing and premium features')">💎 {{ t('Subscriptions') }}</button>
         </div>
 
         <!-- charts row -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:14px">
           <div class="panel" style="padding:16px 18px">
-            <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">📈 Cashflow — 12 months</div>
+            <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">📈 {{ t('Cashflow — 12 months') }}</div>
             <div class="c-sub" style="font-size:11.5px;margin-bottom:12px">income vs expenses · net {{ money(cashflow?.total_net || 0) }} · expense ratio {{ cashflow?.expense_ratio || 0 }}%</div>
             <LineChart :series="flowSeries" :labels="flowLabels" :fmt="money" :height="180" />
           </div>
           <div class="panel" style="padding:16px 18px">
-            <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">💳 Collections by method</div>
+            <div style="font-weight:800;font-size:13.5px;margin-bottom:4px">💳 {{ t('Collections by method') }}</div>
             <div class="c-sub" style="font-size:11.5px;margin-bottom:12px">on-time {{ collections?.on_time_rate || 0 }}% · avg {{ collections?.avg_days_late || 0 }}d late · late {{ money(collections?.late_amount || 0) }}</div>
             <Donut :segments="methodSegs" :size="170" :thickness="26" :center-label="t('Collected')" :center-value="money(collections ? collections.by_method.reduce((s, m) => s + (m.amount || 0), 0) : 0)" :fmt="money" />
           </div>
@@ -221,11 +221,11 @@ onMounted(loadOverview)
         <!-- aging + lists -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
           <div class="panel" style="padding:16px 18px">
-            <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">⏰ Arrears aging</div>
+            <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">⏰ {{ t('Arrears aging') }}</div>
             <HBars :rows="agingRows" :fmt="money" />
           </div>
           <div class="panel" style="padding:16px 18px">
-            <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">⏳ Unpaid invoices <span class="c-sub">— top by due</span></div>
+            <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">⏳ {{ t('Unpaid invoices') }} <span class="c-sub">{{ t('— top by due') }}</span></div>
             <div v-for="i in unpaidList" :key="i.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
               <div style="overflow:hidden">
                 <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.tenant }}</div>
@@ -239,7 +239,7 @@ onMounted(loadOverview)
             <div v-if="!unpaidList.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">All invoices paid 🎉</div>
           </div>
           <div class="panel" style="padding:16px 18px">
-            <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📥 Recent payments</div>
+            <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📥 {{ t('Recent payments') }}</div>
             <div v-for="p in recentPayments" :key="p.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
               <div style="overflow:hidden">
                 <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.tenant }}</div>

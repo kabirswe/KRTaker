@@ -117,19 +117,19 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
 
       <!-- Quick actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
-        <button @click="goTab('properties')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Manage your properties')">🏢 Properties</button>
-        <button @click="goTab('units')" class="btn-ghost" :title="t('Manage units within your properties')">🚪 Units</button>
-        <button @click="goTab('tenants')" class="btn-ghost" :title="t('Manage tenants and their profiles')">👤 Tenants</button>
-        <button @click="goTab('leases')" class="btn-ghost" :title="t('Manage lease agreements')">📄 Leases</button>
-        <button @click="goTab('onboarding')" class="btn-ghost" :title="t('Tenant onboarding checklists')">📋 Onboarding</button>
-        <button @click="goTab('leads')" class="btn-ghost" :title="t('Track property leads')">📥 Leads</button>
-        <button @click="goTab('documents')" class="btn-ghost" :title="t('Documents vault and templates')">📁 Documents</button>
+        <button @click="goTab('properties')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Manage your properties')">🏢 {{ t('Properties') }}</button>
+        <button @click="goTab('units')" class="btn-ghost" :title="t('Manage units within your properties')">🚪 {{ t('Units') }}</button>
+        <button @click="goTab('tenants')" class="btn-ghost" :title="t('Manage tenants and their profiles')">👤 {{ t('Tenants') }}</button>
+        <button @click="goTab('leases')" class="btn-ghost" :title="t('Manage lease agreements')">📄 {{ t('Leases') }}</button>
+        <button @click="goTab('onboarding')" class="btn-ghost" :title="t('Tenant onboarding checklists')">📋 {{ t('Onboarding') }}</button>
+        <button @click="goTab('leads')" class="btn-ghost" :title="t('Track property leads')">📥 {{ t('Leads') }}</button>
+        <button @click="goTab('documents')" class="btn-ghost" :title="t('Documents vault and templates')">📁 {{ t('Documents') }}</button>
       </div>
 
       <!-- lists -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📋 Onboarding pipeline <span class="c-sub">— recent</span></div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📋 {{ t('Onboarding pipeline') }} <span class="c-sub">{{ t('— recent') }}</span></div>
           <div v-for="a in recentOnboarding" :key="a.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.name || a.id }}</div>
@@ -142,7 +142,7 @@ onMounted(() => { /* KPIs are reactive — nothing to fetch */ })
           <div v-if="!recentOnboarding.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No onboarding applications yet.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📥 Recent leads</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📥 {{ t('Recent leads') }}</div>
           <div v-for="l in recentLeads" :key="l.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.name || l.id }}</div>

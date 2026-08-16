@@ -111,6 +111,17 @@ const BN = {
 
   // ── Finance ──
   'New invoice': 'নতুন ইনভয়েস', 'Record payment': 'পেমেন্ট রেকর্ড করুন', 'Auto-generate': 'অটো-জেনারেট',
+  'Auto-generate invoices': 'ইনভয়েস অটো-জেনারেট করুন', 'Collections & recon': 'আদায় ও রিকনসিলিয়েশন',
+  'Post receive': 'রিসিভ পোস্ট করুন', 'Post expense': 'এক্সপেন্স পোস্ট করুন',
+  'Accounts ledger': 'অ্যাকাউন্টস লেজার', Subscriptions: 'সাবস্ক্রিপশন',
+  Properties: 'সম্পত্তি', Tenants: 'ভাড়াটিয়া', Meters: 'মিটার', Utilities: 'ইউটিলিটি',
+  'Cashflow — 12 months': 'ক্যাশফ্লো — ১২ মাস', 'Collections by method': 'পদ্ধতি অনুযায়ী আদায়',
+  '— top by due': '— বকেয়া অনুযায়ী শীর্ষ', '— recent': '— সাম্প্রতিক', '— by expiry': '— মেয়াদ অনুযায়ী',
+  'Onboarding pipeline': 'অনবোর্ডিং পাইপলাইন', 'Recent leads': 'সাম্প্রতিক লিড',
+  'Recent notices': 'সাম্প্রতিক নোটিশ', 'Recent referrals': 'সাম্প্রতিক রেফারেল',
+  'Recent cases': 'সাম্প্রতিক মামলা', 'Recent maintenance': 'সাম্প্রতিক মেইনটেন্যান্স',
+  'Recent gate visits': 'সাম্প্রতিক গেট ভিজিট', 'Upcoming land visits': 'আসন্ন জমি পরিদর্শন',
+  'Recent fire incidents': 'সাম্প্রতিক অগ্নিকাণ্ড',
   Paid: 'পরিশোধিত', 'Partially paid': 'আংশিক পরিশোধিত', Unpaid: 'অপরিশোধিত', Sent: 'পাঠানো', Draft: 'খসড়া',
   Void: 'বাতিল', 'Invoice ID': 'ইনভয়েস আইডি', 'Issue receipt': 'রসিদ ইস্যু করুন', Method: 'পদ্ধতি',
   bKash: 'বিকাশ', Nagad: 'নগদ', Bank: 'ব্যাংক', Cash: 'নগদ', 'Due': 'বকেয়া', Overdue: 'অতিরিক্ত বকেয়া',

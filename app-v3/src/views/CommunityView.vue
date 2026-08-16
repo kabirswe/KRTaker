@@ -101,7 +101,7 @@ const goTab = (t) => { tab.value = t }
       <!-- lists -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📢 Recent notices</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">📢 {{ t('Recent notices') }}</div>
           <div v-for="n in recentNotices" :key="n.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.title || n.id }}</div>
@@ -114,7 +114,7 @@ const goTab = (t) => { tab.value = t }
           <div v-if="!recentNotices.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No notices yet.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🤝 Recent referrals</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🤝 {{ t('Recent referrals') }}</div>
           <div v-for="r in recentRefs" :key="r.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name || r.referee || r.id }}</div>

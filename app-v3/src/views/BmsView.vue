@@ -115,16 +115,16 @@ const goTab = (t) => { tab.value = t }
         <button @click="goTab('maintenance')" style="padding:9px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer" :title="t('Maintenance requests and work orders')">{{ t('🔧 Maintenance') }}</button>
         <button @click="goTab('gate')" class="btn-ghost" :title="t('Visitor and gate visit log')">{{ t('🚪 Gate Visits') }}</button>
         <button @click="goTab('staff')" class="btn-ghost" :title="t('Building staff directory')">👷 {{ t('Staff') }}</button>
-        <button @click="goTab('attendance')" class="btn-ghost" :title="t('Staff attendance tracking')">⏱️ Attendance</button>
-        <button @click="goTab('payroll')" class="btn-ghost" :title="t('Staff payroll management')">💵 Payroll</button>
-        <button @click="goTab('meter')" class="btn-ghost" :title="t('Meter readings')">⚡ Meters</button>
-        <button @click="goTab('utilities')" class="btn-ghost" :title="t('Utility bills (electric, gas, water)')">🔌 Utilities</button>
+        <button @click="goTab('attendance')" class="btn-ghost" :title="t('Staff attendance tracking')">⏱️ {{ t('Attendance') }}</button>
+        <button @click="goTab('payroll')" class="btn-ghost" :title="t('Staff payroll management')">💵 {{ t('Payroll') }}</button>
+        <button @click="goTab('meter')" class="btn-ghost" :title="t('Meter readings')">⚡ {{ t('Meters') }}</button>
+        <button @click="goTab('utilities')" class="btn-ghost" :title="t('Utility bills (electric, gas, water)')">🔌 {{ t('Utilities') }}</button>
       </div>
 
       <!-- lists -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🔧 Recent maintenance</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🔧 {{ t('Recent maintenance') }}</div>
           <div v-for="r in recentMnt" :key="r.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title || r.id }}</div>
@@ -137,7 +137,7 @@ const goTab = (t) => { tab.value = t }
           <div v-if="!recentMnt.length" style="padding:14px 0;text-align:center;color:var(--text-mute);font-size:12.5px">{{ t('No maintenance requests yet.') }}</div>
         </div>
         <div class="panel" style="padding:16px 18px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🚪 Recent gate visits</div>
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🚪 {{ t('Recent gate visits') }}</div>
           <div v-for="g in recentGate" :key="g.id" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px">
             <div style="overflow:hidden">
               <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.name || g.id }}</div>
