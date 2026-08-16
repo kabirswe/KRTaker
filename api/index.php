@@ -11846,7 +11846,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-ai-quota', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-ai-quota', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history', 'app-kpi-daily'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -15085,6 +15085,34 @@ case 'app-ai-optout': {
     db()->prepare('UPDATE subscribers SET ai_optout=? WHERE id=?')->execute([$val, $u['id']]);
     audit($u['name'], 'AI opt-out ' . ($val ? 'enabled' : 'disabled'), 'ai', (string)$u['id']);
     json_out(['ok' => true, 'optout' => (bool)$val]);
+}
+
+case 'app-kpi-daily': {
+    /* V2.44 (GO-LIVE §4.4): daily KPI snapshot for ops readouts.
+       Gated: X-Service-Key header (cron) OR superadmin. Returns counts from
+       the live DB so the KPI cron needs no DB access itself. */
+    $svc = service_authed();
+    if (!$svc) {
+        $u = require_user();
+        if ($u['role'] !== 'superadmin') json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+    }
+    $pdo = db();
+    $one = function ($sql) use ($pdo) { try { return (int)$pdo->query($sql)->fetchColumn(); } catch (Exception $e) { return -1; } };
+    $sum = function ($sql) use ($pdo) { try { return (int)$pdo->query($sql)->fetchColumn(); } catch (Exception $e) { return -1; } };
+    json_out(['ok' => true, 'as_of' => gmdate('Y-m-d H:i:s') . ' UTC',
+        'signups_today'   => $one("SELECT COUNT(*) FROM subscribers WHERE created_at >= date('now')"),
+        'signups_7d'      => $one("SELECT COUNT(*) FROM subscribers WHERE created_at >= date('now','-6 days')"),
+        'active_subs'     => $one("SELECT COUNT(*) FROM subscribers WHERE status='active'"),
+        'activated_today' => $one("SELECT COUNT(*) FROM subscribers WHERE setup_at >= date('now') AND setup_at != ''"),
+        'properties'      => $one("SELECT COUNT(*) FROM properties"),
+        'units'           => $one("SELECT COUNT(*) FROM units"),
+        'payments_today'  => $one("SELECT COUNT(*) FROM payments WHERE status='Success' AND date >= date('now')"),
+        'payments_7d'     => $one("SELECT COUNT(*) FROM payments WHERE status='Success' AND date >= date('now','-6 days')"),
+        'collected_today' => $sum("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='Success' AND date >= date('now')"),
+        'collected_7d'    => $sum("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='Success' AND date >= date('now','-6 days')"),
+        'errors_today'    => $one("SELECT COUNT(*) FROM app_error_log WHERE last_ts >= date('now') OR first_ts >= date('now')"),
+        'ai_calls_today'  => $one("SELECT COUNT(*) FROM ai_log WHERE ts >= date('now')"),
+        'tickets_open'    => $one("SELECT COUNT(*) FROM support WHERE status NOT IN ('closed','resolved','done')")]);
 }
 
 case 'app-crud': {

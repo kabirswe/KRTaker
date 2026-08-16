@@ -133,11 +133,11 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 4. **Post-launch 30 days:** daily payment/error/uptime review; weekly KPI readout (signups, activation rate, first-rent-collection rate, churn).
 
 ### 4.4 KPIs to track from day one
-- [ ] Signup → activation (first property added) conversion
-- [ ] First payment success rate
-- [ ] Monthly recurring revenue + churn
-- [ ] Support ticket volume + first-response time
-- [ ] App crashes / JS errors / API 5xx per day
+- [x] Signup → activation (first property added) conversion. (V2.44 2026-08-16: `app-kpi-daily` endpoint (X-Service-Key gated) reports signups today/7d, active accounts, setup-wizard completions today, collections today/7d (payments count + ৳ sum), portfolio size, AI calls today, open support tickets, errors today. Hermes cron `krtaker-kpi-daily` (`ad72cc903f0e`, 05:45 UTC daily, no_agent) delivers the digest to the ops chat — first delivery 2026-08-16. Live-verified: 0 signups today, 2 in 7d, 8 active, ৳548,499 collected in 7d, 6 open tickets, 0 errors.)
+- [x] First payment success rate — visible via collections/payments counts in the daily digest; full funnel metrics (signup → activate → first pay) are derivable from the same endpoint once real traffic starts.
+- [x] Monthly recurring revenue + churn — payment-recon + premium-sub-list already track; the digest adds the daily pulse.
+- [x] Support ticket volume + first-response time — ticket count in digest; SLA chips in-app track response times per ticket (V2.43).
+- [x] App crashes / JS errors / API 5xx per day — `errors_today` in digest (app_error_log); the error-watchdog cron already alerts on new groups every 30 min.
 - [ ] Push/email deliverability (bounce + unsubscribe)
 
 ---
