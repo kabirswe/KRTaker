@@ -17178,11 +17178,20 @@ case 'app-premium-billing': {
         $ref = trim($body['ref'] ?? 'CI-' . strtoupper(substr(md5($id . gmdate('YmdHis')), 0, 8)));
         $pdo->beginTransaction();
         try {
+            /* V2.45 idempotency barrier: atomically claim the invoice BEFORE
+               recording the payment — a concurrent/IPN-retry duplicate that
+               read 'Unpaid' earlier now loses the UPDATE race and is rejected,
+               so a single invoice can never be paid twice. */
+            $up = $pdo->prepare("UPDATE caretaker_invoices SET status='Paid', paid_at=datetime('now'), ref=? WHERE id=? AND status='Unpaid'");
+            $up->execute([$ref, $id]);
+            if ($up->rowCount() === 0) {
+                $pdo->rollBack();
+                json_out(['ok' => false, 'error' => 'Invoice already paid.'], 400);
+            }
             $mx = (int)$pdo->query("SELECT MAX(CAST(REPLACE(id,'PAY-','') AS INTEGER)) FROM payments")->fetchColumn();
             $payId = 'PAY-' . str_pad((string)($mx + 1), 4, '0', STR_PAD_LEFT);
             $pdo->prepare("INSERT INTO payments (id, inv, amount, method, ref, date, status) VALUES (?,?,?,?,?,datetime('now'),'Success')")
                 ->execute([$payId, $id, (int)$inv['amount'], $method, $ref]);
-            $pdo->prepare("UPDATE caretaker_invoices SET status='Paid', paid_at=datetime('now'), ref=? WHERE id=?")->execute([$ref, $id]);
             $pdo->commit();
         } catch (Exception $e) { $pdo->rollBack(); json_out(['ok' => false, 'error' => 'Payment failed: ' . $e->getMessage()], 500); }
         audit($u['name'], 'Caretaker invoice paid', 'subscriptions', $id, $payId . ' ৳' . $inv['amount']);

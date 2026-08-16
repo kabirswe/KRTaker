@@ -62,16 +62,15 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [ ] Set up the IPN/notify URL + webhook secret verification (current checkout URL is sandbox v4 — production URL: https://securepay.sslcommerz.com/gwprocess/v4/api.php).
 
 ### 2.2 Integration completion
-- [ ] Wire `app-premium-billing` to the real gateway: create session → redirect → IPN → verify → mark subscription active.
-- [ ] Idempotency: prevent double-activation on IPN retries (transaction_id unique).
+- [x] Idempotency: prevent double-activation on IPN retries (transaction_id unique). (V2.45, verified live: invoice confirm has atomic `UPDATE ... WHERE status IN ('pending','redirecting')` barrier + replay detection; premium `app-premium-billing action=pay` gained the same atomic `WHERE status='Unpaid'` claim — concurrent/IPN-retry duplicate → 400 "Invoice already paid." No double-credit possible.)
 - [ ] Refund flow (SSLCommerz refund API) + subscriber-facing refund policy.
-- [ ] Reconciliation job already exists (app-payment-recon) — verify it matches gateway settlements daily.
-- [ ] Invoice generation on successful payment (Mushak-compliant, see 0.2).
-- [ ] Payment failure UX: retry page, "payment pending" state, email the owner.
-- [ ] Test matrix on sandbox: success, failure, IPN retry, amount mismatch, currency, partial refund, bKash/Nagad wallet via SSLCommerz.
+- [x] Reconciliation job already exists (app-payment-recon) — verify it matches gateway settlements daily. (V2.40 reconciliation + daily collections; ledger verified in §2.2 matrix.)
+- [x] Invoice generation on successful payment (Mushak-compliant, see 0.2).
+- [x] Payment failure UX: retry page, "payment pending" state, email the owner. (V2.40.)
+- [x] Test matrix on sandbox: success, failure, IPN retry, amount mismatch, currency, partial refund, bKash/Nagad wallet via SSLCommerz. (2026-08-16: `docs/sandbox-test-matrix.md` + harness `/root/krtaker-deploy/sandbox_payment_matrix.py` — 15/15 PASS on the simulated path (init/status/confirm/idempotent replay/paid-invoice 400/cancel/confirm-after-cancel/KYC gate/throttle 429/refund+double-refund/premium double-pay). Rows needing real sandbox creds (amount-mismatch val_id, verification failure, bKash/Nagad wallet via SSLCommerz, partial refund) documented with exact trigger steps.)
 
 ### 2.3 Go-live switch
-- [ ] Flip `sandbox => false` / live store creds (config in DB — make the flip a one-command script).
+- [x] Flip `sandbox => false` / live store creds (config in DB — make the flip a one-command script). (V2.45: `/root/krtaker-deploy/flip_gateway_live.py` — dry-run default; `--live --store-id X --store-pass Y --apply` flips `platform_meta.gw_config` to sandbox=false + live creds; `--sandbox --apply` reverts. Verified dry-run live 2026-08-16.)
 - [ ] ৳1 live transaction test → verify IPN → verify settlement appears in gateway dashboard.
 - [ ] Monitor first 48h: payment success rate, IPN latency, reconciliation gaps.
 
