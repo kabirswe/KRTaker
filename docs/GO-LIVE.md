@@ -42,7 +42,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [ ] Consent: onboarding must capture explicit consent for marketing email/push (check register flow; the v19 push permission already asks — make sure opt-in is recorded per-email in DB).
 
 ### 1.2 Security hardening (continue the v21 program)
-- [ ] Security headers + CSP already scoped (v21b/v21c) — re-audit once more for the dashboard + API.
+- [x] Security headers + CSP already scoped (v21b/v21c) — re-audit once more for the dashboard + API. (Re-audited live 2026-08-16: HSTS max-age=31536000, X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy camera/mic/geo=(), full CSP with object-src 'none', base-uri 'self', frame-ancestors 'none', upgrade-insecure-requests — dashboard + API both covered; no changes needed.)
 - [ ] Rate limiting + login throttling verified under real load (v21 has throttle; stress it).
 - [x] 2FA for subscriber logins + admin (superadmin) — assess; even optional TOTP for owners is a differentiator. (V2.16 gate exists: TOTP (RFC 6238, pure PHP) + email-OTP fallback on `app_users`/subscribers via `totp_secret`/`totp_enabled`/`twofa_method`; superadmin TOTP live. Owner-level TOTP is available on the same gate — enable per-account in Settings when onboarding real owners.)
 - [x] Session hygiene: token expiry, revocation on role change (exists for team), force logout-all. (Verified 2026-08-16: `app_tokens` hashed at rest (sha256), `expires_at` enforced + pruned, `last_seen` throttled ≤1 write/5 min; `app-sessions` supports revoke one / revoke_others / revoke_all with current-session detection; `app-logout` deletes the bearer token.)
