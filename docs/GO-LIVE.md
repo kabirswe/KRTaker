@@ -19,7 +19,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 ### 0.2 Tax & VAT (Bangladesh SaaS)
 - [ ] Confirm VAT treatment of the SaaS subscription: domestic software/SaaS services are subject to 15% VAT (SDA services). Prices on pricing.html are ৳ — decide whether VAT is inclusive or added at checkout; keep the price display consistent with what the gateway charges.
 - [ ] Build the monthly VAT return process (Mushak 9.1) — export the transaction list per month from the DB (app-payment-recon gives you the ledger).
-- [ ] Issue proper VAT-compliant invoices/receipts to subscribers. `app-invoice-print` exists — verify it prints a compliant Mushak-6.3-style invoice with BIN, invoice no, VAT line.
+- [x] Issue proper VAT-compliant invoices/receipts to subscribers. `app-invoice-print` exists — verify it prints a compliant Mushak-6.3-style invoice with BIN, invoice no, VAT line. (V2.43.x 2026-08-16: `invoice_print_html` upgraded — **MUSHAK-6.3 badge**, seller block (org name/address/phone/BIN/e-TIN driven by new `org_bin`/`org_etin`/`org_address`/`org_phone`/`vat_rate` org-settings keys), tenant NID on billed-to, **VAT line** (rate% × gross) when `vat_rate > 0`, invoice serial already INV-YYYY-####. Verified live: rendered INV-2026-0020 with test config → BIN + e-TIN + address + `VAT (15%) ৳6,000` all present, net payable correct; reverted to clean defaults (fields hide when unconfigured — fill in real BIN/e-TIN once §0.1 entity confirmed).)
 - [ ] Keep books: income vs. expense ledger; bank statements match gateway settlements monthly (reconciliation — app-payment-recon already does this internally; export for the accountant).
 
 ### 0.3 Intellectual property & contracts
@@ -49,7 +49,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [ ] Secrets management: gateway store_id/store_pass, SMTP password, DeepSeek key — move out of PHP constants to environment/.env or a secrets table (they are in the DB/platform_meta already for some — audit which keys are hardcoded).
 - [ ] Dependency audit: PHP extensions + any composer deps; keep PHP 8.1 patches current on cPanel.
 - [ ] Pen-test / OWASP Top 10 pass before launch (at minimum: IDOR checks on app-crud/app-* actions — the app-* surface is huge; spot-check every app-* action for authorization).
-- [ ] Add `security.txt` + `/.well-known/security.txt`.
+- [x] Add `security.txt` + `/.well-known/security.txt`. (Verified live 2026-08-16: both serve 200 — `.well-known/security.txt` (RFC 9116, content-type text/plain, Expires 2027-08) + root `security.txt` fallback added. Security headers re-audited live: HSTS max-age=31536000, X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy camera/mic/geo=(), full CSP (object-src 'none', base-uri 'self', frame-ancestors 'none', upgrade-insecure-requests) — strong posture, no changes needed.)
 
 ---
 
@@ -97,7 +97,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [ ] Audit AI output: log prompts/responses, opt-out control for owners.
 
 ### 3.4 Infrastructure & ops
-- [ ] Backups: SQLite DB backup job (app-backup exists) → offsite (Google Drive rclone token expired — re-auth [!]; or add S3/Backblaze as backup target). Test a restore drill end-to-end.
+- [~] Backups: SQLite DB backup job (app-backup exists) → offsite (Google Drive rclone token expired — re-auth [!]; or add S3/Backblaze as backup target). Test a restore drill end-to-end. (Local leg verified 2026-08-16: `krtaker-db-backup` cron 00:00 pulls prod DB+JSON via service key → `/root/krtaker-backup/auto/<ts>/` (latest 20260816_000051: krtaker.db 3.9MB integrity=ok, 150 tables, 10 subscribers + full data; export JSON ok). **Restore drill end-to-end PASSED**: restored snapshot into scratch DB → integrity ok, key tables (properties 8 / units 19 / tenants 17 / invoices 24 / payments 18 / leases 14 / support 6 / plan_catalog 3) all readable. New `krtaker_restore_drill.py` (monthly cron, silent watchdog) wired to restore from LOCAL snapshots — previously the cron pointed at a nonexistent `.sh` and depended on dead Drive. **OFFSITE LEG STILL BLOCKED**: gdrive rclone token `invalid_grant` (needs interactive `rclone config reconnect gdrive:` — headless can't OAuth), and the box's AWS IAM role has no S3 perms (needs Lightsail console policy attach). Until one is fixed, backups are single-host only.)
 - [x] Uptime monitoring: hit `https://krtaker.com/api/health` every 1 min (Hermes cron `krtaker-uptime-watchdog` — script `krtaker_uptime.sh`, silent when healthy, alerts after 3 consecutive failures + recovery notice; delivers to origin chat, Discord home available).
 - [x] Error tracking: `app-error-log`/`app-log-error` API endpoints (JS `window.onerror` + `unhandledrejection` reporter in dashboard-v2.html via sendBeacon; PHP fatal capture via shutdown `error_get_last()`; per-IP rate limit, 24h dedup with counts, 30-day retention) + Hermes cron `krtaker-error-watchdog` (`krtaker_error_watch.py`, every 30 min, silent when clean, grouped digest when new errors).
 - [x] cPanel disk quota: checked 2026-08 via UAPI Quota/get_quota_info — 182.97 MB used / 1 GB limit → **817 MB free (82% headroom)**; bandwidth 524 MB/10 GB. Comfortable for launch; re-check when uploads/media grow.

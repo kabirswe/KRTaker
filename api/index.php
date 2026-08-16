@@ -3153,6 +3153,18 @@ function invoice_print_html($u, $invId) {
     }
     if (!$rows) $rows = '<tr><td colspan="4" class="m">No payments recorded yet</td></tr>';
     $due_cls = $due > 0 ? 'due' : 'ok';
+    $cfg = org_cfg($pdo);
+    $vatRate = (float)($cfg['vat_rate'] ?? 0);
+    $vatAmt = $vatRate > 0 ? (int)round($r['gross'] * $vatRate / 100) : 0;
+    $seller = '<b>' . esc($cfg['org_name'] ?: 'KRTaker') . '</b>'
+        . ($cfg['org_address'] ? '<br>' . esc($cfg['org_address']) : '')
+        . ($cfg['org_phone'] ? '<br>☎ ' . esc($cfg['org_phone']) : '')
+        . ($cfg['org_bin'] ? '<br>BIN: ' . esc($cfg['org_bin']) : '')
+        . ($cfg['org_etin'] ? '<br>e-TIN: ' . esc($cfg['org_etin']) : '');
+    $vatRows = '';
+    if ($vatAmt > 0) {
+        $vatRows = '<tr><td>VAT (' . number_format($vatRate, $vatRate == (int)$vatRate ? 0 : 2) . '%)</td><td></td><td></td><td class="r">৳' . number_format($vatAmt) . '</td></tr>';
+    }
     $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Invoice ' . esc($invId) . '</title>
 <style>
 *{box-sizing:border-box}body{font-family:Inter,Helvetica,Arial,sans-serif;color:#101828;margin:0;padding:32px;background:#F4F6FA}
@@ -3175,19 +3187,21 @@ td{padding:10px;font-size:13.5px;border-bottom:1px solid #F2F4F7}.r{text-align:r
 </style></head><body>
 <div class="noprint"><button class="btn" onclick="window.print()">🖨 Print / Save PDF</button></div>
 <div class="page">
-<div class="top"><div><div class="brand">' . print_brand_img() . '<small>AI CARETAKER · RENT INVOICE</small></div></div>
+<div class="top"><div><div class="brand">' . print_brand_img() . '<small>AI CARETAKER · RENT INVOICE · MUSHAK-6.3</small></div>
+<div style="font-size:12.5px;color:#475467;line-height:1.6;margin-top:6px">' . $seller . '</div></div>
 <div class="meta"><b>' . esc($invId) . '</b><br>Month: ' . esc($r['m']) . '<br>Issued: ' . esc(gmdate('d M Y')) . '</div></div>
 <h1>Rent invoice</h1><span class="st ' . ($due > 0 ? (($r['status'] === 'Overdue') ? 'overdue' : 'unpaid') : 'paid') . '">' . esc($r['status']) . ($due > 0 ? ' · due ৳' . number_format($due) : ' · paid in full') . '</span>
-<div class="grid"><div><p class="h6">Billed to</p><div style="font-size:14px;line-height:1.7"><b>' . esc($r['tname']) . '</b><br>' . esc($r['tphone']) . '<br>' . esc($r['temail']) . '</div></div>
+<div class="grid"><div><p class="h6">Billed to</p><div style="font-size:14px;line-height:1.7"><b>' . esc($r['tname']) . '</b><br>' . esc($r['tphone']) . '<br>' . esc($r['temail']) . ($r['tnid'] ? '<br>NID: ' . esc($r['tnid']) : '') . '</div></div>
 <div><p class="h6">Property</p><div style="font-size:14px;line-height:1.7"><b>' . esc($r['pname']) . '</b><br>' . esc($r['uname']) . ' (' . esc($r['uid']) . ') · ' . esc($r['pjur']) . '<br>' . esc($r['pholding']) . '</div></div></div>
 <table><thead><tr><th>Description</th><th>Period</th><th>Lease</th><th class="r">Amount</th></tr></thead>
 <tbody><tr><td>Monthly rent — ' . esc($r['uname']) . '</td><td>' . esc($r['m']) . '</td><td>' . esc($r['l']) . '</td><td class="r">৳' . number_format($r['gross']) . '</td></tr>'
     . ($r['tds'] ? '<tr><td>Advance tax (TDS, IT Act §109)</td><td></td><td></td><td class="r">−৳' . number_format($r['tds']) . '</td></tr>' : '')
+    . $vatRows
     . '</tbody></table>
 <table class="tot"><tr><td>Net payable</td><td></td><td></td><td class="r big">৳' . number_format($r['net']) . '</td></tr></table>
 <table><thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="r">Amount</th></tr></thead><tbody>' . $rows . '</tbody></table>
 <div class="pay"><span>📱 bKash</span><span>📱 Nagad</span><span>🏦 SSLCommerz</span><span>💳 Bank</span></div>
-<div class="foot">This is a system-generated invoice from KRTaker — your AI caretaker. Verify at krtaker.com · For questions: support@krtaker.com</div>
+<div class="foot">' . esc($cfg['invoice_footer'] ?: 'This is a system-generated invoice from KRTaker — your AI caretaker. Verify at krtaker.com · For questions: support@krtaker.com') . '</div>
 </div></body></html>';
     return $html;
 }
@@ -7619,6 +7633,7 @@ function ORG_DEFAULTS() {
     return [
         'inv_prefix' => 'INV-', 'org_name' => 'KRTaker', 'org_tagline' => 'AI CARETAKER',
         'default_lease_months' => 12, 'khajna_calendar' => '[]',
+        'org_bin' => '', 'org_etin' => '', 'org_address' => '', 'org_phone' => '', 'vat_rate' => '0',
         'invoice_footer' => 'This is a system-generated invoice from KRTaker — your AI caretaker. Verify at krtaker.com · For questions: support@krtaker.com',
     ];
 }
