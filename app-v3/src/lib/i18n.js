@@ -86,6 +86,7 @@ const BN = {
   'Monthly rent': 'মাসিক ভাড়া', 'Units occupied': 'অধিকৃত ইউনিট', 'Open alerts': 'খোলা সতর্কতা',
   'Welcome, ': 'স্বাগতম, ', 'Good morning': 'শুভ সকাল', 'Good afternoon': 'শুভ অপরাহ্ন', 'Good evening': 'শুভ সন্ধ্যা',
   'AI Caretaker': 'এআই কেয়ারটেকার', 'Ask anything…': 'যেকোনো প্রশ্ন করুন…', 'Send question': 'প্রশ্ন পাঠান',
+  'Disable KR AI': 'KR AI বন্ধ করুন', 'KR AI is off for this account (privacy).': 'এই অ্যাকাউন্টের জন্য KR AI বন্ধ রয়েছে (গোপনীয়তা)।', 'Enable KR AI': 'KR AI চালু করুন', 'Ask an owner or manager to enable it.': 'চালু করতে মালিক বা ম্যানেজারকে জানান।',
 
   // ── Notifications ──
   Notifications: 'নোটিফিকেশন', 'Mark all read': 'সব পঠিত করুন', 'Clear all': 'সব মুছুন', Unread: 'অপঠিত',

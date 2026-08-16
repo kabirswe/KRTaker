@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260923) {
+        if ($__sv < 20260924) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1048,6 +1048,11 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
         if (!in_array('otp_fails', $cols)) {
             $pdo->exec("ALTER TABLE subscribers ADD COLUMN otp_fails INTEGER DEFAULT 0");
         }
+        /* V2.44 (GO-LIVE §3.3): owner-level AI opt-out — 1 = KR AI disabled for the
+           whole account (chat rejected, nothing logged); toggle via app-ai-optout. */
+        if (!in_array('ai_optout', $cols)) {
+            $pdo->exec("ALTER TABLE subscribers ADD COLUMN ai_optout INTEGER DEFAULT 0");
+        }
         /* V2.27: guided-setup completion marker — empty setup_at = needs onboarding.
            Existing active subscribers (created before this release) are considered
            set up so the wizard never nags live accounts. */
@@ -1170,7 +1175,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260923'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260924'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -14987,12 +14992,15 @@ case 'app-ai-meta': {
     require_module($u, 'ai');
     $pdo = db();
     $ac = AI_CONFIG($pdo);
-    json_out(['ok' => true, 'mode' => ai_mode($pdo), 'provider' => $ac['provider'], 'model' => $ac['model'], 'tools' => array_map(fn($t) => $t['function']['name'], ai_tool_defs())]);
+    json_out(['ok' => true, 'mode' => ai_mode($pdo), 'provider' => $ac['provider'], 'model' => $ac['model'], 'optout' => !empty($u['ai_optout']), 'tools' => array_map(fn($t) => $t['function']['name'], ai_tool_defs())]);
 }
 
 case 'app-ai-chat': {
     $u = require_user();
     require_module($u, 'ai');
+    /* V2.44 (GO-LIVE §3.3): owner-level AI opt-out — reject + log nothing */
+    if (!empty($u['ai_optout']))
+        json_out(['ok' => false, 'error' => 'KR AI is disabled for this account (privacy setting). An owner or manager can re-enable it from the AI console.', 'optout' => true], 403);
     $messages = $body['messages'] ?? [];
     if (!is_array($messages) || !$messages) json_out(['ok' => false, 'error' => 'messages required.'], 400);
     $last = end($messages);
@@ -15061,10 +15069,22 @@ case 'app-ai-quota': {
     $pdo = db();
     $u2 = AI_USAGE($pdo, $u);
     json_out(['ok' => true,
-        'enabled' => $u2['enabled'], 'mode' => ai_mode($pdo),
+        'enabled' => $u2['enabled'], 'mode' => ai_mode($pdo), 'optout' => !empty($u['ai_optout']),
         'rate' => ['used' => $u2['rate_used'], 'limit' => $u2['rate_per_min']],
         'daily' => ['used' => $u2['daily_used'], 'limit' => $u2['daily_quota']],
         'cost' => ['used' => round($u2['month_cost'], 4), 'limit' => $u2['monthly_cost']]]);
+}
+
+case 'app-ai-optout': {
+    /* V2.44 (GO-LIVE §3.3): owner/manager-level AI privacy toggle.
+       Sets subscribers.ai_optout → app-ai-chat rejects + logs nothing. */
+    $u = require_user();
+    if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true))
+        json_out(['ok' => false, 'error' => 'Only owners and managers can change the AI privacy setting.'], 403);
+    $val = !empty($body['optout']) ? 1 : 0;
+    db()->prepare('UPDATE subscribers SET ai_optout=? WHERE id=?')->execute([$val, $u['id']]);
+    audit($u['name'], 'AI opt-out ' . ($val ? 'enabled' : 'disabled'), 'ai', (string)$u['id']);
+    json_out(['ok' => true, 'optout' => (bool)$val]);
 }
 
 case 'app-crud': {

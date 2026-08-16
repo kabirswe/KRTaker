@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { t } from '../lib/i18n'
 import { useDataStore } from '../stores/data'
 import { apiCall } from '../api/client'
@@ -10,8 +10,10 @@ const busy = ref(false)
 const msgs = ref([])
 const box = ref(null)
 const quota = ref(null)
-const blocked = ref('')   // 'rate' | 'daily' | 'cost' | ''
+const blocked = ref('')   // 'rate' | 'daily' | 'cost' | '' | 'optout'
 const blockMsg = ref('')
+const optout = ref(false) // V2.44: owner/manager-level AI privacy toggle
+const canToggle = computed(() => ['owner', 'manager', 'superadmin'].includes(data.user?.role))
 
 const suggestions = [
   'Which tenants are in arrears this month?',
@@ -25,11 +27,22 @@ const suggestions = [
 async function loadQuota() {
   try {
     const r = await apiCall('app-ai-quota')
-    if (r && r.ok) quota.value = r
+    if (r && r.ok) { quota.value = r; optout.value = !!r.optout }
   } catch (e) { /* silent — meter is best-effort */ }
 }
 
-function canAsk() { return !busy.value && !blocked.value }
+async function setOptout(v) {
+  try {
+    const r = await apiCall('app-ai-optout', { optout: v ? 1 : 0 })
+    if (r && r.ok) {
+      optout.value = !!r.optout
+      if (optout.value) { blocked.value = 'optout'; blockMsg.value = t('KR AI is off for this account (privacy).') }
+      else { blocked.value = ''; blockMsg.value = '' }
+    }
+  } catch (e) { /* silent */ }
+}
+
+function canAsk() { return !busy.value && !blocked.value && !optout.value }
 
 async function ask(text) {
   const prompt = (text ?? q.value).trim()
@@ -41,6 +54,14 @@ async function ask(text) {
     // API expects OpenAI-style messages array; send last 12 for context.
     const history = msgs.value.slice(-12).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }))
     const r = await apiCall('app-ai-chat', { messages: history })
+    if (r && r.optout && !r.ok) {
+      // V2.44: account-level AI privacy toggle is on — lock the console
+      optout.value = true
+      blocked.value = 'optout'
+      blockMsg.value = r.error || t('KR AI is off for this account (privacy).')
+      msgs.value.push({ role: 'ai', text: blockMsg.value })
+      return
+    }
     if (r && r.quota && !r.ok) {
       // V2.40.5: usage guardrail hit — show the block + stop sending
       blocked.value = r.quota
@@ -92,6 +113,15 @@ onMounted(loadQuota)
         <div style="flex:1;min-width:90px;height:6px;border-radius:99px;background:var(--bg-alt);overflow:hidden">
           <div :style="{ width: quotaPct() + '%', height: '100%', background: quotaPct() >= 90 ? 'var(--danger,#e5484d)' : 'var(--primary)', transition: 'width .3s' }"></div>
         </div>
+        <!-- V2.44: owner/manager AI privacy toggle (GO-LIVE §3.3) -->
+        <button v-if="canToggle && !optout" class="btn-ghost" style="font-size:11.5px;margin-left:auto" @click="setOptout(true)">🛡️ {{ t('Disable KR AI') }}</button>
+      </div>
+
+      <!-- V2.44: privacy opt-out banner -->
+      <div v-if="optout" class="panel-b" style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;background:var(--bg-alt)">
+        <span>🛡️ {{ t('KR AI is off for this account (privacy).') }}</span>
+        <button v-if="canToggle" class="btn-ghost" style="font-size:12px" @click="setOptout(false)">{{ t('Enable KR AI') }}</button>
+        <span v-else class="c-sub">{{ t('Ask an owner or manager to enable it.') }}</span>
       </div>
 
       <div class="panel-b" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px" ref="box">
@@ -113,7 +143,7 @@ onMounted(loadQuota)
       </div>
 
       <div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--border)">
-        <input v-model="q" :disabled="!!blocked" :placeholder="t('Ask about rent, tickets, leases…')" @keyup.enter="ask()" style="flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:13.5px;outline:none">
+        <input v-model="q" :disabled="!!blocked || optout" :placeholder="t('Ask about rent, tickets, leases…')" @keyup.enter="ask()" style="flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;font-size:13.5px;outline:none">
         <button class="btn-primary" :disabled="!canAsk() || !q.trim()" @click="ask()">{{ busy ? 'Thinking…' : 'Send ➤' }}</button>
       </div>
     </div>
