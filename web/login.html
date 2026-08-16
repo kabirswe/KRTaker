@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" as="style">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=3.86">
+<link rel="stylesheet" href="css/style.css?v=3.84">
 <!-- KRTaker analytics: Google Analytics 4 (G-C68G5Q03ZT) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-C68G5Q03ZT"></script>
 <script>
@@ -258,7 +258,7 @@ gtag('config', 'G-C68G5Q03ZT');
     <div class="footer-bottom">
       <span data-i18n="footer.rights">© 2026 KRTaker. All rights reserved.</span>
       <span class="footer-made" data-i18n="footer.madeIn" data-cms="footer.bottom.made">Made in Bangladesh 🇧🇩</span>
-      <span><a href="terms.html" data-i18n="footer.terms">Terms</a> · <a href="privacy.html" data-i18n="footer.privacy">Privacy</a> · <a href="contact.html" data-i18n="footer.support">Support</a></span>
+      <span><a href="terms.html" data-i18n="footer.terms">Terms</a> · <a href="privacy.html" data-i18n="footer.privacy">Privacy</a> · <a href="security.html" data-i18n="footer.security">Security</a> · <a href="contact.html" data-i18n="footer.support">Support</a></span>
     </div>
   </div>
 </footer>
@@ -268,12 +268,11 @@ gtag('config', 'G-C68G5Q03ZT');
 </div>
 <!-- Back to top -->
 <button class="btt-btn" aria-label="Back to top">↑</button>
-<script src="js/botguard.js?v=3.90"></script>
-<script src="i18n/i18n-dict.js?v=3.86"></script>
-<script src="js/i18n.js?v=3.87"></script>
-<script src="js/cms-hydrate.js?v=3.86"></script>
-<script src="js/main.js?v=3.86"></script>
-<script src="js/chat.js?v=3.86"></script>
+<script src="i18n/i18n-dict.js?v=3.84"></script>
+<script src="js/i18n.js?v=3.84"></script>
+<script src="js/cms-hydrate.js?v=3.84"></script>
+<script src="js/main.js?v=3.84"></script>
+<script src="js/chat.js?v=3.84"></script>
 <script>
 /* Phase 2: real login → dashboard workspace */
 (function () {
@@ -287,16 +286,15 @@ gtag('config', 'G-C68G5Q03ZT');
     errEl.style.display = 'none';
     btn.disabled = true; btn.textContent = 'Signing in…';
     try {
-      const bg = window.krBG ? await window.krBG.attach('login') : {};
       const res = await fetch('../api/app-login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.assign({ email, password }, bg))
+        body: JSON.stringify({ email, password })
       });
       const data = await res.json();
       if (data.ok && data.token) {
         try { if (window.gtag) gtag('event', 'login', { method: 'email' }); } catch (e) {}
         try { localStorage.setItem('krtaker_dash_token', data.token); } catch (x) {}
-        window.location.href = 'app-v3/';
+        window.location.href = 'dashboard-v2.html';
       } else {
         errEl.textContent = data.error || 'Login failed — try again.';
         errEl.style.display = 'block';

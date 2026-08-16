@@ -4,21 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#2F80ED">
-<meta name="description" content="The agreement governing use of the KRTaker platform.">
-<title>Terms of Service — KRTaker</title>
-<link rel="canonical" href="https://krtaker.com/terms.html">
+<meta name="description" content="How KRTaker protects your data: encryption in transit and at rest, data localization in Bangladesh, daily backups, multi-tenant isolation, and responsible-disclosure for security researchers.">
+<title>Security — KRTaker</title>
+<link rel="canonical" href="https://krtaker.com/security.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="KRTaker">
-<meta property="og:title" content="Terms of Service — KRTaker">
-<meta property="og:description" content="The agreement governing use of the KRTaker platform.">
-<meta property="og:url" content="https://krtaker.com/terms.html">
+<meta property="og:title" content="Security — KRTaker">
+<meta property="og:description" content="How KRTaker protects your data: encryption, data localization in Bangladesh, daily backups, multi-tenant isolation, and responsible-disclosure.">
+<meta property="og:url" content="https://krtaker.com/security.html">
 <meta property="og:image" content="https://krtaker.com/assets/og-default.png">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="bn_BD">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@krtaker">
-<meta name="twitter:title" content="Terms of Service — KRTaker">
-<meta name="twitter:description" content="The agreement governing use of the KRTaker platform.">
+<meta name="twitter:title" content="Security — KRTaker">
+<meta name="twitter:description" content="How KRTaker protects your data: encryption, data localization, daily backups, multi-tenant isolation, responsible disclosure.">
 <meta name="twitter:image" content="https://krtaker.com/assets/og-default.png">
 <link rel="icon" href="../pwa/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../pwa/icon-192.png">
@@ -93,32 +93,30 @@
 </nav>
 <div class="page-hero">
   <div class="container">
-    <h1>Terms of service</h1>
-    <p>Last updated: June 2026</p>
+    <h1>Security at KRTaker</h1>
+    <p>Last updated: August 2026</p>
   </div>
 </div>
 <div class="page-body">
   <div class="container" style="max-width:820px">
-    <h2>1. The service</h2>
-    <p>KRTaker ("the Platform") provides property-management software and an AI assistant ("KR") for users in Bangladesh, including property owners (Subscribers), service partners, legal consultants, tenants and platform staff. This agreement governs your use of the Platform.</p>
-    <h2>2. Accounts &amp; roles</h2>
-    <p>You are responsible for the accuracy of registration details and for all activity under your account. Role-based access (Owner, Manager, Tenant, Service Partner, Service Manager, Legal, CRM, Accountant, HR) defines what each user may view and do. You must not share credentials or access data outside your role's scope.</p>
-    <h2>3. Subscriptions &amp; billing</h2>
-    <p>Plans (Starter, Business, Enterprise) renew monthly or annually. Payments are processed via bKash, SSLCommerz or bank transfer. Fees are non-refundable except where required by law. Service partners pay a 10% platform fee per completed work order, net of applicable TDS.</p>
-    <h2>4. Legal &amp; compliance information</h2>
-    <p>The Platform's compliance engine, calculations and AI answers are <b>informational tools</b>, not legal advice. Statutory requirements change; verify critical matters with a licensed professional. KRTaker is not a party to leases and is not liable for disputes between owners and tenants.</p>
-    <h2>5. Acceptable use</h2>
-    <p>You may not use the Platform to violate Bangladeshi law, infringe rights, or attempt to access another tenant's data. Digital lockouts and unlawful evictions are strictly prohibited by our system and our terms.</p>
-    <h2>6. Data &amp; security</h2>
-    <p>We protect data with encryption in transit and at rest, and enforce multi-tenant isolation. You retain ownership of your data; you may export it at any time. See our <a href="privacy.html">Privacy Policy</a> and <a href="security.html">Security page</a>.</p>
-    <h2>7. Liability</h2>
-    <p>To the maximum extent permitted by law, KRTaker's aggregate liability is limited to fees paid in the preceding 3 months. We are not liable for indirect, incidental or consequential damages, including lost rent or legal outcomes.</p>
-    <h2>8. Termination</h2>
-    <p>Either party may terminate with 30 days' notice. On termination you may export your data within 30 days; thereafter it is deleted per our retention policy.</p>
-    <h2>9. Changes</h2>
-    <p>We may update these terms with 14 days' notice. Continued use constitutes acceptance.</p>
-    <h2>10. Contact</h2>
-    <p>Questions: <a href="contact.html">contact us</a> or legal@krtaker.com.</p>
+    <h2>1. Encryption</h2>
+    <p>All traffic to and from the Platform is protected with <b>TLS 1.2+</b> (HTTPS, Let's Encrypt certificate, automatic renewal) — data in transit is encrypted end to end. Sensitive fields are encrypted at rest, and credentials are stored only as salted hashes (bcrypt/argon2-class) — we cannot recover your password, only reset it.</p>
+    <h2>2. Data localization</h2>
+    <p>Subscriber data is stored on servers located in <b>Bangladesh</b> (cPanel hosting, Dhaka), keeping your property and tenant records inside the country. Backups are encrypted before transfer to off-site storage.</p>
+    <h2>3. Multi-tenant isolation</h2>
+    <p>Every organization's data is scoped to its own account: owners, managers, tenants, service partners and legal consultants see only the records their role permits. The platform enforces role-based access control on every API call, not just in the UI. You can review your data at any time with the built-in <b>GDPR/data export</b> tool.</p>
+    <h2>4. Access &amp; authentication</h2>
+    <p>Accounts are protected by email verification and optional two-factor authentication (TOTP). Login attempts are throttled and monitored for abuse. Sessions expire automatically and can be revoked from Settings at any time.</p>
+    <h2>5. Backups &amp; availability</h2>
+    <p>The database is backed up daily to off-site storage, and a monthly restore drill verifies the backups can actually be restored. Uptime is monitored every minute with automated alerts on any outage.</p>
+    <h2>6. AI processing</h2>
+    <p>KR, the AI assistant, processes only the data you explicitly send it within your account. Prompt/response pairs are logged for audit and abuse prevention; you can disable AI features from Settings if you prefer not to use them. See our <a href="privacy.html">Privacy Policy</a> for details.</p>
+    <h2>7. Payments</h2>
+    <p>We do not store card numbers. Card and wallet payments are processed by licensed gateways (SSLCommerz, bKash) in their own PCI-DSS-compliant environments; we only record the reference and amount of each transaction.</p>
+    <h2>8. Reporting a vulnerability</h2>
+    <p>We take security reports seriously. If you find a vulnerability in the Platform, please email <a href="mailto:security@krtaker.com">security@krtaker.com</a> with a description and steps to reproduce. We will respond within 5 business days, keep you informed as we fix it, and will not take legal action against good-faith researchers who follow responsible disclosure (no data exfiltration, no disruption, no public disclosure before we release a fix).</p>
+    <h2>9. Contact</h2>
+    <p>Questions about security or data protection: <a href="mailto:security@krtaker.com">security@krtaker.com</a> or via the <a href="contact.html">contact form</a>.</p>
   </div>
 </div>
 
