@@ -2094,6 +2094,51 @@ function crud_guard_owner($pdo, $u, $collection, $id) {
     if ($own !== '' && strtolower(trim($own)) !== strtolower(trim($u['email'])))
         json_out(['ok' => false, 'error' => 'This record belongs to another account.'], 403);
 }
+/* ── V2.44b (GO-LIVE §1.2 IDOR sweep): cross-workspace scope guard for id-keyed
+   endpoints that resolve a row to its owning subscriber email. Staff (kind != 'sub')
+   bypass (platform support role); subscriber accounts — including owners/managers —
+   may only touch rows attributed to their own email. Rows with no attribution
+   ('' — legacy/shared) stay reachable to avoid breaking seeded/demo data. ── */
+function sub_scope_guard($pdo, $u, $ownerEmail) {
+    if (($u['kind'] ?? '') !== 'sub') return;
+    $own = (string)$ownerEmail;
+    if ($own === '') return;
+    if (strtolower(trim($own)) !== strtolower(trim((string)$u['email'])))
+        json_out(['ok' => false, 'error' => 'This record belongs to another account.'], 403);
+}
+/* owning subscriber email for an invoice (invoice → lease → unit → property) */
+function inv_owner_email($pdo, $inv) {
+    $st = $pdo->prepare("SELECT COALESCE(u.sub_email, p.sub_email, '') FROM invoices i LEFT JOIN leases l ON l.id=i.l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE i.id=?");
+    $st->execute([$inv]);
+    return (string)$st->fetchColumn();
+}
+/* owning subscriber email for a payment (payment → invoice → lease → unit → property) */
+function pay_owner_email($pdo, $pid) {
+    $st = $pdo->prepare("SELECT COALESCE(u.sub_email, p.sub_email, '') FROM payments pp JOIN invoices i ON i.id=pp.inv LEFT JOIN leases l ON l.id=i.l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE pp.id=?");
+    $st->execute([$pid]);
+    return (string)$st->fetchColumn();
+}
+/* owning subscriber email for a document (lease ref → unit → property, else property id) */
+function doc_owner_email($pdo, $d) {
+    $ref = (string)($d['ref'] ?? '');
+    $p   = (string)($d['p'] ?? '');
+    if ($ref !== '') {
+        $st = $pdo->prepare("SELECT COALESCE(u.sub_email, p.sub_email, '') FROM leases l LEFT JOIN units u ON u.id=l.u LEFT JOIN properties p ON p.id=u.p WHERE l.id=?");
+        $st->execute([$ref]);
+        $own = (string)$st->fetchColumn();
+        if ($own !== '') return $own;
+        /* tenant-uploaded docs carry the tenant id as ref → attribute to the tenant's workspace */
+        $st = $pdo->prepare("SELECT COALESCE(sub_email, '') FROM tenants WHERE id=?");
+        $st->execute([$ref]);
+        return (string)$st->fetchColumn();
+    }
+    if ($p !== '') {
+        $st = $pdo->prepare("SELECT COALESCE(sub_email, '') FROM properties WHERE id=?");
+        $st->execute([$p]);
+        return (string)$st->fetchColumn();
+    }
+    return '';
+}
 /* tenant/partner own-scope helpers */
 function my_units($u) {
     $pdo = db();
@@ -2593,7 +2638,19 @@ function can_post_notice($u) {
 }
 function doc_scope($u) {
     /* null = all docs; otherwise list of allowed refs (lease ids for tenant, ticket ids for partner) */
-    if (in_array($u['role'], ['superadmin', 'owner', 'manager', 'legal', 'crm', 'accountant', 'hr', 'svc_mgr'], true)) return null;
+    if (in_array($u['role'], ['superadmin', 'owner', 'manager', 'legal', 'crm', 'accountant', 'hr', 'svc_mgr'], true)) {
+        /* V2.44b (IDOR sweep): subscriber-kind staff roles are workspace-scoped too —
+           they only see docs attached to their own leases; platform staff (kind != 'sub')
+           keep full access. */
+        if (($u['kind'] ?? '') === 'sub' && $u['role'] !== 'superadmin') {
+            $pdo = db();
+            $st = $pdo->prepare("SELECT DISTINCT l.id FROM leases l JOIN units u ON u.id=l.u WHERE lower(u.sub_email)=lower(?)");
+            $st->execute([$u['email']]);
+            $ids = $st->fetchAll(PDO::FETCH_COLUMN) ?: [];
+            return ['kind' => 'ref', 'ids' => $ids];
+        }
+        return null;
+    }
     if ($u['role'] === 'tenant') {
         $sc = ai_scope($u);
         return ['kind' => 'ref', 'ids' => $sc['leases']];
@@ -13202,6 +13259,7 @@ case 'app-support-ticket': {
     $st = $pdo->prepare('SELECT * FROM support WHERE id=?'); $st->execute([$id]);
     $t = $st->fetch(PDO::FETCH_ASSOC);
     if (!$t) json_out(['ok' => false, 'error' => 'Ticket not found.'], 404);
+    sub_scope_guard($pdo, $u, $t['sub_email'] ?? '');   /* V2.44b IDOR: own tickets only (staff bypass) */
 
     if ($act === 'comment') {
         $text = trim($body['body'] ?? '');
@@ -13454,6 +13512,9 @@ case 'app-doc-view': {
     $st = $pdo->prepare('SELECT * FROM documents WHERE id=?'); $st->execute([$id]);
     $d = $st->fetch(PDO::FETCH_ASSOC);
     if (!$d) json_out(['ok' => false, 'error' => 'Document not found.'], 404);
+    /* V2.44b IDOR: subscriber staff roles are workspace-scoped (tenant/partner keep doc_scope path) */
+    if (($u['kind'] ?? '') === 'sub' && !in_array($u['role'], ['tenant', 'partner'], true))
+        sub_scope_guard($pdo, $u, doc_owner_email($pdo, $d));
     $sc = doc_scope($u);
     $allowed = true;
     if ($sc !== null) {
@@ -13489,6 +13550,9 @@ case 'app-doc-download': {
     $st = $pdo->prepare('SELECT * FROM documents WHERE id=?'); $st->execute([$id]);
     $d = $st->fetch(PDO::FETCH_ASSOC);
     if (!$d) json_out(['ok' => false, 'error' => 'Document not found.'], 404);
+    /* V2.44b IDOR: subscriber staff roles are workspace-scoped (tenant/partner keep doc_scope path) */
+    if (($u['kind'] ?? '') === 'sub' && !in_array($u['role'], ['tenant', 'partner'], true))
+        sub_scope_guard($pdo, $u, doc_owner_email($pdo, $d));
     $sc = doc_scope($u);
     if ($sc !== null && !in_array($d['ref'], $sc['ids'], true)) json_out(['ok' => false, 'error' => 'Not your document.'], 403);
     $path = DATA_DIR() . '/' . $d['fname'];
@@ -13510,6 +13574,9 @@ case 'app-doc-delete': {
     if (!$d) json_out(['ok' => false, 'error' => 'Document not found.'], 404);
     $isAdmin = in_array($u['role'], ['superadmin', 'owner', 'manager'], true);
     if (!$isAdmin && $d['uploaded_by'] !== $u['name']) json_out(['ok' => false, 'error' => 'Only the uploader or an admin can delete.'], 403);
+    /* V2.44b IDOR: workspace-scope owners/managers too (staff kind bypasses) */
+    if (($u['kind'] ?? '') === 'sub' && !in_array($u['role'], ['tenant', 'partner'], true))
+        sub_scope_guard($pdo, $u, doc_owner_email($pdo, $d));
     $path = DATA_DIR() . '/' . $d['fname'];
     if (is_file($path)) @unlink($path);
     $pdo->prepare('DELETE FROM documents WHERE id=?')->execute([$id]);
@@ -13530,6 +13597,9 @@ case 'app-doc-cat': {
     $st = $pdo->prepare('SELECT * FROM documents WHERE id=?'); $st->execute([$id]);
     $d = $st->fetch(PDO::FETCH_ASSOC);
     if (!$d) json_out(['ok' => false, 'error' => 'Document not found.'], 404);
+    /* V2.44b IDOR: workspace-scope owners/managers (staff kind bypasses) */
+    if (($u['kind'] ?? '') === 'sub' && !in_array($u['role'], ['tenant', 'partner'], true))
+        sub_scope_guard($pdo, $u, doc_owner_email($pdo, $d));
     $pdo->prepare('UPDATE documents SET cat=? WHERE id=?')->execute([$cat, $id]);
     audit($u['name'], 'Document recategorized', 'documents', $id, ($d['cat'] ?? 'other') . ' → ' . $cat);
     json_out(['ok' => true, 'cat' => $cat]);
@@ -13562,6 +13632,7 @@ case 'app-invoice-email': {
     if (recent_any('', $ip, 10, 0, 10, ['inv-email'])) throttle_out('Too many invoice emails. Try again later.', '', $ip, 10, ['inv-email']);
     $r = inv_context($pdo, $invId);
     if (!$r) json_out(['ok' => false, 'error' => 'Invoice not found.'], 404);
+    sub_scope_guard($pdo, $u, inv_owner_email($pdo, $invId));   /* V2.44b IDOR: own workspace only */
     if (!$r['temail']) json_out(['ok' => false, 'error' => 'No tenant email on file for this invoice.'], 400);
     if (!mail_switch($pdo, 'docs')) {
         audit($u['name'], 'Invoice email suppressed', 'invoices', $invId, 'disabled by admin');
@@ -13684,6 +13755,7 @@ case 'app-receipt-email': {
     $st = $pdo->prepare('SELECT * FROM payments WHERE id=?'); $st->execute([$pid]);
     $p = $st->fetch(PDO::FETCH_ASSOC);
     if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
+    sub_scope_guard($pdo, $u, pay_owner_email($pdo, $pid));   /* V2.44b IDOR: own workspace only */
     $inv = inv_context($pdo, $p['inv']);
     if (!$inv || !$inv['temail']) json_out(['ok' => false, 'error' => 'No tenant email on file for this payment.'], 400);
     if (!mail_switch($pdo, 'docs')) {
@@ -14052,6 +14124,7 @@ case 'app-refund': {
     $st = $pdo->prepare('SELECT * FROM payments WHERE id=?'); $st->execute([$pid]);
     $p = $st->fetch(PDO::FETCH_ASSOC);
     if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
+    sub_scope_guard($pdo, $u, pay_owner_email($pdo, $pid));   /* V2.44b IDOR: own workspace only */
     if ($p['status'] === 'Refunded') json_out(['ok' => false, 'error' => 'Payment already refunded.'], 400);
     $pdo->prepare("UPDATE payments SET status='Refunded' WHERE id=?")->execute([$pid]);
     audit($u['name'], 'Payment refunded', 'payments', $pid, $reason ?: 'no reason');
