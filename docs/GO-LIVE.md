@@ -36,10 +36,10 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [ ] Read the Act + Rules (in force — confirm current registration thresholds/effective dates with a lawyer before relying on specifics).
 - [ ] Determine if KRTaker is a "significant" data fiduciary → register with the appropriate authority if threshold applies (processes citizens' personal data; property/rental data).
 - [ ] Appoint/designate a Data Protection Officer (can be internal, documented).
-- [ ] Update Privacy Policy: lawful basis, retention periods, data-subject rights (access/correct/erase/port — app-gdpr-export covers export; add "delete my data" flow).
+- [x] Update Privacy Policy: lawful basis, retention periods, data-subject rights (access/correct/erase/port — app-gdpr-export covers export; add "delete my data" flow). (V2.45: `app-gdpr-delete` — self-service right to erasure: PII anonymized, sessions/devices/settings erased, ownership refs detached, consent ledger kept as evidence; verified live 2026-08-16.)
 - [ ] Data localization: keep subscriber data on the BD cPanel host (it is). If you add a US VPS/DB (Phase 7 PG), document cross-border transfer basis.
 - [ ] Breach notification plan: internal incident log + notify regulator/users within the Act's window (verify current requirement — DSA-2018 era was 72h-ish for some classes; confirm under DPA-2023).
-- [ ] Consent: onboarding must capture explicit consent for marketing email/push (check register flow; the v19 push permission already asks — make sure opt-in is recorded per-email in DB).
+- [x] Consent: onboarding must capture explicit consent for marketing email/push (check register flow; the v19 push permission already asks — make sure opt-in is recorded per-email in DB). (V2.45, verified live 2026-08-16: `consent_records` ledger — terms+privacy recorded at every registration, marketing explicit opt-in checkbox (default OFF, EN/BN), push recorded on device subscribe; `app-consent-list`/`app-consent-set` self-service; 21/21 live checks.)
 
 ### 1.2 Security hardening (continue the v21 program)
 - [x] Security headers + CSP already scoped (v21b/v21c) — re-audit once more for the dashboard + API. (Re-audited live 2026-08-16: HSTS max-age=31536000, X-Content-Type-Options nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy camera/mic/geo=(), full CSP with object-src 'none', base-uri 'self', frame-ancestors 'none', upgrade-insecure-requests — dashboard + API both covered; no changes needed.)
