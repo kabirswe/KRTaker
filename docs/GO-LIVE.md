@@ -151,7 +151,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 | Security | OWASP spot-check, throttling on, secrets not in code, backups verified |
 | Ops | Uptime monitor on, error tracking on, Discord alerts on, restore drill done |
 | Content | GA4 real ID, Search Console verified, terms/privacy reviewed, claims honest |
-| Code | Full regression green (tests/live_regression.py — 51 checks, 51/51 PASS 2026-08-17; sandbox matrix 15/15), version bumped + deployed |
+| Code | Full regression green (tests/live_regression.py — 51 checks, 51/51 PASS 2026-08-17; sandbox matrix 15/15), launch audit green (tests/launch_audit.py — 36/36 PASS 2026-08-17), version bumped + deployed |
 
 ---
 
