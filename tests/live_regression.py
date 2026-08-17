@@ -16,7 +16,7 @@ BASE = 'https://krtaker.com/api'
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 QUICK = '--quick' in sys.argv
 
-CREDS_FILE = '/root/krtaker-deploy/user_creds.txt'
+CREDS_FILE = os.environ.get('KRT_CREDS', '/root/krtaker-deploy/user_creds.txt')
 results = []  # (name, ok, extra)
 
 def check(name, cond, extra=''):
