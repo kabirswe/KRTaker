@@ -572,8 +572,8 @@ function renderNav(){
     ['Platform',['subscribers','packages','users','providers']],
     ['Content & CRM',['cms','blog','onboarding','mis']],
     ['Developers',['api','ai','webhooks','domains']],
-    ['Commerce',['payments','finance']],
-    ['System',['settings','security','integrations','tickets','backup','modules','whitelabel','health','audit']]
+    ['Commerce',['payments','refunds','finance']],
+    ['System',['settings','security','integrations','sms','tickets','backup','modules','whitelabel','health','audit']]
   ];
   $('sbNav').innerHTML=groups.map(g=>`<div class="sb-group">${g[0]}</div>`+g[1].map(k=>{const n=NAV[k];return `<div class="sb-item ${STATE.view===k?'active':''}" onclick="nav('${k}')" data-nav="${k}" data-group="${esc(g[0])}" data-desc="${esc(NAV_DESC[k]||'')}"><span class="ic">${n.ic}</span><span class="txt">${n.l}</span>${n.chip?`<span class="chip">${n.chip}</span>`:''}</div>`}).join('')).join('');
 }
@@ -588,10 +588,12 @@ const NAV_DESC={
   onboarding:'Leads, subscriber onboarding applications and referrals',
   mis:'MIS reports — plans, status, revenue and support trends',
   payments:'Payment gateway configuration (bKash / SSLCommerz / Nagad)',
+  refunds:'Return payments — initiate gateway refunds and track their status',
   finance:'Company accounts — subscription revenue, expenses and balance',
   settings:'Application-wide settings — signups, trials, branding defaults',
   security:'Security operations — login lockouts, attempt history and rate-limit hits',
   integrations:'Third-party integrations across the platform',
+  sms:'SMS gateway — config, delivery analytics and message log',
   tickets:'Platform-wide support & ticketing for all system users',
   backup:'Database snapshots, download and full JSON export',
   modules:'Module & service management linked to package formulation',
@@ -614,10 +616,12 @@ const NAV={
   onboarding:{ic:'🎧',l:'Onboarding & CRM'},
   mis:{ic:'📈',l:'MIS Reports'},
   payments:{ic:'💳',l:'Payment Integrations'},
+  refunds:{ic:'💸',l:'Refunds'},
   finance:{ic:'💰',l:'Company Finance'},
   settings:{ic:'⚙️',l:'App Settings'},
   security:{ic:'🛡️',l:'Security Ops'},
   integrations:{ic:'🔌',l:'3rd-party Integrations'},
+  sms:{ic:'📱',l:'SMS Tracker'},
   tickets:{ic:'🎫',l:'Support & Ticketing'},
   backup:{ic:'💾',l:'Data Backup'},
   modules:{ic:'🧩',l:'Module Management'},
@@ -632,7 +636,7 @@ const NAV={
 function nav(v){closeSidebar();STATE.view=v;renderNav();renderTitle();render();window.scrollTo(0,0)}
 function render(){
   const el=$('content');
-  const r={dashboard:renderDashboard,subscribers:renderSubscribers,packages:renderPackages,users:renderUsers,providers:renderProviders,cms:renderCms,blog:renderBlog,onboarding:renderOnboarding,mis:renderMis,payments:renderPayments,finance:renderFinance,settings:renderSettings,security:renderSecurity,integrations:renderIntegrations,tickets:renderTickets,backup:renderBackup,modules:renderModules,whitelabel:renderWhitelabel,health:renderHealth,audit:renderAudit,api:renderApi,ai:renderAi,webhooks:renderWebhooks,domains:renderDomains}[STATE.view];
+  const r={dashboard:renderDashboard,subscribers:renderSubscribers,packages:renderPackages,users:renderUsers,providers:renderProviders,cms:renderCms,blog:renderBlog,onboarding:renderOnboarding,mis:renderMis,payments:renderPayments,refunds:renderRefunds,finance:renderFinance,settings:renderSettings,security:renderSecurity,integrations:renderIntegrations,sms:renderSms,tickets:renderTickets,backup:renderBackup,modules:renderModules,whitelabel:renderWhitelabel,health:renderHealth,audit:renderAudit,api:renderApi,ai:renderAi,webhooks:renderWebhooks,domains:renderDomains}[STATE.view];
   el.innerHTML='<div id="pageBody"></div>';STATE._sub='';STATE._actions='';STATE._primary=null;
   r();
 }
@@ -2395,6 +2399,129 @@ async function integrationTest(id){
   const d=await admin({action:'integration-test',id});
   toast((d.result||'Test done')+(d.latency_ms?' · '+d.latency_ms+'ms':''),'ok');
 }
+/* ── SMS Tracker (V2.51) ── */
+let SMSD=null;
+async function renderSms(){
+  pageHead('SMS gateway — config, delivery analytics and message log',`<button class="btn-primary" onclick="smsTestForm()">📨 Send test SMS</button><button class="btn-outline" onclick="smsConfigForm()">⚙ Configure</button>`);
+  load('pageBody','<div class="empty">Loading…</div>');
+  const d=await admin({action:'sms-summary'});
+  if(!d.ok){load('pageBody',`<div class="empty">${esc(d.error||'Failed')}</div>`);return}
+  SMSD=d;
+  const cfg=d.config||{},st=d.stats||{},recent=d.recent||[];
+  const kinds=st.by_kind||{},provs=st.by_provider||{};
+  const kindL={reminder:'🔔 Rent reminders',otp:'🔐 OTP / verification',test:'🧪 Tests',other:'📄 Other'};
+  const provL={log:'Log only (no real send)',bulksmsbd:'bulksmsbd.com',other:'Other'};
+  const trendHtml=(st.trend||[]).length?barChartSVG(st.trend,{w:560,h:150,ml:r=>r.d.slice(5)}):'';
+  const rows=recent.map(r=>`<tr><td class="c-sub">${esc((r.ts||'').slice(0,16))}</td><td>${badge(r.status)}</td><td>${badge(r.kind||'other')}</td><td class="c-name">${esc(r.to_phone)}</td><td class="c-sub" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.message||'')}</td><td class="c-sub">${esc(r.provider||'log')}</td><td class="c-sub">${esc(r.ref||'')}</td></tr>`).join('')||'<tr><td colspan="7"><div class="empty">No SMS sent yet.</div></td></tr>';
+  load('pageBody',pageBar()+
+    `<div class="stats">${[
+      ['📨','Total rows',st.total||0,'all-time SMS log'],
+      ['✅','Delivered',st.sent||0,'status=sent'],
+      ['⚠️','Failed',st.failed||0,(st.failed||0)?'check provider / balance':'no failures'],
+      ['📅','Today',st.today||0,'sent since midnight UTC'],
+      ['🗓️','Last 7 days',st.week||0,'rolling week']
+    ].map(c=>`<div class="stat"><div class="s-label"><span class="s-ico">${c[0]}</span>${c[1]}</div><div class="s-value">${c[2]}</div><div class="s-trend">${c[3]}</div></div>`).join('')}</div>
+    <div class="grid-2" style="gap:18px">
+      <div class="panel"><div class="panel-h"><span class="t"><span class="pi">📈</span>Volume — last 14 days</span></div><div class="panel-b">${trendHtml||'<div class="empty">No activity yet.</div>'}</div></div>
+      <div class="panel"><div class="panel-h"><span class="t"><span class="pi">🔌</span>Gateway config</span></div><div class="panel-b">
+        <div class="kv"><span class="k">Status</span><span class="v">${(String(cfg.enabled)==='1')?badge('active'):badge('disabled')}</span></div>
+        <div class="kv"><span class="k">Provider</span><span class="v">${esc(provL[cfg.provider]||cfg.provider||'log')}</span></div>
+        <div class="kv"><span class="k">Sender ID</span><span class="v">${esc(cfg.sender_id||'KRTaker')}</span></div>
+        <div class="kv"><span class="k">API key</span><span class="v">${cfg.api_key?esc(cfg.api_key):'<span class="c-sub">not set</span>'}</span></div>
+        <div class="kv"><span class="k">API URL</span><span class="v" style="font-size:11px">${esc(cfg.api_url||'—')}</span></div>
+        <div class="kv"><span class="k">Readiness</span><span class="v">${cfg.ready?badge('ready'):badge('unconfigured')}</span></div>
+      </div></div>
+    </div>
+    <div class="grid-2" style="gap:18px;margin-top:18px">
+      <div class="panel"><div class="panel-h"><span class="t"><span class="pi">🏷️</span>By purpose</span></div><div class="panel-b">${Object.keys(kindL).map(k=>`<div class="kv"><span class="k">${kindL[k]}</span><span class="v">${kinds[k]||0}</span></div>`).join('')}</div></div>
+      <div class="panel"><div class="panel-h"><span class="t"><span class="pi">🏢</span>By provider</span></div><div class="panel-b">${Object.keys(provL).map(k=>`<div class="kv"><span class="k">${provL[k]}</span><span class="v">${provs[k]||0}</span></div>`).join('')}</div></div>
+    </div>
+    <div class="panel" style="margin-top:18px"><div class="panel-h"><span class="t"><span class="pi">📜</span>Recent SMS log <span class="c-sub" style="font-size:11px;margin-left:8px">latest 60</span></span></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Status</th><th>Kind</th><th>Phone</th><th>Message</th><th>Provider</th><th>Ref</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`);
+}
+function smsConfigForm(){
+  const cfg=(SMSD&&SMSD.config)||{};
+  openDrawer('SMS gateway configuration',
+    `<div class="frm">
+      <div><label class="lb">Enabled</label><select id="sms_enabled"><option value="1" ${String(cfg.enabled)==='1'?'selected':''}>On</option><option value="0" ${String(cfg.enabled)!=='1'?'selected':''}>Off</option></select></div>
+      <div><label class="lb">Provider</label><select id="sms_provider"><option value="log" ${(cfg.provider||'log')==='log'?'selected':''}>Log only (no real send)</option><option value="bulksmsbd" ${cfg.provider==='bulksmsbd'?'selected':''}>bulksmsbd.com</option></select></div>
+      <div><label class="lb">Sender ID</label><input id="sms_sender" value="${esc(cfg.sender_id||'KRTaker')}"></div>
+      <div><label class="lb">API key</label><input id="sms_key" value="${esc(cfg.api_key||'')}" placeholder="••••••••">${cfg.api_key?`<div class="c-sub" style="font-size:11px">Masked — leave as-is to keep the stored key.</div>`:''}</div>
+      <div><label class="lb">API URL</label><input id="sms_url" value="${esc(cfg.api_url||'https://api.bulksmsbd.com/smsapi')}"></div>
+    </div>`,
+    `<div class="dr-actions"><button class="btn-ghost" onclick="closeDrawer()">Cancel</button><button class="btn-primary" onclick="smsConfigSave()">💾 Save</button></div>`);
+}
+async function smsConfigSave(){
+  const key=$('sms_key').value.trim();
+  const body={enabled:$('sms_enabled').value==='1',provider:$('sms_provider').value,sender_id:$('sms_sender').value.trim(),api_url:$('sms_url').value.trim()};
+  if(key!==''&&!key.startsWith('•••'))body.api_key=key;
+  const d=await admin({action:'sms-config-save',...body});
+  if(d.ok){toast('SMS configuration saved','ok');closeDrawer();renderSms();}else toast(d.error||'Failed','error');
+}
+function smsTestForm(){
+  openDrawer('Send a test SMS',
+    `<div class="frm"><div><label class="lb">Phone</label><input id="sms_test_phone" placeholder="01XXXXXXXXX"></div><div class="c-sub" style="font-size:11px">With the log provider (default) the message is recorded with status sent — no real SMS is sent. With bulksmsbd the provider is called.</div></div>`,
+    `<div class="dr-actions"><button class="btn-ghost" onclick="closeDrawer()">Cancel</button><button class="btn-primary" onclick="smsTestSend()">📨 Send</button></div>`);
+}
+async function smsTestSend(){
+  const d=await admin({action:'sms-test-send',phone:$('sms_test_phone').value.trim()});
+  if(d.ok){toast('Test SMS: '+d.status+(d.simulated?' (logged)':'')+' · '+d.ref,'ok');closeDrawer();renderSms();}else toast(d.error||'Failed','error');
+}
+/* ── Refunds (V2.51) ── */
+let REFUNDS=[];
+async function renderRefunds(){
+  pageHead('Return payments — initiate gateway refunds and track their status',`<button class="btn-primary" onclick="refundForm()">↩️ Initiate refund</button>`);
+  load('pageBody','<div class="empty">Loading…</div>');
+  const d=await admin({action:'refunds'});
+  if(!d.ok){load('pageBody',`<div class="empty">${esc(d.error||'Failed')}</div>`);return}
+  const st=d.stats||{};REFUNDS=d.refunds||[];
+  const bs=st.by_status||{};
+  const cfg={
+    data:REFUNDS,ph:'Search id, payment, reason…',
+    search:['id','payment_id','invoice_id','reason','gateway_ref','initiator'],
+    filters:[['status','Status'],['gateway','Gateway']],
+    sortable:['id','payment_id','amount','status','created_at'],
+    head:s=>`<tr>${tblTh('rf','Refund','id',s)}${tblTh('rf','Payment','payment_id',s)}${tblTh('rf','Invoice','invoice_id',s)}${tblTh('rf','Gateway','gateway',s)}${tblTh('rf','Amount','amount',s)}<th>Reason</th>${tblTh('rf','Status','status',s)}${tblTh('rf','When','created_at',s)}<th></th></tr>`,
+    row:r=>`<tr><td class="c-name">${esc(r.id)}</td><td>${esc(r.payment_id)}</td><td class="c-sub">${esc(r.invoice_id||'—')}</td><td>${badge(r.gateway||'manual')}</td><td style="font-weight:700">${money(r.amount)}</td><td class="c-sub" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.reason||'—')}</td><td>${badge(r.status)}</td><td class="c-sub">${esc((r.created_at||'').slice(0,16))}</td><td><div class="row-actions"><button class="btn-ghost" onclick="refundStatus('${esc(r.id)}')" data-tip="Refresh gateway status" data-tip-pos="left" title="Refresh">🔄</button><button class="btn-ghost" onclick="refundDetail('${esc(r.id)}')" data-tip="Details" data-tip-pos="left" title="Details">👁</button></div></td></tr>`,
+    empty:'<tr><td colspan="9"><div class="empty">No refunds yet — initiate one from the button above.</div></td></tr>'
+  };
+  tblReg('rf',cfg);
+  load('pageBody',pageBar()+
+    `<div class="stats">${[
+      ['↩️','Refunded total',moneyC(st.refunded_amt||0),'sum of refunded rows'],
+      ['🧾','Refunds on file',REFUNDS.length||0,'latest 150'],
+      ['⏳','Processing',(bs.processing&&bs.processing.n)||0,'awaiting gateway'],
+      ['❌','Failed',(bs.failed&&bs.failed.n)||0,'need attention']
+    ].map(c=>`<div class="stat"><div class="s-label"><span class="s-ico">${c[0]}</span>${c[1]}</div><div class="s-value">${c[2]}</div><div class="s-trend">${c[3]}</div></div>`).join('')}</div>
+    <div class="c-sub" style="padding:2px 4px 12px">${(st.paid_count||0)} successful payments on file · refund amount ≤ payment amount is enforced server-side</div>`+
+    tblPanel('rf',cfg));
+  tblDraw('rf',cfg);
+}
+function refundForm(){
+  openDrawer('Initiate a refund (return payment)',
+    `<div class="frm">
+      <div><label class="lb">Payment ID</label><input id="rf_pid" placeholder="PAY-0001"> <div class="c-sub" style="font-size:11px">Successful payments only — the gateway session is auto-detected.</div></div>
+      <div><label class="lb">Amount (৳)</label><input id="rf_amount" type="number" placeholder="full amount by default"></div>
+      <div><label class="lb">Reason</label><textarea id="rf_reason" rows="3" placeholder="e.g. duplicate charge, cancellation, refund policy"></textarea></div>
+      <div class="c-sub" style="font-size:11px;background:var(--primary-light);padding:10px 12px;border-radius:10px">Until real gateway credentials are configured, refunds are recorded as <b>simulated</b> (marked refunded locally — money must be returned manually). Once SSLCommerz/bKash go live, the provider refund API is called automatically.</div>
+    </div>`,
+    `<div class="dr-actions"><button class="btn-ghost" onclick="closeDrawer()">Cancel</button><button class="btn-primary" onclick="refundInitiate()">↩️ Initiate refund</button></div>`);
+}
+async function refundInitiate(){
+  const d=await admin({action:'refund-initiate',payment_id:$('rf_pid').value.trim(),amount:+$('rf_amount').value||0,reason:$('rf_reason').value.trim()});
+  if(d.ok){toast('Refund '+d.refund_id+' — '+d.status+(d.simulated?' (simulated)':''),'ok');closeDrawer();renderRefunds();}else toast(d.error||'Failed','error');
+}
+async function refundStatus(id){
+  const d=await admin({action:'refund-status',refund_id:id});
+  if(d.ok){toast(id+' → '+d.status+(d.changed?' (updated)':''),d.status==='failed'?'error':'ok');renderRefunds();}else toast(d.error||'Failed','error');
+}
+function refundDetail(id){
+  const r=REFUNDS.find(x=>x.id===id);if(!r)return;
+  detDrawer('↩️','Refund '+id,r,{
+    id:'ID',payment_id:'Payment',invoice_id:'Invoice',gateway:'Gateway',amount:'Amount',reason:'Reason',
+    status:'Status',gateway_ref:'Gateway ref',bank_tran_id:'Bank tran id',initiator:'Initiator',note:'Note',created_at:'Created',updated_at:'Updated'});
+}
 /* ── Finance ── */
 let LED=[];
 async function renderFinance(){
@@ -3423,6 +3550,12 @@ const API_CATALOG = [
   ['app-admin api-keys-save','POST','admin','Admin','API Library — rotate web/mobile API keys; set enforcement + rate limit.'],
   ['app-admin api-stats','POST','admin','Admin','API Library — row counts for web and mobile tables.'],
   ['app-admin api-table','POST','admin','Admin','API Library — recent rows from a whitelisted table.'],
+  ['app-admin sms-summary','POST','admin','Admin','SMS Tracker — gateway config, volume analytics (by kind/provider/status, 14-day trend) and recent log.'],
+  ['app-admin sms-config-save','POST','admin','Admin','SMS Tracker — save gateway config (enabled/provider/sender/api key/url; masked keys preserved).'],
+  ['app-admin sms-test-send','POST','admin','Admin','SMS Tracker — send a test SMS (logged; provider called when configured).'],
+  ['app-admin refunds','POST','admin','Admin','Refunds — refund ledger with status breakdown and refunded totals.'],
+  ['app-admin refund-initiate','POST','admin','Admin','Refunds — initiate a return payment for a successful payment (gateway API when configured, simulated otherwise).'],
+  ['app-admin refund-status','POST','admin','Admin','Refunds — re-check a refund at the gateway (SSLCommerz status API) and sync.'],
   ['app-admin cms-pub-get','POST','admin','Admin','CMS — publish/draft + scheduled publish flags for every page.'],
   ['app-admin cms-pub-save','POST','admin','Admin','CMS — set a page live/draft, or schedule auto-publish with publish_at (YYYY-MM-DDTHH:MM).'],
   ['app-admin cms-replace','POST','admin','Admin','CMS — global find & replace across blocks (dry-run preview supported).'],

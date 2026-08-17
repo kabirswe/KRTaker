@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260926) {
+        if ($__sv < 20260928) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1196,7 +1196,49 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             reason TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now')),
             source TEXT DEFAULT '')");
-        try { $pdo->exec('PRAGMA user_version=20260926'); } catch (Exception $e) {}
+        /* V2.51: SMS tracking — kind column on sms_log (reminder/otp/test/other) for
+           the superadmin SMS dashboard; refunds ledger for gateway return payments. */
+        $sms_cols = [];
+        foreach ($pdo->query('PRAGMA table_info(sms_log)') as $c) $sms_cols[] = $c['name'];
+        if (!in_array('kind', $sms_cols, true)) $pdo->exec("ALTER TABLE sms_log ADD COLUMN kind TEXT DEFAULT ''");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_sms_log_ts ON sms_log(ts)");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS refunds (
+            id TEXT PRIMARY KEY,
+            payment_id TEXT NOT NULL,
+            invoice_id TEXT DEFAULT '',
+            gateway TEXT DEFAULT '',
+            amount INTEGER DEFAULT 0,
+            reason TEXT DEFAULT '',
+            status TEXT DEFAULT 'requested',
+            gateway_ref TEXT DEFAULT '',
+            bank_tran_id TEXT DEFAULT '',
+            initiator TEXT DEFAULT '',
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_refunds_payment ON refunds(payment_id, status)");
+        /* V2.51b: close fresh-install schema drift — columns that production has
+           (added by one-off migrations over time) were missing from the bootstrap
+           block, so a brand-new DB 500'd on paths that reference them (e.g.
+           pay_owner_email → units.sub_email). All guarded: no-op on migrated DBs. */
+        foreach ([
+            'units' => ['beds' => 'INTEGER DEFAULT 0', 'baths' => 'INTEGER DEFAULT 0', 'furnished' => 'INTEGER DEFAULT 0', 'sub_email' => "TEXT DEFAULT ''"],
+            'properties' => ['address' => "TEXT DEFAULT ''", 'created_at' => "TEXT DEFAULT (datetime('now'))", 'description' => "TEXT DEFAULT ''", 'featured' => 'INTEGER DEFAULT 0', 'photo' => "TEXT DEFAULT ''", 'sub_email' => "TEXT DEFAULT ''"],
+            'partners' => ['address' => "TEXT DEFAULT ''", 'city' => "TEXT DEFAULT ''", 'email' => "TEXT DEFAULT ''", 'hourly_rate' => 'INTEGER DEFAULT 0', 'notes' => "TEXT DEFAULT ''", 'specialties' => "TEXT DEFAULT ''"],
+            'company_ledger' => ['note' => "TEXT DEFAULT ''", 'payee' => "TEXT DEFAULT ''"],
+            'integrations' => ['description' => "TEXT DEFAULT ''"],
+            'leads' => ['budget' => 'INTEGER DEFAULT 0', 'move_in' => "TEXT DEFAULT ''"],
+            'onboarding_apps' => ['employer' => "TEXT DEFAULT ''", 'occupation' => "TEXT DEFAULT ''", 'reference' => "TEXT DEFAULT ''"],
+            'platform_tickets' => ['category' => "TEXT DEFAULT ''", 'due_at' => "TEXT DEFAULT ''", 'tags' => "TEXT DEFAULT ''"],
+            'referrals' => ['referred_phone' => "TEXT DEFAULT ''"],
+        ] as $__t => $__cols) {
+            $__cur = [];
+            foreach ($pdo->query("PRAGMA table_info($__t)") as $c) $__cur[] = $c['name'];
+            foreach ($__cols as $__c => $__ddl) {
+                if (!in_array($__c, $__cur, true)) { try { $pdo->exec("ALTER TABLE $__t ADD COLUMN $__c $__ddl"); } catch (Exception $e) {} }
+            }
+        }
+        try { $pdo->exec('PRAGMA user_version=20260928'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -2370,6 +2412,96 @@ function gateway_verify($code, $gw_ref) {
         return ($j['status'] ?? '') === 'Success';
     }
     return false;
+}
+
+/* ── V2.51: gateway refund (return payment) adapters ──
+   Mirrors gateway_init/verify: when the merchant credentials are configured
+   (gateway_ready) the real provider API is called; otherwise a simulated
+   refund is recorded so the whole flow stays testable before go-live.
+   Returns ['ok'=>true, 'simulated'=>bool, 'gateway_ref'=>..., 'status'=>...]. */
+function gateway_refund($code, $payment, $amount, $reason) {
+    $g = GATEWAYS()[$code] ?? null;
+    if (!$g || !gateway_ready($code)) {
+        return [
+            'ok' => true, 'simulated' => true, 'status' => 'refunded',
+            'gateway_ref' => 'SIM-' . strtoupper(bin2hex(random_bytes(3))),
+            'note' => 'Gateway credentials not configured — refund recorded locally (simulated). Money must be returned manually.',
+        ];
+    }
+    if ($code === 'sslcommerz') {
+        $ref_api = !empty($g['sandbox'])
+            ? 'https://sandbox.sslcommerz.com/refund/api.php'
+            : 'https://secure.sslcommerz.com/refund/api.php';
+        $r = gw_http_post($ref_api, [
+            'store_id' => $g['store_id'], 'store_passwd' => $g['store_pass'],
+            'refund_ref_id' => (string)($payment['gw_ref'] ?? $payment['ref'] ?? ''),
+            'refund_amount' => $amount, 'refund_remarks' => mb_substr($reason ?: 'Refund', 0, 200),
+        ]);
+        if (isset($r['error'])) return ['ok' => false, 'error' => 'SSLCommerz refund unreachable: ' . $r['error']];
+        $j = json_decode($r['body'] ?? '', true);
+        $st = strtolower((string)($j['status'] ?? ''));
+        if ($st === 'success') {
+            return ['ok' => true, 'simulated' => false, 'status' => 'refunded',
+                'gateway_ref' => (string)($j['refund_ref_id'] ?? ''), 'bank_tran_id' => (string)($j['bank_tran_id'] ?? ''),
+                'note' => 'SSLCommerz refund accepted'];
+        }
+        if ($st === 'processing' || $st === 'pending') {
+            return ['ok' => true, 'simulated' => false, 'status' => 'processing',
+                'gateway_ref' => (string)($j['refund_ref_id'] ?? ''), 'bank_tran_id' => (string)($j['bank_tran_id'] ?? ''),
+                'note' => 'SSLCommerz refund in progress'];
+        }
+        return ['ok' => false, 'error' => 'SSLCommerz refund failed: ' . ($j['errorReason'] ?? $j['failedreason'] ?? $j['status'] ?? 'unknown')];
+    }
+    if ($code === 'bkash') {
+        $tokUrl = str_replace('/checkout/create', '/checkout/token/grant', $g['checkout']);
+        $r = gw_http_post($tokUrl, ['app_key' => $g['merchant'], 'app_secret' => $g['app_secret']]);
+        $tok = json_decode($r['body'] ?? '', true);
+        if (empty($tok['id_token'])) return ['ok' => false, 'error' => 'bKash refund token grant failed.'];
+        $ch = curl_init(str_replace('/checkout/create', '/checkout/payment/refund', $g['checkout']));
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_TIMEOUT => 40,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: ' . $tok['id_token'], 'X-APP-Key: ' . $g['merchant']],
+            CURLOPT_POSTFIELDS => json_encode([
+                'paymentID' => (string)($payment['gw_ref'] ?? ''),
+                'amount' => (string)$amount,
+                'trxID' => (string)($payment['gw_ref'] ?? ''),
+                'SKU' => 'KRTaker refund',
+                'reason' => mb_substr($reason ?: 'Refund', 0, 200),
+            ]),
+        ]);
+        $body = (string)curl_exec($ch); curl_close($ch);
+        $j = json_decode($body, true);
+        if (($j['transactionStatus'] ?? '') === 'Completed' || !empty($j['refundTrxID'])) {
+            return ['ok' => true, 'simulated' => false, 'status' => 'refunded',
+                'gateway_ref' => (string)($j['refundTrxID'] ?? ''), 'note' => 'bKash refund accepted'];
+        }
+        return ['ok' => false, 'error' => 'bKash refund failed: ' . substr($body, 0, 200)];
+    }
+    return ['ok' => false, 'error' => 'Refund not supported for this gateway yet.'];
+}
+
+/* Query gateway refund status (SSLCommerz status API; simulated/other → current). */
+function gateway_refund_status($code, $refund) {
+    $g = GATEWAYS()[$code] ?? null;
+    if (!$g || empty($refund['gateway_ref']) || strpos((string)$refund['gateway_ref'], 'SIM-') === 0) {
+        return ['status' => $refund['status'] ?? 'unknown', 'note' => 'Simulated or unknown gateway — no remote status.'];
+    }
+    if ($code === 'sslcommerz') {
+        $st_api = !empty($g['sandbox'])
+            ? 'https://sandbox.sslcommerz.com/refund/status.php'
+            : 'https://secure.sslcommerz.com/refund/status.php';
+        $r = gw_http_post($st_api, [
+            'store_id' => $g['store_id'], 'store_passwd' => $g['store_pass'],
+            'refund_ref_id' => $refund['gateway_ref'], 'format' => 'json',
+        ]);
+        $j = json_decode($r['body'] ?? '', true);
+        $st = strtolower((string)($j['status'] ?? ''));
+        if ($st === 'success') return ['status' => 'refunded', 'note' => 'Confirmed by SSLCommerz'];
+        if ($st === 'processing' || $st === 'pending') return ['status' => 'processing', 'note' => 'Still processing at SSLCommerz'];
+        if ($st === 'failed') return ['status' => 'failed', 'note' => 'Refund rejected by SSLCommerz'];
+        return ['status' => $refund['status'] ?? 'unknown', 'note' => 'SSLCommerz status: ' . ($j['status'] ?? 'unknown') . ' — ' . ($j['errorReason'] ?? '')];
+    }
+    return ['status' => $refund['status'] ?? 'unknown', 'note' => 'No remote refund status for ' . $code . '.'];
 }
 
 /* ── Gateway session confirmation (idempotent, IPN + redirect share this) ──
@@ -4207,6 +4339,23 @@ HTML,
 </div>
 HTML,
 ],
+'refund' => [
+'Refund initiated — {{payment_id}} (৳{{amount}})',
+<<<'HTML'
+<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E4EAF3;border-radius:16px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#E67E22,#CA6F1E);padding:22px 32px">
+    <div style="font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px">↩️ Refund initiated<span style="display:block;font-size:10.5px;font-weight:600;letter-spacing:2.4px;opacity:.8;margin-top:2px">KRTaker · KEY RESPONSIBILITY TAKER</span></div>
+  </div>
+  <div style="padding:32px">
+    <p style="margin:0 0 14px;color:#475467;font-size:14px">Dear {{name}},</p>
+    <p style="margin:0 0 14px;color:#475467;font-size:14px;line-height:1.7">A refund of <b>৳{{amount}}</b> for payment <b>{{payment_id}}</b> ({{method}}) has been initiated. {{reason}}</p>
+    <div style="background:#FDF3E7;border:1px solid #F0D3A8;border-radius:12px;padding:14px 18px;font-size:13px;color:#7C4A03;margin-bottom:16px">Refund reference: <b>{{refund_id}}</b>. Money returns to your original payment method within 3–10 business days depending on your bank / mobile wallet.</div>
+    <p style="margin:0;color:#8A94A6;font-size:12.5px">— KRTaker, your AI caretaker 🇧🇩</p>
+  </div>
+  <div style="background:#F8FAFD;border-top:1px solid #E4EAF3;padding:18px 32px;font-size:11.5px;color:#8A94A6;line-height:1.9">KRTaker · Dhaka, Bangladesh · support@krtaker.com</div>
+</div>
+HTML,
+],
 'receipt' => [
 'Payment receipt {{receipt_id}} — KRTaker',
 <<<'HTML'
@@ -4527,7 +4676,7 @@ function seed_templates($pdo) {
                 ->execute([$id, $n[0], $n[1], $n[2], $body, 'system', $n[3]]);
         }
     }
-    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'owner_digest' => ['Owner Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en'], 'tenant_welcome' => ['Tenant Portal Welcome Email', 'en'], 'setup_nudge' => ['First Property Setup Nudge', 'en'], 'tenant_nudge' => ['Add Your First Tenant Nudge', 'en'], 'payment_failed' => ['Payment Failed Notice', 'en']];
+    $emails = ['otp' => ['Verification (OTP) Email', 'en'], 'welcome' => ['Welcome Email', 'en'], 'welcome_bn' => ['স্বাগতম ইমেইল (Bengali Welcome)', 'bn'], 'collections' => ['Collections Digest', 'en'], 'owner_digest' => ['Owner Collections Digest', 'en'], 'rent_reminder' => ['Rent Reminder', 'en'], 'rent_reminder_bn' => ['ভাড়া অনুস্মারক (Bengali Rent Reminder)', 'bn'], 'invoice' => ['Invoice Email', 'en'], 'invoice_bn' => ['ভাড়ার ইনভয়েস (Bengali Invoice)', 'bn'], 'receipt' => ['Receipt Email', 'en'], 'receipt_bn' => ['পেমেন্ট রসিদ (Bengali Receipt)', 'bn'], 'renewal_status' => ['Lease Renewal Status', 'en'], 'premium_welcome' => ['Caretaker Subscription Confirmation', 'en'], 'move_out' => ['Move-out / Settlement Notice', 'en'], 'move_out_bn' => ['চুক্তি শেষ নোটিশ (Bengali Move-out)', 'bn'], 'arrears' => ['Arrears Notice Email', 'en'], 'arrears_bn' => ['বকেয়া নোটিশ ইমেইল (Bengali Arrears)', 'bn'], 'owner_statement' => ['Monthly Owner Statement', 'en'], 'notice_email' => ['Notice Broadcast Email', 'en'], 'tenant_welcome' => ['Tenant Portal Welcome Email', 'en'], 'setup_nudge' => ['First Property Setup Nudge', 'en'], 'tenant_nudge' => ['Add Your First Tenant Nudge', 'en'], 'payment_failed' => ['Payment Failed Notice', 'en'], 'refund' => ['Refund Initiated Notice', 'en']];
     foreach ($emails as $id => $em) {
         list($subj, $body) = seed_email_tpl($id);
         $st = $pdo->prepare('SELECT COUNT(*) FROM email_templates WHERE id=?'); $st->execute([$id]);
@@ -6439,9 +6588,15 @@ function sms_send($pdo, $phone, $message, $provider = null) {
         }
         $status = (strpos($resp, 'SUCCESS') !== false || strpos($resp, '"status":1') !== false) ? 'sent' : 'failed';
     }
-    $pdo->prepare('INSERT INTO sms_log (to_phone, message, provider, ref, status) VALUES (?,?,?,?,?)')
-        ->execute([$to, mb_substr($message, 0, 480), $prov, $ref, $status]);
-    return ['ok' => $status === 'sent', 'to' => $to, 'ref' => $ref, 'provider' => $prov, 'status' => $status];
+    /* V2.51: purpose classification so the superadmin SMS dashboard can break
+       volume down by use-case without extra bookkeeping at call sites. */
+    $kind = 'other';
+    if (stripos($message, 'rent reminder') !== false || stripos($message, 'reminder') !== false) $kind = 'reminder';
+    elseif (stripos($message, 'SMS test') !== false) $kind = 'test';
+    elseif (stripos($message, 'OTP') !== false || stripos($message, 'verification') !== false || stripos($message, 'code') !== false) $kind = 'otp';
+    $pdo->prepare('INSERT INTO sms_log (to_phone, message, provider, ref, status, kind) VALUES (?,?,?,?,?,?)')
+        ->execute([$to, mb_substr($message, 0, 480), $prov, $ref, $status, $kind]);
+    return ['ok' => $status === 'sent', 'to' => $to, 'ref' => $ref, 'provider' => $prov, 'status' => $status, 'kind' => $kind];
 }
 function sms_reminder_text($r) {
     $amt = '৳' . number_format((int)$r['due']);
@@ -14219,8 +14374,13 @@ case 'app-refund': {
     sub_scope_guard($pdo, $u, pay_owner_email($pdo, $pid));   /* V2.44b IDOR: own workspace only */
     if ($p['status'] === 'Refunded') json_out(['ok' => false, 'error' => 'Payment already refunded.'], 400);
     $pdo->prepare("UPDATE payments SET status='Refunded' WHERE id=?")->execute([$pid]);
-    audit($u['name'], 'Payment refunded', 'payments', $pid, $reason ?: 'no reason');
-    json_out(['ok' => true, 'id' => $pid]);
+    /* V2.51: record into the refund ledger so the superadmin refund dashboard
+       has a single source of truth (offline/manual mark — no gateway call). */
+    $rid = 'RF-' . strtoupper(bin2hex(random_bytes(3)));
+    $pdo->prepare('INSERT INTO refunds (id, payment_id, invoice_id, gateway, amount, reason, status, initiator, note) VALUES (?,?,?,?,?,?,?,?,?)')
+        ->execute([$rid, $pid, $p['inv'] ?? '', 'manual', (int)$p['amount'], mb_substr($reason, 0, 300), 'refunded', $u['name'], 'Marked refunded offline by ' . $u['name']]);
+    audit($u['name'], 'Payment refunded', 'payments', $pid, $rid . ' ' . ($reason ?: 'no reason'));
+    json_out(['ok' => true, 'id' => $pid, 'refund_id' => $rid]);
 }
 case 'app-gateway-cleanup': {
     $u = require_user();
@@ -14517,7 +14677,38 @@ case 'app-sms': {
         $rows = $pdo->query('SELECT * FROM sms_log ORDER BY id DESC LIMIT 50')->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'log' => $rows]);
     }
-    json_out(['ok' => false, 'error' => 'action must be config-get|config-save|send-test|log.'], 400);
+    if ($action === 'stats') {
+        /* V2.51: SMS analytics — totals, today, by kind/provider/status, 14-day trend. */
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true))
+            json_out(['ok' => false, 'error' => 'Access denied.'], 403);
+        $tot = (int)$pdo->query('SELECT COUNT(*) FROM sms_log')->fetchColumn();
+        $sent = (int)$pdo->query("SELECT COUNT(*) FROM sms_log WHERE status='sent'")->fetchColumn();
+        $failed = (int)$pdo->query("SELECT COUNT(*) FROM sms_log WHERE status='failed'")->fetchColumn();
+        $today = (int)$pdo->query("SELECT COUNT(*) FROM sms_log WHERE ts >= date('now')")->fetchColumn();
+        $week = (int)$pdo->query("SELECT COUNT(*) FROM sms_log WHERE ts >= datetime('now','-7 days')")->fetchColumn();
+        $byKind = [];
+        foreach ($pdo->query("SELECT COALESCE(NULLIF(kind,''),'other') k, COUNT(*) n FROM sms_log GROUP BY k ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC) as $r) $byKind[$r['k']] = (int)$r['n'];
+        $byProv = [];
+        foreach ($pdo->query('SELECT provider p, COUNT(*) n FROM sms_log GROUP BY provider ORDER BY n DESC')->fetchAll(PDO::FETCH_ASSOC) as $r) $byProv[$r['p'] ?: 'log'] = (int)$r['n'];
+        $byStatus = [];
+        foreach ($pdo->query('SELECT status s, COUNT(*) n FROM sms_log GROUP BY status')->fetchAll(PDO::FETCH_ASSOC) as $r) $byStatus[$r['s']] = (int)$r['n'];
+        $trend = [];
+        for ($i = 13; $i >= 0; $i--) {
+            $d = gmdate('Y-m-d', strtotime("-$i days"));
+            $st = $pdo->prepare("SELECT COUNT(*) FROM sms_log WHERE ts >= ? AND ts < ?");
+            $st->execute([$d . ' 00:00:00', gmdate('Y-m-d', strtotime("-$i days") + 86400) . ' 00:00:00']);
+            $daySent = (int)$st->fetchColumn();
+            $st = $pdo->prepare("SELECT COUNT(*) FROM sms_log WHERE status='failed' AND ts >= ? AND ts < ?");
+            $st->execute([$d . ' 00:00:00', gmdate('Y-m-d', strtotime("-$i days") + 86400) . ' 00:00:00']);
+            $trend[] = ['d' => $d, 'sent' => $daySent, 'failed' => (int)$st->fetchColumn()];
+        }
+        json_out(['ok' => true, 'stats' => [
+            'total' => $tot, 'sent' => $sent, 'failed' => $failed,
+            'today' => $today, 'week' => $week,
+            'by_kind' => $byKind, 'by_provider' => $byProv, 'by_status' => $byStatus, 'trend' => $trend,
+        ]]);
+    }
+    json_out(['ok' => false, 'error' => 'action must be config-get|config-save|send-test|log|stats.'], 400);
 }
 
 /* ── Login security (bharakhata parity): reCAPTCHA v3 + Cloudflare Turnstile ──
@@ -23140,6 +23331,58 @@ case 'app-admin': {
         ]]);
     }
 
+    if ($action === 'sms-summary') {
+        /* V2.51: SMS ops dashboard — config state + volume analytics + recent rows. */
+        $c = sms_cfg($pdo);
+        $c['ready'] = $c['enabled'] && ($c['provider'] === 'log' || $c['api_key'] !== '');
+        $c['api_key'] = $c['api_key'] !== '' ? substr($c['api_key'], 0, 4) . '…' . substr($c['api_key'], -2) : '';
+        $c['masked'] = 1;
+        $tot = (int)$one('SELECT COUNT(*) FROM sms_log');
+        $sent = (int)$one("SELECT COUNT(*) FROM sms_log WHERE status='sent'");
+        $failed = (int)$one("SELECT COUNT(*) FROM sms_log WHERE status='failed'");
+        $today = (int)$one("SELECT COUNT(*) FROM sms_log WHERE ts >= date('now')");
+        $week = (int)$one("SELECT COUNT(*) FROM sms_log WHERE ts >= datetime('now','-7 days')");
+        $byKind = [];
+        foreach ($q("SELECT COALESCE(NULLIF(kind,''),'other') k, COUNT(*) n FROM sms_log GROUP BY k ORDER BY n DESC") as $r) $byKind[$r['k']] = (int)$r['n'];
+        $byProv = [];
+        foreach ($q('SELECT provider p, COUNT(*) n FROM sms_log GROUP BY provider ORDER BY n DESC') as $r) $byProv[$r['p'] ?: 'log'] = (int)$r['n'];
+        $trend = [];
+        for ($i = 13; $i >= 0; $i--) {
+            $d = gmdate('Y-m-d', strtotime("-$i days"));
+            $st = $pdo->prepare("SELECT COUNT(*) FROM sms_log WHERE ts >= ? AND ts < ?");
+            $st->execute([$d . ' 00:00:00', gmdate('Y-m-d', strtotime("-$i days") + 86400) . ' 00:00:00']);
+            $ds = (int)$st->fetchColumn();
+            $st = $pdo->prepare("SELECT COUNT(*) FROM sms_log WHERE status='failed' AND ts >= ? AND ts < ?");
+            $st->execute([$d . ' 00:00:00', gmdate('Y-m-d', strtotime("-$i days") + 86400) . ' 00:00:00']);
+            $trend[] = ['d' => $d, 'sent' => $ds, 'failed' => (int)$st->fetchColumn()];
+        }
+        $recent = $q('SELECT id, to_phone, message, provider, status, kind, ref, ts FROM sms_log ORDER BY id DESC LIMIT 60');
+        json_out(['ok' => true, 'config' => $c, 'stats' => [
+            'total' => $tot, 'sent' => $sent, 'failed' => $failed, 'today' => $today, 'week' => $week,
+            'by_kind' => $byKind, 'by_provider' => $byProv, 'trend' => $trend,
+        ], 'recent' => $recent]);
+    }
+
+    if ($action === 'sms-config-save') {
+        $in = [];
+        if (isset($body['enabled'])) $in['sms_enabled'] = $body['enabled'] ? '1' : '0';
+        if (isset($body['provider']) && in_array($body['provider'], ['log', 'bulksmsbd'], true)) $in['sms_provider'] = $body['provider'];
+        if (isset($body['api_key']) && is_string($body['api_key']) && strpos($body['api_key'], '•••') !== 0) $in['sms_api_key'] = trim($body['api_key']);
+        if (isset($body['sender_id'])) $in['sms_sender_id'] = trim((string)$body['sender_id']);
+        if (isset($body['api_url'])) $in['sms_api_url'] = trim((string)$body['api_url']);
+        foreach ($in as $k => $v) admin_cfg_save($pdo, $k, $v);
+        audit($u['name'], 'SMS config updated (admin)', 'sms', 'cfg', implode(',', array_keys($in)));
+        json_out(['ok' => true, 'saved' => array_keys($in)]);
+    }
+
+    if ($action === 'sms-test-send') {
+        $phone = trim($body['phone'] ?? '');
+        if (!$phone) json_out(['ok' => false, 'error' => 'phone required.'], 400);
+        $r = sms_send($pdo, $phone, 'KRTaker SMS test — admin dashboard ✔ (' . gmdate('His') . ')');
+        audit($u['name'], 'SMS test sent (admin)', 'sms', $r['ref'] ?? '', $phone . ' → ' . ($r['status'] ?? '?'));
+        json_out(['ok' => true] + $r);
+    }
+
     if ($action === 'security-summary') {
         /* v3.78: security operations view — lockouts, attempt history, 429 hits, policy */
         $cfg = [
@@ -23563,6 +23806,108 @@ case 'app-admin': {
             ->execute([json_encode($cur)]);
         audit($u['name'], 'Gateway config', 'payments', $code, implode(',', array_keys($cfg)));
         json_out(['ok' => true]);
+    }
+
+    if ($action === 'refunds') {
+        /* V2.51: refund ledger — every gateway/manual return payment on the platform. */
+        $status = trim($body['status'] ?? '');
+        $sql = 'SELECT * FROM refunds';
+        $args = [];
+        if ($status !== '' && in_array($status, ['requested', 'processing', 'refunded', 'failed'], true)) { $sql .= ' WHERE status=?'; $args[] = $status; }
+        $sql .= ' ORDER BY created_at DESC, id DESC LIMIT 150';
+        $st = $pdo->prepare($sql); $st->execute($args);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        $paidCount = (int)$one("SELECT COUNT(*) FROM payments WHERE status='Success'");
+        $refundedAmt = (int)$one("SELECT COALESCE(SUM(amount),0) FROM refunds WHERE status='refunded'");
+        $byStatus = [];
+        foreach ($q('SELECT status, COUNT(*) n, COALESCE(SUM(amount),0) amt FROM refunds GROUP BY status') as $r) $byStatus[$r['status']] = ['n' => (int)$r['n'], 'amt' => (int)$r['amt']];
+        json_out(['ok' => true, 'refunds' => $rows, 'stats' => [
+            'total' => count($rows), 'refunded_amt' => $refundedAmt, 'paid_count' => $paidCount,
+            'by_status' => $byStatus,
+        ]]);
+    }
+
+    if ($action === 'refund-initiate') {
+        /* V2.51: initiate a return payment for a gateway (or offline) payment.
+           Simulated until merchant credentials are configured — mirrors the
+           payment-init flow so the dashboard is fully exercisable pre-launch. */
+        $pid = trim($body['payment_id'] ?? '');
+        $reason = trim($body['reason'] ?? '');
+        if (!$pid) json_out(['ok' => false, 'error' => 'payment_id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM payments WHERE id=?'); $st->execute([$pid]);
+        $p = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
+        if ($p['status'] === 'Refunded') json_out(['ok' => false, 'error' => 'Payment already refunded.'], 400);
+        if ($p['status'] !== 'Success') json_out(['ok' => false, 'error' => 'Only successful payments can be refunded (status=' . $p['status'] . ').'], 400);
+        /* duplicate guard: no open or completed refund for this payment */
+        $dup = (int)$one("SELECT COUNT(*) FROM refunds WHERE payment_id=? AND status IN ('requested','processing','refunded')", [$pid]);
+        if ($dup) json_out(['ok' => false, 'error' => 'A refund for this payment is already ' . 'on file.'], 409);
+        $amount = (int)($body['amount'] ?? $p['amount']);
+        if ($amount <= 0) $amount = (int)$p['amount'];
+        if ($amount > (int)$p['amount']) $amount = (int)$p['amount'];
+        /* find the gateway session → gateway code + gateway ref for the provider call */
+        $gcode = '';
+        $gwRef = '';
+        $st = $pdo->prepare("SELECT * FROM gateway_tx WHERE ref=? OR id=? ORDER BY created_at DESC LIMIT 1");
+        $st->execute([$p['ref'], $p['ref']]);
+        $tx = $st->fetch(PDO::FETCH_ASSOC);
+        if ($tx) {
+            $gname = $tx['method'];
+            foreach (GATEWAYS() as $gc => $g) if ($g['name'] === $gname) { $gcode = $gc; break; }
+            $gwRef = (string)($tx['gw_ref'] ?? '');
+        } else {
+            $gcode = strtolower(trim($p['method'] ?? ''));
+            foreach (GATEWAYS() as $gc => $g) if (strtolower($g['name']) === $gcode) { $gcode = $gc; break; }
+            if (!isset(GATEWAYS()[$gcode])) $gcode = '';
+        }
+        $payCtx = ['ref' => $p['ref'], 'gw_ref' => $gwRef !== '' ? $gwRef : $p['ref']];
+        $res = gateway_refund($gcode !== '' ? $gcode : 'bkash', $payCtx, $amount, $reason);
+        $status = $res['ok'] ? ($res['status'] ?? 'refunded') : 'failed';
+        $rid = 'RF-' . strtoupper(bin2hex(random_bytes(3)));
+        $pdo->prepare('INSERT INTO refunds (id, payment_id, invoice_id, gateway, amount, reason, status, gateway_ref, bank_tran_id, initiator, note) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$rid, $pid, $p['inv'] ?? '', $gcode !== '' ? $gcode : ($p['method'] ?? ''), $amount, mb_substr($reason, 0, 300),
+                $status, (string)($res['gateway_ref'] ?? ''), (string)($res['bank_tran_id'] ?? ''), $u['name'],
+                mb_substr(($res['note'] ?? ($res['error'] ?? '')), 0, 400)]);
+        if ($res['ok']) {
+            $pdo->prepare("UPDATE payments SET status='Refunded' WHERE id=?")->execute([$pid]);
+            audit($u['name'], 'Refund initiated', 'payments', $pid, $rid . ' ৳' . $amount . ' ' . ($gcode ?: 'manual') . ($res['simulated'] ? ' (simulated)' : ''));
+            /* notify the payer (tenant/owner) — never fails the request */
+            try {
+                $owner = pay_owner_email($pdo, $pid);
+                if ($owner !== '' && mail_switch($pdo, 'docs')) {
+                    list($subj, $html) = email_render('refund', [
+                        'name' => $owner, 'payment_id' => $pid, 'amount' => number_format($amount),
+                        'reason' => $reason !== '' ? $reason : 'Refund', 'refund_id' => $rid,
+                        'method' => $gcode !== '' ? $gcode : 'manual',
+                    ]);
+                    send_mail($owner, $subj, $html, null, true);
+                    audit($u['name'], 'Refund email queued', 'payments', $pid, $owner);
+                }
+            } catch (Exception $e) { /* mail must not fail the refund */ }
+        } else {
+            audit($u['name'], 'Refund failed', 'payments', $pid, $rid . ' ' . ($res['error'] ?? ''));
+        }
+        json_out(['ok' => $res['ok'], 'refund_id' => $rid, 'payment_id' => $pid, 'amount' => $amount,
+            'status' => $status, 'simulated' => !empty($res['simulated']), 'gateway' => $gcode ?: 'manual',
+            'gateway_ref' => $res['gateway_ref'] ?? '', 'error' => $res['error'] ?? '']);
+    }
+
+    if ($action === 'refund-status') {
+        /* V2.51: re-check a refund at the gateway (SSLCommerz status API) and sync. */
+        $rid = trim($body['refund_id'] ?? '');
+        if (!$rid) json_out(['ok' => false, 'error' => 'refund_id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM refunds WHERE id=?'); $st->execute([$rid]);
+        $rf = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$rf) json_out(['ok' => false, 'error' => 'Refund not found.'], 404);
+        $res = gateway_refund_status($rf['gateway'], $rf);
+        $changed = false;
+        if ($res['status'] !== $rf['status'] && in_array($res['status'], ['refunded', 'processing', 'failed'], true)) {
+            $pdo->prepare("UPDATE refunds SET status=?, note=?, updated_at=datetime('now') WHERE id=?")
+                ->execute([$res['status'], mb_substr($res['note'] ?? '', 0, 400), $rid]);
+            $changed = true;
+            audit($u['name'], 'Refund status updated', 'payments', $rid, $rf['status'] . ' → ' . $res['status']);
+        }
+        json_out(['ok' => true, 'refund_id' => $rid, 'status' => $res['status'], 'previous' => $rf['status'], 'changed' => $changed, 'note' => $res['note'] ?? '']);
     }
 
     if ($action === 'tickets') {
