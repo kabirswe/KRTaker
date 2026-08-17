@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260925) {
+        if ($__sv < 20260926) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1189,7 +1189,14 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             ua TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_consent_email_kind ON consent_records(email, kind)");
-        try { $pdo->exec('PRAGMA user_version=20260925'); } catch (Exception $e) {}
+        /* V2.49: global email unsubscribe (DPA-2023 right to object + §4.4 deliverability) —
+           one row per opted-out address; marketing/digest/reminder sends check it. */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS email_unsubs (
+            email TEXT PRIMARY KEY,
+            reason TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            source TEXT DEFAULT '')");
+        try { $pdo->exec('PRAGMA user_version=20260926'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -1443,7 +1450,16 @@ function mail_fallback($to, $subject, $html, $text = null) {
 }
 
 function send_mail($to, $subject, $html, $text = null, $queued = false) {
-    if ($queued) return queue_mail($to, $subject, $html, $text);
+    if ($queued) {
+        /* V2.49: transactional queued mail (reminders/digests/statements) gets a
+           one-click unsubscribe footer + List-Unsubscribe-friendly link. OTP stays
+           inline & clean (time-sensitive). */
+        if (!email_unsubscribed(db(), $to)) {
+            list($html, $text) = unsub_footer($html, $text, $to);
+            return queue_mail($to, $subject, $html, $text);
+        }
+        return true; /* opted out — silently drop (already told them how to opt back in) */
+    }
     if (smtp_send($to, $subject, $html, $text)) return true;
     return mail_fallback($to, $subject, $html, $text);
 }
@@ -1474,6 +1490,36 @@ function queue_mail($to, $subject, $html, $text = null) {
     }
 }
 
+/* ── V2.49: email unsubscribe (DPA-2023 right to object / §4.4 deliverability) ──
+   HMAC-signed per-address link so a one-click opt-out works without login.
+   Signature = sha256(APP_SECRET . ':' . email); the link carries email+sig. */
+function unsub_sig($email) {
+    $email = strtolower(trim((string)$email));
+    $secret = krenv('APP_SECRET', krenv('SERVICE_KEY', 'krtaker-mail-unsub'));
+    return substr(hash_hmac('sha256', 'unsub:' . $email, $secret), 0, 32);
+}
+function unsub_link($email) {
+    return 'https://krtaker.com/api/app-unsubscribe?e=' . rawurlencode($email) . '&s=' . unsub_sig($email);
+}
+function email_unsubscribed($pdo, $email) {
+    if (!$email) return false;
+    $st = $pdo->prepare('SELECT 1 FROM email_unsubs WHERE lower(email)=?');
+    $st->execute([strtolower(trim($email))]);
+    return (bool)$st->fetchColumn();
+}
+/* Append an unsubscribe footer to a queued email body (HTML + text). */
+function unsub_footer($html, $text, $email) {
+    if (!$email) return [$html, $text];
+    $link = unsub_link($email);
+    $h = $html
+        . '<p style="margin-top:24px;padding-top:12px;border-top:1px solid #eee;font-size:11px;color:#888">'
+        . 'You received this email because of your KRTaker account or a property you are involved with. '
+        . '<a href="' . $link . '">Unsubscribe from these emails</a>.</p>';
+    $t = ($text === null ? strip_tags(str_replace(['<br>', '<br/>', '</p>', '</div>', '</li>'], "\n", $html)) : $text)
+        . "\n\n---\nYou received this email because of your KRTaker account or a property you are involved with. Unsubscribe: $link";
+    return [$h, $t];
+}
+
 /* Drain up to $limit pending queue rows; returns ['sent'=>n,'failed'=>n,'left'=>n].
    Called by the app-mail-worker endpoint. Max 3 attempts per row, then marked dead. */
 function mail_queue_drain($pdo, $limit = 50) {
@@ -1481,7 +1527,14 @@ function mail_queue_drain($pdo, $limit = 50) {
     $sent = 0; $failed = 0;
     $rows = $pdo->prepare('SELECT * FROM mail_queue WHERE status=? ORDER BY id LIMIT ' . (int)$limit);
     $rows->execute(['pending']);
+    $skipped = 0;
     foreach ($rows->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        if (email_unsubscribed($pdo, $r['to_addr'])) {
+            /* V2.49: honour global opt-out — mark as sent (not dead) so it doesn't retry */
+            $pdo->prepare("UPDATE mail_queue SET status='sent', sent_at=datetime('now') WHERE id=?")->execute([$r['id']]);
+            $skipped++;
+            continue;
+        }
         $ok = smtp_send($r['to_addr'], $r['subject'], $r['html'], $r['text_body'])
             || mail_fallback($r['to_addr'], $r['subject'], $r['html'], $r['text_body']);
         if ($ok) {
@@ -1496,7 +1549,7 @@ function mail_queue_drain($pdo, $limit = 50) {
         }
     }
     $left = (int)$pdo->query("SELECT COUNT(*) FROM mail_queue WHERE status='pending'")->fetchColumn();
-    return ['sent' => $sent, 'failed' => $failed, 'left' => $left];
+    return ['sent' => $sent, 'failed' => $failed, 'left' => $left, 'skipped_unsub' => $skipped];
 }
 
 /* ── SA1 v19: Web Push (RFC 8291 content-encryption + RFC 8292 VAPID) — keys from env file ── */
@@ -11933,7 +11986,7 @@ if (preg_match('#^building/([A-Za-z0-9_-]{1,64})$#', $action, $m)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-ai-quota', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-consent-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history', 'app-kpi-daily'], true)) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'listings', 'app-setup', 'app-me', 'app-bootstrap', 'app-ai-meta', 'app-ai-quota', 'app-gateways', 'app-health', 'app-backup', 'app-export', 'app-audit', 'app-invoice-print', 'app-doc-download', 'app-doc-view', 'app-doc-vault', 'app-ticket-thread', 'app-support-ticket', 'app-notice-list', 'app-notice-recipients', 'app-referral-list', 'app-consent-list', 'app-collections-summary', 'app-collections-owner-digest', 'app-payment-recon', 'app-payment-proof', 'app-payment-status', 'app-sms', 'app-tpl-list', 'app-tpl-get', 'app-email-tpl-list', 'app-email-tpl-get', 'app-kyc', 'app-email-preview', 'app-hando-list', 'app-hando-get', 'app-portal', 'app-portal-agreement', 'app-community', 'app-reminder-config', 'app-reminder-summary', 'app-security', 'app-renewal-list', 'app-inspections', 'app-meter-list', 'app-score-list', 'app-score-detail', 'app-vetting-report', 'app-settlement-report', 'app-premium-plans', 'app-premium-sub-list', 'app-gdpr-export', 'app-profile', 'app-settings-get', 'app-org-settings-get', 'app-utility-tariff-get', 'app-utility-bill-list', 'app-rent-config-get', 'app-moveout', 'app-premium-billing', 'app-insurance', 'app-maintenance', 'app-leads', 'app-statements', 'app-statement-email', 'app-compliance', 'app-utility-summary', 'app-vendors', 'app-remit', 'app-onboarding', 'app-job-media', 'app-sla', 'app-kr-alert', 'app-kr-wa', 'app-push', 'app-analytics', 'app-legal', 'app-trust', 'app-land', 'app-nrb', 'app-concierge', 'app-smarthome', 'app-healthcheck', 'app-build', 'app-gate', 'app-firesafety', 'app-systems', 'app-staffwatch','app-samity', 'app-photo', 'app-tenant-me', 'host-tenant', 'app-theme', 'cms-read', 'plans', 'sitemap', 'blog-list', 'app-error-log', 'building-public', 'app-sessions', 'app-login-history', 'app-kpi-daily', 'app-unsubscribe'], true)) {
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
@@ -16893,6 +16946,46 @@ case 'app-gdpr-delete': {
         ],
         'note' => 'Account deactivated — login no longer works. You will receive no further emails or pushes.',
     ]);
+}
+
+case 'app-unsubscribe': {
+    /* V2.49: one-click email unsubscribe (DPA-2023 right to object / §4.4).
+       GET-friendly: e=<email>&s=<hmac signature> — works from any mail client
+       without login. Also accepts POST {email, sig}. Records the opt-out in
+       email_unsubs; all queued mail paths check it before sending. */
+    $email = strtolower(trim((string)($_GET['e'] ?? $body['email'] ?? '')));
+    $sig   = trim((string)($_GET['s'] ?? $body['sig'] ?? ''));
+    if (!$email || !$sig) json_out(['ok' => false, 'error' => 'e and s parameters required.'], 400);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) json_out(['ok' => false, 'error' => 'Invalid email.'], 400);
+    if (!hash_equals(unsub_sig($email), $sig)) json_out(['ok' => false, 'error' => 'Invalid unsubscribe link.'], 403);
+    $pdo = db();
+    $pdo->prepare('INSERT OR IGNORE INTO email_unsubs (email, reason, source) VALUES (?,?,?)')
+        ->execute([$email, 'one-click unsubscribe link', 'web']);
+    $pdo->prepare("UPDATE mail_queue SET status='sent', sent_at=datetime('now') WHERE to_addr=? AND status='pending'")
+        ->execute([$email]);
+    /* also flip the per-user notification flags off (belt & braces) */
+    $st = $pdo->prepare('SELECT id FROM subscribers WHERE lower(email)=?'); $st->execute([$email]);
+    $uid = $st->fetchColumn();
+    if ($uid) {
+        foreach (['notify_rent', 'notify_collections', 'notify_renewal', 'notify_docs', 'email_digest', 'notify_premium', 'wa_reminders'] as $flag) {
+            settings_save($pdo, 'sub:' . $uid, [$flag => false]);
+        }
+    }
+    audit('Email unsubscribe', 'one-click opt-out', 'privacy', $email);
+    $isApi = !empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false
+        || (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+    if ($isApi) json_out(['ok' => true, 'email' => $email, 'unsubscribed' => true]);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<title>Unsubscribed — KRTaker</title></head><body style="font-family:system-ui,sans-serif;max-width:520px;margin:60px auto;padding:0 20px;text-align:center">'
+        . '<h1 style="font-size:22px">You are unsubscribed</h1>'
+        . '<p style="color:#555;font-size:15px">No more rent reminders, digests, statements or marketing emails will be sent to '
+        . '<b>' . htmlspecialchars($email) . '</b>.</p>'
+        . '<p style="color:#888;font-size:13px">If this was a mistake, log in to your dashboard → Settings → Notifications to re-enable email alerts, '
+        . 'or contact <a href="mailto:privacy@krtaker.com">privacy@krtaker.com</a>.</p>'
+        . '<p><a href="https://krtaker.com/" style="color:#2563eb">← Back to KRTaker</a></p>'
+        . '</body></html>';
+    exit;
 }
 
 /* ── Phase 18: per-user settings (profile lives in the unified app-profile case) ── */
