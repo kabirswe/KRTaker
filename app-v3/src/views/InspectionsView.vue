@@ -214,9 +214,9 @@ onMounted(load)
       <!-- filters -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <CompactFilters>
-        <button v-for="t in [{v:'',l:t('All')}, ...TYPES]" :key="t.v" @click="fType = t.v; load()"
-          :style="fType === t.v ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
-          style="padding:7px 13px;border:none;border-radius:9px;font-weight:800;font-size:12px;cursor:pointer">{{ t.l }}</button>
+        <button v-for="x in [{v:'',l:t('All')}, ...TYPES]" :key="x.v" @click="fType = x.v; load()"
+          :style="fType === x.v ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text)'"
+          style="padding:7px 13px;border:none;border-radius:9px;font-weight:800;font-size:12px;cursor:pointer">{{ x.l }}</button>
         <span style="flex:1"></span>
         <input v-model="q" :placeholder="t('Search code / title / assignee…')" style="padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none;min-width:200px">
         </CompactFilters>

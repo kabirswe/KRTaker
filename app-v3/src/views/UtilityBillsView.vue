@@ -394,12 +394,12 @@ function refreshBill() {
           <button @click="tarModal = false" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-alt);color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer">✕</button>
         </div>
         <div style="padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px">
-          <div v-for="t in tarList" :key="t.type" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+          <div v-for="x in tarList" :key="x.type" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">{{ typeMeta(t.type).ico }}</span>
-              <div style="flex:1;font-weight:800;font-size:13.5px">{{ typeMeta(t.type).label }}</div>
+              <span style="font-size:18px">{{ typeMeta(x.type).ico }}</span>
+              <div style="flex:1;font-weight:800;font-size:13.5px">{{ typeMeta(x.type).label }}</div>
               <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-mute);font-weight:700">
-                <input type="checkbox" v-model="t.enabled"> {{ t('Enabled') }}
+                <input type="checkbox" v-model="x.enabled"> {{ t('Enabled') }}
               </label>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px">

@@ -383,10 +383,10 @@ async function delDoc(d) {
 
           <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
             <ScrollTabs style="gap:6px;border-bottom:none;margin-bottom:0">
-            <button v-for="t in [{id:'overview',label:t('Overview'),ico:'🏠'},{id:'payments',label:t('Payments'),ico:'💳'},{id:'documents',label:t('Documents'),ico:'📎'},{id:'handover',label:'Handover',ico:'📦'}]" :key="t.id" @click="tab = t.id"
+            <button v-for="x in [{id:'overview',label:t('Overview'),ico:'🏠'},{id:'payments',label:t('Payments'),ico:'💳'},{id:'documents',label:t('Documents'),ico:'📎'},{id:'handover',label:'Handover',ico:'📦'}]" :key="x.id" @click="tab = x.id"
               style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)"
-              :style="tab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">
-              {{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? 2 : t.id === 'payments' ? selInvoices.length : t.id === 'documents' ? selDocs.length : hovoList.length }})</span>
+              :style="tab === x.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">
+              {{ x.ico }} {{ x.label }} <span style="opacity:.7">({{ x.id === 'overview' ? 2 : x.id === 'payments' ? selInvoices.length : x.id === 'documents' ? selDocs.length : hovoList.length }})</span>
             </button>
             </ScrollTabs>
           </div>

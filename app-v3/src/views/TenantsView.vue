@@ -823,40 +823,40 @@ async function delTenant(t) {
     </div>
 
     <div v-if="filtered.length && viewMode === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px">
-      <div v-for="t in paged" :key="t.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(t)">
-        <div class="t-cover" :style="`height:82px;position:relative;background:linear-gradient(135deg,${avatarColor(t.id)},#1E5EB8)`">
+      <div v-for="x in paged" :key="x.id" class="panel chip" style="cursor:pointer;overflow:hidden;display:flex;flex-direction:column" @click="openDetail(x)">
+        <div class="x-cover" :style="`height:82px;position:relative;background:linear-gradient(135deg,${avatarColor(x.id)},#1E5EB8)`">
           <div style="position:absolute;top:10px;left:12px;display:flex;gap:6px">
-            <span class="badge">{{ t.kind }}</span>
-            <span v-if="String(t.nrb) === '1'" class="badge b-blue">🌍 NRB</span>
-            <span v-if="trustTier(t)" class="badge" :style="tierStyle(trustTier(t))">{{ tierLabel(trustTier(t)) }}</span>
-            <span v-if="nidVerifiedOf(t)" class="badge b-green">🪪 {{ t('NID') }} ✓</span>
-            <span v-if="thanaVerifiedOf(t)" class="badge b-green">🏛 Thana ✓</span>
+            <span class="badge">{{ x.kind }}</span>
+            <span v-if="String(x.nrb) === '1'" class="badge b-blue">🌍 NRB</span>
+            <span v-if="trustTier(x)" class="badge" :style="tierStyle(trustTier(x))">{{ tierLabel(trustTier(x)) }}</span>
+            <span v-if="nidVerifiedOf(x)" class="badge b-green">🪪 {{ t('NID') }} ✓</span>
+            <span v-if="thanaVerifiedOf(x)" class="badge b-green">🏛 Thana ✓</span>
           </div>
-          <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ t.id }}</div>
+          <div style="position:absolute;bottom:8px;right:12px;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)">{{ x.id }}</div>
         </div>
         <div style="padding:13px 15px;flex:1;display:flex;flex-direction:column;gap:9px">
           <div style="display:flex;gap:11px;align-items:center">
-            <div :style="`width:40px;height:40px;border-radius:50%;background:${avatarColor(t.id)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0`">{{ initials(t.name) }}</div>
+            <div :style="`width:40px;height:40px;border-radius:50%;background:${avatarColor(x.id)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0`">{{ initials(x.name) }}</div>
             <div style="min-width:0">
-              <div style="font-weight:800;font-size:15px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</div>
-              <div class="c-sub" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.email || t.phone || '—' }}</div>
+              <div style="font-weight:800;font-size:15px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</div>
+              <div class="c-sub" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.email || x.phone || '—' }}</div>
             </div>
           </div>
-          <div v-if="unitsOfTenant(t).length" style="font-size:12px" class="c-sub">
-            🚪 {{ unitsOfTenant(t).map(u => unitName(u.id)).join(', ') }} · 🏢 {{ propName(unitsOfTenant(t)[0].p) }}
+          <div v-if="unitsOfTenant(x).length" style="font-size:12px" class="c-sub">
+            🚪 {{ unitsOfTenant(x).map(u => unitName(u.id)).join(', ') }} · 🏢 {{ propName(unitsOfTenant(x)[0].p) }}
           </div>
-          <div v-if="activeLeaseOf(t)" style="font-size:12px;display:flex;justify-content:space-between;align-items:center;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:7px 10px">
-            <span>💵 <b>{{ money(monthlyRent(t)) }}/mo</b></span>
-            <span class="c-sub">{{ activeLeaseOf(t).end ? 'until ' + activeLeaseOf(t).end + (activeLeaseOf(t).status === 'Active' ? ` (${leaseDaysLeft(activeLeaseOf(t))}d)` : '') : '' }}</span>
+          <div v-if="activeLeaseOf(x)" style="font-size:12px;display:flex;justify-content:space-between;align-items:center;background:var(--bg-alt);border:1px solid var(--border);border-radius:9px;padding:7px 10px">
+            <span>💵 <b>{{ money(monthlyRent(x)) }}/mo</b></span>
+            <span class="c-sub">{{ activeLeaseOf(x).end ? 'until ' + activeLeaseOf(x).end + (activeLeaseOf(x).status === 'Active' ? ` (${leaseDaysLeft(activeLeaseOf(x))}d)` : '') : '' }}</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
-            <span v-if="outstanding(t) > 0" class="badge b-red">⏳ {{ money(outstanding(t)) }} due</span>
-            <span v-if="collectionRateT(t) !== null && outstanding(t) === 0" class="badge b-green">✅ {{ t('Paid') }} up</span>
-            <span v-if="ticketsOfTenant(t).some(x => String(x.status).toLowerCase() === 'open')" class="badge b-orange">🔧 open ticket</span>
+            <span v-if="outstanding(x) > 0" class="badge b-red">⏳ {{ money(outstanding(x)) }} due</span>
+            <span v-if="collectionRateT(x) !== null && outstanding(x) === 0" class="badge b-green">✅ {{ t('Paid') }} up</span>
+            <span v-if="ticketsOfTenant(x).some(x => String(x.status).toLowerCase() === 'open')" class="badge b-orange">🔧 open ticket</span>
           </div>
           <div v-if="canManage" style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:9px">
-            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openEdit(t)">✏️ Edit</button>
-            <button class="btn-ghost" style="padding:6px 10px;font-size:12px;color:var(--danger)" @click.stop="delTenant(t)">🗑️</button>
+            <button class="btn-ghost" style="flex:1;justify-content:center;padding:6px 10px;font-size:12px" @click.stop="openEdit(x)">✏️ Edit</button>
+            <button class="btn-ghost" style="padding:6px 10px;font-size:12px;color:var(--danger)" @click.stop="delTenant(x)">🗑️</button>
           </div>
         </div>
       </div>

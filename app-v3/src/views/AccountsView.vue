@@ -261,20 +261,20 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
             <table class="kr">
               <thead><tr><th>{{ t('ID') }}</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th>{{ t('Category') }}</th><th>{{ t('Label') }}</th><th>{{ t('Payee') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Recon') }}</th><th></th></tr></thead>
               <tbody>
-                <tr v-for="t in txList" :key="t.id">
-                  <td style="font-weight:700;white-space:nowrap">{{ t.id }}</td>
-                  <td class="c-sub" style="white-space:nowrap">{{ t.tx_date }}</td>
-                  <td class="c-sub" style="white-space:nowrap">{{ t.account_name || t.account || '—' }}</td>
-                  <td><span class="badge" :class="badge(t.type)">{{ typeIco(t.type) }} {{ typeLabelT(t.type) }}</span></td>
-                  <td class="c-sub">{{ t.cat }}</td>
-                  <td style="font-weight:600">{{ t.label }}</td>
-                  <td class="c-sub">{{ t.payee || '—' }}</td>
-                  <td class="c-sub">{{ t.method || '—' }}</td>
-                  <td class="c-sub">{{ t.ref || '—' }}</td>
-                  <td style="text-align:right;font-weight:800;white-space:nowrap" :style="{ color: typeColor(t.type) }">{{ sign(t.type) }} {{ money(t.amount) }}</td>
-                  <td><span class="badge" :class="reconBadge(t)">{{ t.reconciled == 1 ? '✓' : '—' }}</span></td>
+                <tr v-for="x in txList" :key="x.id">
+                  <td style="font-weight:700;white-space:nowrap">{{ x.id }}</td>
+                  <td class="c-sub" style="white-space:nowrap">{{ x.tx_date }}</td>
+                  <td class="c-sub" style="white-space:nowrap">{{ x.account_name || x.account || '—' }}</td>
+                  <td><span class="badge" :class="badge(x.type)">{{ typeIco(x.type) }} {{ typeLabelT(x.type) }}</span></td>
+                  <td class="c-sub">{{ x.cat }}</td>
+                  <td style="font-weight:600">{{ x.label }}</td>
+                  <td class="c-sub">{{ x.payee || '—' }}</td>
+                  <td class="c-sub">{{ x.method || '—' }}</td>
+                  <td class="c-sub">{{ x.ref || '—' }}</td>
+                  <td style="text-align:right;font-weight:800;white-space:nowrap" :style="{ color: typeColor(x.type) }">{{ sign(x.type) }} {{ money(x.amount) }}</td>
+                  <td><span class="badge" :class="reconBadge(x)">{{ x.reconciled == 1 ? '✓' : '—' }}</span></td>
                   <td style="white-space:nowrap">
-                    <button v-if="canWrite" @click="delTx(t)" style="border:none;background:transparent;color:var(--text-mute);cursor:pointer;font-size:13px" :title="t('Delete')">🗑️</button>
+                    <button v-if="canWrite" @click="delTx(x)" style="border:none;background:transparent;color:var(--text-mute);cursor:pointer;font-size:13px" :title="t('Delete')">🗑️</button>
                   </td>
                 </tr>
                 <tr v-if="!txList.length"><td colspan="12" style="text-align:center;color:var(--text-mute);padding:30px">{{ t('No transactions found.') }}</td></tr>
@@ -331,14 +331,14 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
           <table class="kr">
             <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Label') }}</th><th>{{ t('Payee') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Recon') }}</th></tr></thead>
             <tbody>
-              <tr v-for="t in recent.filter(x => x.type === tab)" :key="t.id">
-                <td style="font-weight:700">{{ t.id }}</td>
-                <td class="c-sub">{{ t.tx_date }}</td>
-                <td class="c-sub">{{ t.account_name || '—' }}</td>
-                <td style="font-weight:600">{{ t.label }}</td>
-                <td class="c-sub">{{ t.payee || '—' }}</td>
-                <td style="text-align:right;font-weight:800" :style="{ color: typeColor(t.type) }">{{ sign(t.type) }} {{ money(t.amount) }}</td>
-                <td><span class="badge" :class="reconBadge(t)">{{ t.reconciled == 1 ? '✓' : '—' }}</span></td>
+              <tr v-for="x in recent.filter(x => x.type === tab)" :key="x.id">
+                <td style="font-weight:700">{{ x.id }}</td>
+                <td class="c-sub">{{ x.tx_date }}</td>
+                <td class="c-sub">{{ x.account_name || '—' }}</td>
+                <td style="font-weight:600">{{ x.label }}</td>
+                <td class="c-sub">{{ x.payee || '—' }}</td>
+                <td style="text-align:right;font-weight:800" :style="{ color: typeColor(x.type) }">{{ sign(x.type) }} {{ money(x.amount) }}</td>
+                <td><span class="badge" :class="reconBadge(x)">{{ x.reconciled == 1 ? '✓' : '—' }}</span></td>
               </tr>
               <tr v-if="!recent.filter(x => x.type === tab).length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:26px">No {{ typeLabelT(tab) }}s yet.</td></tr>
             </tbody>
@@ -360,15 +360,15 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
           <table class="kr">
             <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th>{{ t('Label') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Statement ref') }}</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="t in reconPending" :key="t.id">
-                <td style="font-weight:700">{{ t.id }}</td>
-                <td class="c-sub">{{ t.tx_date }}</td>
-                <td class="c-sub">{{ t.account_name || '—' }}</td>
-                <td><span class="badge" :class="badge(t.type)">{{ typeLabelT(t.type) }}</span></td>
-                <td style="font-weight:600">{{ t.label }}</td>
-                <td style="text-align:right;font-weight:800" :style="{ color: typeColor(t.type) }">{{ sign(t.type) }} {{ money(t.amount) }}</td>
-                <td style="width:200px"><input v-model="reconRefs[t.id]" placeholder="e.g. statement Jul 2026" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none"></td>
-                <td><button v-if="canWrite" @click="doReconcile(t)" :disabled="reconBusy" style="padding:7px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-weight:800;font-size:12px;cursor:pointer">✓ Reconcile</button></td>
+              <tr v-for="x in reconPending" :key="x.id">
+                <td style="font-weight:700">{{ x.id }}</td>
+                <td class="c-sub">{{ x.tx_date }}</td>
+                <td class="c-sub">{{ x.account_name || '—' }}</td>
+                <td><span class="badge" :class="badge(x.type)">{{ typeLabelT(x.type) }}</span></td>
+                <td style="font-weight:600">{{ x.label }}</td>
+                <td style="text-align:right;font-weight:800" :style="{ color: typeColor(x.type) }">{{ sign(x.type) }} {{ money(x.amount) }}</td>
+                <td style="width:200px"><input v-model="reconRefs[x.id]" placeholder="e.g. statement Jul 2026" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);font-family:inherit;font-size:12.5px;color:var(--text);outline:none"></td>
+                <td><button v-if="canWrite" @click="doReconcile(x)" :disabled="reconBusy" style="padding:7px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-weight:800;font-size:12px;cursor:pointer">✓ Reconcile</button></td>
               </tr>
               <tr v-if="!reconPending.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:26px">Everything reconciled 🎉</td></tr>
             </tbody>
@@ -382,15 +382,15 @@ onMounted(() => { loadSummary(); loadTx(); loadRecon() })
           <table class="kr">
             <thead><tr><th>ID</th><th>{{ t('Date') }}</th><th>{{ t('Account') }}</th><th>{{ t('Label') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Reconciled at') }}</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="t in reconDone" :key="t.id">
-                <td style="font-weight:700">{{ t.id }}</td>
-                <td class="c-sub">{{ t.tx_date }}</td>
-                <td class="c-sub">{{ t.account_name || '—' }}</td>
-                <td style="font-weight:600">{{ t.label }}</td>
-                <td style="text-align:right;font-weight:800" :style="{ color: typeColor(t.type) }">{{ sign(t.type) }} {{ money(t.amount) }}</td>
-                <td class="c-sub">{{ t.reconciled_ref || '—' }}</td>
-                <td class="c-sub">{{ t.reconciled_at }}</td>
-                <td><button v-if="canWrite" @click="undoReconcile(t)" style="border:none;background:transparent;color:var(--text-mute);cursor:pointer;font-size:12.5px;font-weight:700">↩ Undo</button></td>
+              <tr v-for="x in reconDone" :key="x.id">
+                <td style="font-weight:700">{{ x.id }}</td>
+                <td class="c-sub">{{ x.tx_date }}</td>
+                <td class="c-sub">{{ x.account_name || '—' }}</td>
+                <td style="font-weight:600">{{ x.label }}</td>
+                <td style="text-align:right;font-weight:800" :style="{ color: typeColor(x.type) }">{{ sign(x.type) }} {{ money(x.amount) }}</td>
+                <td class="c-sub">{{ x.reconciled_ref || '—' }}</td>
+                <td class="c-sub">{{ x.reconciled_at }}</td>
+                <td><button v-if="canWrite" @click="undoReconcile(x)" style="border:none;background:transparent;color:var(--text-mute);cursor:pointer;font-size:12.5px;font-weight:700">↩ Undo</button></td>
               </tr>
               <tr v-if="!reconDone.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:26px">{{ t('Nothing reconciled yet.') }}</td></tr>
             </tbody>
