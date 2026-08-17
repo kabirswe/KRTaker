@@ -3,7 +3,7 @@
 import json, time, imaplib, email, re, sqlite3, urllib.request
 
 BASE = 'http://localhost:8878'
-EMAIL = 'careers@inceptia.io'
+EMAIL = 'noreply@krtaker.com'
 def load_env(path='/root/KRTaker/.env-landing'):
     env = {}
     for line in open(path):
@@ -32,10 +32,10 @@ otp = None
 for attempt in range(8):
     time.sleep(3)
     try:
-        M = imaplib.IMAP4_SSL('mail.inceptia.io', 993)
+        M = imaplib.IMAP4_SSL('mail.krtaker.com', 993)
         M.login(ENV['SMTP_USER'], ENV['SMTP_PASS'])
         M.select('INBOX')
-        typ, data = M.search(None, '(FROM "careers@inceptia.io" SUBJECT "verification code" UNSEEN)')
+        typ, data = M.search(None, '(FROM "noreply@krtaker.com" SUBJECT "verification code" UNSEEN)')
         ids = data[0].split()
         if ids:
             typ, msg = M.fetch(ids[-1], '(RFC822)')

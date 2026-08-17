@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test SMTP login on mail.inceptia.io (no send)."""
+"""Test SMTP login on mail.krtaker.com (no send)."""
 import smtplib, sys
 
 def load_env(path='/root/KRTaker/.env-landing'):

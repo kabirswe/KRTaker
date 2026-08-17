@@ -28,9 +28,10 @@ All code-able launch items are **done and verified live**:
 - **Fix (shipped earlier, V2.22-era mail queue):** off-request-path queue — `mail_queue` table, `queue_mail()`/`send_mail(queued)`, `app-mail-worker` endpoint drained by a 15-min cron. Collections/reminders/welcome/compliance emails are queued.
 - **OTP is deliberately kept INLINE (not queued)** — login codes must arrive immediately, so OTP sends synchronously and is never held in the queue; a mail failure is caught so it never breaks the auth flow. 15-min worker cron healthy, queue drains clean.
 
-## 4. careers@inceptia.io relay — RUNNING
+## 4. Mail system — on KRTaker's own infrastructure
 
-- CV pipeline (mail.inceptia.io:993 IMAP → erp.appvaley.com) processes careers@inceptia.io emails one-by-one: fetch + download CV → parse (pdfplumber) → duplicate check → create/update candidate in the ERP recruitment module (TME-XXX codes). Reports every 10; resumable via processed-email tracking.
+- All transactional mail (OTP, welcome, invoices, receipts, reminders) sends from **`noreply@krtaker.com`** via **mail.krtaker.com:587** (own Exim — DKIM signed, SPF covered, DMARC present). No shared/third-party mailbox in the path.
+- KRTaker is fully decoupled from the old shared mailbox used in early development (2026-08-17: all references scrubbed from code, config, tests, and docs).
 
 ---
 

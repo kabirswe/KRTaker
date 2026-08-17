@@ -5,7 +5,7 @@ Live site: https://krtaker.com (IP 37.27.134.21, cPanel)
 ## What's here
 - `api.php` — PHP 8.1 port of the landing API (register / verify-otp / resend-otp /
   newsletter / contact). SQLite at `/home/krtaker/krtaker_landing.db` (outside webroot).
-  **Email**: tries direct SMTP (mail.inceptia.io:587) first, falls back to PHP `mail()`
+  **Email**: tries direct SMTP (mail.krtaker.com:587) first, falls back to PHP `mail()`
   (host local Exim) — SMTP is refused from shared-hosting IPs, mail() works (MX + SPF
   both point at the host).
 - `htaccess.example` — live `.htaccess`: force HTTPS, pretty URLs (`.html`), `/api/*`

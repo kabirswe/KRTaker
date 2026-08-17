@@ -16,7 +16,7 @@ KRTaker/
 │   ├── build.py              # template + page contents → web/*.html (21 pages)
 │   ├── template.html         # shared shell: mega-menu nav, CTA, partners, footer
 │   ├── pages/                # 21 page content blocks (index, register, pricing, blog…)
-│   ├── test_smtp.py          # SMTP connectivity check (mail.inceptia.io)
+│   ├── test_smtp.py          # SMTP connectivity check (mail.krtaker.com)
 │   ├── e2e_test.py           # API E2E: register → OTP (IMAP) → verify
 │   └── shots.py / wiz_e2e.py # Playwright screenshot + wizard E2E helpers
 ├── web/                      # BUILD OUTPUT — generated site (also served directly)
@@ -64,7 +64,7 @@ KRTaker/
 
 ### Register funnel (Phase B)
 Multi-step wizard: **Plan → Role → Account → Verify (email OTP) → Done**
-- Real email OTP via SMTP (`mail.inceptia.io`), 5-min expiry, resend with 60s cooldown
+- Real email OTP via SMTP (`mail.krtaker.com`), 5-min expiry, resend with 60s cooldown
 - 14-day trial activation stored in `subscribers` table
 - Duplicate-email protection, per-step validation, bilingual
 - Verified E2E: register → OTP email → verify → `status=active`
@@ -85,7 +85,7 @@ Multi-step wizard: **Plan → Role → Account → Verify (email OTP) → Done**
 | `/landing/*` | GET | Landing site (`web/`) |
 
 **Database** (`landing.db`, SQLite): `subscribers`, `contacts`, `newsletter_emails`.
-**Email**: SMTP via `mail.inceptia.io:587` (STARTTLS), config in `.env-landing` (gitignored).
+**Email**: SMTP via `mail.krtaker.com:587` (STARTTLS), config in `.env-landing` (gitignored).
 
 ---
 

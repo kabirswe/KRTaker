@@ -4,7 +4,7 @@
  * Routes: /api/health, /api/register, /api/verify-otp, /api/resend-otp,
  *         /api/newsletter, /api/contact
  * DB: SQLite at /home/krtaker/krtaker_landing.db (outside webroot)
- * Mail: SMTP via mail.inceptia.io (STARTTLS + AUTH LOGIN)
+ * Mail: SMTP via mail.krtaker.com (STARTTLS + AUTH LOGIN)
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -20,12 +20,15 @@ define('DB_PATH', '/home/krtaker/krtaker_landing.db');
 define('TRIAL_DAYS', 14);
 define('ADMIN_EMAIL', 'kabir.swe@gmail.com');
 
-$SMTP = [
-    'host' => 'mail.inceptia.io',
+// SMTP config loaded from /home/krtaker/krtaker.env.php (outside webroot) — never hardcode.
+$__env = [];
+if (is_file('/home/krtaker/krtaker.env.php')) { $__env = (array)@include '/home/krtaker/krtaker.env.php'; }
+$SMTP = is_array($__env['SMTP'] ?? null) ? $__env['SMTP'] : [
+    'host' => 'mail.krtaker.com',
     'port' => 587,
-    'user' => 'careers@inceptia.io',
-    'pass' => 'E^U9iymE0%7Fje)n',
-    'from' => 'careers@inceptia.io',
+    'user' => 'noreply@krtaker.com',
+    'pass' => '',
+    'from' => 'noreply@krtaker.com',
 ];
 
 function json_out($data, $code = 200) {
@@ -128,7 +131,7 @@ function esc($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 /**
  * Send via PHP mail() (host local Exim — reliable on this cPanel host,
  * MX points at the server and SPF covers the IP). Used as fallback when
- * direct SMTP to mail.inceptia.io is refused (shared-IP policy).
+ * direct SMTP to mail.krtaker.com is refused (shared-IP policy).
  */
 function mail_fallback($to, $subject, $html, $text = null) {
     $text = $text ?? strip_tags(str_replace(['<br>', '<br/>', '</p>', '</div>', '</li>'], "\n", $html));

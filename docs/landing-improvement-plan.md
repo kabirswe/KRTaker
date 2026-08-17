@@ -88,4 +88,4 @@ Status of the site today:
 ## Decision needed
 - Which domain? (krtaker.com / krtaker.com.bd / deshiklab subdomain)
 - Bengali toggle: full `/bn/` mirror (Phase C5) or just home/register/pricing first?
-- Contact form destination inbox (careers@inceptia.io-style — or a new hello@ inbox)
+- Contact form destination inbox (a new hello@ inbox on krtaker.com)

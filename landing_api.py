@@ -31,7 +31,7 @@ def load_env(path):
 
 ENV = load_env(os.path.join(ROOT, '.env-landing'))
 SMTP = {
-    'host': ENV.get('SMTP_HOST', 'mail.inceptia.io'),
+    'host': ENV.get('SMTP_HOST', 'mail.krtaker.com'),
     'port': int(ENV.get('SMTP_PORT', 587)),
     'user': ENV.get('SMTP_USER', ''),
     'pass': ENV.get('SMTP_PASS', ''),

@@ -50,7 +50,7 @@ Flask (landing_api.py:8878)
   ├─ /landing/*  → web/           (marketing site)
   └─ /api/*      → register, verify-otp, resend-otp, newsletter, contact, health
 SQLite (landing.db): subscribers, contacts, newsletter_emails
-SMTP (mail.inceptia.io:587): OTP + welcome + admin notifications
+SMTP (mail.krtaker.com:587): OTP + welcome + admin notifications
 ```
 
 ## Key decisions
