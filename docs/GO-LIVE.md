@@ -151,7 +151,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 | Security | OWASP spot-check, throttling on, secrets not in code, backups verified |
 | Ops | Uptime monitor on, error tracking on, Discord alerts on, restore drill done |
 | Content | GA4 real ID, Search Console verified, terms/privacy reviewed, claims honest |
-| Code | Full regression green (tests/live_regression.py — 51 checks, 51/51 PASS 2026-08-17; sandbox matrix 15/15), launch audit green (tests/launch_audit.py — 36/36 PASS 2026-08-17), version bumped + deployed |
+| Code | Full regression green (tests/live_regression.py — 51 checks, 51/51 PASS 2026-08-17; sandbox matrix 15/15), launch audit green (tests/launch_audit.py — 36/36 PASS 2026-08-17), V2.51 SMS dashboard + refund system 25/25 (tests/test_v251.py), version bumped + deployed |
 
 ---
 
@@ -160,7 +160,8 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 1. [ ] Decide the merchant legal entity (BITSCOL vs new KRTaker entity) → start SSLCommerz KYC (longest lead time).
 2. [x] GA4 Measurement ID (`G-C68G5Q03ZT`) swapped in — DONE v3.71. [ ] Search Console verification → submit sitemap.
 3. [ ] Provide DeepSeek/OpenAI API key for the AI console.
-4. [ ] Pick an SMS provider (SSLCommerz SMS / DopeSMS) + provide creds → I'll wire OTP.
+4. [x] SMS provider wiring — DONE V2.51 (superadmin SMS Tracker dashboard + `log`/`bulksmsbd` provider config + test-send; live 2 log rows). [ ] Provide a real SMS provider's creds (SSLCommerz SMS / DopeSMS) → flip from `log` to real sending.
 5. [ ] Re-auth Google Drive rclone (paste the auth URL output) → backups go offsite.
 6. [x] "128 subscribers / 60+ partners" claim was marketing — real DB: 10 subscribers (8 active, 0 paid), 5 partners, ৳75.55 Cr property. All landing copy now truthful (V2.47).
 7. [ ] Run one live payment through the sandbox → verify the full flow end-to-end before KYC completes.
+8. [x] Refund/return system — DONE V2.51 (refunds ledger `RF-XXX`, simulate-until-ready design, superadmin + workspace initiate/status). [ ] Once merchant creds live: run one real-sandbox refund test.
