@@ -137,7 +137,7 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 - [x] Monthly recurring revenue + churn — payment-recon + premium-sub-list already track; the digest adds the daily pulse.
 - [x] Support ticket volume + first-response time — ticket count in digest; SLA chips in-app track response times per ticket (V2.43).
 - [x] App crashes / JS errors / API 5xx per day — `errors_today` in digest (app_error_log); the error-watchdog cron already alerts on new groups every 30 min.
-- [ ] Push/email deliverability (bounce + unsubscribe)
+- [x] Push/email deliverability (bounce + unsubscribe) — V2.49: HMAC one-click unsubscribe link on ALL queued mail (reminders/digests/statements) + `app-unsubscribe` endpoint (no-login, JSON + HTML confirmation), global `email_unsubs` table + mail_queue drain suppression (`skipped_unsub`), per-user notify flags flipped on opt-out. Verified live: 8/8 E2E + drain probe (`skipped_unsub:1`). Bounce handling: dead-after-3-attempts in drain already exists.
 
 ---
 
