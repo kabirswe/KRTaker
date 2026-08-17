@@ -162,5 +162,5 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 3. [ ] Provide DeepSeek/OpenAI API key for the AI console.
 4. [ ] Pick an SMS provider (SSLCommerz SMS / DopeSMS) + provide creds → I'll wire OTP.
 5. [ ] Re-auth Google Drive rclone (paste the auth URL output) → backups go offsite.
-6. [ ] Confirm whether "128 subscribers" claim is real or marketing → I'll adjust copy.
+6. [x] "128 subscribers / 60+ partners" claim was marketing — real DB: 10 subscribers (8 active, 0 paid), 5 partners, ৳75.55 Cr property. All landing copy now truthful (V2.47).
 7. [ ] Run one live payment through the sandbox → verify the full flow end-to-end before KYC completes.
