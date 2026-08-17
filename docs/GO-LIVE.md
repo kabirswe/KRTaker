@@ -157,11 +157,11 @@ Last updated: 2026-08 · Current live version: v3.66 / SW v74 · Branch: `supera
 
 ## 6. Immediate next actions (this week)
 
-1. [ ] Decide the merchant legal entity (BITSCOL vs new KRTaker entity) → start SSLCommerz KYC (longest lead time).
+1. [ ] Decide the merchant legal entity (BITSCOL vs new KRTaker entity) → start SSLCommerz KYC (longest lead time). **Step-by-step guide + doc checklist: `docs/SSLCOMMERZ-KYC-GUIDE.md`.**
 2. [x] GA4 Measurement ID (`G-C68G5Q03ZT`) swapped in — DONE v3.71. [ ] Search Console verification → submit sitemap.
 3. [ ] Provide DeepSeek/OpenAI API key for the AI console.
 4. [x] SMS provider wiring — DONE V2.51 (superadmin SMS Tracker dashboard + `log`/`bulksmsbd` provider config + test-send; live 2 log rows). [ ] Provide a real SMS provider's creds (SSLCommerz SMS / DopeSMS) → flip from `log` to real sending.
 5. [x] Google Drive rclone re-authed — DONE 2026-08-17 (fresh OAuth token installed, watchdog script path fixed, backup verified: krtaker-2026-08-17 + cms-2026-08-17 on Drive). ⚠️ Testing-mode token expires ~7d → re-auth weekly OR publish the OAuth app (permanent).
 6. [x] "128 subscribers / 60+ partners" claim was marketing — real DB: 10 subscribers (8 active, 0 paid), 5 partners, ৳75.55 Cr property. All landing copy now truthful (V2.47).
-7. [ ] Run one live payment through the sandbox → verify the full flow end-to-end before KYC completes.
+7. [ ] Run one live payment through the sandbox → verify the full flow end-to-end before KYC completes. (Note: sandbox store `testkrtak46ew` has a password-provisioning bug — ticket drafted in `docs/SSLCOMMERZ_TICKET.md`; follow up once merchant account exists.)
 8. [x] Refund/return system — DONE V2.51 (refunds ledger `RF-XXX`, simulate-until-ready design, superadmin + workspace initiate/status). [ ] Once merchant creds live: run one real-sandbox refund test.
