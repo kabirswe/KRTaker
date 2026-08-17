@@ -65,7 +65,7 @@
     {
       k: ['demo', 'prototype', 'try', 'see it', 'workspace', 'ডেমো', 'প্রোটোটাইপ', 'চেষ্টা'],
       a: {
-        en: 'You can try the live prototype right now! Click "Open workspace" on the home page, or register first for a personalized trial. The demo workspace shows a sample portfolio: ৳74.55 Cr, 70% occupancy, leases, invoices, TDS and maintenance — all clickable.',
+        en: 'You can try the live prototype right now! Click "Open workspace" on the home page, or register first for a personalized trial. The demo workspace shows a sample portfolio: ৳75.55 Cr, 70% occupancy, leases, invoices, TDS and maintenance — all clickable.',
         bn: 'আপনি এখনই লাইভ প্রোটোটাইপ চেষ্টা করতে পারেন! হোম পেজে "ওয়ার্কস্পেস খুলুন" ক্লিক করুন, অথবা আগে রেজিস্টার করে পার্সোনালাইজড ট্রায়াল নিন। ডেমো ওয়ার্কস্পেসে নমুনা পোর্টফোলিও দেখা যায়: ৳৭৪.৫৫ কোটি, ৭০% অকুপেন্সি, লিজ, ইনভয়েস, টিডিএস ও মেইনটেন্যান্স — সব ক্লিকযোগ্য।'
       }
     },
