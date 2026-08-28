@@ -15049,7 +15049,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15149,7 +15149,8 @@ case 'mall': {
         foreach (['mall_name', 'mall_address', 'mall_phone', 'mall_email', 'chairman', 'secretary',
                   'elec_unit_rate', 'water_unit_rate', 'late_fees_enabled', 'late_fee_pct', 'late_fee_grace', 'late_fee_min', 'late_fee_max_pct', 'due_day',
                   'invoice_template', 'invoice_prefix', 'mall_logo', 'mall_logo_dark',
-                  'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note'] as $ck) {
+                  'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note',
+                  'rent_advance_default', 'rent_due_day', 'rent_collect_default', 'rent_statement_note'] as $ck) {
             if (isset($body[$ck])) $mset($ck, $body[$ck]);
         }
         audit($u['name'], 'Mall config', 'mall', '', json_encode($body));
@@ -15430,8 +15431,14 @@ case 'mall': {
         json_out(['ok' => true]);
     }
     if ($a === 'journal') {
+        $from = trim($body['from'] ?? '');
+        $to = trim($body['to'] ?? '');
+        $where = "1=1";
+        if ($from !== '') $where .= " AND j.date >= '" . $from . "'";
+        if ($to !== '') $where .= " AND j.date <= '" . $to . "'";
         $rows = $pdo->query("SELECT j.*, a.name AS account_name, a.code AS account_code, a.type AS account_type
-            FROM mall_journal j LEFT JOIN mall_accounts a ON a.id=j.account ORDER BY j.date DESC, j.id DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+            FROM mall_journal j LEFT JOIN mall_accounts a ON a.id=j.account
+            WHERE $where ORDER BY j.date DESC, j.id DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
         $totD = 0; $totC = 0; $pending = 0; $approved = 0; $rejected = 0;
         foreach ($rows as $x) {
             $totD += (int)$x['debit']; $totC += (int)$x['credit'];
@@ -15559,6 +15566,8 @@ case 'mall': {
     if ($a === 'party-ledger') {
         $type = trim($body['type'] ?? 'vendor');
         $id = (int)($body['id'] ?? 0);
+        $from = trim($body['from'] ?? '');
+        $to = trim($body['to'] ?? '');
         if (!in_array($type, ['vendor', 'owner', 'tenant', 'staff'], true) || !$id) json_out(['ok' => false, 'error' => 'type (vendor/owner/tenant/staff) and id required.'], 400);
         $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
         $one = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetch(PDO::FETCH_ASSOC); };
@@ -15615,6 +15624,17 @@ case 'mall': {
             foreach ($sals as $e) $rows[] = ['date' => substr($e['ts'] ?? $e['month'], 0, 10), 'particulars' => 'Salary ' . $e['month'], 'method' => $e['method'], 'debit' => (int)$e['amount'], 'credit' => 0];
             $label = '🧑‍💼 Staff';
         }
+        /* date-range window: opening = balance of everything BEFORE `from`;
+           only rows inside [from, to] are listed */
+        if ($from !== '' || $to !== '') {
+            $opening = 0; $kept = [];
+            foreach ($rows as $r) {
+                if ($from !== '' && $r['date'] < $from) { $opening += (int)$r['debit'] - (int)$r['credit']; continue; }
+                if ($to !== '' && $r['date'] > $to) continue;
+                $kept[] = $r;
+            }
+            $rows = $kept;
+        }
         $bal = $opening; $out = [];
         foreach ($rows as $r) {
             $bal += (int)$r['debit'] - (int)$r['credit'];
@@ -15622,7 +15642,8 @@ case 'mall': {
                       'debit' => (int)$r['debit'], 'credit' => (int)$r['credit'], 'balance' => $bal];
         }
         json_out(['ok' => true, 'type' => $type, 'party' => $p, 'label' => $label,
-                  'rows' => $out, 'opening' => $opening, 'closing' => $bal, 'count' => count($out)]);
+                  'rows' => $out, 'opening' => $opening, 'closing' => $bal, 'count' => count($out),
+                  'from' => $from, 'to' => $to]);
     }
     /* account-ledger — one account's approved entries + its sub-ledgers
        (subsidiary balances grouped by party, for control accounts) */
@@ -15668,6 +15689,68 @@ case 'mall': {
         $mset('acct_map', json_encode($clean));
         audit($u['name'], 'Account mapping', 'mall', '', count($clean) . ' rules');
         json_out(['ok' => true, 'map' => $clean]);
+    }
+    /* analytics — 📈 12-month series (billed/collected/expense), expense mix,
+       occupancy, top defaulters, collection rate (KRTaker-style) */
+    if ($a === 'analytics') {
+        $months = max(6, min(24, (int)($body['months'] ?? 12)));
+        $m0 = date('Y-m-01', strtotime('-' . ($months - 1) . ' months'));
+        $series = [];
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $m = date('Y-m', strtotime('-' . $i . ' months'));
+            $series[$m] = ['month' => $m, 'billed' => 0, 'collected' => 0, 'expense' => 0, 'income' => 0];
+        }
+        foreach ($pdo->query("SELECT month, SUM(amount) billed, COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) collected
+            FROM shop_bills WHERE month >= '$m0' GROUP BY month")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (isset($series[$r['month']])) { $series[$r['month']]['billed'] = (int)$r['billed']; $series[$r['month']]['collected'] = (int)$r['collected']; }
+        }
+        foreach ($pdo->query("SELECT substr(ts,1,7) m, SUM(amount) exp FROM company_ledger WHERE kind='expense' AND ts >= '$m0' GROUP BY m")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (isset($series[$r['m']])) $series[$r['m']]['expense'] = (int)$r['exp'];
+        }
+        foreach ($pdo->query("SELECT substr(j.date,1,7) m, SUM(j.credit) inc FROM mall_journal j
+            JOIN mall_accounts a ON a.id=j.account WHERE a.type='Income' AND j.status='Approved' AND j.date >= '$m0' GROUP BY m")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (isset($series[$r['m']])) $series[$r['m']]['income'] = (int)$r['inc'];
+        }
+        $series = array_values($series);
+        $expCats = $pdo->query("SELECT cat, SUM(amount) total FROM company_ledger WHERE kind='expense' AND ts >= '$m0' GROUP BY cat ORDER BY total DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
+        $occupancy = $pdo->query("SELECT occupancy, COUNT(*) n FROM shops WHERE status='Active' GROUP BY occupancy")->fetchAll(PDO::FETCH_ASSOC);
+        $defaulters = $pdo->query("SELECT s.no, s.floor, s.owner_name, COALESCE(SUM(b.amount),0) due
+            FROM shops s JOIN shop_bills b ON b.shop=s.id AND b.status='Unpaid' GROUP BY s.id ORDER BY due DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+        $colRate = 0; $totB = 0; $totC = 0;
+        foreach ($series as $s) { $totB += $s['billed']; $totC += $s['collected']; }
+        if ($totB > 0) $colRate = (int)round($totC / $totB * 100);
+        json_out(['ok' => true, 'months' => $series, 'expense_cats' => $expCats, 'occupancy' => $occupancy,
+                  'defaulters' => $defaulters, 'collection_rate' => $colRate, 'total_billed' => $totB, 'total_collected' => $totC]);
+    }
+    /* cashflow — per-method money in/out/balance by month + totals */
+    if ($a === 'cashflow') {
+        $months = max(3, min(24, (int)($body['months'] ?? 12)));
+        $m0 = date('Y-m-01', strtotime('-' . ($months - 1) . ' months'));
+        $series = [];
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $m = date('Y-m', strtotime('-' . $i . ' months'));
+            $series[$m] = ['month' => $m, 'in' => 0, 'out' => 0];
+        }
+        $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
+        foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM company_ledger WHERE kind='income' AND ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['in'] += (int)$r['a'];
+        foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM company_ledger WHERE kind='expense' AND ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['out'] += (int)$r['a'];
+        foreach ($b("SELECT month, SUM(amount) a FROM shop_payments WHERE created_at >= ? GROUP BY month", [$m0]) as $r) if (isset($series[$r['month']])) $series[$r['month']]['in'] += (int)$r['a'];
+        foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM mall_rent_payments WHERE ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['in'] += (int)$r['a'];
+        foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM mall_vendor_payments WHERE ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['out'] += (int)$r['a'];
+        $methods = [];
+        $sc = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
+        foreach (['cash', 'bank', 'bkash', 'nagad'] as $m) {
+            $in = $sc("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=?", [$m])
+                + $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND method=?", [$m])
+                + $sc("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE method=?", [$m]);
+            $out = $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND method=?", [$m])
+                + $sc("SELECT COALESCE(SUM(amount),0) FROM mall_vendor_payments WHERE method=?", [$m]);
+            $methods[$m] = ['method' => $m, 'in' => $in, 'out' => $out, 'balance' => $in - $out];
+        }
+        $series = array_values($series);
+        $bal = 0; foreach ($series as &$s) { $bal += $s['in'] - $s['out']; $s['balance'] = $bal; } unset($s);
+        json_out(['ok' => true, 'series' => $series, 'methods' => array_values($methods),
+                  'period_in' => array_sum(array_column($series, 'in')), 'period_out' => array_sum(array_column($series, 'out'))]);
     }
     if ($a === 'complaint-add') {
         $shop = trim($body['shop'] ?? '');

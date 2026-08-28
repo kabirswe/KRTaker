@@ -19,6 +19,7 @@ const canCollect = computed(() => canManage.value || isCollector.value)
 const tab = ref('dashboard')
 const TABS = [
   ['dashboard', '📊', 'Dashboard'],
+  ['analytics', '📈', 'Analytics'],
   ['space', '🏪', 'Spaces'],
   ['bills', '🧾', 'Bills & Collections'],
   ['meters', '⚡', 'Meters'],
@@ -27,7 +28,9 @@ const TABS = [
   ['trial', '⚖️', 'Trial Balance'],
   ['pnl', '📊', 'P&L Statement'],
   ['pl', '🧾', 'Party Ledger'],
-  ['ledger', '📒', 'Ledger'],
+  ['statements', '💰', 'Statements'],
+  ['cashflow', '🔄', 'Cashflow'],
+  ['reconcile', '🔁', 'Reconcile'],
   ['expenses', '📉', 'Expenses'],
   ['complaints', '🔧', 'Complaints'],
   ['assets', '🛠️', 'Assets & AMC'],
@@ -46,7 +49,7 @@ const month = ref(new Date().toISOString().slice(0, 7))
 const shiftMonth = (d) => { const m = new Date(month.value + '-01'); m.setMonth(m.getMonth() + d); month.value = m.toISOString().slice(0, 7); switchTab(tab.value) }
 
 /* ── config ── */
-const config = ref({ mall_name: '', elec_unit_rate: 8, water_unit_rate: 30, late_fee_pct: 5, due_day: 10 })
+const config = ref({ mall_name: '', elec_unit_rate: 8, water_unit_rate: 30, late_fee_pct: 5, due_day: 10, rent_advance_default: 2, rent_due_day: 10, rent_statement_note: '' })
 const cfgDirty = ref(false)
 async function loadConfig() {
   const r = await apiCall('mall', { action: 'config-get' })
@@ -829,7 +832,9 @@ const trial = ref(null)
 const pnl = ref(null)
 async function loadPnl() { const r = await apiCall('mall', { action: 'pnl', month: month.value }); if (r.ok) pnl.value = r }
 async function loadAccounts() { const r = await apiCall('mall', { action: 'accounts' }); if (r.ok) accounts.value = r.accounts }
-async function loadJournal() { const r = await apiCall('mall', { action: 'journal' }); if (r.ok) journal.value = r }
+async function loadJournal() { const r = await apiCall('mall', { action: 'journal', from: jFrom.value, to: jTo.value }); if (r.ok) journal.value = r }
+const jFrom = ref('')
+const jTo = ref('')
 async function loadTrial() { const r = await apiCall('mall', { action: 'trial' }); if (r.ok) trial.value = r.accounts }
 function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, subsidiary: 0, note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
 function openAccountEdit(x) { accountForm.value = { ...x }; accountModal.value = { mode: 'edit', title: '✏️ Edit account' } }
@@ -895,9 +900,11 @@ const myName = computed(() => (data.user && data.user.name) || (auth.user && aut
 const partyType = ref('vendor')
 const partyId = ref(0)
 const partyLedger = ref(null)
+const plFrom = ref('')
+const plTo = ref('')
 async function loadPartyLedger() {
   if (!partyId.value) return
-  const r = await apiCall('mall', { action: 'party-ledger', type: partyType.value, id: partyId.value })
+  const r = await apiCall('mall', { action: 'party-ledger', type: partyType.value, id: partyId.value, from: plFrom.value, to: plTo.value })
   if (r.ok) partyLedger.value = r
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
@@ -947,6 +954,10 @@ function exportPartyCsv() {
   csvDownload('party-ledger.csv', ['Date', 'Particulars', 'Method', 'Debit', 'Credit', 'Balance'],
     (partyLedger.value?.rows || []).map(r => [r.date, r.particulars, r.method, r.debit, r.credit, r.balance]))
 }
+function exportStatementCsv() {
+  csvDownload('statement-' + (stData.value?.party.name || 'party').replace(/\s+/g, '-').toLowerCase() + '.csv', ['Date', 'Particulars', 'Method', 'Debit', 'Credit', 'Balance'],
+    [[stData.value?.opening || 0], ...(stData.value?.rows || []).map(r => [r.date, r.particulars, r.method, r.debit, r.credit, r.balance])])
+}
 
 /* ══════════ COA IMPROVEMENTS: search / filter / per-account drawer / mapping ══════════ */
 const acctQuery = ref('')
@@ -988,6 +999,49 @@ function onSubPick(val, line) {
   line.subType = opt ? opt.type : ''
   line.subName = opt ? opt.name : ''
 }
+
+/* ══════════ ANALYTICS / CASHFLOW / STATEMENTS / RECONCILE ══════════ */
+const analytics = ref(null)
+const analyticsMonths = ref(12)
+async function loadAnalytics() { const r = await apiCall('mall', { action: 'analytics', months: analyticsMonths.value }); if (r.ok) analytics.value = r }
+const cashflow = ref(null)
+const cashflowMonths = ref(12)
+async function loadCashflow() { const r = await apiCall('mall', { action: 'cashflow', months: cashflowMonths.value }); if (r.ok) cashflow.value = r }
+/* statements: party-ledger with a date window */
+const stType = ref('owner')
+const stId = ref(0)
+const stFrom = ref(month.value + '-01')
+const stTo = ref(month.value + '-31')
+const stData = ref(null)
+const stOptions = computed(() => {
+  if (stType.value === 'vendor') return vendors.value.map(v => ({ value: v.id, label: v.name + ' (' + v.category + ')' }))
+  if (stType.value === 'owner') return owners.value.map(o => ({ value: o.id, label: o.name + (o.type ? ' (' + o.type + ')' : '') }))
+  if (stType.value === 'tenant') return tenants.value.map(t => ({ value: t.id, label: t.name + (t.phone ? ' · ' + t.phone : '') }))
+  return staff.value.map(s => ({ value: s.id, label: s.name + ' (' + s.designation + ')' }))
+})
+function pickStType(type) { if (stType.value !== type) { stType.value = type; stId.value = 0; stData.value = null } }
+async function loadStatement() {
+  if (!stId.value) return
+  const r = await apiCall('mall', { action: 'party-ledger', type: stType.value, id: stId.value, from: stFrom.value, to: stTo.value })
+  if (r.ok) stData.value = r
+}
+/* reconcile: utility custodial + bank/cash check */
+const bankRecon = ref(null)
+async function loadReconcile() {
+  const [r1, r2] = await Promise.all([apiCall('mall', { action: 'recon' }), apiCall('mall', { action: 'balances' })])
+  if (r1.ok && r2.ok) bankRecon.value = { recon: r1, balances: r2.balances }
+}
+const stmtBalances = ref({})
+function stmtDiff(m) {
+  const b = bankRecon.value?.balances[m]?.balance || 0
+  const st = Number(stmtBalances.value[m]) || 0
+  return st ? st - b : null
+}
+/* chart helpers */
+const maxOf = (arr, key) => Math.max(...arr.map(x => Number(x[key]) || 0))
+const maxOfN = (arr) => Math.max(...(arr || []).map(x => Number(x.n) || 0))
+const pctOf = (v, arr) => { const t = (arr || []).reduce((s, x) => s + Number(x.total), 0); return t ? Math.round(Number(v) / t * 100) : 0 }
+const METHOD_ICONS = { cash: '💵', bank: '🏦', bkash: '📱', nagad: '📱' }
 async function delJournal(x) {
   if (!window.confirm(`Delete journal entry #${x.id}?`)) return
   const r = await apiCall('mall', { action: 'journal-del', id: x.id })
@@ -1032,6 +1086,10 @@ function switchTab(x) {
   if (x === 'journal') { loadJournal(); loadAccounts(); loadVendors(); loadOwners(); loadTenants(); loadStaff() }
   if (x === 'trial') loadTrial()
   if (x === 'pnl') loadPnl()
+  if (x === 'analytics') loadAnalytics()
+  if (x === 'cashflow') loadCashflow()
+  if (x === 'statements') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff() }
+  if (x === 'reconcile') loadReconcile()
   if (x === 'pl') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff(); loadPartyLedger() }
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
@@ -1134,6 +1192,66 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               </div>
             </div>
             <p v-else style="color:var(--text-mute);font-size:13px">No collections yet this month.</p>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════ ANALYTICS (KRTaker-style trends) ═══════ -->
+    <template v-if="tab === 'analytics'">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <h3 style="font-size:14px">📈 Analytics</h3>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button v-for="n in [6, 12, 24]" :key="n" @click="analyticsMonths = n; loadAnalytics()" :style="analyticsMonths === n ? 'background:var(--primary);color:#fff' : ''" class="btn-ghost" style="font-size:12px">{{ n }}M</button>
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Billed (period)</div><div class="s-value">{{ analytics ? money(analytics.total_billed) : money(0) }}</div><div class="s-trend">{{ analyticsMonths }} months</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Collected</div><div class="s-value" style="color:var(--ok)">{{ analytics ? money(analytics.total_collected) : money(0) }}</div><div class="s-trend">{{ analytics ? analytics.collection_rate : 0 }}% collection rate</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏦</span>Open balance</div><div class="s-value" style="color:var(--danger)">{{ analytics ? money(analytics.total_billed - analytics.total_collected) : money(0) }}</div><div class="s-trend">outstanding</div></div>
+      </div>
+      <div class="panel" style="padding:16px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <b style="font-size:12.5px">Billed vs collected (per month)</b>
+          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#2F80ED;display:inline-block;margin-right:4px"></i>Billed<i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin:0 4px 0 10px"></i>Collected</span>
+        </div>
+        <div v-if="analytics" style="display:flex;align-items:flex-end;gap:6px;height:170px;border-bottom:1px solid var(--border);padding-top:6px">
+          <div v-for="s in analytics.months" :key="s.month" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end">
+            <div style="width:100%;max-width:26px;border-radius:4px 4px 0 0;background:#2F80ED;height:{{ s.billed ? Math.max(3, Math.round(s.billed / Math.max(maxOf(analytics.months, 'billed'), 1) * 140)) : 2 }}px" :title="s.month + ' billed ' + money(s.billed)"></div>
+            <div style="width:100%;max-width:26px;border-radius:4px 4px 0 0;background:#27AE60;height:{{ s.collected ? Math.max(3, Math.round(s.collected / Math.max(maxOf(analytics.months, 'billed'), 1) * 140)) : 2 }}px" :title="s.month + ' collected ' + money(s.collected)"></div>
+            <span style="font-size:9px;color:var(--text-mute);transform:rotate(-40deg);white-space:nowrap;margin-top:2px">{{ s.month.slice(5) + '/' + s.month.slice(2, 4) }}</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px" class="an-grid">
+        <div class="panel" style="padding:16px">
+          <b style="font-size:12.5px">📉 Expense mix ({{ analyticsMonths }} months)</b>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px">
+            <div v-for="c in analytics?.expense_cats || []" :key="c.cat">
+              <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px"><span>{{ c.cat }}</span><b>{{ money(c.total) }}</b></div>
+              <div style="height:7px;border-radius:99px;background:var(--bg-alt);overflow:hidden"><div style="height:100%;border-radius:99px;background:linear-gradient(90deg,#EB5757,#F2994A);width:{{ pctOf(c.total, analytics.expense_cats) }}%"></div></div>
+            </div>
+            <div v-if="!(analytics?.expense_cats || []).length" style="color:var(--text-mute);font-size:12px">No expenses recorded yet.</div>
+          </div>
+        </div>
+        <div class="panel" style="padding:16px">
+          <b style="font-size:12.5px">🏪 Occupancy</b>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px">
+            <div v-for="o in analytics?.occupancy || []" :key="o.occupancy">
+              <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px"><span>{{ o.occupancy }}</span><b>{{ o.n }} space{{ o.n > 1 ? 's' : '' }}</b></div>
+              <div style="height:7px;border-radius:99px;background:var(--bg-alt);overflow:hidden"><div style="height:100%;border-radius:99px;background:linear-gradient(90deg,#2F80ED,#9B51E0);width:{{ o.n / Math.max(maxOfN(analytics.occupancy), 1) * 100 }}%"></div></div>
+            </div>
+            <div v-if="!(analytics?.occupancy || []).length" style="color:var(--text-mute);font-size:12px">No active spaces.</div>
+          </div>
+        </div>
+        <div class="panel" style="padding:16px">
+          <b style="font-size:12.5px">🚨 Top defaulters</b>
+          <div style="margin-top:10px;display:flex;flex-direction:column">
+            <div v-for="d in analytics?.defaulters || []" :key="d.no" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);font-size:12px">
+              <div><b>{{ d.no }}</b> <small style="color:var(--text-mute)">· {{ d.owner_name }}</small></div>
+              <b style="color:var(--danger)">{{ money(d.due) }}</b>
+            </div>
+            <div v-if="!(analytics?.defaulters || []).length" style="color:var(--text-mute);font-size:12px;padding:8px 0">🎉 Nothing outstanding!</div>
           </div>
         </div>
       </div>
@@ -1350,6 +1468,9 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New voucher (double entry)</button>
+        <input type="date" v-model="jFrom" @change="loadJournal" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
+        <span style="color:var(--text-mute);font-size:12px">→</span>
+        <input type="date" v-model="jTo" @change="loadJournal" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
         <span style="display:flex;gap:6px;margin-left:auto">
           <button @click="exportJournalCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
           <button @click="printTable('Journal — ' + (config.mall_name || 'Mall'), $refs.journalArea)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
@@ -1502,9 +1623,12 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             :style="partyType === t.id ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
             style="border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">{{ t.ic }} {{ t.label }}</button>
         </div>
-        <div style="min-width:260px;flex:1;max-width:420px">
+        <div style="min-width:240px;flex:1;max-width:360px">
           <SearchableSelect v-model="partyId" :options="partyOptions" :placeholder="'Select ' + partyType + '…'" style="width:100%" @update:modelValue="loadPartyLedger" />
         </div>
+        <input type="date" v-model="plFrom" @change="loadPartyLedger" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
+        <span style="color:var(--text-mute);font-size:12px">→</span>
+        <input type="date" v-model="plTo" @change="loadPartyLedger" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
       </div>
       <div v-if="partyLedger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
         <div class="stat"><div class="s-label"><span class="s-ico">👤</span>Party</div><div class="s-value" style="font-size:15px">{{ partyLedger.party.name }}</div><div class="s-trend">{{ partyLedger.label }}<template v-if="partyLedger.party.phone"> · {{ partyLedger.party.phone }}</template></div></div>
@@ -1543,6 +1667,143 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         </div>
       </div>
       <div v-else class="panel" style="padding:28px;text-align:center;color:var(--text-mute)">Pick a {{ partyType }} to open their accounts ledger — bills &amp; collections for owners, expenses &amp; payments for vendors, rent for tenants, salaries for staff.</div>
+    </template>
+
+    <!-- ═══════ STATEMENTS (period statements, bank-style) ═══════ -->
+    <template v-if="tab === 'statements'">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
+          <button v-for="t in [{id:'owner',ic:'🏢',label:'Owner'},{id:'tenant',ic:'🧑‍🤝‍🧑',label:'Tenant'},{id:'vendor',ic:'🧰',label:'Vendor'},{id:'staff',ic:'🧑‍💼',label:'Staff'}]" :key="t.id" @click="pickStType(t.id)"
+            :style="stType === t.id ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
+            style="border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">{{ t.ic }} {{ t.label }}</button>
+        </div>
+        <div style="min-width:240px;flex:1;max-width:360px">
+          <SearchableSelect v-model="stId" :options="stOptions" :placeholder="'Select ' + stType + '…'" style="width:100%" @update:modelValue="loadStatement" />
+        </div>
+        <input type="date" v-model="stFrom" @change="loadStatement" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
+        <span style="color:var(--text-mute);font-size:12px">→</span>
+        <input type="date" v-model="stTo" @change="loadStatement" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
+      </div>
+      <div v-if="stData" class="panel" style="overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;flex-wrap:wrap;background:var(--bg-alt)">
+          <div>
+            <h3 style="font-size:14.5px">💰 Statement — {{ stData.party.name }}</h3>
+            <p style="font-size:11.5px;color:var(--text-mute);margin-top:2px">{{ config.mall_name || 'Mall Manager' }}{{ config.mall_address ? ' · ' + config.mall_address : '' }}<template v-if="stData.from"> · period {{ stData.from }} → {{ stData.to }}</template></p>
+          </div>
+          <span style="margin-left:auto;display:flex;gap:6px">
+            <button @click="exportStatementCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+            <button @click="printTable('Statement — ' + stData.party.name, $refs.stTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+          </span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:12px 16px">
+          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">🚩</span>Opening (before period)</div><div class="s-value">{{ money(stData.opening) }}</div><div class="s-trend">balance brought forward</div></div>
+          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">📒</span>Transactions</div><div class="s-value">{{ stData.count }}</div><div class="s-trend">in period</div></div>
+          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">⚖️</span>Closing</div><div class="s-value" :style="stData.closing < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(stData.closing) }}</div><div class="s-trend">{{ stData.closing < 0 ? 'credit side (Cr)' : 'debit side (Dr)' }}</div></div>
+        </div>
+        <div class="tbl-wrap" style="max-height:440px">
+          <table class="kr" ref="stTbl">
+            <thead><tr><th>Date</th><th>Particulars</th><th>Method</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight:800">—</td><td style="font-weight:800">OPENING BALANCE</td><td></td><td></td><td></td><td style="text-align:right;font-weight:800">{{ money(stData.opening) }}</td></tr>
+              <tr v-for="(r, i) in stData.rows" :key="i">
+                <td style="font-size:12px">{{ r.date }}</td>
+                <td style="font-size:12.5px">{{ r.particulars }}</td>
+                <td><span class="badge b-gray" style="font-size:10px">{{ r.method || '—' }}</span></td>
+                <td style="text-align:right;font-weight:700;color:var(--danger)">{{ r.debit ? money(r.debit) : '' }}</td>
+                <td style="text-align:right;font-weight:700;color:var(--ok)">{{ r.credit ? money(r.credit) : '' }}</td>
+                <td style="text-align:right;font-weight:800" :style="r.balance < 0 ? 'color:var(--danger)' : ''">{{ money(r.balance) }}</td>
+              </tr>
+              <tr v-if="!stData.rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:20px">No transactions in this period.</td></tr>
+              <tr style="border-top:2px solid var(--border)"><td style="font-weight:800">—</td><td style="font-weight:800">CLOSING BALANCE</td><td></td><td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(stData.rows.reduce((s, r) => s + r.debit, 0)) }}</td><td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(stData.rows.reduce((s, r) => s + r.credit, 0)) }}</td><td style="text-align:right;font-weight:800">{{ money(stData.closing) }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div v-else class="panel" style="padding:28px;text-align:center;color:var(--text-mute)">Pick a {{ stType }} and a period to build their statement — opening balance, transactions and closing balance.</div>
+    </template>
+
+    <!-- ═══════ CASHFLOW ═══════ -->
+    <template v-if="tab === 'cashflow'">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <h3 style="font-size:14px">🔄 Cashflow</h3>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button v-for="n in [6, 12, 24]" :key="n" @click="cashflowMonths = n; loadCashflow()" :style="cashflowMonths === n ? 'background:var(--primary);color:#fff' : ''" class="btn-ghost" style="font-size:12px">{{ n }}M</button>
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat"><div class="s-label"><span class="s-ico">📥</span>Money in (period)</div><div class="s-value" style="color:var(--ok)">{{ cashflow ? money(cashflow.period_in) : money(0) }}</div><div class="s-trend">{{ cashflowMonths }} months</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📤</span>Money out</div><div class="s-value" style="color:var(--danger)">{{ cashflow ? money(cashflow.period_out) : money(0) }}</div><div class="s-trend">expenses + vendor payouts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Net flow</div><div class="s-value" :style="(cashflow ? cashflow.period_in - cashflow.period_out : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ cashflow ? money(cashflow.period_in - cashflow.period_out) : money(0) }}</div><div class="s-trend">in − out</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px">
+        <div v-for="m in cashflow?.methods || []" :key="m.method" class="panel" style="padding:14px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">{{ METHOD_ICONS[m.method] || '💳' }}</span><b style="text-transform:capitalize">{{ m.method }}</b><span style="margin-left:auto;font-size:11px;color:var(--text-mute)">all-time</span></div>
+          <div style="display:flex;justify-content:space-between;margin-top:9px;font-size:11.5px"><span style="color:var(--ok)">In {{ money(m.in) }}</span><span style="color:var(--danger)">Out {{ money(m.out) }}</span></div>
+          <div style="font-size:15px;font-weight:800;margin-top:5px" :style="m.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">Balance {{ money(m.balance) }}</div>
+        </div>
+      </div>
+      <div class="panel" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <b style="font-size:12.5px">Monthly in vs out</b>
+          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin-right:4px"></i>In<i style="width:10px;height:10px;border-radius:3px;background:#EB5757;display:inline-block;margin:0 4px 0 10px"></i>Out</span>
+        </div>
+        <div v-if="cashflow" style="display:flex;align-items:flex-end;gap:6px;height:170px;border-bottom:1px solid var(--border);padding-top:6px">
+          <div v-for="s in cashflow.series" :key="s.month" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end">
+            <div style="width:100%;max-width:26px;border-radius:4px 4px 0 0;background:#EB5757;height:{{ s.out ? Math.max(3, Math.round(s.out / Math.max(maxOf(cashflow.series, 'in'), 1) * 140)) : 2 }}px" :title="s.month + ' out ' + money(s.out)"></div>
+            <div style="width:100%;max-width:26px;border-radius:4px 4px 0 0;background:#27AE60;height:{{ s.in ? Math.max(3, Math.round(s.in / Math.max(maxOf(cashflow.series, 'in'), 1) * 140)) : 2 }}px" :title="s.month + ' in ' + money(s.in)"></div>
+            <span style="font-size:9px;color:var(--text-mute);transform:rotate(-40deg);white-space:nowrap;margin-top:2px">{{ s.month.slice(5) + '/' + s.month.slice(2, 4) }}</span>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <b style="font-size:12px;color:var(--text-mute)">Running balance by month</b>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
+            <div v-for="s in cashflow?.series || []" :key="s.month" style="display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px dashed var(--border)">
+              <span>{{ s.month }}</span><b :style="s.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(s.balance) }}</b>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════ RECONCILE (custodial utilities + bank/cash) ═══════ -->
+    <template v-if="tab === 'reconcile'">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px" class="rc-grid">
+        <div class="panel" style="padding:18px;overflow:hidden">
+          <h3 style="font-size:14px;margin-bottom:4px">⚡ Custodial utilities reconciliation</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Utility charges collected from occupants (custodial) vs paid out to DESCO / WASA. A positive balance means the mall is holding utility funds that must be remitted.</p>
+          <div v-if="bankRecon?.recon">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">{{ bankRecon.recon.month }}</div>
+            <div v-for="r in [
+              { label: '⚡ Elec collected', v: bankRecon.recon.current.elec_collected },
+              { label: '💧 Water collected', v: bankRecon.recon.current.water_collected },
+              { label: '🔌 Paid to DESCO', v: bankRecon.recon.current.desco_paid },
+              { label: '🚰 Paid to WASA', v: bankRecon.recon.current.wasa_paid },
+            ]" :key="r.label" style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:9px 12px;border-radius:10px;background:var(--bg-alt);margin-bottom:6px">
+              <span>{{ r.label }}</span><b>{{ money(r.v) }}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:10px 12px;border-radius:10px;background:rgba(47,128,237,.08);border:1px solid var(--border);margin-top:8px">
+              <span>Held this month (must remit)</span><b style="color:var(--danger)">{{ money(bankRecon.recon.current_balance) }}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:8px 12px;color:var(--text-mute)">
+              <span>All-time custodial balance</span><b style="color:var(--danger)">{{ money(bankRecon.recon.all_time_balance) }}</b>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">🏦 Bank / cash balance check</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Compare the system balance with your actual bank statement / cash count. The difference shows uncleared or unrecorded items.</p>
+          <div v-for="m in ['cash', 'bank', 'bkash', 'nagad']" :key="m" style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px">
+              <b style="text-transform:capitalize">{{ METHOD_ICONS[m] }} {{ m }}</b>
+              <span style="color:var(--text-mute);font-size:11.5px">System balance <b :style="(bankRecon?.balances[m]?.balance || 0) < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(bankRecon?.balances[m]?.balance || 0) }}</b></span>
+            </div>
+            <input v-model="stmtBalances[m]" type="number" :placeholder="'Actual ' + m + ' statement / count…'" style="width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+            <div v-if="stmtDiff(m) !== null" style="font-size:11.5px;margin-top:5px" :style="stmtDiff(m) === 0 ? 'color:var(--ok)' : 'color:var(--danger)'">
+              {{ stmtDiff(m) === 0 ? '✅ Reconciled — matches the books' : (stmtDiff(m) > 0 ? '⚠️ Books are SHORT by ' + money(stmtDiff(m)) + ' — check uncleared / unrecorded' : '⚠️ Books are OVER by ' + money(-stmtDiff(m))) }}
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
 
     <!-- ═══════ METERS ═══════ -->
@@ -2254,6 +2515,21 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Due day of month
               <input type="number" v-model.number="config.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+          </div>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">💳 Rent &amp; statements config</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Defaults used when creating tenant agreements and printed statements.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Advance months (default)
+              <input type="number" v-model.number="config.rent_advance_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Rent due day of month
+              <input type="number" v-model.number="config.rent_due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Statement footer note
+              <input v-model="config.rent_statement_note" placeholder="e.g. Please pay within the due date — 5% late fee applies after the grace period." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
         </div>

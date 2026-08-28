@@ -55,6 +55,7 @@ const GROUPS = [
     groups: [
       { sub: 'Overview', ico: '📊', items: [
         ['dashboard', '📊', 'Dashboard', 'Collections, outstanding, expenses & budget for the month'],
+        ['analytics', '📈', 'Analytics', 'Trends: billed vs collected, expense mix, occupancy & defaulters'],
       ]},
       { sub: 'Spaces & Owners', ico: '🏪', items: [
         ['space', '🏪', 'Spaces', 'All commercial spaces — owners, space types, occupancy, service rates'],
@@ -66,12 +67,14 @@ const GROUPS = [
         ['meters', '⚡', 'Meters', 'Sub-meter readings → automatic electricity / water bills'],
       ]},
       { sub: 'Accounting', ico: '🏦', items: [
-        ['ledger', '📒', 'Ledger', 'Per-space paid vs billed, by-kind summary, DESCO/WASA custodial reconciliation'],
         ['pl', '🧾', 'Party Ledger', 'Vendor, owner, tenant & staff ledgers with running balance'],
+        ['statements', '💰', 'Statements', 'Period statements with opening & closing balance'],
+        ['cashflow', '🔄', 'Cashflow', 'Money in / out by month & method with running balance'],
         ['coa', '🏦', 'Chart of Accounts', 'Account list by type with balances'],
         ['journal', '📖', 'Journal', 'Debit / credit journal entries'],
         ['trial', '⚖️', 'Trial Balance', 'Balanced debit vs credit summary'],
         ['pnl', '📊', 'P&L Statement', 'Monthly income statement (auto-posted)'],
+        ['reconcile', '🔁', 'Reconcile', 'Custodial utility funds & bank/cash balance checks'],
       ]},
       { sub: 'Operations', ico: '📉', items: [
         ['expenses', '📉', 'Expenses', 'Lift, DESCO/WASA, security, salaries & other spending'],
@@ -116,6 +119,10 @@ const VIEW_ROUTES = {
   trial: { path: '/mall', query: { tab: 'trial' } },
   pnl: { path: '/mall', query: { tab: 'pnl' } },
   pl: { path: '/mall', query: { tab: 'pl' } },
+  analytics: { path: '/mall', query: { tab: 'analytics' } },
+  statements: { path: '/mall', query: { tab: 'statements' } },
+  cashflow: { path: '/mall', query: { tab: 'cashflow' } },
+  reconcile: { path: '/mall', query: { tab: 'reconcile' } },
   settings: { path: '/mall', query: { tab: 'settings' } },
   wiki: '/wiki', backup: '/backup',
 }
@@ -134,7 +141,7 @@ const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
 const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
 const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events', 'samity']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS, society: SOCIETY_MODS }
-const MALL_TABS = new Set(['dashboard', 'space', 'bills', 'meters', 'coa', 'journal', 'trial', 'pnl', 'pl', 'ledger', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'settings'])
+const MALL_TABS = new Set(['dashboard', 'analytics', 'space', 'bills', 'meters', 'coa', 'journal', 'trial', 'pnl', 'pl', 'statements', 'cashflow', 'reconcile', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'settings'])
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true
