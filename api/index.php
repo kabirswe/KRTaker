@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260929) {
+        if ($__sv < 20260930) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -426,6 +426,11 @@ function db() {
             debit INTEGER DEFAULT 0, credit INTEGER DEFAULT 0,
             note TEXT DEFAULT '', created_by TEXT DEFAULT '')");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_journal_account ON mall_journal(account)");
+        /* V2.1: journal approval workflow + receipt/voucher attachment (guarded) */
+        $jcols = array_column($pdo->query('PRAGMA table_info(mall_journal)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        foreach (['status' => "TEXT DEFAULT 'Approved'", 'approved_by' => "TEXT DEFAULT ''", 'approved_at' => "TEXT DEFAULT ''", 'voucher' => "TEXT DEFAULT ''"] as $col => $def) {
+            if (!in_array($col, $jcols, true)) { try { $pdo->exec("ALTER TABLE mall_journal ADD COLUMN $col $def"); } catch (Exception $e) {} }
+        }
         /* seed the default Chart of Accounts once (COUNT-guarded) */
         if ((int)$pdo->query('SELECT COUNT(*) FROM mall_accounts')->fetchColumn() === 0) {
             $acc = [
@@ -1318,7 +1323,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260929'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260930'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15008,7 +15013,8 @@ case 'mall': {
     $is_collector = $u['role'] === 'collector';
     $mall_write = ['config-set', 'bill-generate', 'fine-calc', 'shop-create', 'shop-update', 'shop-delete',
                    'expense-add', 'expense-del', 'complaint-add', 'complaint-status', 'complaint-del',
-                   'asset-add', 'asset-update', 'asset-del', 'notice-add', 'notice-del', 'notice-pin'];
+                   'asset-add', 'asset-update', 'asset-del', 'notice-add', 'notice-del', 'notice-pin',
+                   'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject'];
     $collector_ok = ['collect', 'meter', 'readings'];
     if ($is_collector) {
         if (in_array($a, $mall_write, true)) {
@@ -15058,7 +15064,9 @@ case 'mall': {
     ];
     $METHOD_ACCT = ['cash' => 'Cash in Hand', 'bank' => 'Bank Account', 'bkash' => 'bKash', 'nagad' => 'bKash'];
     $post_journal = function ($date, $ref, $note, $lines, $by = 'system') use ($pdo, $ACCT_ID) {
-        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by) VALUES (?,?,?,?,?,?,?)");
+        /* Smart-Ledger posts are ALWAYS approved (trusted system flow) */
+        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, approved_by, approved_at)
+                              VALUES (?,?,?,?,?,?,?,'Approved','system',datetime('now'))");
         foreach ($lines as $ln) {
             [$an, $d, $c] = $ln;
             $id = $ACCT_ID($an);
@@ -15338,7 +15346,7 @@ case 'mall': {
     /* ── BASIC ACCOUNTING: Chart of Accounts / Journal / Trial balance ── */
     if ($a === 'accounts') {
         $rows = $pdo->query("SELECT * FROM mall_accounts ORDER BY CASE type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, code")->fetchAll(PDO::FETCH_ASSOC);
-        $acts = $pdo->query('SELECT account, SUM(debit) d, SUM(credit) c FROM mall_journal GROUP BY account')->fetchAll(PDO::FETCH_ASSOC);
+        $acts = $pdo->query("SELECT account, SUM(debit) d, SUM(credit) c FROM mall_journal WHERE status='Approved' GROUP BY account")->fetchAll(PDO::FETCH_ASSOC);
         $map = [];
         foreach ($acts as $x) $map[(int)$x['account']] = $x;
         foreach ($rows as &$r) {
@@ -15383,29 +15391,85 @@ case 'mall': {
     if ($a === 'journal') {
         $rows = $pdo->query("SELECT j.*, a.name AS account_name, a.code AS account_code, a.type AS account_type
             FROM mall_journal j LEFT JOIN mall_accounts a ON a.id=j.account ORDER BY j.date DESC, j.id DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
-        $totD = 0; $totC = 0;
-        foreach ($rows as $x) { $totD += (int)$x['debit']; $totC += (int)$x['credit']; }
-        json_out(['ok' => true, 'entries' => $rows, 'total_debit' => $totD, 'total_credit' => $totC]);
+        $totD = 0; $totC = 0; $pending = 0; $approved = 0; $rejected = 0;
+        foreach ($rows as $x) {
+            $totD += (int)$x['debit']; $totC += (int)$x['credit'];
+            if ($x['status'] === 'Pending') $pending++;
+            elseif ($x['status'] === 'Rejected') $rejected++;
+            else $approved++;
+        }
+        json_out(['ok' => true, 'entries' => $rows, 'total_debit' => $totD, 'total_credit' => $totC,
+                  'counts' => ['pending' => $pending, 'approved' => $approved, 'rejected' => $rejected]]);
     }
+    /* journal-add — DOUBLE-ENTRY voucher: lines [ {account, debit, credit} ],
+       Dr total must equal Cr total (>0); created Pending → approve in Accounts. */
     if ($a === 'journal-add') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
-        $account = (int)($body['account'] ?? 0);
-        $debit = (int)($body['debit'] ?? 0);
-        $credit = (int)($body['credit'] ?? 0);
-        if (!$account || ($debit <= 0 && $credit <= 0)) json_out(['ok' => false, 'error' => 'Account and an amount (debit or credit) are required.'], 400);
-        if ($debit > 0 && $credit > 0) json_out(['ok' => false, 'error' => 'An entry is either a debit OR a credit — not both.'], 400);
+        $lines = $body['lines'] ?? null;
+        if (!is_array($lines) || count($lines) < 2) json_out(['ok' => false, 'error' => 'A voucher needs at least a debit line and a credit line.'], 400);
+        $clean = [];
+        $totD = 0; $totC = 0;
+        foreach ($lines as $ln) {
+            $acc = (int)($ln['account'] ?? 0);
+            $d = (int)($ln['debit'] ?? 0);
+            $c = (int)($ln['credit'] ?? 0);
+            if (!$acc || ($d <= 0 && $c <= 0)) continue;
+            if ($d > 0 && $c > 0) json_out(['ok' => false, 'error' => 'A line cannot be both debit and credit.'], 400);
+            $clean[] = [$acc, $d, $c];
+            $totD += $d; $totC += $c;
+        }
+        if (count($clean) < 2) json_out(['ok' => false, 'error' => 'A voucher needs at least a debit line and a credit line.'], 400);
+        if ($totD !== $totC || $totD <= 0) json_out(['ok' => false, 'error' => 'Debit total (' . $totD . ') must equal credit total (' . $totC . ') — the voucher is not balanced.'], 400);
         $date = trim($body['date'] ?? '') ?: date('Y-m-d');
         $ref = trim($body['ref'] ?? '');
+        if ($ref === '') {
+            $seq = (int)$pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ref, 4) AS INTEGER)),0) FROM mall_journal WHERE ref LIKE 'JV-%'")->fetchColumn();
+            $ref = 'JV-' . str_pad((string)($seq + 1), 5, '0', STR_PAD_LEFT);
+        }
         $note = trim($body['note'] ?? '');
-        $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by) VALUES (?,?,?,?,?,?,?)")
-            ->execute([$date, $ref, $account, $debit, $credit, $note, $u['name']]);
+        $voucher = trim($body['voucher'] ?? '');
+        if ($voucher !== '' && strlen($voucher) > 1200000) json_out(['ok' => false, 'error' => 'Attachment too large.'], 400);
+        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, voucher)
+                              VALUES (?,?,?,?,?,?,?,'Pending',?)");
+        foreach ($clean as $ln) {
+            [$acc, $d, $c] = $ln;
+            $ins->execute([$date, $ref, $acc, $d, $c, $note, $u['name'], $voucher]);
+        }
         $id = (int)$pdo->lastInsertId();
-        audit($u['name'], 'Journal entry', 'mall', (string)$id, ($debit ? 'Dr ' . $debit : 'Cr ' . $credit) . ' → ' . $ref);
-        json_out(['ok' => true, 'id' => $id]);
+        audit($u['name'], 'Journal voucher', 'mall', $ref, "Dr $totD = Cr $totC" . ($voucher !== '' ? ' + attachment' : ''));
+        json_out(['ok' => true, 'id' => $id, 'ref' => $ref, 'status' => 'Pending']);
+    }
+    /* journal-attach — attach a receipt / voucher image to an entry */
+    if ($a === 'journal-attach') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $voucher = trim($body['voucher'] ?? '');
+        if (!$id || $voucher === '') json_out(['ok' => false, 'error' => 'id and voucher required.'], 400);
+        if (strlen($voucher) > 1200000) json_out(['ok' => false, 'error' => 'Attachment too large.'], 400);
+        $pdo->prepare('UPDATE mall_journal SET voucher=? WHERE id=?')->execute([$voucher, $id]);
+        json_out(['ok' => true]);
+    }
+    /* journal-approve / journal-reject — approval workflow (creator cannot self-approve) */
+    if ($a === 'journal-approve' || $a === 'journal-reject') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT created_by, status FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
+        if ($j['status'] !== 'Pending') json_out(['ok' => false, 'error' => 'Only pending entries can be ' . ($a === 'journal-approve' ? 'approved' : 'rejected') . '.'], 409);
+        if ($j['created_by'] === $u['name']) json_out(['ok' => false, 'error' => 'You cannot ' . ($a === 'journal-approve' ? 'approve' : 'reject') . ' your own entry — another manager must review it.'], 403);
+        $new = $a === 'journal-approve' ? 'Approved' : 'Rejected';
+        $pdo->prepare("UPDATE mall_journal SET status=?, approved_by=?, approved_at=datetime('now') WHERE id=?")->execute([$new, $u['name'], $id]);
+        audit($u['name'], 'Journal ' . $new, 'mall', (string)$id, $j['created_by'] . "'s entry");
+        json_out(['ok' => true, 'status' => $new]);
     }
     if ($a === 'journal-del') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT status FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $stt = $st->fetchColumn();
+        if ($stt === false) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
+        if ($stt === 'Approved') json_out(['ok' => false, 'error' => 'Approved entries are immutable — reject or adjust with a new voucher.'], 409);
         $pdo->prepare('DELETE FROM mall_journal WHERE id=?')->execute([$id]);
         json_out(['ok' => true]);
     }
@@ -15417,7 +15481,7 @@ case 'mall': {
         $rows = $pdo->query("SELECT a.name, a.type, a.code,
             COALESCE(SUM(j.debit),0) AS d, COALESCE(SUM(j.credit),0) AS c
             FROM mall_journal j JOIN mall_accounts a ON a.id=j.account
-            WHERE j.date >= '$m0' AND j.date < '$m1'
+            WHERE j.status='Approved' AND j.date >= '$m0' AND j.date < '$m1'
             GROUP BY a.id ORDER BY a.code")->fetchAll(PDO::FETCH_ASSOC);
         $income = []; $expense = []; $totI = 0; $totE = 0;
         foreach ($rows as $r) {
@@ -15431,7 +15495,7 @@ case 'mall': {
     if ($a === 'trial') {
         $rows = $pdo->query("SELECT a.id, a.code, a.name, a.type, a.opening,
             COALESCE(SUM(j.debit),0) AS debit, COALESCE(SUM(j.credit),0) AS credit
-            FROM mall_accounts a LEFT JOIN mall_journal j ON j.account=a.id
+            FROM mall_accounts a LEFT JOIN mall_journal j ON j.account=a.id AND j.status='Approved'
             GROUP BY a.id ORDER BY CASE a.type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, a.code")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$r) {
             $r['balance'] = in_array($r['type'], ['Asset', 'Expense'], true)

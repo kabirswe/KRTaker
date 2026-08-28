@@ -844,16 +844,50 @@ async function delAccount(x) {
   if (r.ok) { window.__krToast?.('🗑️ Account deleted', 'ok'); await loadAccounts() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
-function openJournalAdd() { jForm.value = { date: month.value + '-10', ref: '', account: 0, debit: '', credit: '', note: '' }; jModal.value = { mode: 'add' } }
+async function openJournalAdd() {
+  jForm.value = { date: month.value + '-10', ref: '', note: '', voucher: '', voucherName: '',
+    lines: [{ account: 0, side: 'debit', amount: '' }, { account: 0, side: 'credit', amount: '' }] }
+  jModal.value = { mode: 'add' }
+}
+function addJLine() { jForm.value.lines.push({ account: 0, side: 'debit', amount: '' }) }
+function delJLine(i) { if (jForm.value.lines.length > 2) jForm.value.lines.splice(i, 1) }
+const jDrTotal = computed(() => (jForm.value.lines || []).reduce((s, l) => s + (l.side === 'debit' ? Number(l.amount) || 0 : 0), 0))
+const jCrTotal = computed(() => (jForm.value.lines || []).reduce((s, l) => s + (l.side === 'credit' ? Number(l.amount) || 0 : 0), 0))
+const jBalanced = computed(() => jDrTotal.value === jCrTotal.value && jDrTotal.value > 0)
+function onJoucherPick(e) {
+  const f = e.target.files[0]; if (!f) return
+  if (f.size > 800000) { window.__krToast?.('Image too large — max 800 KB.', 'err'); return }
+  const rd = new FileReader()
+  rd.onload = () => { jForm.value.voucher = rd.result; jForm.value.voucherName = f.name }
+  rd.readAsDataURL(f)
+}
 async function saveJournal() {
-  const f = jForm.value
-  if (!f.account) { window.__krToast?.('Select an account.', 'err'); return }
-  if ((!f.debit || Number(f.debit) <= 0) && (!f.credit || Number(f.credit) <= 0)) { window.__krToast?.('Enter a debit or credit amount.', 'err'); return }
-  if (Number(f.debit) > 0 && Number(f.credit) > 0) { window.__krToast?.('An entry is either a debit OR a credit.', 'err'); return }
-  const r = await apiCall('mall', { action: 'journal-add', date: f.date, ref: f.ref, account: f.account, debit: Number(f.debit) || 0, credit: Number(f.credit) || 0, note: f.note })
-  if (r.ok) { window.__krToast?.('✅ Journal entry posted', 'ok'); jModal.value = null; await loadJournal() }
+  if (!jBalanced.value) { window.__krToast?.('The voucher must balance — debit total = credit total.', 'err'); return }
+  const lines = jForm.value.lines.map(l => ({ account: l.account, debit: l.side === 'debit' ? Number(l.amount) || 0 : 0, credit: l.side === 'credit' ? Number(l.amount) || 0 : 0 })).filter(l => l.account && (l.debit > 0 || l.credit > 0))
+  const r = await apiCall('mall', { action: 'journal-add', date: jForm.value.date, ref: jForm.value.ref, note: jForm.value.note, voucher: jForm.value.voucher, lines })
+  if (r.ok) { window.__krToast?.(`✅ Voucher ${r.ref} posted — pending approval`, 'ok'); jModal.value = null; await loadJournal() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
+async function journalDecision(id, approve) {
+  const r = await apiCall('mall', { action: approve ? 'journal-approve' : 'journal-reject', id })
+  if (r.ok) { window.__krToast?.(approve ? '✅ Entry approved' : '⛔ Entry rejected', 'ok'); await loadJournal() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+const journalFilter = ref('All')
+const voucherView = ref(null)
+const journalVouchers = computed(() => {
+  const rows = journal.value?.entries || []
+  const groups = {}
+  rows.forEach(e => { (groups[e.ref] = groups[e.ref] || []).push(e) })
+  return Object.values(groups).map(g => {
+    const f = g[0]
+    return { ref: f.ref, date: f.date, note: f.note, created_by: f.created_by, status: f.status,
+             approved_by: f.approved_by, approved_at: f.approved_at, voucher: f.voucher,
+             lines: g, dr: g.reduce((s, x) => s + Number(x.debit), 0), cr: g.reduce((s, x) => s + Number(x.credit), 0) }
+  }).filter(v => journalFilter.value === 'All' || v.status === journalFilter.value)
+})
+const jStatusBadge = { Pending: 'b-orange', Approved: 'b-green', Rejected: 'b-red' }
+const myName = computed(() => (data.user && data.user.name) || (auth.user && auth.user.name) || '')
 async function delJournal(x) {
   if (!window.confirm(`Delete journal entry #${x.id}?`)) return
   const r = await apiCall('mall', { action: 'journal-del', id: x.id })
@@ -895,7 +929,7 @@ function switchTab(x) {
   if (x === 'complaints') loadComplaints()
   if (x === 'assets') loadAssets()
   if (x === 'coa') loadAccounts()
-  if (x === 'journal') loadJournal()
+  if (x === 'journal') { loadJournal(); loadAccounts() }
   if (x === 'trial') loadTrial()
   if (x === 'pnl') loadPnl()
   if (x === 'notices') loadNotices()
@@ -1189,37 +1223,66 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
     </template>
 
-    <!-- ═══════ JOURNAL ═══════ -->
+    <!-- ═══════ JOURNAL (double-entry vouchers + approval) ═══════ -->
     <template v-if="tab === 'journal'">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
-        <div class="stat"><div class="s-label"><span class="s-ico">📖</span>Entries</div><div class="s-value">{{ journal ? journal.entries.length : 0 }}</div><div class="s-trend">journal entries</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Total debit</div><div class="s-value" style="color:var(--danger)">{{ journal ? money(journal.total_debit) : money(0) }}</div><div class="s-trend">debit side</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total credit</div><div class="s-value" style="color:var(--ok)">{{ journal ? money(journal.total_credit) : money(0) }}</div><div class="s-trend">credit side</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📖</span>Entries</div><div class="s-value">{{ journal ? journal.entries.length : 0 }}</div><div class="s-trend">journal lines</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Pending approval</div><div class="s-value" style="color:var(--danger)">{{ journal ? journal.counts.pending : 0 }}</div><div class="s-trend">awaiting review</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Total debit</div><div class="s-value" style="color:var(--danger)">{{ journal ? money(journal.total_debit) : money(0) }}</div><div class="s-trend">approved only</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total credit</div><div class="s-value" style="color:var(--ok)">{{ journal ? money(journal.total_credit) : money(0) }}</div><div class="s-trend">approved only</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New journal entry</button>
-        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Each line is a debit or credit to one account — post pairs to keep the books balanced.</span>
-      </div>
-      <div class="panel" style="overflow:hidden">
-        <div class="tbl-wrap" style="max-height:none">
-          <table class="kr">
-            <thead><tr><th>#</th><th>Date</th><th>Ref</th><th>Account</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th>Note</th><th>By</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="e in (journal ? journal.entries : [])" :key="e.id">
-                <td style="font-weight:700">{{ e.id }}</td>
-                <td style="font-size:12px">{{ e.date }}</td>
-                <td style="font-family:monospace;font-size:11.5px">{{ e.ref || '—' }}</td>
-                <td><b>{{ e.account_name || '—' }}</b> <span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[e.account_type] || 'b-gray'" style="font-size:9px">{{ e.account_type }}</span></td>
-                <td style="text-align:right;font-weight:800;color:var(--danger)">{{ e.debit ? money(e.debit) : '' }}</td>
-                <td style="text-align:right;font-weight:800;color:var(--ok)">{{ e.credit ? money(e.credit) : '' }}</td>
-                <td style="font-size:12px;color:var(--text-mute)">{{ e.note }}</td>
-                <td style="font-size:11.5px;color:var(--text-mute)">{{ e.created_by }}</td>
-                <td style="text-align:right"><button v-if="canManage" @click="delJournal(e)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button></td>
-              </tr>
-              <tr v-if="journal && !journal.entries.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:28px">No journal entries yet — post the opening balances and day-to-day adjustments.</td></tr>
-            </tbody>
-          </table>
+        <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New voucher (double entry)</button>
+        <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt);margin-left:auto">
+          <button v-for="f in ['All', 'Pending', 'Approved', 'Rejected']" :key="f" @click="journalFilter = f"
+            :style="journalFilter === f ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
+            style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ f }}<template v-if="f === 'Pending' && journal && journal.counts.pending"> ({{ journal.counts.pending }})</template></button>
         </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ Every voucher is <b>double-entry</b> (debit total = credit total) and goes through <b>approval</b> — pending entries do not appear in the COA, trial balance or P&amp;L until approved. Smart-Ledger posts are auto-approved.</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div v-for="v in journalVouchers" :key="v.ref" class="panel" style="padding:0;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--bg-alt)">
+            <b style="font-family:monospace;font-size:12.5px">{{ v.ref }}</b>
+            <span style="font-size:12px;color:var(--text-mute)">{{ v.date }}</span>
+            <span class="badge" :class="jStatusBadge[v.status] || 'b-gray'" style="font-size:10px">{{ v.status }}</span>
+            <span v-if="v.voucher" @click="voucherView = v.voucher" title="View attached receipt / voucher" style="cursor:pointer;font-size:13px">📎</span>
+            <span style="margin-left:auto;font-size:11.5px;color:var(--text-mute)">by {{ v.created_by }}<template v-if="v.approved_by"> · {{ v.status === 'Approved' ? '✅' : '⛔' }} {{ v.approved_by }} <small>{{ (v.approved_at || '').slice(0, 10) }}</small></template></span>
+            <div style="display:flex;gap:6px">
+              <template v-if="v.status === 'Pending'">
+                <button v-if="canManage && myName && myName !== v.created_by" @click="journalDecision(v.lines[0].id, true)" title="Approve" style="padding:5px 12px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve</button>
+                <button v-if="canManage && myName && myName !== v.created_by" @click="journalDecision(v.lines[0].id, false)" title="Reject" style="padding:5px 12px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">⛔ Reject</button>
+                <span v-if="myName === v.created_by" style="font-size:11px;color:var(--text-mute)">🔒 awaiting review by another manager</span>
+              </template>
+              <button v-if="canManage && v.status !== 'Approved'" @click="delJournal(v.lines[0])" title="Delete" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
+            </div>
+          </div>
+          <div class="tbl-wrap" style="max-height:none">
+            <table class="kr">
+              <thead><tr><th>Account</th><th>Type</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr></thead>
+              <tbody>
+                <tr v-for="e in v.lines" :key="e.id">
+                  <td><b>{{ e.account_name || '—' }}</b></td>
+                  <td><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[e.account_type] || 'b-gray'" style="font-size:9px">{{ e.account_type }}</span></td>
+                  <td style="text-align:right;font-weight:800;color:var(--danger)">{{ e.debit ? money(e.debit) : '' }}</td>
+                  <td style="text-align:right;font-weight:800;color:var(--ok)">{{ e.credit ? money(e.credit) : '' }}</td>
+                </tr>
+                <tr v-if="v.note" style="background:var(--bg-alt)"><td colspan="4" style="font-size:12px;color:var(--text-mute)">📝 {{ v.note }}</td></tr>
+              </tbody>
+              <tfoot v-if="v.lines.length > 1" style="border-top:2px solid var(--border)">
+                <tr><td colspan="2" style="font-weight:800">TOTAL</td>
+                  <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(v.dr) }}</td>
+                  <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(v.cr) }}</td></tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        <div v-if="!journalVouchers.length" class="panel" style="padding:28px;text-align:center;color:var(--text-mute)">No journal entries{{ journalFilter !== 'All' ? ' with status ' + journalFilter : '' }} yet.</div>
+      </div>
+      <!-- voucher lightbox -->
+      <div v-if="voucherView" style="position:fixed;inset:0;background:rgba(10,20,40,.85);z-index:260;display:flex;align-items:center;justify-content:center;padding:24px" @click="voucherView = null">
+        <img :src="voucherView" alt="Receipt / voucher" style="max-width:100%;max-height:92vh;border-radius:12px;box-shadow:0 10px 60px rgba(0,0,0,.5)" />
+        <button @click="voucherView = null" style="position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:16px;font-weight:800;cursor:pointer">✕</button>
       </div>
     </template>
 
@@ -2823,39 +2886,58 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
     </div>
 
-    <!-- ═══════ JOURNAL ENTRY MODAL ═══════ -->
+    <!-- ═══════ JOURNAL VOUCHER MODAL (double entry + attachment) ═══════ -->
     <div v-if="jModal" class="overlay" @click.self="jModal = null">
-      <div class="modal" style="max-width:440px">
-        <div class="modal-h"><div class="t">📖 New journal entry</div><button @click="jModal = null" class="x">✕</button></div>
+      <div class="modal" style="max-width:560px">
+        <div class="modal-h"><div class="t">📖 New journal voucher <small style="color:var(--text-mute);font-weight:600">(double entry)</small></div><button @click="jModal = null" class="x">✕</button></div>
         <div class="modal-b" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Date
             <input type="date" v-model="jForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Reference
-            <input v-model="jForm.ref" placeholder="e.g. JV-001" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">Reference (auto JV-####)
+            <input v-model="jForm.ref" placeholder="JV-00001" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Account *
-            <select v-model="jForm.account" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option :value="0" disabled>Select account…</option>
-              <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + t + 's'">
-                <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
-              </optgroup>
-            </select>
-          </label>
-          <label style="font-size:12px;color:var(--text-mute)">Debit (৳)
-            <input type="number" v-model.number="jForm.debit" min="0" placeholder="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
-          </label>
-          <label style="font-size:12px;color:var(--text-mute)">Credit (৳)
-            <input type="number" v-model.number="jForm.credit" min="0" placeholder="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
-          </label>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Voucher lines <small style="color:var(--text-mute)">— debit total must equal credit total</small></label>
+          <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px">
+            <div v-for="(l, i) in jForm.lines" :key="i" style="display:flex;gap:8px;align-items:center">
+              <select v-model="l.account" style="flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
+                <option :value="0" disabled>Account…</option>
+                <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + TYPE_PLURAL[t]">
+                  <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
+                </optgroup>
+              </select>
+              <select v-model="l.side" style="padding:9px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
+                <option value="debit">Dr</option><option value="credit">Cr</option>
+              </select>
+              <input type="number" v-model.number="l.amount" min="0" placeholder="৳" style="width:110px;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+              <button @click="delJLine(i)" title="Remove line" style="border:none;background:none;color:var(--danger);font-size:15px;cursor:pointer;font-weight:800">✕</button>
+            </div>
+            <button @click="addJLine" style="align-self:flex-start;padding:7px 12px;border:1px dashed var(--border);background:none;border-radius:10px;color:var(--primary);font-size:12px;font-weight:800;cursor:pointer">＋ Add line</button>
+          </div>
+          <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
+            <span style="font-size:12px;color:var(--text-mute)">Balance:</span>
+            <b style="font-size:13px;color:var(--danger)">Dr {{ money(jDrTotal) }}</b>
+            <span style="color:var(--text-mute)">=</span>
+            <b style="font-size:13px;color:var(--ok)">Cr {{ money(jCrTotal) }}</b>
+            <b v-if="jBalanced" style="margin-left:auto;color:var(--ok);font-size:12px">✅ Balanced</b>
+            <b v-else style="margin-left:auto;color:var(--danger);font-size:12px">⚠️ Not balanced ({{ money(Math.abs(jDrTotal - jCrTotal)) }} off)</b>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note / description
             <input v-model="jForm.note" placeholder="e.g. Generator fuel for August" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <p style="grid-column:1/-1;font-size:11.5px;color:var(--text-mute);margin:0">💡 Post <b>two lines</b> for a balanced entry — e.g. Debit Generator Fuel ৳5,000 AND Credit Bank Account ৳5,000.</p>
+          <div style="grid-column:1/-1;display:flex;align-items:center;gap:12px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;color:var(--text-mute);font-weight:700">🧾 Receipt / voucher attachment <small>(optional, max 800 KB)</small></div>
+              <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">⬆ Upload image<input type="file" accept="image/*" style="display:none" @change="onJoucherPick($event)" /></label>
+              <div v-if="jForm.voucherName" style="font-size:11px;color:var(--text-mute)">📎 {{ jForm.voucherName }}</div>
+            </div>
+            <img v-if="jForm.voucher" :src="jForm.voucher" alt="preview" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--border)" />
+            <button v-if="jForm.voucher" @click="jForm.voucher = ''; jForm.voucherName = ''" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer">🗑 Remove</button>
+          </div>
         </div>
         <div class="modal-b" style="display:flex;gap:8px;justify-content:flex-end">
           <button @click="jModal = null" class="btn-ghost">Cancel</button>
-          <button @click="saveJournal" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Post entry</button>
+          <button @click="saveJournal" :disabled="!jBalanced" :style="jBalanced ? '' : 'opacity:.45;cursor:not-allowed'" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">📤 Submit for approval</button>
         </div>
       </div>
     </div>
