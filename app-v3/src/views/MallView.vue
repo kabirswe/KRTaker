@@ -25,6 +25,7 @@ const TABS = [
   ['notices', '📢', 'Notices'],
   ['audit', '📋', 'Audit'],
   ['ledger', '📒', 'Ledger'],
+  ['settings', '⚙️', 'Settings'],
 ]
 const month = ref(new Date().toISOString().slice(0, 7))
 const shiftMonth = (d) => { const m = new Date(month.value + '-01'); m.setMonth(m.getMonth() + d); month.value = m.toISOString().slice(0, 7); switchTab(tab.value) }
@@ -325,6 +326,26 @@ function waRemind(b) {
     (Number(b.fine) ? ` সাথে দেরি ফি ${money(b.fine)} টাকা।` : '') +
     `\n\nঅনুগ্রহ করে ${b.due_date ? b.due_date + ' এর মধ্যে ' : ''}পরিশোধ করুন। ধন্যবাদ।\n— ${config.value.mall_name || 'পরিচালনা কমিটি'}`
   window.open('https://wa.me/' + waPhone(b.owner_mobile) + '?text=' + encodeURIComponent(msg), '_blank')
+}
+
+/* ══════════ PROFILE (app-profile) ══════════ */
+const profForm = ref({ name: auth.user?.name || '', old_password: '', new_password: '' })
+const profSaving = ref(false)
+const profMsg = ref('')
+async function saveProfile() {
+  profSaving.value = true; profMsg.value = ''
+  const body = {}
+  if (profForm.value.name.trim() && profForm.value.name.trim() !== (auth.user?.name || '')) body.name = profForm.value.name.trim()
+  if (profForm.value.new_password) { body.old_password = profForm.value.old_password; body.new_password = profForm.value.new_password }
+  if (!Object.keys(body).length) { profMsg.value = 'Nothing to update.'; profSaving.value = false; return }
+  const r = await apiCall('app-profile', body)
+  profSaving.value = false
+  if (r.ok) {
+    window.__krToast?.('👤 Profile updated', 'ok')
+    profForm.value.old_password = ''; profForm.value.new_password = ''
+    profMsg.value = '✓ Saved. Password change signs you out of other devices.'
+    if (auth.user) auth.user.name = profForm.value.name.trim()
+  } else profMsg.value = '✗ ' + (r.error || 'Update failed.')
 }
 
 /* ══════════ LEDGER ══════════ */
@@ -817,24 +838,94 @@ onMounted(async () => { await loadConfig(); await loadDash() })
     </template>
 
     <!-- ═══════ SETTINGS ═══════ -->
-    <div class="panel" style="padding:18px;margin-top:20px">
-      <h3 style="font-size:14px;margin-bottom:12px">⚙️ Mall settings</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
-        <label style="font-size:12px;color:var(--text-mute)">Mall name
-          <input v-model="config.mall_name" placeholder="e.g. Razzak Plaza" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
-        </label>
-        <label style="font-size:12px;color:var(--text-mute)">Elec rate (৳/unit)
-          <input type="number" v-model.number="config.elec_unit_rate" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
-        </label>
-        <label style="font-size:12px;color:var(--text-mute)">Water rate (৳/unit)
-          <input type="number" v-model.number="config.water_unit_rate" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
-        </label>
-        <label style="font-size:12px;color:var(--text-mute)">Due day of month
-          <input type="number" v-model.number="config.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
-        </label>
+    <template v-if="tab === 'settings'">
+      <div v-if="canManage" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:12px">🏬 Mall profile</h3>
+          <label style="font-size:12px;color:var(--text-mute)">Mall name
+            <input v-model="config.mall_name" placeholder="e.g. Razzak Plaza" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Address
+            <input v-model="config.mall_address" placeholder="e.g. 42 Motijheel C/A, Dhaka 1000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+            <label style="font-size:12px;color:var(--text-mute)">Phone
+              <input v-model="config.mall_phone" placeholder="e.g. 02-9551234" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Email
+              <input v-model="config.mall_email" placeholder="office@razzakplaza.com" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Chairman
+              <input v-model="config.chairman" placeholder="e.g. Alhaj Md. Abdul Razzak" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Secretary
+              <input v-model="config.secretary" placeholder="e.g. Md. Shahidullah" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+          </div>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:12px">⚖️ Billing rules</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Elec rate (৳/unit)
+              <input type="number" v-model.number="config.elec_unit_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Water rate (৳/unit)
+              <input type="number" v-model.number="config.water_unit_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Due day of month
+              <input type="number" v-model.number="config.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Late fee (% of bill)
+              <input type="number" v-model.number="config.late_fee_pct" min="0" max="100" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+          </div>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Late fee auto-applies to unpaid bills past the due date (💸 Compute late fees).</p>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:12px">🏦 Bank details (shown on receipts)</h3>
+          <label style="font-size:12px;color:var(--text-mute)">Bank name
+            <input v-model="config.bank_name" placeholder="e.g. Islami Bank Bangladesh PLC" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Account title
+            <input v-model="config.bank_account_title" placeholder="e.g. Razzak Plaza Owners' Committee" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Account number
+            <input v-model="config.bank_account_no" placeholder="e.g. 205-123-4567" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          </label>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:12px">🧾 Receipt note</h3>
+          <label style="font-size:12px;color:var(--text-mute)">Footer line on printed receipts
+            <textarea v-model="config.receipt_note" rows="3" placeholder="e.g. Service charges are payable by the 10th of every month. Thank you for your cooperation." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical" @input="cfgDirty = true"></textarea>
+          </label>
+        </div>
       </div>
-      <button @click="saveConfig" :disabled="!cfgDirty" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save settings</button>
-    </div>
+      <div v-if="canManage" style="margin-top:14px">
+        <button @click="saveConfig" :disabled="!cfgDirty" style="padding:11px 22px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save mall settings</button>
+        <span v-if="cfgDirty" style="margin-left:10px;font-size:12px;color:var(--text-mute)">Unsaved changes…</span>
+      </div>
+
+      <!-- 👤 Profile management -->
+      <div class="panel" style="padding:18px;margin-top:16px;max-width:560px">
+        <h3 style="font-size:14px;margin-bottom:4px">👤 My profile</h3>
+        <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">Logged in as <b>{{ auth.user?.email }}</b> · role: <span class="badge b-blue">{{ auth.user?.role }}</span> — full profile &amp; preferences also available from the ⚙️ icon (top right)</p>
+        <label style="font-size:12px;color:var(--text-mute)">Display name
+          <input v-model="profForm.name" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+          <label style="font-size:12px;color:var(--text-mute)">Current password
+            <input type="password" v-model="profForm.old_password" autocomplete="current-password" placeholder="required to change password" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">New password
+            <input type="password" v-model="profForm.new_password" autocomplete="new-password" placeholder="min 8 characters" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+          <button @click="saveProfile" :disabled="profSaving" style="padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ profSaving ? 'Saving…' : '💾 Update profile' }}</button>
+          <span v-if="profMsg" style="font-size:12px;color:var(--text-mute)">{{ profMsg }}</span>
+        </div>
+      </div>
+    </template>
 
     <!-- ═══════ SHOP MODAL ═══════ -->
     <div v-if="modal" class="overlay" @click.self="modal = null">
@@ -973,6 +1064,8 @@ onMounted(async () => { await loadConfig(); await loadDash() })
             <div style="text-align:center;border-bottom:2px dashed var(--border);padding-bottom:12px;margin-bottom:14px">
               <div style="font-size:17px;font-weight:800">{{ recData.mall_name || 'MALL MANAGEMENT' }}</div>
               <div style="font-size:12px;color:var(--text-mute)">Money Receipt · Service Collection</div>
+              <div v-if="config.mall_address" style="font-size:11.5px;color:var(--text-mute);margin-top:2px">{{ config.mall_address }}</div>
+              <div v-if="config.mall_phone" style="font-size:11.5px;color:var(--text-mute)">☎ {{ config.mall_phone }}<span v-if="config.mall_email"> · ✉ {{ config.mall_email }}</span></div>
             </div>
             <table style="width:100%;font-size:13.5px;line-height:2">
               <tbody>
@@ -985,11 +1078,15 @@ onMounted(async () => { await loadConfig(); await loadDash() })
                 <tr><td style="color:var(--text-mute)">Amount</td><td style="text-align:right;font-weight:800">{{ money(recData.bill.amount) }}</td></tr>
                 <tr v-if="recData.bill.fine"><td style="color:var(--text-mute)">Late fee</td><td style="text-align:right;color:var(--danger)">{{ money(recData.bill.fine) }}</td></tr>
                 <tr><td style="color:var(--text-mute)">Paid via</td><td style="text-align:right">{{ recData.payment.method }} <span v-if="recData.payment.ref" style="color:var(--text-mute)">({{ recData.payment.ref }})</span></td></tr>
+                <tr v-if="config.bank_name"><td style="color:var(--text-mute)">Bank</td><td style="text-align:right">{{ config.bank_name }}<span v-if="config.bank_account_no"> · A/C {{ config.bank_account_no }}</span></td></tr>
+                <tr v-if="config.bank_account_title"><td style="color:var(--text-mute)">A/C title</td><td style="text-align:right">{{ config.bank_account_title }}</td></tr>
               </tbody>
             </table>
             <div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-mute)">
-              <span>Received by: ________________</span><span>Signature: ____________</span>
+              <span>Received by: ________________<span v-if="config.secretary"><br /><small style="font-size:10.5px">{{ config.secretary }} — Secretary</small></span></span>
+              <span>Chairman: ________________<span v-if="config.chairman"><br /><small style="font-size:10.5px">{{ config.chairman }}</small></span></span>
             </div>
+            <div v-if="config.receipt_note" style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-mute);text-align:center">{{ config.receipt_note }}</div>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="printReceipt" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🖨️ Print receipt</button>

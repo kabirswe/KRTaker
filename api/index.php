@@ -14909,18 +14909,29 @@ case 'mall': {
         $pdo->prepare('INSERT INTO mall_config (k, v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v')->execute([$k, (string)$v]);
     };
 
-    /* config-get / config-set — mall-wide rates & rules */
+    /* config-get / config-set — mall-wide identity, rates, rules & receipt details */
     if ($a === 'config-get') {
         json_out(['ok' => true, 'config' => [
             'mall_name'      => $mcfg('mall_name', ''),
+            'mall_address'   => $mcfg('mall_address', ''),
+            'mall_phone'     => $mcfg('mall_phone', ''),
+            'mall_email'     => $mcfg('mall_email', ''),
+            'chairman'       => $mcfg('chairman', ''),
+            'secretary'      => $mcfg('secretary', ''),
             'elec_unit_rate' => (int)$mcfg('elec_unit_rate', '8'),
             'water_unit_rate'=> (int)$mcfg('water_unit_rate', '30'),
             'late_fee_pct'   => (int)$mcfg('late_fee_pct', '5'),
             'due_day'        => (int)$mcfg('due_day', '10'),
+            'bank_name'      => $mcfg('bank_name', ''),
+            'bank_account_title' => $mcfg('bank_account_title', ''),
+            'bank_account_no'    => $mcfg('bank_account_no', ''),
+            'receipt_note'   => $mcfg('receipt_note', ''),
         ]]);
     }
     if ($a === 'config-set') {
-        foreach (['mall_name', 'elec_unit_rate', 'water_unit_rate', 'late_fee_pct', 'due_day'] as $ck) {
+        foreach (['mall_name', 'mall_address', 'mall_phone', 'mall_email', 'chairman', 'secretary',
+                  'elec_unit_rate', 'water_unit_rate', 'late_fee_pct', 'due_day',
+                  'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note'] as $ck) {
             if (isset($body[$ck])) $mset($ck, $body[$ck]);
         }
         audit($u['name'], 'Mall config', 'mall', '', json_encode($body));
