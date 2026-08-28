@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div>
+  <div class="tb-root">
     <!-- Impersonation banner: viewing-as a subordinate -->
     <div v-if="auth.isImpersonating" class="imp-banner">
       <span>👁 Viewing as <b>{{ (data.user || auth.user)?.name }}</b> (<b>{{ t(roleLabel(auth.user?.role)) }}</b>) — started by {{ auth.impersonator }} · expires {{ auth.impExpires?.replace('T', ' ').slice(0, 16) }}</span>

@@ -76,6 +76,9 @@ img{max-width:100%}
 .role-switch-btn{width:100%;margin-top:8px;padding:8px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--primary);font-size:12px;font-weight:700;transition:all .13s}
 .role-switch-btn:hover{border-color:var(--primary);background:var(--primary-light)}
 
+/* Topbar root wrapper must not create a containing block for position:sticky —
+   display:contents lets the header stick against .main (the scroll container) */
+.tb-root{display:contents}
 /* ── Topbar ── */
 .topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 30px}
 [data-theme="dark"] .topbar{background:rgba(14,22,38,.92)}
