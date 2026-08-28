@@ -98,6 +98,36 @@ const go = (view) => {
   else router.push({ path: '/mall', query: { stub: view } })
   emit('close')
 }
+
+/* ── collapsible sidebar (persisted) ── */
+const collapsed = ref((() => { try { return localStorage.getItem('mm_sb_collapsed') === '1' } catch (e) { return false } })())
+function toggleCollapsed() {
+  collapsed.value = !collapsed.value
+  try { localStorage.setItem('mm_sb_collapsed', collapsed.value ? '1' : '0') } catch (e) {}
+}
+
+/* ── advanced tooltips ── */
+const tip = ref({ show: false, x: 0, y: 0, title: '', desc: '', ico: '' })
+let tipTimer = null
+function tipEnter(e, item) {
+  const el = e.currentTarget
+  const rect = el.getBoundingClientRect()
+  const label = item[2]
+  const desc = item[3] || ''
+  clearTimeout(tipTimer)
+  tipTimer = setTimeout(() => {
+    tip.value = {
+      show: true,
+      x: rect.right + 12,
+      y: Math.min(rect.top + rect.height / 2, window.innerHeight - 120),
+      title: label,
+      desc,
+      ico: item[1],
+      rightSide: true,
+    }
+  }, 280)
+}
+function tipLeave() { clearTimeout(tipTimer); tip.value = { ...tip.value, show: false } }
 // Active highlight: string routes compare path; query-tab routes (Accounts submenu) also require the tab
 const activeFor = (view) => {
   const r = VIEW_ROUTES[view]
@@ -119,17 +149,19 @@ async function backToMe() {
 </script>
 
 <template>
-  <aside class="sidebar" :class="{ open }">
+  <aside class="sidebar" :class="{ open, collapsed }">
     <div class="sb-logo">
       <img v-if="sbLogo.img" :src="sbLogo.img" :alt="sbLogo.name" class="sb-logo-img" :style="{ height: sbLogo.h + 'px' }">
       <div v-else class="logo-mark" :style="sbLogo.grad ? { background: sbLogo.grad } : {}">{{ sbLogo.mark }}</div>
       <div class="brand" v-if="!sbLogo.img || sbLogo.showTitle">{{ sbLogo.name }}<small>Mall & Commercial Building Management</small></div>
+      <button class="sb-collapse" @click="toggleCollapsed" :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'" :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">{{ collapsed ? '⏵' : '⏴' }}</button>
     </div>
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
         <div class="sb-group">{{ g.label }}</div>
-        <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])" :title="i[3] || t(i[2])">
-          <span class="ic">{{ i[1] }}</span>{{ t(i[2]) }}
+        <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])"
+             @mouseenter="tipEnter($event, i)" @mouseleave="tipLeave" @focus="tipEnter($event, i)" @blur="tipLeave">
+          <span class="ic">{{ i[1] }}</span><span class="lbl">{{ t(i[2]) }}</span>
         </div>
       </template>
     </div>
@@ -143,6 +175,11 @@ async function backToMe() {
       <template v-if="auth.isImpersonating">
         <button class="role-switch-btn" style="background:var(--primary-light);color:var(--primary-dark);border:1px solid var(--primary)" :disabled="switching" @click="backToMe()">↩ {{ t('Back to my account') }}</button>
       </template>
+    </div>
+    <!-- Advanced tooltip -->
+    <div v-if="tip.show" class="sb-tooltip" :style="{ left: tip.x + 'px', top: tip.y + 'px' }">
+      <div class="tt-title">{{ tip.ico }} {{ tip.title }}</div>
+      <div v-if="tip.desc" class="tt-desc">{{ tip.desc }}</div>
     </div>
   </aside>
 </template>

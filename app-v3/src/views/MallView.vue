@@ -1,10 +1,13 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
+import { useRoute } from 'vue-router'
 import { apiCall } from '../api/client'
 import { money, monthLabel, badge } from '../lib/ui'
 import ScrollTabs from '../components/ScrollTabs.vue'
+
+const route = useRoute()
 
 const auth = useAuthStore()
 const data = useDataStore()
@@ -527,6 +530,9 @@ function switchTab(x) {
 }
 
 onMounted(async () => { await loadConfig(); await loadDash(); loadBalances() })
+
+/* deep-links from global search: /mall?tab=<tab> */
+watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switchTab(t) }, { immediate: true })
 </script>
 
 <template>

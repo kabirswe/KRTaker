@@ -1,70 +1,58 @@
-// KRTaker Global Search — client-side index over the app-bootstrap payload (data.db).
-// Every collection maps to a view route + deep-link (?open=<id> or ?q=<term>).
-// Instant, offline-capable, zero backend round-trip.
+// Mall Manager Global Search — client-side index over the app-bootstrap payload (data.db).
+// Indexes the MALL collections (shops, bills, staff, assets, complaints, notices)
+// + static quick commands. Instant, offline-capable, zero backend round-trip.
 
 // Field spec per collection:
 //   group  — label shown in the results dropdown
 //   ic     — emoji icon
-//   route  — view path (string) or { path, tab } for tabbed views
+//   tab    — MallView tab to open on selection
 //   fields — array of [value, weight] pairs; weight 2 = id/code (prefix match), 1 = name/contact
-//   sub    — function(row) → subtitle string
-//   tab    — optional function(row) → tab query value for tabbed views
-//   openQ  — key to pass as ?open (default 'id'); set null to skip deep-link and use ?q= instead
+//   sub    — function(row, db) → subtitle string
 const SPECS = [
-  { coll: 'properties',      group: 'Properties',   ic: '🏢', route: '/properties',   fields: [['name', 1], ['id', 2], ['holding', 1], ['jur', 1], ['type', 1], ['address', 1]],
-    sub: r => [r.holding && 'Holding ' + r.holding, r.jur, r.type, r.status].filter(Boolean).join(' · ') },
-  { coll: 'units',           group: 'Units',        ic: '🚪', route: '/units',        fields: [['name', 1], ['id', 2], ['p', 1], ['floor', 1], ['status', 1]],
-    sub: r => [r.p && 'In ' + r.p, r.floor, r.status, r.rent ? '৳' + Number(r.rent).toLocaleString() : ''].filter(Boolean).join(' · ') },
-  { coll: 'tenants',         group: 'Tenants',      ic: '👤', route: '/tenants',      fields: [['name', 1], ['id', 2], ['phone', 1], ['email', 1], ['nid', 1], ['company', 1]],
-    sub: r => [r.phone, r.email, r.kind].filter(Boolean).join(' · ') },
-  { coll: 'leases',          group: 'Leases',       ic: '📄', route: '/leases',       fields: [['id', 2], ['u', 1], ['t', 1], ['status', 1]],
-    sub: r => ['Unit ' + r.u, 'Tenant ' + r.t, r.status, r.rent ? '৳' + Number(r.rent).toLocaleString() : ''].filter(Boolean).join(' · ') },
-  { coll: 'invoices',        group: 'Invoices',     ic: '🧾', route: '/invoices',     fields: [['id', 2], ['l', 1], ['m', 1], ['status', 1]],
-    sub: r => ['Lease ' + r.l, r.m, r.status, r.net ? '৳' + Number(r.net).toLocaleString() : ''].filter(Boolean).join(' · ') },
-  { coll: 'payments',        group: 'Payments',     ic: '💳', route: '/payments',     fields: [['id', 2], ['inv', 1], ['ref', 1], ['method', 1], ['status', 1]],
-    sub: r => ['Invoice ' + r.inv, r.method, r.status, r.amount ? '৳' + Number(r.amount).toLocaleString() : ''].filter(Boolean).join(' · ') },
-  { coll: 'receipts',        group: 'Receipts',     ic: '📎', route: '/receipts',     fields: [['id', 2], ['inv', 1], ['method', 1]],
-    sub: r => ['Invoice ' + r.inv, r.method, r.date, r.amount ? '৳' + Number(r.amount).toLocaleString() : ''].filter(Boolean).join(' · ') },
-  { coll: 'maintenance_requests', group: 'Maintenance', ic: '🔧', route: '/maintenance', fields: [['title', 1], ['id', 2], ['desc', 1], ['unit', 1], ['prop', 1], ['status', 1]],
-    sub: r => ['Unit ' + r.unit, r.category, r.priority, r.status].filter(Boolean).join(' · ') },
-  { coll: 'notices',         group: 'Notices',      ic: '📢', route: '/notices',      fields: [['title', 1], ['id', 2], ['body', 1]],
-    sub: r => [r.author, r.ts].filter(Boolean).join(' · ') },
-  { coll: 'legal_notices',   group: 'Legal Notices', ic: '📜', route: '/notices',     fields: [['id', 2], ['ntype', 1], ['reason', 1], ['tenant', 1], ['unit', 1], ['status', 1]],
-    sub: r => [r.ntype, 'Tenant ' + r.tenant, 'Unit ' + r.unit, r.status].filter(Boolean).join(' · ') },
-  { coll: 'staff',           group: 'Staff',        ic: '👷', route: '/staff',        fields: [['name', 1], ['id', 2], ['role', 1], ['dept', 1], ['status', 1]],
-    sub: r => [r.role, r.dept, r.status].filter(Boolean).join(' · ') },
-  { coll: 'partners',        group: 'Vendors',      ic: '🧰', route: '/vendors',      fields: [['name', 1], ['id', 2], ['trade', 1], ['status', 1]],
-    sub: r => [r.trade, r.status, r.rating ? '★' + r.rating : ''].filter(Boolean).join(' · '), openQ: null },
-  { coll: 'cases',           group: 'Cases',        ic: '👨‍⚖️', route: '/cases',        fields: [['title', 1], ['id', 2], ['type', 1], ['status', 1], ['ref_lease', 1]],
-    sub: r => [r.type, r.status, 'Lease ' + r.ref_lease].filter(Boolean).join(' · ') },
-  { coll: 'leads',           group: 'Leads',        ic: '📥', route: '/leads',        fields: [['name', 1], ['id', 2], ['phone', 1], ['email', 1], ['prop', 1], ['status', 1]],
-    sub: r => [r.phone || r.email, 'For ' + r.prop, r.status].filter(Boolean).join(' · ') },
-  { coll: 'documents',       group: 'Documents',    ic: '📁', route: '/documents',    fields: [['name', 1], ['id', 2], ['kind', 1], ['ref', 1]],
-    sub: r => [r.kind, 'Ref ' + r.ref, r.ts].filter(Boolean).join(' · ') },
-  { coll: 'compliance_items', group: 'Compliance',  ic: '⚖️', route: '/compliance',   fields: [['label', 1], ['id', 2], ['ref_no', 1], ['entity_id', 1], ['status', 1]],
-    sub: r => [r.entity_type + ' ' + r.entity_id, r.ref_no, r.expiry_date, r.status].filter(Boolean).join(' · ') },
-  { coll: 'gate_visits',     group: 'Gate Visits',  ic: '🚪', route: '/gate-visits',  fields: [['name', 1], ['id', 2], ['vehicle_no', 1], ['phone', 1], ['unit', 1], ['purpose', 1], ['status', 1]],
-    sub: r => [r.vtype, r.vehicle_no, 'Unit ' + r.unit, r.status].filter(Boolean).join(' · ') },
-  { coll: 'building_staff',  group: 'Building Staff', ic: '👷', route: '/staff',      fields: [['name', 1], ['id', 2], ['role', 1], ['phone', 1], ['prop', 1], ['status', 1]],
-    sub: r => ['Prop ' + r.prop, r.role, r.phone, r.status].filter(Boolean).join(' · ') },
-  { coll: 'samity_members',  group: 'Samity',       ic: '🏘️', route: '/society?tab=samity',       fields: [['name', 1], ['id', 2], ['role', 1], ['phone', 1], ['status', 1]],
-    sub: r => [r.role, r.phone, r.status].filter(Boolean).join(' · ') },
-  { coll: 'insurance_policies', group: 'Insurance', ic: '🛡️', route: '/insurance',    fields: [['id', 2], ['tenant', 1], ['plan', 1], ['status', 1]],
-    sub: r => ['Tenant ' + r.tenant, r.plan, r.status].filter(Boolean).join(' · ') },
-  { coll: 'holding_taxes',   group: 'Holding Taxes', ic: '🏛️', route: '/holding-taxes', fields: [['id', 2], ['prop', 1], ['year', 1], ['status', 1]],
-    sub: r => ['Prop ' + r.prop, r.year, r.status].filter(Boolean).join(' · ') },
-  { coll: 'utility_bills',   group: 'Utility Bills', ic: '🔌', route: '/utility-bills', fields: [['id', 2], ['unit', 1], ['month', 1], ['type', 1], ['status', 1]],
-    sub: r => [r.type, 'Unit ' + r.unit, r.month, r.status].filter(Boolean).join(' · ') },
-  { coll: 'meter_readings',  group: 'Meter Readings', ic: '⚡', route: '/meter-readings', fields: [['id', 2], ['unit', 1], ['month', 1], ['type', 1]],
-    sub: r => [r.type, 'Unit ' + r.unit, r.month].filter(Boolean).join(' · ') },
-  { coll: 'remittances',     group: 'Remittances',  ic: '🌍', route: '/remittances',  fields: [['id', 2], ['ref', 1], ['method', 1], ['status', 1]],
-    sub: r => [r.method, r.status, r.amount ? '৳' + Number(r.amount).toLocaleString() : ''].filter(Boolean).join(' · ') },
-  { coll: 'vendor_payouts',  group: 'Payouts',      ic: '💵', route: '/vendors',      fields: [['id', 2], ['partner', 1], ['month', 1], ['status', 1]],
-    sub: r => ['Partner ' + r.partner, r.month, r.status].filter(Boolean).join(' · '), openQ: null },
-  { coll: 'land_parcels',    group: 'Land',         ic: '🛰️', route: '/land',         fields: [['name', 1], ['id', 2], ['location', 1], ['status', 1]],
-    sub: r => [r.location, r.status].filter(Boolean).join(' · ') },
-  { coll: 'fire_assets',     group: 'Fire Safety',  ic: '🧯', route: '/fire-safety',  fields: [['name', 1], ['id', 2], ['location', 1], ['status', 1]],
-    sub: r => [r.location, r.status].filter(Boolean).join(' · ') },
+  { coll: 'shops', group: 'Shops', ic: '🏪', tab: 'shops',
+    fields: [['no', 2], ['owner_name', 1], ['owner_mobile', 1], ['owner_nid', 1], ['floor', 1], ['status', 1], ['id', 2]],
+    sub: (r) => [r.floor, r.owner_name, r.owner_mobile, r.status, '৳' + Number(r.service_rate || 0).toLocaleString('en-IN') + '/mo'].filter(Boolean).join(' · ') },
+  { coll: 'shop_bills', group: 'Bills & Collections', ic: '🧾', tab: 'bills',
+    fields: [['id', 2], ['month', 1], ['kind', 1], ['status', 1], ['shop', 1]],
+    sub: (r, db) => {
+      const s = (db.shops || []).find(x => x.id === r.shop)
+      return [(s && s.no) || r.shop, r.kind, r.month, r.status, '৳' + Number(r.amount || 0).toLocaleString('en-IN')].filter(Boolean).join(' · ')
+    } },
+  { coll: 'mall_staff', group: 'Staff', ic: '🧑‍💼', tab: 'staff',
+    fields: [['name', 1], ['designation', 1], ['phone', 1], ['nid', 1], ['id', 2], ['status', 1]],
+    sub: (r) => [r.designation, r.phone, r.status, '৳' + Number(r.salary || 0).toLocaleString('en-IN') + '/mo'].filter(Boolean).join(' · ') },
+  { coll: 'mall_assets', group: 'Assets & AMC', ic: '🛠️', tab: 'assets',
+    fields: [['name', 1], ['type', 1], ['location', 1], ['vendor', 1], ['id', 2], ['status', 1]],
+    sub: (r) => [r.type, r.location, r.vendor, r.contract_until ? 'AMC till ' + r.contract_until : '', r.status].filter(Boolean).join(' · ') },
+  { coll: 'mall_complaints', group: 'Complaints', ic: '🔧', tab: 'complaints',
+    fields: [['subject', 1], ['descr', 1], ['priority', 1], ['status', 1], ['id', 2]],
+    sub: (r, db) => {
+      const s = (db.shops || []).find(x => x.id === r.shop)
+      return [(s && s.no) || r.shop, r.priority, r.status].filter(Boolean).join(' · ')
+    } },
+  { coll: 'mall_notices', group: 'Notices', ic: '📢', tab: 'notices',
+    fields: [['title', 1], ['body', 1], ['id', 2], ['date', 1]],
+    sub: (r) => [r.date, r.author, r.pinned ? '📌 pinned' : ''].filter(Boolean).join(' · ') },
+]
+
+// Static quick commands — type an action like "generate" or "add shop".
+const COMMANDS = [
+  ['⚙️ Generate monthly bills', 'Create service-charge bills for all active shops', 'bills'],
+  ['💸 Compute late fees', 'Apply late payment fines to overdue bills', 'bills'],
+  ['🏪 Add a shop', 'Register a new shop with owner & rate', 'shops'],
+  ['⚡ Enter meter reading', 'Sub-meter reading → auto elec/water bill', 'meters'],
+  ['📉 Record an expense', 'Lift / DESCO / security / salary expense entry', 'expenses'],
+  ['🔧 Log a complaint', 'Report a shop issue (lift, AC, light…)', 'complaints'],
+  ['🛠️ Add an asset', 'Lift, generator, extinguisher + AMC tracking', 'assets'],
+  ['🧑‍💼 Add staff', 'Security guard / office staff + salary', 'staff'],
+  ['💸 Pay a salary', 'Monthly salary payment to staff', 'staff'],
+  ['👥 Add a system user', 'Create owner / manager / accountant / collector', 'users'],
+  ['📢 Post a notice', 'Committee announcement for shop owners', 'notices'],
+  ['📋 Audit trail', 'Who did what, when', 'audit'],
+  ['🏪 Per-shop ledger', 'Paid vs billed for every shop', 'ledger'],
+  ['⚡💧 Custodial reconciliation', 'DESCO/WASA collected vs paid', 'ledger'],
+  ['⚙️ Mall settings', 'Profile, billing rules, bank, receipt', 'settings'],
+  ['👤 My profile', 'Name, password, preferences', 'settings'],
 ]
 
 // Case-insensitive token match; id/code fields rank first (prefix), others substring.
@@ -84,8 +72,16 @@ function scoreRow(row, spec, tokens) {
   return score
 }
 
-// Search data.db collections → grouped, scored, capped results.
-// Returns [{ group, ic, route, query, items: [{ row, title, sub }] }] (only groups with hits).
+// Escape + wrap query tokens in <b class="gs-hl"> for the results list (safe HTML).
+export function hlHtml(text, q) {
+  const esc = String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  const tokens = (q || '').trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (!tokens.length) return esc
+  return esc.replace(new RegExp('(' + tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi'), '<b class="gs-hl">$1</b>')
+}
+
+// Search data.db collections → grouped, scored, capped results + quick commands.
+// Returns [{ group, ic, tab, kind: 'data'|'cmd', items: [{ id, title, sub, cmd }] }] (only groups with hits).
 export function globalSearch(db, q, maxPerGroup = 5) {
   const qs = (q || '').trim()
   if (qs.length < 2) return []
@@ -103,18 +99,38 @@ export function globalSearch(db, q, maxPerGroup = 5) {
     scored.sort((a, b) => b.sc - a.sc || String(a.row.id || '').localeCompare(String(b.row.id || '')))
     const items = scored.slice(0, maxPerGroup).map(({ row }) => ({
       id: row.id ?? '',
-      title: String(spec.fields[0][0] && (row[spec.fields[0][0]] ?? row.id ?? '')),
-      sub: spec.sub(row),
+      title: String(row[spec.fields[0][0]] ?? row.id ?? ''),
+      sub: spec.sub(row, db),
+      tab: spec.tab,
     }))
-    out.push({ group: spec.group, ic: spec.ic, route: spec.route, openQ: spec.openQ, items })
+    out.push({ group: spec.group, ic: spec.ic, tab: spec.tab, kind: 'data', items })
   }
+  // quick commands
+  const cmds = []
+  for (const [title, desc, tab] of COMMANDS) {
+    const s = (title + ' ' + desc).toLowerCase()
+    if (tokens.every(t => s.includes(t))) cmds.push({ title, sub: desc, tab, cmd: true })
+  }
+  if (cmds.length) out.push({ group: 'Quick actions', ic: '⚡', tab: '', kind: 'cmd', items: cmds.slice(0, 6) })
   return out
 }
 
-// Navigation target for a result: { path, query } — deep-links to the record when the view supports ?open=.
+// Navigation target for a result — jumps into the Mall module on the right tab.
 export function searchTarget(grp, item) {
-  if (grp.openQ === null) return { path: grp.route, query: { q: item.title } }
-  return { path: grp.route, query: { open: item.id } }
+  return { path: '/mall', query: { tab: item.tab || grp.tab || 'dashboard' } }
 }
 
-export const SEARCH_HINT = 'Search tenants, units, invoices, maintenance…'
+// Recent searches (localStorage, max 5)
+const RECENT_KEY = 'mm_recent_searches'
+export function getRecent() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch (e) { return [] }
+}
+export function addRecent(q) {
+  const qs = (q || '').trim().slice(0, 60)
+  if (!qs) return
+  const list = getRecent().filter(x => x !== qs)
+  list.unshift(qs)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 5))) } catch (e) {}
+}
+
+export const SEARCH_HINT = 'Search shops, bills, staff, assets…  (Ctrl+K)'

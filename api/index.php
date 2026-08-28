@@ -12432,6 +12432,11 @@ case 'app-bootstrap': {
             'properties' => $q('SELECT * FROM properties' . $S),
             'units'      => $q('SELECT * FROM units' . $S),
             'shops'      => $q('SELECT * FROM shops' . $S),
+            'shop_bills' => $q('SELECT * FROM shop_bills' . $S),
+            'mall_staff' => $q('SELECT * FROM mall_staff' . $S),
+            'mall_assets' => $q('SELECT * FROM mall_assets' . $S),
+            'mall_complaints' => $q('SELECT * FROM mall_complaints' . $S),
+            'mall_notices' => $q('SELECT * FROM mall_notices' . $S),
             'tenants'    => $q('SELECT * FROM tenants' . $S),
             'leases'     => $scope
                 ? $q('SELECT l.* FROM leases l JOIN units u ON u.id=l.u WHERE u.sub_email=?', [$scope])
