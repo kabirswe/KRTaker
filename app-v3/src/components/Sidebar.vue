@@ -45,40 +45,16 @@ onBeforeUnmount(() => { if (themeObs) themeObs.disconnect() })
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
 
-// Same GROUPS as dashboard-v2 (v3 consolidation: legal cluster grouped, vendor finance merged into Vendors workspace)
-// V2.0.6: Finance + Accounts groups merged into ONE Finance hub (/finance with tabs) — fewer menu entries.
-// V2.0.7: Portfolio, BMS, Community, Legal, Safety&Security all merged into hub dashboards with tabs.
-// V2.37: each menu item carries a detailed tooltip (desc) shown on hover.
+// Mall Manager Edition — nav trimmed to the committee product only.
+// (KRTaker residential modules — portfolio, finance, BMS, community, legal,
+//  safety & security — are intentionally NOT exposed here.)
 const GROUPS = [
-  { id: 'overview', label: 'Overview', items: [['portal', '🏠', 'My Portal', 'Tenant-facing portal: leases, invoices, payments, tickets and documents for your rental units'], ['dashboard', '📊', 'Overview', 'Key metrics at a glance — occupancy, collections, dues, maintenance and alerts for your portfolio'], ['analytics', '📈', 'Analytics', 'Business intelligence: P&L, cashflow, occupancy, aging, expenses, maintenance and board reports'], ['ai', '🤖', 'AI Assistant', 'Ask AI anything — vacancy checks, summaries, notices, renewals and portfolio insights in plain language'], ['wiki', '📚', 'Wiki & Help', 'Product guide, feature walkthroughs, FAQs and troubleshooting help'], ['backup', '💾', 'Backup & Restore', 'Download a full JSON backup of your workspace data or restore from a previous export']] },
-  { id: 'mall', label: 'Mall Management', items: [['mall', '🏬', 'Mall Management', 'Shops, service charges, elec/water meters, collections, ledger & dashboard for shopping malls and commercial buildings']] },
-  { id: 'portfolio', label: 'Portfolio', items: [['portfolio', '🏢', 'Portfolio', 'All properties, units, tenants, leases, insurance, leads, documents and templates in one hub']] },
-  { id: 'finance', label: 'Finance', items: [['finance', '💰', 'Finance', 'Invoices, receipts, payments, taxes, remittances, statements, subscriptions and accounts in one hub']] },
-  { id: 'bms', label: 'BMS', items: [['bms', '🔧', 'BMS', 'Building management: maintenance, staff, attendance, payroll, meters, utilities and gate access']] },
-  { id: 'community', label: 'Community', items: [['community', '📢', 'Community', 'Notices, referrals, NID trust, support tickets and society features for your residents'], ['society', '🏘️', 'Society', 'Society management: parking, bookings, voting, forums, events and samity accounts']] },
-  { id: 'legal', label: 'Legal', items: [['legalhub', '⚖️', 'Legal', 'Compliance, legal cases, concierge services and NID verifications in one hub']] },
-  { id: 'ops', label: 'Operations', items: [['vendors', '🧰', 'Vendors', 'Manage service vendors, vendor payouts, ratings and maintenance contracts']] },
-  { id: 'secure', label: 'Safety & Security', items: [['secure', '🏠', 'Safety & Security', 'Smart locks, CCTV, land records, construction, fire safety, health and building systems']] },
+  { id: 'mall', label: 'Mall Management', items: [['mall', '🏬', 'Mall Management', 'Shops, service charges, elec/water meters, collections, expenses, complaints, assets, notices, audit & ledger for shopping malls and commercial buildings']] },
+  { id: 'help', label: 'Help', items: [['wiki', '📚', 'Wiki & Help', 'Product guide, feature walkthroughs, FAQs and troubleshooting help'], ['backup', '💾', 'Backup & Restore', 'Download a full JSON backup of your workspace data or restore from a previous export']] },
 ]
 
 const VIEW_ROUTES = {
-  dashboard: '/dashboard', analytics: '/analytics', ai: '/ai', finance: '/finance', portal: '/portal',
-  mall: '/mall',
-  portfolio: '/portfolio', bms: '/bms', community: '/community', society: '/society', legalhub: '/legal-hub', secure: '/secure',
-  properties: '/properties', units: '/units', tenants: '/tenants', leases: '/leases', insurance: '/insurance',
-  onboarding: '/onboarding', leads: '/leads', documents: '/documents', templates: '/templates',
-  invoices: '/invoices', receipts: '/receipts', payments: '/payments',
-  taxes: '/holding-taxes', remit: '/remittances', recon: '/collections', statements: '/statements', subscriptions: '/premium',
-  accounts: '/accounts', receive: { path: '/accounts', query: { tab: 'receive' } }, expense: { path: '/accounts', query: { tab: 'expense' } },
-  withdraw: { path: '/accounts', query: { tab: 'withdraw' } }, deposit: { path: '/accounts', query: { tab: 'deposit' } },
-  reconcile: { path: '/accounts', query: { tab: 'reconcile' } },
-  notices: '/notices', referrals: '/referrals', trust: '/nid', support: '/support', wiki: '/wiki',
-  maintenance: '/maintenance', vendors: '/vendors', utilities: '/utility-bills',
-  staff: '/staff', attendance: '/staff-attendance', payroll: '/staff-payroll', meter: '/meter-readings',
-  compliance: '/compliance', legal: '/legal', cases: '/cases', concierge: '/concierge',
-  smart: '/building-systems', smarthome: '/building-systems', land: '/land', build: '/build', gate: '/gate-visits',
-  firesafety: '/fire-safety', staffwatch: '/staff-attendance',
-  samity: '/society?tab=samity', caretaker: '/dashboard',
+  mall: '/mall', wiki: '/wiki', backup: '/backup',
 }
 
 // Module gating follows the EFFECTIVE user (updates after a real role switch).
@@ -119,7 +95,7 @@ const switching = ref(false)
 const go = (view) => {
   const r = VIEW_ROUTES[view]
   if (r) router.push(r)
-  else router.push({ path: '/dashboard', query: { stub: view } })
+  else router.push({ path: '/mall', query: { stub: view } })
   emit('close')
 }
 // Active highlight: string routes compare path; query-tab routes (Accounts submenu) also require the tab

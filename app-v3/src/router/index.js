@@ -7,7 +7,7 @@ import { useDataStore } from '../stores/data'
 // Generic collection routes map each module to its bootstrap table.
 const routes = [
   { path: '/login', name: 'login', component: () => import('../views/LoginView.vue'), meta: { public: true } },
-  { path: '/', redirect: '/dashboard' },
+  { path: '/', redirect: '/mall' },
   { path: '/dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
   { path: '/mall', name: 'mall', component: () => import('../views/MallView.vue') },
   // ── Core CRUD collections ──
@@ -73,7 +73,7 @@ const routes = [
   { path: '/wiki', name: 'wiki', component: () => import('../views/WikiView.vue') },
   // V2.27: guided first-login setup for new subscribers (full-screen, no shell chrome)
   { path: '/setup', name: 'setup', component: () => import('../views/SetupView.vue'), meta: { setup: true } },
-  { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
+  { path: '/:pathMatch(.*)*', redirect: '/mall' },
 ]
 
 const router = createRouter({
