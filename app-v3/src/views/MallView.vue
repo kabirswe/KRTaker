@@ -831,7 +831,7 @@ async function loadPnl() { const r = await apiCall('mall', { action: 'pnl', mont
 async function loadAccounts() { const r = await apiCall('mall', { action: 'accounts' }); if (r.ok) accounts.value = r.accounts }
 async function loadJournal() { const r = await apiCall('mall', { action: 'journal' }); if (r.ok) journal.value = r }
 async function loadTrial() { const r = await apiCall('mall', { action: 'trial' }); if (r.ok) trial.value = r.accounts }
-function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
+function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, subsidiary: 0, note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
 function openAccountEdit(x) { accountForm.value = { ...x }; accountModal.value = { mode: 'edit', title: '✏️ Edit account' } }
 async function saveAccount() {
   const f = accountForm.value
@@ -848,10 +848,10 @@ async function delAccount(x) {
 }
 async function openJournalAdd() {
   jForm.value = { date: month.value + '-10', ref: '', note: '', voucher: '', voucherName: '',
-    lines: [{ account: 0, side: 'debit', amount: '' }, { account: 0, side: 'credit', amount: '' }] }
+    lines: [{ account: 0, side: 'debit', amount: '', subValue: '', subType: '', subName: '' }, { account: 0, side: 'credit', amount: '', subValue: '', subType: '', subName: '' }] }
   jModal.value = { mode: 'add' }
 }
-function addJLine() { jForm.value.lines.push({ account: 0, side: 'debit', amount: '' }) }
+function addJLine() { jForm.value.lines.push({ account: 0, side: 'debit', amount: '', subValue: '', subType: '', subName: '' }) }
 function delJLine(i) { if (jForm.value.lines.length > 2) jForm.value.lines.splice(i, 1) }
 const jDrTotal = computed(() => (jForm.value.lines || []).reduce((s, l) => s + (l.side === 'debit' ? Number(l.amount) || 0 : 0), 0))
 const jCrTotal = computed(() => (jForm.value.lines || []).reduce((s, l) => s + (l.side === 'credit' ? Number(l.amount) || 0 : 0), 0))
@@ -865,7 +865,7 @@ function onJoucherPick(e) {
 }
 async function saveJournal() {
   if (!jBalanced.value) { window.__krToast?.('The voucher must balance — debit total = credit total.', 'err'); return }
-  const lines = jForm.value.lines.map(l => ({ account: l.account, debit: l.side === 'debit' ? Number(l.amount) || 0 : 0, credit: l.side === 'credit' ? Number(l.amount) || 0 : 0 })).filter(l => l.account && (l.debit > 0 || l.credit > 0))
+  const lines = jForm.value.lines.map(l => ({ account: l.account, debit: l.side === 'debit' ? Number(l.amount) || 0 : 0, credit: l.side === 'credit' ? Number(l.amount) || 0 : 0, subsidiary_type: l.subType || '', subsidiary_name: l.subName || '' })).filter(l => l.account && (l.debit > 0 || l.credit > 0))
   const r = await apiCall('mall', { action: 'journal-add', date: jForm.value.date, ref: jForm.value.ref, note: jForm.value.note, voucher: jForm.value.voucher, lines })
   if (r.ok) { window.__krToast?.(`✅ Voucher ${r.ref} posted — pending approval`, 'ok'); jModal.value = null; await loadJournal() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
@@ -947,6 +947,47 @@ function exportPartyCsv() {
   csvDownload('party-ledger.csv', ['Date', 'Particulars', 'Method', 'Debit', 'Credit', 'Balance'],
     (partyLedger.value?.rows || []).map(r => [r.date, r.particulars, r.method, r.debit, r.credit, r.balance]))
 }
+
+/* ══════════ COA IMPROVEMENTS: search / filter / per-account drawer / mapping ══════════ */
+const acctQuery = ref('')
+const acctActiveOnly = ref(false)
+const filteredAccounts = computed(() => accounts.value.filter(a => {
+  if (acctActiveOnly.value && !a.active) return false
+  if (!acctQuery.value) return true
+  const q = acctQuery.value.toLowerCase()
+  return (a.name + ' ' + (a.code || '') + ' ' + a.type).toLowerCase().includes(q)
+}))
+const acctDrawer = ref(null)
+async function openAccountLedger(a) {
+  const r = await apiCall('mall', { action: 'account-ledger', id: a.id })
+  if (r.ok) acctDrawer.value = r
+}
+const acctMap = ref({})
+async function loadAcctMap() { const r = await apiCall('mall', { action: 'acct-map' }); if (r.ok) acctMap.value = r.map || {} }
+async function saveAcctMap() {
+  const r = await apiCall('mall', { action: 'acct-map-set', map: acctMap.value })
+  if (r.ok) window.__krToast?.('📊 Account mapping saved — new Smart Ledger posts use it', 'ok')
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+const MAP_GROUPS = [
+  { key: 'exp:', label: '📉 Expense categories', rows: EXP_CATEGORIES },
+  { key: 'ven:', label: '🧰 Vendor categories', rows: ['Lift / Escalator', 'Security', 'AC / HVAC', 'Generator', 'Cleaning', 'Electrical', 'General'] },
+  { key: 'met:', label: '💳 Payment methods', rows: ['cash', 'bank', 'bkash', 'nagad'] },
+]
+/* subsidiary (party) picker for voucher lines */
+const subPartyOptions = computed(() => [
+  ...(vendors.value || []).map(v => ({ value: 'vendor:' + v.id, label: '🧰 ' + v.name, type: 'vendor', name: v.name })),
+  ...(owners.value || []).map(o => ({ value: 'owner:' + o.id, label: '🏢 ' + o.name, type: 'owner', name: o.name })),
+  ...(tenants.value || []).map(t => ({ value: 'tenant:' + t.id, label: '🧑‍🤝‍🧑 ' + t.name, type: 'tenant', name: t.name })),
+  ...(staff.value || []).map(s => ({ value: 'staff:' + s.id, label: '🧑‍💼 ' + s.name, type: 'staff', name: s.name })),
+])
+function isSubLedgerAccount(accId) { const a = accounts.value.find(x => x.id == accId); return !!(a && a.subsidiary) }
+function onSubPick(val, line) {
+  const opt = subPartyOptions.value.find(o => o.value === val)
+  line.subValue = val
+  line.subType = opt ? opt.type : ''
+  line.subName = opt ? opt.name : ''
+}
 async function delJournal(x) {
   if (!window.confirm(`Delete journal entry #${x.id}?`)) return
   const r = await apiCall('mall', { action: 'journal-del', id: x.id })
@@ -987,8 +1028,8 @@ function switchTab(x) {
   if (x === 'expenses') { loadExpenses(); loadVendors() }
   if (x === 'complaints') loadComplaints()
   if (x === 'assets') loadAssets()
-  if (x === 'coa') loadAccounts()
-  if (x === 'journal') { loadJournal(); loadAccounts() }
+  if (x === 'coa') { loadAccounts(); loadAcctMap() }
+  if (x === 'journal') { loadJournal(); loadAccounts(); loadVendors(); loadOwners(); loadTenants(); loadStaff() }
   if (x === 'trial') loadTrial()
   if (x === 'pnl') loadPnl()
   if (x === 'pl') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff(); loadPartyLedger() }
@@ -1251,35 +1292,48 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openAccountAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add account</button>
+        <input v-model="acctQuery" placeholder="🔍 Search account / code / type…" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:220px;font-family:inherit;font-size:13px;outline:none" />
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-mute);cursor:pointer">
+          <input type="checkbox" v-model="acctActiveOnly" style="accent-color:var(--primary)" /> Active only
+        </label>
         <span style="margin-left:auto;display:flex;gap:6px">
           <button @click="exportAccountsCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
           <button @click="printTable('Chart of Accounts — ' + (config.mall_name || 'Mall'), $refs.coaTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
         </span>
       </div>
+      <p style="font-size:11.5px;color:var(--text-mute);margin:-6px 0 12px">Click any account row to open its <b>account ledger</b> — approved entries + sub-ledgers (🧾 = control account with subsidiary tracking: AR, utility payables, AP).</p>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr" ref="coaTbl">
             <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debits</th><th style="text-align:right">Credits</th><th style="text-align:right">Balance</th><th></th></tr></thead>
             <tbody>
               <template v-for="t in ACCOUNT_TYPES" :key="t">
-                <tr v-if="accounts.some(a => a.type === t)" style="background:var(--bg-alt)">
+                <tr v-if="filteredAccounts.some(a => a.type === t)" style="background:var(--bg-alt)">
                   <td colspan="8" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ TYPE_ICONS[t] }} {{ TYPE_PLURAL[t] || (t + 's') }}</td>
                 </tr>
-                <tr v-for="a in accounts.filter(x => x.type === t)" :key="a.id">
+                <tr v-for="a in filteredAccounts.filter(x => x.type === t)" :key="a.id" style="cursor:pointer" @click="openAccountLedger(a)">
                   <td style="font-family:monospace;font-size:11.5px;color:var(--text-mute)">{{ a.code || '—' }}</td>
-                  <td><b>{{ a.name }}</b><br /><small style="color:var(--text-mute)">{{ a.note || '' }}</small></td>
+                  <td><b>{{ a.name }}</b> <span v-if="a.subsidiary" title="Control account with sub-ledgers" style="cursor:help;font-size:12px">🧾</span><br /><small style="color:var(--text-mute)">{{ a.note || '' }}</small></td>
                   <td><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[a.type] || 'b-gray'" style="font-size:10px">{{ a.type }}</span></td>
                   <td style="text-align:right;font-size:12px">{{ money(a.opening) }}</td>
                   <td style="text-align:right;font-size:12px">{{ money(a.total_debit) }}</td>
                   <td style="text-align:right;font-size:12px">{{ money(a.total_credit) }}</td>
                   <td style="text-align:right;font-weight:800" :style="a.balance < 0 ? 'color:var(--danger)' : ''">{{ money(a.balance) }}</td>
-                  <td style="text-align:right;white-space:nowrap">
+                  <td style="text-align:right;white-space:nowrap" @click.stop>
                     <button v-if="canManage" @click="openAccountEdit(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
                     <button v-if="canManage" @click="delAccount(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
                   </td>
                 </tr>
               </template>
-              <tr v-if="!accounts.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No accounts yet — add your first account.</td></tr>
+              <tr v-if="filteredAccounts.length" style="border-top:2px solid var(--border)">
+                <td colspan="3" style="font-weight:800">TOTAL ({{ filteredAccounts.length }} accounts)</td>
+                <td style="text-align:right;font-weight:800">{{ money(filteredAccounts.reduce((s, a) => s + Number(a.opening), 0)) }}</td>
+                <td style="text-align:right;font-weight:800">{{ money(filteredAccounts.reduce((s, a) => s + Number(a.total_debit), 0)) }}</td>
+                <td style="text-align:right;font-weight:800">{{ money(filteredAccounts.reduce((s, a) => s + Number(a.total_credit), 0)) }}</td>
+                <td style="text-align:right;font-weight:800">{{ money(filteredAccounts.reduce((s, a) => s + Number(a.balance), 0)) }}</td>
+                <td></td>
+              </tr>
+              <tr v-if="!filteredAccounts.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No accounts match{{ acctQuery ? ' "' + acctQuery + '"' : '' }}.</td></tr>
             </tbody>
           </table>
         </div>
@@ -1329,7 +1383,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <thead><tr><th>Account</th><th>Type</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr></thead>
               <tbody>
                 <tr v-for="e in v.lines" :key="e.id">
-                  <td><b>{{ e.account_name || '—' }}</b></td>
+                  <td><b>{{ e.account_name || '—' }}</b> <span v-if="e.subsidiary" style="font-size:11px;color:var(--text-mute)">🧾 {{ e.subsidiary }}</span></td>
                   <td><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[e.account_type] || 'b-gray'" style="font-size:9px">{{ e.account_type }}</span></td>
                   <td style="text-align:right;font-weight:800;color:var(--danger)">{{ e.debit ? money(e.debit) : '' }}</td>
                   <td style="text-align:right;font-weight:800;color:var(--ok)">{{ e.credit ? money(e.credit) : '' }}</td>
@@ -2231,6 +2285,25 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
         </div>
         <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">📊 Account mapping (Smart Ledger)</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Choose which COA account each expense category, vendor category and payment method posts to automatically. Leave <i>— default —</i> to keep the built-in rules.</p>
+          <div v-for="g in MAP_GROUPS" :key="g.key" style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ g.label }}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
+              <label v-for="r in g.rows" :key="g.key + r" style="font-size:11.5px;color:var(--text-mute)">
+                {{ r }}
+                <select v-model="acctMap[g.key + r]" style="width:100%;margin-top:3px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px">
+                  <option :value="0">— default —</option>
+                  <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + TYPE_PLURAL[t]">
+                    <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
+                  </optgroup>
+                </select>
+              </label>
+            </div>
+          </div>
+          <button @click="saveAcctMap" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save mapping</button>
+        </div>
+        <div class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🏛️ Committee roles (dynamic)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Manage the role list used when adding committee members — add, rename or remove roles freely.</p>
           <div v-if="!roleEdit" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
@@ -2977,6 +3050,59 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
     </div>
 
+    <!-- ═══════ ACCOUNT LEDGER DRAWER (per-account + sub-ledgers) ═══════ -->
+    <template v-if="acctDrawer">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:210" @click="acctDrawer = null"></div>
+      <div style="position:fixed;top:0;right:0;bottom:0;width:min(600px,94vw);background:var(--card);z-index:211;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
+        <div style="height:104px;background:linear-gradient(135deg,#2F80ED,#9B51E0);position:relative;flex-shrink:0">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;opacity:.9">📒</div>
+          <button @click="acctDrawer = null" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+          <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge" style="background:rgba(255,255,255,.2);color:#fff;border:none">{{ acctDrawer.account.type }}</span>
+            <span v-if="acctDrawer.account.subsidiary" class="badge" style="background:rgba(255,255,255,.2);color:#fff;border:none">🧾 sub-ledger control</span>
+          </div>
+        </div>
+        <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+          <h2 style="font-size:19px;font-weight:800;letter-spacing:-.3px">{{ acctDrawer.account.name }}</h2>
+          <div class="c-sub" style="margin-top:3px">{{ TYPE_ICONS[acctDrawer.account.type] }} {{ acctDrawer.account.type }}<template v-if="acctDrawer.account.code"> · {{ acctDrawer.account.code }}</template><template v-if="acctDrawer.account.opening"> · opening {{ money(acctDrawer.account.opening) }}</template></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Entries</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ acctDrawer.entries.length }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total debit</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--danger)">{{ money(acctDrawer.total_debit) }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total credit</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(acctDrawer.total_credit) }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Balance</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="acctDrawer.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(acctDrawer.balance) }}</div></div>
+          </div>
+          <!-- SUB-LEDGERS for control accounts -->
+          <template v-if="acctDrawer.subs && acctDrawer.subs.length">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🧾 Sub-ledgers (per party)</div>
+            <div v-for="s in acctDrawer.subs" :key="s.subsidiary" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:8px;background:var(--bg-alt)">
+              <span style="font-size:13px">{{ { vendor: '🧰', owner: '🏢', tenant: '🧑‍🤝‍🧑', staff: '🧑‍💼' }[s.subsidiary_type] || '👤' }}</span>
+              <b style="flex:1;font-size:13px">{{ s.subsidiary }}</b>
+              <span style="font-size:11px;color:var(--text-mute)">Dr {{ money(s.d) }} / Cr {{ money(s.c) }}</span>
+              <b style="font-size:13px" :style="s.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(s.balance) }}</b>
+            </div>
+          </template>
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px">Approved entries ({{ acctDrawer.entries.length }})</div>
+          <div class="tbl-wrap" style="max-height:340px">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>Ref</th><th>Date</th><th>Debit</th><th>Credit</th><th>Subsidiary</th><th>Note</th></tr></thead>
+              <tbody>
+                <tr v-for="e in acctDrawer.entries" :key="e.id">
+                  <td style="font-family:monospace;font-size:11px">{{ e.ref }}</td>
+                  <td style="font-size:11.5px">{{ e.date }}</td>
+                  <td style="text-align:right;font-weight:700;color:var(--danger)">{{ e.debit ? money(e.debit) : '' }}</td>
+                  <td style="text-align:right;font-weight:700;color:var(--ok)">{{ e.credit ? money(e.credit) : '' }}</td>
+                  <td style="font-size:11.5px">{{ e.subsidiary || '—' }}</td>
+                  <td style="font-size:11px;color:var(--text-mute);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="e.note">{{ e.note }}</td>
+                </tr>
+                <tr v-if="!acctDrawer.entries.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No approved entries for this account yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="height:20px"></div>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════ ACCOUNT MODAL ═══════ -->
     <div v-if="accountModal" class="overlay" @click.self="accountModal = null">
       <div class="modal" style="max-width:420px">
@@ -3001,6 +3127,12 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <span style="position:absolute;top:2px;left:accountForm.active ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
             </span>
             <b :style="accountForm.active ? '' : 'color:var(--danger)'">{{ accountForm.active ? 'Active' : 'Inactive' }}</b>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:flex-end;gap:9px;cursor:pointer;padding-bottom:8px" title="Control accounts (AR, AP, utility payables) track sub-ledgers per party — the voucher lines get a 🧾 party picker">
+            <span class="lf-switch" :class="{ on: !!accountForm.subsidiary }" @click="accountForm.subsidiary = accountForm.subsidiary ? 0 : 1" style="width:40px;height:22px;border-radius:99px;background:accountForm.subsidiary ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;flex-shrink:0">
+              <span style="position:absolute;top:2px;left:accountForm.subsidiary ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
+            </span>
+            <b :style="accountForm.subsidiary ? '' : ''">🧾 Sub-ledger control</b>
           </label>
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note
             <input v-model="accountForm.note" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
@@ -3036,7 +3168,11 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <select v-model="l.side" style="padding:9px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
                 <option value="debit">Dr</option><option value="credit">Cr</option>
               </select>
-              <input type="number" v-model.number="l.amount" min="0" placeholder="৳" style="width:110px;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+              <input type="number" v-model.number="l.amount" min="0" placeholder="৳" style="width:100px;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+              <div v-if="isSubLedgerAccount(l.account)" style="width:170px;flex-shrink:0">
+                <SearchableSelect :model-value="l.subValue" :options="subPartyOptions" placeholder="🧾 Party…" @update:modelValue="onSubPick($event, l)" />
+              </div>
+              <span v-if="l.subName" style="font-size:11px;color:var(--text-mute);white-space:nowrap">🧾 {{ l.subName }}</span>
               <button @click="delJLine(i)" title="Remove line" style="border:none;background:none;color:var(--danger);font-size:15px;cursor:pointer;font-weight:800">✕</button>
             </div>
             <button @click="addJLine" style="align-self:flex-start;padding:7px 12px;border:1px dashed var(--border);background:none;border-radius:10px;color:var(--primary);font-size:12px;font-weight:800;cursor:pointer">＋ Add line</button>

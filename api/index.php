@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260930) {
+        if ($__sv < 20260931) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -431,6 +431,35 @@ function db() {
         foreach (['status' => "TEXT DEFAULT 'Approved'", 'approved_by' => "TEXT DEFAULT ''", 'approved_at' => "TEXT DEFAULT ''", 'voucher' => "TEXT DEFAULT ''"] as $col => $def) {
             if (!in_array($col, $jcols, true)) { try { $pdo->exec("ALTER TABLE mall_journal ADD COLUMN $col $def"); } catch (Exception $e) {} }
         }
+        /* V2.2: subsidiary ledgers — journal lines can carry a party (vendor/owner/
+           tenant/staff/space) + accounts get a sub-ledger flag (guarded) */
+        foreach (['subsidiary' => "TEXT DEFAULT ''", 'subsidiary_type' => "TEXT DEFAULT ''"] as $col => $def) {
+            if (!in_array($col, $jcols, true)) { try { $pdo->exec("ALTER TABLE mall_journal ADD COLUMN $col $def"); } catch (Exception $e) {} }
+        }
+        $acols = array_column($pdo->query('PRAGMA table_info(mall_accounts)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('subsidiary', $acols, true)) { try { $pdo->exec('ALTER TABLE mall_accounts ADD COLUMN subsidiary INTEGER DEFAULT 0'); } catch (Exception $e) {} }
+        /* V2.2: expand the default COA (INSERT if the code is missing) + mark the
+           control accounts that track sub-ledgers (AR / utility payables / AP) */
+        $extraAcc = [
+            ['1050', 'Petty Cash', 'Asset'], ['1060', 'Fixed Assets — Building & Land', 'Asset'],
+            ['1070', 'Fixed Assets — Furniture & Fixtures', 'Asset'], ['1080', 'Fixed Assets — Machinery & Equipment', 'Asset'],
+            ['1090', 'Accumulated Depreciation', 'Asset'],
+            ['2040', 'Advance Rent from Tenants', 'Liability'], ['2050', 'Accounts Payable (vendors)', 'Liability'],
+            ['2060', 'VAT / Tax Payable', 'Liability'], ['2070', 'Utility Deposits (DESCO / WASA)', 'Liability'],
+            ['3020', 'Retained Earnings', 'Equity'],
+            ['4050', 'Common Area Income (ads / hoarding)', 'Income'], ['4060', 'Parking Income', 'Income'],
+            ['4070', 'Interest Income', 'Income'], ['4080', 'Other Income', 'Income'],
+            ['5080', 'Generator Fuel', 'Expense'], ['5090', 'Cleaning & Pest Control', 'Expense'],
+            ['5100', 'Fire Safety & AMC', 'Expense'], ['5110', 'Generator AMC', 'Expense'],
+            ['5120', 'AC / HVAC AMC', 'Expense'], ['5130', 'Insurance', 'Expense'],
+            ['5140', 'Legal & Professional Fees', 'Expense'], ['5150', 'Depreciation', 'Expense'],
+            ['5160', 'Bank Charges', 'Expense'], ['5170', 'Printing & Stationery', 'Expense'],
+            ['5180', 'Software & IT', 'Expense'], ['5190', 'Miscellaneous', 'Expense'],
+        ];
+        $ain2 = $pdo->prepare("INSERT INTO mall_accounts (code, name, type, opening, active, note)
+            SELECT ?, ?, ?, 0, 1, '' WHERE NOT EXISTS (SELECT 1 FROM mall_accounts WHERE code=?)");
+        foreach ($extraAcc as $x) $ain2->execute([$x[0], $x[1], $x[2], $x[0]]);
+        $pdo->prepare("UPDATE mall_accounts SET subsidiary=1 WHERE code IN ('1040','2010','2020','2050')")->execute();
         /* seed the default Chart of Accounts once (COUNT-guarded) */
         if ((int)$pdo->query('SELECT COUNT(*) FROM mall_accounts')->fetchColumn() === 0) {
             $acc = [
@@ -1323,7 +1352,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260930'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260931'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15014,13 +15043,13 @@ case 'mall': {
     $mall_write = ['config-set', 'bill-generate', 'fine-calc', 'shop-create', 'shop-update', 'shop-delete',
                    'expense-add', 'expense-del', 'complaint-add', 'complaint-status', 'complaint-del',
                    'asset-add', 'asset-update', 'asset-del', 'notice-add', 'notice-del', 'notice-pin',
-                   'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject'];
+                   'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject', 'acct-map-set'];
     $collector_ok = ['collect', 'meter', 'readings'];
     if ($is_collector) {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15077,6 +15106,17 @@ case 'mall': {
     $exp_acct_for = function ($cat) use ($EXP_ACCT) { return $EXP_ACCT[$cat] ?? 'General Maintenance'; };
     $method_acct = function ($m) use ($METHOD_ACCT) { return $METHOD_ACCT[$m] ?? 'Cash in Hand'; };
     $ar_acct = function () use ($ACCT_ID) { return 'Accounts Receivable (space dues)'; };
+    /* user-configured mapping (⚙️ Settings → Account mapping) overrides the defaults */
+    $acctMapArr = null;
+    $acct_name_for = function ($key, $defName) use ($pdo, &$acctMapArr) {
+        if ($acctMapArr === null) { $raw = $mcfg('acct_map', ''); $acctMapArr = $raw !== '' ? (json_decode($raw, true) ?: []) : []; }
+        $id = (int)($acctMapArr[$key] ?? 0);
+        if ($id) { $st = $pdo->prepare('SELECT name FROM mall_accounts WHERE id=?'); $st->execute([$id]); $n = $st->fetchColumn(); if ($n) return $n; }
+        return $defName;
+    };
+    $exp_acct_for = function ($cat) use ($acct_name_for, $EXP_ACCT) { return $acct_name_for('exp:' . $cat, $EXP_ACCT[$cat] ?? 'General Maintenance'); };
+    $method_acct = function ($m) use ($acct_name_for, $METHOD_ACCT) { return $acct_name_for('met:' . $m, $METHOD_ACCT[$m] ?? 'Cash in Hand'); };
+    $vendor_acct_for = function ($cat) use ($acct_name_for, $VENDOR_ACCT) { return $acct_name_for('ven:' . $cat, $VENDOR_ACCT[$cat] ?? 'General Maintenance'); };
 
     /* config-get / config-set — mall-wide identity, rates, rules & receipt details */
     if ($a === 'config-get') {
@@ -15368,13 +15408,14 @@ case 'mall': {
         if ($name === '' || !in_array($type, ['Asset', 'Liability', 'Equity', 'Income', 'Expense'], true)) json_out(['ok' => false, 'error' => 'Account name and a valid type are required.'], 400);
         $opening = (int)($body['opening'] ?? 0);
         $active = $body['active'] ? 1 : 0;
+        $subsidiary = $body['subsidiary'] ? 1 : 0;
         $note = trim($body['note'] ?? '');
         if ($id) {
-            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, note=? WHERE id=?')
-                ->execute([$code, $name, $type, $opening, $active, $note, $id]);
+            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, subsidiary=?, note=? WHERE id=?')
+                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $note, $id]);
         } else {
-            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, note) VALUES (?,?,?,?,?,?)')
-                ->execute([$code, $name, $type, $opening, $active, $note]);
+            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, subsidiary, note) VALUES (?,?,?,?,?,?,?)')
+                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $note]);
             $id = (int)$pdo->lastInsertId();
         }
         audit($u['name'], 'Account ' . ($body['id'] ? 'updated' : 'added'), 'mall', (string)$id, $name);
@@ -15415,7 +15456,10 @@ case 'mall': {
             $c = (int)($ln['credit'] ?? 0);
             if (!$acc || ($d <= 0 && $c <= 0)) continue;
             if ($d > 0 && $c > 0) json_out(['ok' => false, 'error' => 'A line cannot be both debit and credit.'], 400);
-            $clean[] = [$acc, $d, $c];
+            $subType = trim($ln['subsidiary_type'] ?? '');
+            $subName = trim($ln['subsidiary_name'] ?? '');
+            if (($subType === '') !== ($subName === '')) json_out(['ok' => false, 'error' => 'Subsidiary needs both a party type and a name.'], 400);
+            $clean[] = ['acc' => $acc, 'd' => $d, 'c' => $c, 'st' => $subType, 'sn' => $subName];
             $totD += $d; $totC += $c;
         }
         if (count($clean) < 2) json_out(['ok' => false, 'error' => 'A voucher needs at least a debit line and a credit line.'], 400);
@@ -15429,48 +15473,53 @@ case 'mall': {
         $note = trim($body['note'] ?? '');
         $voucher = trim($body['voucher'] ?? '');
         if ($voucher !== '' && strlen($voucher) > 1200000) json_out(['ok' => false, 'error' => 'Attachment too large.'], 400);
-        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, voucher)
-                              VALUES (?,?,?,?,?,?,?,'Pending',?)");
+        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, voucher, subsidiary, subsidiary_type)
+                              VALUES (?,?,?,?,?,?,?,'Pending',?,?,?)");
+        $firstId = 0;
         foreach ($clean as $ln) {
-            [$acc, $d, $c] = $ln;
-            $ins->execute([$date, $ref, $acc, $d, $c, $note, $u['name'], $voucher]);
+            $ins->execute([$date, $ref, $ln['acc'], $ln['d'], $ln['c'], $note, $u['name'], $voucher, $ln['sn'], $ln['st']]);
+            if (!$firstId) $firstId = (int)$pdo->lastInsertId();
         }
-        $id = (int)$pdo->lastInsertId();
+        $id = $firstId;
         audit($u['name'], 'Journal voucher', 'mall', $ref, "Dr $totD = Cr $totC" . ($voucher !== '' ? ' + attachment' : ''));
         json_out(['ok' => true, 'id' => $id, 'ref' => $ref, 'status' => 'Pending']);
     }
-    /* journal-attach — attach a receipt / voucher image to an entry */
+    /* journal-attach — attach a receipt / voucher image to a voucher (all lines) */
     if ($a === 'journal-attach') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
         $voucher = trim($body['voucher'] ?? '');
         if (!$id || $voucher === '') json_out(['ok' => false, 'error' => 'id and voucher required.'], 400);
         if (strlen($voucher) > 1200000) json_out(['ok' => false, 'error' => 'Attachment too large.'], 400);
-        $pdo->prepare('UPDATE mall_journal SET voucher=? WHERE id=?')->execute([$voucher, $id]);
+        $st = $pdo->prepare('SELECT ref FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $ref = $st->fetchColumn();
+        if (!$ref) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
+        $pdo->prepare('UPDATE mall_journal SET voucher=? WHERE ref=?')->execute([$voucher, $ref]);
         json_out(['ok' => true]);
     }
-    /* journal-approve / journal-reject — approval workflow (creator cannot self-approve) */
+    /* journal-approve / journal-reject — approval workflow for the WHOLE voucher
+       (all lines sharing the ref); creator cannot self-approve */
     if ($a === 'journal-approve' || $a === 'journal-reject') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT created_by, status FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare('SELECT ref, created_by, status FROM mall_journal WHERE id=?'); $st->execute([$id]);
         $j = $st->fetch(PDO::FETCH_ASSOC);
         if (!$j) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
         if ($j['status'] !== 'Pending') json_out(['ok' => false, 'error' => 'Only pending entries can be ' . ($a === 'journal-approve' ? 'approved' : 'rejected') . '.'], 409);
         if ($j['created_by'] === $u['name']) json_out(['ok' => false, 'error' => 'You cannot ' . ($a === 'journal-approve' ? 'approve' : 'reject') . ' your own entry — another manager must review it.'], 403);
         $new = $a === 'journal-approve' ? 'Approved' : 'Rejected';
-        $pdo->prepare("UPDATE mall_journal SET status=?, approved_by=?, approved_at=datetime('now') WHERE id=?")->execute([$new, $u['name'], $id]);
-        audit($u['name'], 'Journal ' . $new, 'mall', (string)$id, $j['created_by'] . "'s entry");
+        $pdo->prepare("UPDATE mall_journal SET status=?, approved_by=?, approved_at=datetime('now') WHERE ref=?")->execute([$new, $u['name'], $j['ref']]);
+        audit($u['name'], 'Journal ' . $new, 'mall', $j['ref'], $j['created_by'] . "'s voucher");
         json_out(['ok' => true, 'status' => $new]);
     }
     if ($a === 'journal-del') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT status FROM mall_journal WHERE id=?'); $st->execute([$id]);
-        $stt = $st->fetchColumn();
-        if ($stt === false) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
-        if ($stt === 'Approved') json_out(['ok' => false, 'error' => 'Approved entries are immutable — reject or adjust with a new voucher.'], 409);
-        $pdo->prepare('DELETE FROM mall_journal WHERE id=?')->execute([$id]);
+        $st = $pdo->prepare('SELECT ref, status FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $j = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$j) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
+        if ($j['status'] === 'Approved') json_out(['ok' => false, 'error' => 'Approved entries are immutable — reject or adjust with a new voucher.'], 409);
+        $pdo->prepare('DELETE FROM mall_journal WHERE ref=?')->execute([$j['ref']]);
         json_out(['ok' => true]);
     }
     /* pnl — monthly income statement (Smart Ledger): income vs expense by account */
@@ -15574,6 +15623,51 @@ case 'mall': {
         }
         json_out(['ok' => true, 'type' => $type, 'party' => $p, 'label' => $label,
                   'rows' => $out, 'opening' => $opening, 'closing' => $bal, 'count' => count($out)]);
+    }
+    /* account-ledger — one account's approved entries + its sub-ledgers
+       (subsidiary balances grouped by party, for control accounts) */
+    if ($a === 'account-ledger') {
+        $id = (int)($body['id'] ?? 0);
+        $acc = $pdo->prepare('SELECT * FROM mall_accounts WHERE id=?'); $acc->execute([$id]);
+        $accRow = $acc->fetch(PDO::FETCH_ASSOC);
+        if (!$accRow) json_out(['ok' => false, 'error' => 'Account not found.'], 404);
+        $entries = $pdo->prepare("SELECT j.*, a.name AS account_name, a.type AS account_type
+            FROM mall_journal j LEFT JOIN mall_accounts a ON a.id=j.account
+            WHERE j.account=? AND j.status='Approved' ORDER BY j.date DESC, j.id DESC LIMIT 300");
+        $entries->execute([$id]);
+        $rows = $entries->fetchAll(PDO::FETCH_ASSOC);
+        $totD = 0; $totC = 0;
+        foreach ($rows as $r) { $totD += (int)$r['debit']; $totC += (int)$r['credit']; }
+        $subs = $pdo->prepare("SELECT subsidiary, subsidiary_type, SUM(debit) d, SUM(credit) c
+            FROM mall_journal WHERE account=? AND status='Approved' AND subsidiary != '' GROUP BY subsidiary ORDER BY subsidiary");
+        $subs->execute([$id]);
+        $subRows = $subs->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($subRows as &$s) {
+            $s['balance'] = in_array($accRow['type'], ['Asset', 'Expense'], true)
+                ? (int)$s['d'] - (int)$s['c'] : (int)$s['c'] - (int)$s['d'];
+        }
+        unset($s);
+        json_out(['ok' => true, 'account' => $accRow, 'entries' => $rows, 'total_debit' => $totD,
+                  'total_credit' => $totC, 'balance' => in_array($accRow['type'], ['Asset', 'Expense'], true)
+                      ? (int)$accRow['opening'] + $totD - $totC : (int)$accRow['opening'] + $totC - $totD,
+                  'subs' => $subRows]);
+    }
+    /* acct-map — Smart Ledger account mapping (expense category / vendor
+       category / payment method → COA account), configurable in Settings */
+    if ($a === 'acct-map') {
+        $raw = $mcfg('acct_map', '');
+        $map = $raw !== '' ? json_decode($raw, true) : [];
+        json_out(['ok' => true, 'map' => is_array($map) ? $map : []]);
+    }
+    if ($a === 'acct-map-set') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $map = $body['map'] ?? [];
+        if (!is_array($map)) json_out(['ok' => false, 'error' => 'map must be an object.'], 400);
+        $clean = [];
+        foreach ($map as $k => $v) $clean[(string)$k] = (int)$v;
+        $mset('acct_map', json_encode($clean));
+        audit($u['name'], 'Account mapping', 'mall', '', count($clean) . ' rules');
+        json_out(['ok' => true, 'map' => $clean]);
     }
     if ($a === 'complaint-add') {
         $shop = trim($body['shop'] ?? '');
@@ -16199,7 +16293,7 @@ case 'mall': {
         /* Smart Ledger: Dr expense (by vendor category), Cr bank/cash */
         $post_journal(date('Y-m-d'), 'VNP-' . str_pad((string)$vpId, 5, '0', STR_PAD_LEFT),
             'Vendor payment — ' . ($vn['name'] ?? ''),
-            [[$VENDOR_ACCT[$vn['category'] ?? ''] ?? 'General Maintenance', $amount, 0],
+            [[$vendor_acct_for($vn['category'] ?? ''), $amount, 0],
              [$method_acct(trim($body['method'] ?? 'bank')), 0, $amount]], $u['name']);
         json_out(['ok' => true]);
     }
