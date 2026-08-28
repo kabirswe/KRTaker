@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260924) {
+        if ($__sv < 20260925) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -357,6 +357,15 @@ function db() {
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, body TEXT DEFAULT '',
             date TEXT DEFAULT (date('now')), pinned INTEGER DEFAULT 0,
             author TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        /* ── Phase 2c: staff & salaries (spec 3.4 office staff / security guards) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_staff (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, designation TEXT DEFAULT 'Security Guard',
+            phone TEXT DEFAULT '', nid TEXT DEFAULT '', join_date TEXT DEFAULT '', salary INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'Active', notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_staff_salaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER, month TEXT,
+            amount INTEGER DEFAULT 0, method TEXT DEFAULT 'cash', note TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE TABLE IF NOT EXISTS property_rent (
             prop TEXT PRIMARY KEY, service_charge_pct REAL DEFAULT 0, utility_advance INTEGER DEFAULT 0,
             parking_fee INTEGER DEFAULT 0, escalation_pct REAL DEFAULT 0, advance_months INTEGER DEFAULT 0,
@@ -14896,7 +14905,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15152,6 +15161,115 @@ case 'mall': {
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
         $pdo->prepare('UPDATE mall_notices SET pinned=? WHERE id=?')->execute([(int)($body['pinned'] ?? 0) ? 1 : 0, $id]);
         json_out(['ok' => true]);
+    }
+
+    /* staff — committee staff/employees (spec 3.4: office staff & security guards) */
+    if ($a === 'staff-list') {
+        $rows = $pdo->query('SELECT * FROM mall_staff ORDER BY status, id DESC LIMIT 200')->fetchAll(PDO::FETCH_ASSOC);
+        $sal = $pdo->prepare('SELECT staff_id, COUNT(*) n, COALESCE(SUM(amount),0) total FROM mall_staff_salaries GROUP BY staff_id');
+        $byStaff = [];
+        foreach ($sal->execute() ? $sal->fetchAll(PDO::FETCH_ASSOC) : [] as $s) $byStaff[$s['staff_id']] = $s;
+        foreach ($rows as $i => $r) { $rows[$i]['salaries_paid'] = (int)($byStaff[$r['id']]['n'] ?? 0); $rows[$i]['salaries_total'] = (int)($byStaff[$r['id']]['total'] ?? 0); }
+        $payroll = (int)$pdo->query("SELECT COALESCE(SUM(salary),0) FROM mall_staff WHERE status='Active'")->fetchColumn();
+        $active = (int)$pdo->query("SELECT COUNT(*) FROM mall_staff WHERE status='Active'")->fetchColumn();
+        json_out(['ok' => true, 'staff' => $rows, 'payroll_monthly' => $payroll, 'active' => $active]);
+    }
+    if ($a === 'staff-add') {
+        $name = trim($body['name'] ?? '');
+        if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
+        $pdo->prepare("INSERT INTO mall_staff (name, designation, phone, nid, join_date, salary, status, notes) VALUES (?,?,?,?,?,?,?,?)")
+            ->execute([$name, trim($body['designation'] ?? 'Security Guard'), trim($body['phone'] ?? ''), trim($body['nid'] ?? ''),
+                       trim($body['join_date'] ?? ''), (int)($body['salary'] ?? 0),
+                       in_array(trim($body['status'] ?? ''), ['Active', 'On Leave', 'Resigned'], true) ? trim($body['status']) : 'Active',
+                       trim($body['notes'] ?? '')]);
+        audit($u['name'], 'Staff add', 'mall', $name, 'designation ' . trim($body['designation'] ?? ''));
+        json_out(['ok' => true]);
+    }
+    if ($a === 'staff-update') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare("UPDATE mall_staff SET name=?, designation=?, phone=?, nid=?, join_date=?, salary=?, status=?, notes=? WHERE id=?")
+            ->execute([trim($body['name'] ?? ''), trim($body['designation'] ?? ''), trim($body['phone'] ?? ''), trim($body['nid'] ?? ''),
+                       trim($body['join_date'] ?? ''), (int)($body['salary'] ?? 0), trim($body['status'] ?? ''), trim($body['notes'] ?? ''), $id]);
+        audit($u['name'], 'Staff update', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'staff-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_staff WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Staff delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    /* salary-pay — monthly salary for a staff member → company_ledger (expense, Staff Salary) + history */
+    if ($a === 'salary-pay') {
+        $staffId = (int)($body['staff_id'] ?? 0);
+        $month = trim($body['month'] ?? date('Y-m'));
+        if (!$staffId) json_out(['ok' => false, 'error' => 'staff_id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM mall_staff WHERE id=?'); $st->execute([$staffId]);
+        $s = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$s) json_out(['ok' => false, 'error' => 'Staff not found.'], 404);
+        $amount = (int)($body['amount'] ?? $s['salary']);
+        if ($amount <= 0) json_out(['ok' => false, 'error' => 'amount required.'], 400);
+        $dup = $pdo->prepare('SELECT id FROM mall_staff_salaries WHERE staff_id=? AND month=?');
+        $dup->execute([$staffId, $month]);
+        if ($dup->fetchColumn()) json_out(['ok' => false, 'error' => 'Salary already paid for ' . $month . '.'], 409);
+        $method = in_array(trim($body['method'] ?? ''), ['cash', 'bank', 'bkash', 'nagad'], true) ? trim($body['method']) : 'cash';
+        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts) VALUES ('expense', 'Staff Salary', ?, ?, ?, ?, ?, ?, datetime('now'))")
+            ->execute(['Staff Salary — ' . $s['name'] . ' (' . $month . ')', $amount, $method, '', trim($body['note'] ?? '') . ' Salary ' . $month, $s['name']]);
+        $pdo->prepare('INSERT INTO mall_staff_salaries (staff_id, month, amount, method, note) VALUES (?,?,?,?,?)')
+            ->execute([$staffId, $month, $amount, $method, trim($body['note'] ?? '')]);
+        audit($u['name'], 'Salary', 'mall', $s['name'], "$amount for $month via $method");
+        json_out(['ok' => true, 'staff' => $s['name'], 'amount' => $amount, 'month' => $month]);
+    }
+    /* salaries — salary history for a month or a staff member */
+    if ($a === 'salaries') {
+        $month = trim($body['month'] ?? '');
+        $staffId = (int)($body['staff_id'] ?? 0);
+        $sql = 'SELECT p.*, s.name AS staff_name, s.designation FROM mall_staff_salaries p LEFT JOIN mall_staff s ON s.id=p.staff_id';
+        $args = [];
+        if ($month !== '') { $sql .= ' WHERE p.month=?'; $args[] = $month; }
+        elseif ($staffId) { $sql .= ' WHERE p.staff_id=?'; $args[] = $staffId; }
+        $sql .= ' ORDER BY p.id DESC LIMIT 200';
+        $st = $pdo->prepare($sql); $st->execute($args);
+        json_out(['ok' => true, 'salaries' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* recon — custodial fund reconciliation (spec 3.3): elec/water collected vs
+       DESCO/WASA main bills paid → balance to forward. Monthly + all-time. */
+    if ($a === 'recon') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
+        $m = function ($m) use ($q) {
+            return [
+                'elec_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='elec' AND month=?", [$m]),
+                'water_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='water' AND month=?", [$m]),
+                'desco_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Common Electricity (DESCO)' AND substr(ts,1,7)=?", [$m]),
+                'wasa_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Water (WASA)' AND substr(ts,1,7)=?", [$m]),
+            ];
+        };
+        $cur = $m($month);
+        $all = ['elec_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='elec'"),
+                'water_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='water'"),
+                'desco_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Common Electricity (DESCO)'"),
+                'wasa_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Water (WASA)'")];
+        $sum = function ($r) { return $r['elec_collected'] + $r['water_collected'] - $r['desco_paid'] - $r['wasa_paid']; };
+        json_out(['ok' => true, 'month' => $month, 'current' => $cur, 'all_time' => $all,
+                  'current_balance' => $sum($cur), 'all_time_balance' => $sum($all)]);
+    }
+
+    /* balances — cash in hand / bank / mobile wallet balances (spec 3.7) */
+    if ($a === 'balances') {
+        $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
+        $bal = [];
+        foreach (['cash' => '💵 Cash in hand', 'bank' => '🏦 Bank', 'bkash' => '📱 bKash', 'nagad' => '📱 Nagad'] as $m => $label) {
+            $in = $b("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=?", [$m])
+                + $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND method=?", [$m]);
+            $out = $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND method=?", [$m]);
+            $bal[$m] = ['label' => $label, 'in' => $in, 'out' => $out, 'balance' => $in - $out];
+        }
+        $bal['total'] = array_sum(array_column($bal, 'balance'));
+        json_out(['ok' => true, 'balances' => $bal]);
     }
 
     /* bills — list with shop info; filters: month (YYYY-MM), kind, status */

@@ -24,6 +24,7 @@ const TABS = [
   ['assets', '🛠️', 'Assets & AMC'],
   ['notices', '📢', 'Notices'],
   ['audit', '📋', 'Audit'],
+  ['staff', '🧑‍💼', 'Staff'],
   ['ledger', '📒', 'Ledger'],
   ['settings', '⚙️', 'Settings'],
 ]
@@ -348,9 +349,105 @@ async function saveProfile() {
   } else profMsg.value = '✗ ' + (r.error || 'Update failed.')
 }
 
+/* ══════════ STAFF & SALARIES (spec 3.4) ══════════ */
+const staff = ref([])
+const staffMeta = ref({ payroll_monthly: 0, active: 0 })
+const staffModal = ref(null)
+const staffForm = ref({})
+const salModal = ref(null)
+const salForm = ref({})
+const salaryHistory = ref([])
+const DESIGNATIONS = ['Security Guard', 'Office Staff', 'Accountant', 'Cleaner', 'Lift Operator', 'Electrician', 'Plumber', 'Supervisor', 'Manager']
+async function loadStaff() {
+  const [s, h] = await Promise.all([
+    apiCall('mall', { action: 'staff-list' }),
+    apiCall('mall', { action: 'salaries', month: month.value }),
+  ])
+  if (s.ok) { staff.value = s.staff; staffMeta.value = { payroll_monthly: s.payroll_monthly, active: s.active } }
+  if (h.ok) salaryHistory.value = h.salaries
+}
+function openStaffAdd() { staffForm.value = { name: '', designation: 'Security Guard', phone: '', nid: '', join_date: '', salary: 0, status: 'Active', notes: '' }; staffModal.value = { mode: 'add', title: '➕ New staff' } }
+function openStaffEdit(s) {
+  staffForm.value = { name: s.name, designation: s.designation, phone: s.phone, nid: s.nid, join_date: s.join_date, salary: s.salary, status: s.status, notes: s.notes }
+  staffModal.value = { mode: 'edit', title: '✏️ Edit staff', id: s.id }
+}
+async function saveStaff() {
+  if (!staffForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  const action = staffModal.value.mode === 'edit' ? 'staff-update' : 'staff-add'
+  const r = await apiCall('mall', { action, ...staffForm.value, salary: Number(staffForm.value.salary) || 0, ...(staffModal.value.mode === 'edit' ? { id: staffModal.value.id } : {}) })
+  if (r.ok) { window.__krToast?.(staffModal.value.mode === 'edit' ? '✏️ Staff updated' : '✅ Staff added', 'ok'); staffModal.value = null; await loadStaff() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delStaff(s) {
+  if (!window.confirm(`Remove staff "${s.name}"? (salary history is kept)`)) return
+  const r = await apiCall('mall', { action: 'staff-del', id: s.id })
+  if (r.ok) { window.__krToast?.('🗑️ Staff removed', 'ok'); await loadStaff() }
+}
+function openSal(s) {
+  const paid = salaryHistory.value.some(h => h.staff_id === s.id)
+  if (paid) { window.__krToast?.(`Salary already paid for ${monthLabel(month.value)}`, 'err'); return }
+  salForm.value = { staff_id: s.id, staff_name: s.name, amount: s.salary, method: 'cash', note: '' }
+  salModal.value = s
+}
+async function saveSalary() {
+  if (!salModal.value || Number(salForm.value.amount) <= 0) return
+  const r = await apiCall('mall', { action: 'salary-pay', staff_id: salForm.value.staff_id, month: month.value, amount: Number(salForm.value.amount), method: salForm.value.method, note: salForm.value.note })
+  if (r.ok) { window.__krToast?.(`💸 ${r.staff} — ${money(r.amount)} paid`, 'ok'); salModal.value = null; await loadStaff(); await loadDash(); await loadLedger() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+
+/* ══════════ CUSTODIAL RECON + BALANCES (spec 3.3/3.7) ══════════ */
+const recon = ref(null)
+const balances = ref(null)
+async function loadRecon() { const r = await apiCall('mall', { action: 'recon', month: month.value }); if (r.ok) recon.value = r }
+async function loadBalances() { const r = await apiCall('mall', { action: 'balances' }); if (r.ok) balances.value = r.balances }
+
+/* ══════════ CSV EXPORT (spec 3.7) ══════════ */
+function csvCell(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+function exportCsv(filename, headers, rows) {
+  const csv = [headers.join(','), ...rows.map(r => r.map(csvCell).join(','))].join('\n')
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click()
+  URL.revokeObjectURL(a.href)
+  window.__krToast?.(`⬇ ${filename} exported`, 'ok')
+}
+function exportStaff() {
+  exportCsv('staff-' + month.value + '.csv',
+    ['Name', 'Designation', 'Phone', 'NID', 'Join date', 'Salary', 'Status', 'Salaries paid', 'Total paid'],
+    staff.value.map(s => [s.name, s.designation, s.phone, s.nid, s.join_date, s.salary, s.status, s.salaries_paid, s.salaries_total]))
+}
+function exportBills() {
+  exportCsv('bills-' + month.value + '.csv',
+    ['Bill', 'Shop', 'Floor', 'Kind', 'Amount', 'Fine', 'Due date', 'Status'],
+    bills.value.map(b => [b.id, b.shop_no, b.shop_floor, b.kind, b.amount, b.fine || 0, b.due_date, b.status]))
+}
+function exportLedger() {
+  exportCsv('ledger-' + month.value + '.csv',
+    ['Shop', 'Floor', 'Service paid/billed', 'Elec paid/billed', 'Water paid/billed', 'Due'],
+    (ledger.value?.per_shop || []).map(s => [s.no, s.floor, `${s.sc_paid}/${s.sc_billed}`, `${s.el_paid}/${s.el_billed}`, `${s.w_paid}/${s.w_billed}`, (s.sc_billed - s.sc_paid) + (s.el_billed - s.el_paid) + (s.w_billed - s.w_paid)]))
+}
+function exportExpenses() {
+  exportCsv('expenses-' + month.value + '.csv',
+    ['Date', 'Category', 'Vendor', 'Note', 'Method', 'Amount'],
+    expenses.value.map(e => [e.date, e.category, e.vendor, e.note, e.method, e.amount]))
+}
+function exportSalaries() {
+  exportCsv('salaries-' + month.value + '.csv',
+    ['Staff', 'Designation', 'Month', 'Amount', 'Method', 'Paid on'],
+    salaryHistory.value.map(h => [h.staff_name, h.designation, h.month, h.amount, h.method, h.ts]))
+}
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
-async function loadLedger() { const r = await apiCall('mall', { action: 'ledger', month: month.value }); if (r.ok) ledger.value = r }
+async function loadLedger() {
+  const [l, r] = await Promise.all([
+    apiCall('mall', { action: 'ledger', month: month.value }),
+    apiCall('mall', { action: 'recon', month: month.value }),
+  ])
+  if (l.ok) ledger.value = l
+  if (r.ok) recon.value = r
+}
 
 /* ── tab switching ── */
 function switchTab(x) {
@@ -364,9 +461,11 @@ function switchTab(x) {
   if (x === 'assets') loadAssets()
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
+  if (x === 'staff') loadStaff()
+  if (x === 'dashboard') { loadDash(); loadBalances() }
 }
 
-onMounted(async () => { await loadConfig(); await loadDash() })
+onMounted(async () => { await loadConfig(); await loadDash(); loadBalances() })
 </script>
 
 <template>
@@ -400,6 +499,14 @@ onMounted(async () => { await loadConfig(); await loadDash() })
           <div class="s-value" :style="k.ok !== undefined ? (k.ok ? 'color:var(--ok)' : 'color:var(--danger)') : ''">{{ k.value }}</div>
           <div class="s-trend">{{ k.trend }}</div>
         </div>
+      </div>
+      <div v-if="balances" class="stats" style="margin-top:0">
+        <div v-for="(b, m) in balances" :key="m" v-show="m !== 'total'" class="stat">
+          <div class="s-label"><span class="s-ico">{{ { cash: '💵', bank: '🏦', bkash: '📱', nagad: '📱' }[m] || '💰' }}</span>{{ b.label }}</div>
+          <div class="s-value" :style="b.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(b.balance) }}</div>
+          <div class="s-trend">in {{ money(b.in) }} · out {{ money(b.out) }}</div>
+        </div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total balance</div><div class="s-value">{{ money(balances.total) }}</div><div class="s-trend">across all methods (spec 3.7)</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px" class="dash-grid">
         <div class="panel" style="padding:16px">
@@ -503,6 +610,7 @@ onMounted(async () => { await loadConfig(); await loadDash() })
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="generateBills" :disabled="billsBusy" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">⚙️ Generate service-charge bills</button>
         <button v-if="canManage" @click="calcFines" :disabled="finesBusy" class="btn-ghost" title="Apply late payment fines to overdue unpaid bills">💸 Compute late fees</button>
+        <button @click="exportBills" class="btn-ghost" title="Download this month's bills as Excel-compatible CSV">⬇ CSV</button>
         <select v-model="billKind" @change="loadBills" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">All kinds</option>
           <option v-for="(v, k) in { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }" :key="k" :value="k">{{ v }}</option>
@@ -631,7 +739,10 @@ onMounted(async () => { await loadConfig(); await loadDash() })
       <div class="panel" style="padding:16px;margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <h3 style="font-size:14px">🧾 Expense ledger — {{ monthLabel(month) }}</h3>
-          <span class="badge b-red" style="font-size:12px">Total {{ money(expTotal) }}</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="badge b-red" style="font-size:12px">Total {{ money(expTotal) }}</span>
+            <button @click="exportExpenses" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+          </div>
         </div>
         <div class="tbl-wrap" style="max-height:300px">
           <table class="kr">
@@ -795,6 +906,65 @@ onMounted(async () => { await loadConfig(); await loadDash() })
       </div>
     </template>
 
+    <!-- ═══════ STAFF & SALARIES ═══════ -->
+    <template v-if="tab === 'staff'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">🧑‍💼</span>Total staff</div><div class="s-value">{{ staff.length }}</div><div class="s-trend">{{ staffMeta.active }} active</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🟢</span>Active</div><div class="s-value" style="color:var(--ok)">{{ staffMeta.active }}</div><div class="s-trend">on payroll</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Monthly payroll</div><div class="s-value">{{ money(staffMeta.payroll_monthly) }}</div><div class="s-trend">active staff salaries</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Paid this month</div><div class="s-value">{{ salaryHistory.length }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openStaffAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add staff</button>
+        <button @click="exportStaff" class="btn-ghost">⬇ CSV</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Office staff &amp; security guards — monthly salary entry posts to the expense ledger (spec 3.4)</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>Name</th><th>Designation</th><th>Phone</th><th>Joined</th><th style="text-align:right">Salary/mo</th><th>Status</th><th style="text-align:right">Paid</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="s in staff" :key="s.id">
+                <td><b>{{ s.name }}</b><br /><small style="color:var(--text-mute)">{{ s.nid || '' }}</small></td>
+                <td><span class="badge b-blue">{{ s.designation }}</span></td>
+                <td>{{ s.phone || '—' }}</td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ s.join_date || '—' }}</td>
+                <td style="text-align:right;font-weight:800">{{ money(s.salary) }}</td>
+                <td><span class="badge" :class="badge(s.status)">{{ s.status }}</span></td>
+                <td style="text-align:right;font-size:12px;color:var(--text-mute)">{{ s.salaries_paid || 0 }}× {{ money(s.salaries_total) }}</td>
+                <td style="text-align:right;white-space:nowrap">
+                  <button v-if="canManage && s.status === 'Active'" @click="openSal(s)" title="Pay monthly salary" style="padding:6px 12px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💸 Pay salary</button>
+                  <button v-if="canManage" @click="openStaffEdit(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">✏️</button>
+                  <button v-if="canManage" @click="delStaff(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
+                </td>
+              </tr>
+              <tr v-if="!staff.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No staff yet — add security guards &amp; office staff with ＋ Add staff.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel" style="padding:16px;margin-top:16px" v-if="salaryHistory.length">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="font-size:14px">🧾 Salary payments — {{ monthLabel(month) }}</h3>
+          <button @click="exportSalaries" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+        </div>
+        <div class="tbl-wrap" style="max-height:240px">
+          <table class="kr">
+            <thead><tr><th>Staff</th><th>Designation</th><th>Method</th><th>Note</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody>
+              <tr v-for="h in salaryHistory" :key="h.id">
+                <td><b>{{ h.staff_name }}</b></td>
+                <td style="color:var(--text-mute)">{{ h.designation }}</td>
+                <td><span class="badge b-blue">{{ h.method }}</span></td>
+                <td style="color:var(--text-mute)">{{ h.note || '—' }}</td>
+                <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(h.amount) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════ LEDGER ═══════ -->
     <template v-if="tab === 'ledger'">
       <div v-if="ledger">
@@ -813,7 +983,10 @@ onMounted(async () => { await loadConfig(); await loadDash() })
         <div class="panel" style="padding:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <h3 style="font-size:14px">🏪 Per-shop ledger — {{ monthLabel(ledger.month) }}</h3>
-            <span class="badge b-green" style="font-size:12px">Net balance {{ money(Number(ledger.by_kind.reduce((s, k) => s + k.collected, 0)) - Number(ledger.expenses)) }}</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="badge b-green" style="font-size:12px">Net balance {{ money(Number(ledger.by_kind.reduce((s, k) => s + k.collected, 0)) - Number(ledger.expenses)) }}</span>
+              <button @click="exportLedger" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+            </div>
           </div>
           <div class="tbl-wrap" style="max-height:420px">
             <table class="kr">
@@ -832,6 +1005,37 @@ onMounted(async () => { await loadConfig(); await loadDash() })
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+      <!-- ═══════ CUSTODIAL RECONCILIATION (spec 3.3) ═══════ -->
+      <div v-if="recon" class="panel" style="padding:16px;margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <h3 style="font-size:14px">⚡💧 Custodial fund reconciliation — DESCO/WASA (spec 3.3)</h3>
+          <span class="badge" :class="recon.current_balance >= 0 ? 'b-green' : 'b-orange'" style="font-size:12px">{{ monthLabel(recon.month) }}: {{ recon.current_balance >= 0 ? 'forward ' : 'shortfall ' }}{{ money(Math.abs(recon.current_balance)) }}</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-mute);margin-bottom:12px">Shop collections for electricity &amp; water are <b>custodial</b> — collected from shop owners, forwarded to the utility. Compare with the DESCO / WASA main bills paid.</p>
+        <div class="tbl-wrap" style="max-height:300px">
+          <table class="kr">
+            <thead><tr><th></th><th style="text-align:right">Elec collected</th><th style="text-align:right">Water collected</th><th style="text-align:right">DESCO bill paid</th><th style="text-align:right">WASA bill paid</th><th style="text-align:right">Balance</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>{{ monthLabel(recon.month) }}</b></td>
+                <td style="text-align:right">{{ money(recon.current.elec_collected) }}</td>
+                <td style="text-align:right">{{ money(recon.current.water_collected) }}</td>
+                <td style="text-align:right">{{ money(recon.current.desco_paid) }}</td>
+                <td style="text-align:right">{{ money(recon.current.wasa_paid) }}</td>
+                <td style="text-align:right;font-weight:800" :style="recon.current_balance >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(recon.current_balance) }}</td>
+              </tr>
+              <tr style="background:var(--bg-alt)">
+                <td><b>All time</b></td>
+                <td style="text-align:right">{{ money(recon.all_time.elec_collected) }}</td>
+                <td style="text-align:right">{{ money(recon.all_time.water_collected) }}</td>
+                <td style="text-align:right">{{ money(recon.all_time.desco_paid) }}</td>
+                <td style="text-align:right">{{ money(recon.all_time.wasa_paid) }}</td>
+                <td style="text-align:right;font-weight:800" :style="recon.all_time_balance >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(recon.all_time_balance) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
       <p v-else style="color:var(--text-mute)">Loading ledger…</p>
@@ -1050,6 +1254,58 @@ onMounted(async () => { await loadConfig(); await loadDash() })
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="saveNotice" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">📢 Post</button>
             <button @click="noticeModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ STAFF MODAL ═══════ -->
+    <div v-if="staffModal" class="overlay" @click.self="staffModal = null">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-h"><div class="t">{{ staffModal.title }}</div><button class="close" @click="staffModal = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Full name *<input v-model="staffForm.name" placeholder="e.g. Md. Karim" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Designation
+              <select v-model="staffForm.designation" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="d in DESIGNATIONS" :key="d" :value="d">{{ d }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Mobile<input v-model="staffForm.phone" placeholder="e.g. 01711-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">NID<input v-model="staffForm.nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Join date<input type="date" v-model="staffForm.join_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Monthly salary (৳)<input type="number" v-model.number="staffForm.salary" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Status
+              <select v-model="staffForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="st in ['Active', 'On Leave', 'Resigned']" :key="st" :value="st">{{ st }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Notes<input v-model="staffForm.notes" placeholder="Shift, remarks…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveStaff" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save staff</button>
+            <button @click="staffModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ SALARY MODAL ═══════ -->
+    <div v-if="salModal" class="overlay" @click.self="salModal = null">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-h"><div class="t">💸 Pay salary — {{ salForm.staff_name }}</div><button class="close" @click="salModal = null">✕</button></div>
+        <div class="modal-b">
+          <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">{{ monthLabel(month) }} · {{ salModal.designation }}</p>
+          <label style="font-size:12px;color:var(--text-mute)">Amount (৳)<input type="number" v-model.number="salForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Paid via
+            <select v-model="salForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option><option value="bkash">📱 bKash</option><option value="nagad">📱 Nagad</option>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Note<input v-model="salForm.note" placeholder="Optional — voucher / remark" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveSalary" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💸 Confirm payment</button>
+            <button @click="salModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
           </div>
         </div>
       </div>
