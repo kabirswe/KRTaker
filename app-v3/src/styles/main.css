@@ -101,7 +101,7 @@ img{max-width:100%}
    (month navigator + contextual actions) joins the TOP row: ☰ ◀month▶ 🔍 ⋯ */
 @media (max-width: 1023.98px) {
   .tb-actions .icon-btn:not(.tb-more), .tb-actions .tb-user, .tb-actions .tb-bell { display: none !important; }
-  .tb-more{display:inline-flex !important}
+  .tb-actions .tb-more{display:inline-flex !important}
   .topbar-in{height:64px;gap:8px;padding:0;align-items:center}
   .topbar-in:has(.page-head){height:64px;padding:0;align-items:center}
   .topbar-in .menu-toggle{order:0}
