@@ -14905,7 +14905,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15270,6 +15270,86 @@ case 'mall': {
         }
         $bal['total'] = array_sum(array_column($bal, 'balance'));
         json_out(['ok' => true, 'balances' => $bal]);
+    }
+
+    /* ── System users & RBAC (spec 3.8) ── */
+    /* users — committee system users; viewable by any mall role, writes by owner/superadmin */
+    if ($a === 'users') {
+        $rows = $pdo->query("SELECT id, name, email, role, active, is_staff, last_login FROM app_users ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $i => $r) {
+            $rows[$i]['last_login'] = $r['last_login'] ? substr($r['last_login'], 0, 16) : '';
+            $rows[$i]['self'] = (int)$r['id'] === (int)$u['id'] ? 1 : 0;
+        }
+        json_out(['ok' => true, 'users' => $rows]);
+    }
+    /* user-add — create a system user with a mall role */
+    if ($a === 'user-add') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only owner/superadmin can manage users.'], 403);
+        $name = trim($body['name'] ?? '');
+        $email = strtolower(trim($body['email'] ?? ''));
+        $pw = (string)($body['password'] ?? '');
+        $role = trim($body['role'] ?? '');
+        if ($name === '' || $email === '' || $pw === '') json_out(['ok' => false, 'error' => 'name, email and password required.'], 400);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) json_out(['ok' => false, 'error' => 'Invalid email address.'], 400);
+        if (strlen($pw) < 8) json_out(['ok' => false, 'error' => 'Password must be at least 8 characters.'], 400);
+        if (!in_array($role, ['owner', 'manager', 'accountant', 'collector'], true)) json_out(['ok' => false, 'error' => 'Role must be owner/manager/accountant/collector.'], 400);
+        $dup = $pdo->prepare('SELECT id FROM app_users WHERE email=?'); $dup->execute([$email]);
+        if ($dup->fetchColumn()) json_out(['ok' => false, 'error' => 'Email already registered.'], 409);
+        $pdo->prepare('INSERT INTO app_users (name, email, password_hash, role, is_staff, active) VALUES (?,?,?,?,1,1)')
+            ->execute([$name, $email, password_hash($pw, PASSWORD_DEFAULT), $role]);
+        audit($u['name'], 'User add', 'mall', $email, "role $role");
+        json_out(['ok' => true]);
+    }
+    /* user-update — change role / active / name of another user */
+    if ($a === 'user-update') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only owner/superadmin can manage users.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        if (!$id || $id === (int)$u['id']) json_out(['ok' => false, 'error' => 'You cannot modify your own account here (use Profile).'], 400);
+        $st = $pdo->prepare('SELECT * FROM app_users WHERE id=?'); $st->execute([$id]);
+        $t = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$t) json_out(['ok' => false, 'error' => 'User not found.'], 404);
+        $role = trim($body['role'] ?? $t['role']);
+        if (!in_array($role, ['superadmin', 'owner', 'manager', 'accountant', 'collector'], true)) json_out(['ok' => false, 'error' => 'Invalid role.'], 400);
+        /* protect the last owner/superadmin from demotion */
+        if (in_array($t['role'], ['superadmin', 'owner'], true) && !in_array($role, ['superadmin', 'owner'], true)) {
+            $n = (int)$pdo->query("SELECT COUNT(*) FROM app_users WHERE role IN ('superadmin','owner')")->fetchColumn();
+            if ($n <= 1) json_out(['ok' => false, 'error' => 'Cannot demote the last owner account.'], 409);
+        }
+        $active = isset($body['active']) ? ((int)$body['active'] ? 1 : 0) : (int)$t['active'];
+        $name = trim($body['name'] ?? $t['name']);
+        $pdo->prepare('UPDATE app_users SET name=?, role=?, active=? WHERE id=?')->execute([$name, $role, $active, $id]);
+        audit($u['name'], 'User update', 'mall', $t['email'], "role $role active $active");
+        json_out(['ok' => true]);
+    }
+    /* user-del — remove a system user (keeps their audit trail) */
+    if ($a === 'user-del') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only owner/superadmin can manage users.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        if (!$id || $id === (int)$u['id']) json_out(['ok' => false, 'error' => 'You cannot delete your own account.'], 400);
+        $st = $pdo->prepare('SELECT email, role FROM app_users WHERE id=?'); $st->execute([$id]);
+        $t = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$t) json_out(['ok' => false, 'error' => 'User not found.'], 404);
+        if (in_array($t['role'], ['superadmin', 'owner'], true)) {
+            $n = (int)$pdo->query("SELECT COUNT(*) FROM app_users WHERE role IN ('superadmin','owner')")->fetchColumn();
+            if ($n <= 1) json_out(['ok' => false, 'error' => 'Cannot delete the last owner account.'], 409);
+        }
+        $pdo->prepare('UPDATE app_users SET active=0 WHERE id=?')->execute([$id]);  /* soft-disable: audit trail stays */
+        audit($u['name'], 'User delete', 'mall', $t['email'], 'disabled');
+        json_out(['ok' => true]);
+    }
+    /* user-resetpw — admin resets another user's password */
+    if ($a === 'user-resetpw') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only owner/superadmin can manage users.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $pw = (string)($body['password'] ?? '');
+        if (!$id || $id === (int)$u['id']) json_out(['ok' => false, 'error' => 'Use Profile to change your own password.'], 400);
+        if (strlen($pw) < 8) json_out(['ok' => false, 'error' => 'Password must be at least 8 characters.'], 400);
+        $st = $pdo->prepare('SELECT email FROM app_users WHERE id=?'); $st->execute([$id]);
+        if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'User not found.'], 404);
+        $pdo->prepare('UPDATE app_users SET password_hash=? WHERE id=?')->execute([password_hash($pw, PASSWORD_DEFAULT), $id]);
+        $pdo->prepare("DELETE FROM app_tokens WHERE user_id=?")->execute([$id]);
+        audit($u['name'], 'User password reset', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
     }
 
     /* bills — list with shop info; filters: month (YYYY-MM), kind, status */

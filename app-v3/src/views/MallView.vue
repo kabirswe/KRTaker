@@ -25,6 +25,7 @@ const TABS = [
   ['notices', '📢', 'Notices'],
   ['audit', '📋', 'Audit'],
   ['staff', '🧑‍💼', 'Staff'],
+  ['users', '👥', 'Users & Roles'],
   ['ledger', '📒', 'Ledger'],
   ['settings', '⚙️', 'Settings'],
 ]
@@ -438,6 +439,65 @@ function exportSalaries() {
     salaryHistory.value.map(h => [h.staff_name, h.designation, h.month, h.amount, h.method, h.ts]))
 }
 
+/* ══════════ SYSTEM USERS & RBAC (spec 3.8) ══════════ */
+const users = ref([])
+const userModal = ref(null)
+const userForm = ref({})
+const resetModal = ref(null)
+const resetForm = ref({})
+const canManageUsers = computed(() => ['superadmin', 'owner'].includes(auth.user?.role || ''))
+const USER_ROLES = ['owner', 'manager', 'accountant', 'collector']
+const ROLE_MATRIX = [
+  { cap: 'View dashboard / ledger / reports', r: [1, 1, 1, 1, 1] },
+  { cap: 'Collect payments + receipts', r: [1, 1, 1, 1, 1] },
+  { cap: 'Enter meter readings', r: [1, 1, 1, 1, 1] },
+  { cap: 'Shops master (add/edit/delete)', r: [1, 1, 1, 1, 0] },
+  { cap: 'Generate monthly bills + late fees', r: [1, 1, 1, 1, 0] },
+  { cap: 'Expenses entry', r: [1, 1, 1, 1, 0] },
+  { cap: 'Complaints / assets / notices / staff', r: [1, 1, 1, 1, 0] },
+  { cap: 'Mall settings (rates, bank, receipt)', r: [1, 1, 1, 1, 0] },
+  { cap: 'System user management (RBAC)', r: [1, 1, 0, 0, 0] },
+]
+const ROLE_COLS = ['superadmin', 'owner', 'manager', 'accountant', 'collector']
+async function loadUsers() { const r = await apiCall('mall', { action: 'users' }); if (r.ok) users.value = r.users }
+function openUserAdd() { userForm.value = { name: '', email: '', password: '', role: 'collector' }; userModal.value = { mode: 'add', title: '➕ New system user' } }
+function openUserEdit(u) {
+  userForm.value = { name: u.name, email: u.email, role: u.role, active: !!u.active }
+  userModal.value = { mode: 'edit', title: '✏️ Edit user', id: u.id }
+}
+async function saveUser() {
+  const payload = userModal.value.mode === 'edit'
+    ? { action: 'user-update', id: userModal.value.id, name: userForm.value.name, role: userForm.value.role, active: userForm.value.active ? 1 : 0 }
+    : { action: 'user-add', name: userForm.value.name, email: userForm.value.email, password: userForm.value.password, role: userForm.value.role }
+  if (userModal.value.mode === 'add' && !userForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  const r = await apiCall('mall', payload)
+  if (r.ok) { window.__krToast?.(userModal.value.mode === 'edit' ? '✏️ User updated' : '✅ User created', 'ok'); userModal.value = null; await loadUsers() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function openReset(u) { resetForm.value = { id: u.id, name: u.name, password: '' }; resetModal.value = u }
+async function saveReset() {
+  if (resetForm.value.password.length < 8) { window.__krToast?.('Password must be at least 8 characters.', 'err'); return }
+  const r = await apiCall('mall', { action: 'user-resetpw', id: resetForm.value.id, password: resetForm.value.password })
+  if (r.ok) { window.__krToast?.(`🔑 Password reset for ${resetForm.value.name}`, 'ok'); resetModal.value = null; resetForm.value = { id: 0, name: '', password: '' } }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delUser(u) {
+  if (!window.confirm(`Disable user "${u.name}" (${u.email})? Their audit trail stays.`)) return
+  const r = await apiCall('mall', { action: 'user-del', id: u.id })
+  if (r.ok) { window.__krToast?.('🗑️ User disabled', 'ok'); await loadUsers() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+const userKpis = computed(() => {
+  const active = users.value.filter(u => u.active).length
+  const roles = {}
+  users.value.forEach(u => { roles[u.role] = (roles[u.role] || 0) + 1 })
+  return [
+    { label: 'System users', ico: '👥', value: users.value.length },
+    { label: 'Active', ico: '🟢', value: active },
+    { label: 'Roles in use', ico: '🎭', value: Object.keys(roles).length, trend: Object.keys(roles).map(r => `${r}×${roles[r]}`).join(' · ') },
+  ]
+})
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -462,6 +522,7 @@ function switchTab(x) {
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
   if (x === 'staff') loadStaff()
+  if (x === 'users') loadUsers()
   if (x === 'dashboard') { loadDash(); loadBalances() }
 }
 
@@ -965,6 +1026,63 @@ onMounted(async () => { await loadConfig(); await loadDash(); loadBalances() })
       </div>
     </template>
 
+    <!-- ═══════ USERS & ROLES ═══════ -->
+    <template v-if="tab === 'users'">
+      <div class="stats">
+        <div v-for="k in userKpis" :key="k.label" class="stat">
+          <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
+          <div class="s-value">{{ k.value }}</div>
+          <div class="s-trend">{{ k.trend || '' }}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManageUsers" @click="openUserAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add system user</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Role-based access control (spec 3.8) — users are assigned a role; each role sees only what it may do</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="u in users" :key="u.id">
+                <td><b>{{ u.name }}</b><span v-if="u.self" class="badge b-blue" style="margin-left:6px;font-size:10px">you</span></td>
+                <td style="color:var(--text-mute)">{{ u.email }}</td>
+                <td><span class="badge" :class="{ superadmin: 'b-red', owner: 'b-green', manager: 'b-blue', accountant: 'b-orange', collector: 'b-gray' }[u.role] || 'b-gray'">{{ u.role }}</span></td>
+                <td><span class="badge" :class="u.active ? 'b-green' : 'b-red'">{{ u.active ? 'Active' : 'Disabled' }}</span></td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ u.last_login || 'never' }}</td>
+                <td style="text-align:right;white-space:nowrap">
+                  <template v-if="canManageUsers && !u.self">
+                    <button @click="openReset(u)" title="Reset password" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">🔑</button>
+                    <button @click="openUserEdit(u)" title="Edit role / status" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">✏️</button>
+                    <button @click="delUser(u)" title="Disable user" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
+                  </template>
+                  <small v-else style="color:var(--text-mute)">—</small>
+                </td>
+              </tr>
+              <tr v-if="!users.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:28px">No system users yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel" style="padding:16px;margin-top:16px">
+        <h3 style="font-size:14px;margin-bottom:4px">🎭 Role access matrix</h3>
+        <p style="font-size:12px;color:var(--text-mute);margin-bottom:10px">What each role can do in this system — enforced server-side on every action</p>
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>Capability</th><th v-for="c in ROLE_COLS" :key="c" style="text-align:center">{{ c }}</th></tr></thead>
+            <tbody>
+              <tr v-for="row in ROLE_MATRIX" :key="row.cap">
+                <td>{{ row.cap }}</td>
+                <td v-for="(v, i) in row.r" :key="i" style="text-align:center">
+                  <span v-if="v" style="color:var(--ok);font-weight:800">✓</span><span v-else style="color:var(--text-mute)">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════ LEDGER ═══════ -->
     <template v-if="tab === 'ledger'">
       <div v-if="ledger">
@@ -1306,6 +1424,55 @@ onMounted(async () => { await loadConfig(); await loadDash(); loadBalances() })
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="saveSalary" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💸 Confirm payment</button>
             <button @click="salModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ USER MODAL ═══════ -->
+    <div v-if="userModal" class="overlay" @click.self="userModal = null">
+      <div class="modal" style="max-width:480px">
+        <div class="modal-h"><div class="t">{{ userModal.title }}</div><button class="close" @click="userModal = null">✕</button></div>
+        <div class="modal-b">
+          <label style="font-size:12px;color:var(--text-mute)">Full name *
+            <input v-model="userForm.name" placeholder="e.g. Md. Shahidullah" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <template v-if="userModal.mode === 'add'">
+            <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Email *
+              <input v-model="userForm.email" type="email" placeholder="e.g. secretary@razzakplaza.com" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Temporary password *
+              <input v-model="userForm.password" type="text" placeholder="min 8 characters — user changes it on first login" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </template>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Role
+            <select v-model="userForm.role" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option v-for="r in USER_ROLES" :key="r" :value="r">{{ { owner: '👑 Owner (committee chairman)', manager: '🧑‍💼 Manager', accountant: '🧮 Accountant', collector: '💵 Collector (field staff)' }[r] || r }}</option>
+            </select>
+          </label>
+          <label v-if="userModal.mode === 'edit'" style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;margin-top:12px;padding-bottom:8px">
+            <input type="checkbox" v-model="userForm.active" style="width:16px;height:16px" /> Active (can log in)
+          </label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveUser" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save user</button>
+            <button @click="userModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ RESET PASSWORD MODAL ═══════ -->
+    <div v-if="resetModal" class="overlay" @click.self="resetModal = null">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-h"><div class="t">🔑 Reset password — {{ resetForm.name }}</div><button class="close" @click="resetModal = null">✕</button></div>
+        <div class="modal-b">
+          <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">Sets a new temporary password. The user's other sessions are signed out.</p>
+          <label style="font-size:12px;color:var(--text-mute)">New password
+            <input v-model="resetForm.password" type="text" placeholder="min 8 characters" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveReset" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🔑 Reset password</button>
+            <button @click="resetModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
           </div>
         </div>
       </div>
