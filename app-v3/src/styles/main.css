@@ -97,7 +97,25 @@ img{max-width:100%}
   .topbar-in .tb-actions{order:3}
   .topbar-in .head-actions{flex-wrap:nowrap;flex-shrink:1;min-width:0}
 }
-.tb-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+/* Mobile (<1024px): tb-actions collapse into the ⋯ menu; the page-head
+   (month navigator + contextual actions) joins the TOP row: ☰ ◀month▶ 🔍 ⋯ */
+@media (max-width: 1023.98px) {
+  .tb-actions .icon-btn:not(.tb-more), .tb-actions .tb-user, .tb-actions .tb-bell { display: none !important; }
+  .tb-more{display:inline-flex}
+  .topbar-in{height:64px;gap:8px;padding:0;align-items:center}
+  .topbar-in:has(.page-head){height:64px;padding:0;align-items:center}
+  .topbar-in .menu-toggle{order:0}
+  .topbar-in .page-head{order:1;flex:0 1 auto;min-width:0;padding:0;gap:6px;white-space:nowrap}
+  .topbar-in .page-head .head-actions{flex-wrap:nowrap;gap:6px}
+  .topbar-in .tb-search{order:2;flex:1 1 70px;min-width:56px;max-width:none}
+  .topbar-in .tb-search .gs-box{height:36px;padding:0 8px}
+  .topbar-in .tb-actions{order:3;flex-shrink:0}
+  .topbar-in .page-head input[type=month]{font-size:12px;padding:4px 6px}
+  .topbar-in .page-head .head-actions > div:first-child{padding:3px 6px}
+}
+.tb-actions{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
+/* ⋯ more-menu button: mobile only (all tb-actions collapse into it) */
+.tb-more{display:none}
 .icon-btn{background:var(--primary-light);border:1px solid var(--border);color:var(--primary-dark);border-radius:9px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;line-height:1;display:inline-flex;align-items:center;gap:6px;min-height:34px}
 .icon-btn:hover{border-color:var(--primary);transform:translateY(-1px)}
 [data-theme="dark"] .icon-btn{color:#7EB3F5}
