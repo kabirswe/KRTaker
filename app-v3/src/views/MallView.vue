@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref, onMounted, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import SearchableSelect from '../components/SearchableSelect.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
 import { useRoute } from 'vue-router'
@@ -108,13 +109,25 @@ function openEdit(s) {
   modal.value = { mode: 'edit', title: '✏️ Edit Space', id: s.id }
 }
 const saving = ref(false)
+/* afterAdd: when a dropdown's "＋ Add" creates a new entity, auto-select it
+   in the originating form once the create modal saves. */
+const afterAdd = ref(null) // { form, field, find: () => value }
+function setAfterAdd(form, field, find) { afterAdd.value = { form, field, find } }
+function applyAfterAdd() {
+  if (!afterAdd.value) return
+  try {
+    const v = afterAdd.value.find()
+    if (v !== undefined && v !== null && v !== '') afterAdd.value.form[afterAdd.value.field] = v
+  } catch (e) {}
+  afterAdd.value = null
+}
 async function saveShop() {
-  if (!form.value.no.trim() || !form.value.owner_name.trim()) { window.__krToast?.('Space no and owner name required.', 'err'); return }
+  if (!(form.value.no || '').trim() || !(form.value.owner_name || '').trim()) { window.__krToast?.('Space no and owner name required.', 'err'); return }
   saving.value = true
   try {
     const payload = {
-      no: form.value.no.trim(), floor: form.value.floor.trim(), sqft: Number(form.value.sqft) || 0,
-      owner_name: form.value.owner_name.trim(), owner_mobile: form.value.owner_mobile.trim(), owner_nid: form.value.owner_nid.trim(),
+      no: form.value.no.trim(), floor: (form.value.floor || '').trim(), sqft: Number(form.value.sqft) || 0,
+      owner_name: (form.value.owner_name || '').trim(), owner_mobile: (form.value.owner_mobile || '').trim(), owner_nid: (form.value.owner_nid || '').trim(),
       status: form.value.status, service_rate: Number(form.value.service_rate) || 0, opening_balance: Number(form.value.opening_balance) || 0,
       owner_id: Number(form.value.owner_id) || 0, space_type: form.value.space_type || 'Shop', occupancy: form.value.occupancy || 'Owner',
     }
@@ -122,7 +135,7 @@ async function saveShop() {
       action: modal.value.mode === 'edit' ? 'update' : 'create', collection: 'shops',
       ...(modal.value.mode === 'edit' ? { id: modal.value.id } : {}), data: payload,
     })
-    if (r.ok) { window.__krToast?.(modal.value.mode === 'edit' ? '✏️ Space updated' : '✅ Space created', 'ok'); modal.value = null; await data.bootstrap() }
+    if (r.ok) { window.__krToast?.(modal.value.mode === 'edit' ? '✏️ Space updated' : '✅ Space created', 'ok'); modal.value = null; await data.bootstrap(); applyAfterAdd() }
     else window.__krToast?.(r.error || 'Save failed.', 'err')
   } finally { saving.value = false }
 }
@@ -562,7 +575,7 @@ function openMeetingAdd() { meetingForm.value = { date: new Date().toISOString()
 async function saveMeeting() {
   if (!meetingForm.value.title.trim()) { window.__krToast?.('Title required.', 'err'); return }
   const r = await apiCall('mall', { action: 'meeting-add', ...meetingForm.value })
-  if (r.ok) { window.__krToast?.('✅ Meeting recorded', 'ok'); meetingModal.value = false; await loadCommittee() }
+  if (r.ok) { window.__krToast?.('✅ Meeting recorded', 'ok'); meetingModal.value = false; await loadCommittee(); applyAfterAdd() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delMeeting(m) {
@@ -630,7 +643,7 @@ async function saveOwner() {
   if (!ownerForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
   const action = ownerModal.value.mode === 'edit' ? 'owner-update' : 'owner-add'
   const r = await apiCall('mall', { action, ...ownerForm.value, ...(ownerModal.value.mode === 'edit' ? { id: ownerModal.value.id } : {}) })
-  if (r.ok) { window.__krToast?.(ownerModal.value.mode === 'edit' ? '✏️ Owner updated' : '✅ Owner added', 'ok'); ownerModal.value = null; await loadOwners(); if (tab.value === 'shops') loadShops() }
+  if (r.ok) { window.__krToast?.(ownerModal.value.mode === 'edit' ? '✏️ Owner updated' : '✅ Owner added', 'ok'); ownerModal.value = null; await loadOwners(); if (tab.value === 'shops') loadShops(); applyAfterAdd() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delOwner(o) {
@@ -662,7 +675,7 @@ async function saveTenant() {
   if (!tenantForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
   const action = tenantModal.value.mode === 'edit' ? 'tenant-update' : 'tenant-add'
   const r = await apiCall('mall', { action, ...tenantForm.value, ...(tenantModal.value.mode === 'edit' ? { id: tenantModal.value.id } : {}) })
-  if (r.ok) { window.__krToast?.(tenantModal.value.mode === 'edit' ? '✏️ Tenant updated' : '✅ Tenant added', 'ok'); tenantModal.value = null; await loadTenants() }
+  if (r.ok) { window.__krToast?.(tenantModal.value.mode === 'edit' ? '✏️ Tenant updated' : '✅ Tenant added', 'ok'); tenantModal.value = null; await loadTenants(); applyAfterAdd() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delTenant(t) {
@@ -995,10 +1008,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Collected amounts are <b>custodial</b> — forwarded to DESCO/WASA, tracked separately from service charges.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Space
-            <select v-model="meterForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="">Select space…</option>
-              <option v-for="s in shops.filter(x => x.status === 'Active')" :key="s.id" :value="s.id">{{ s.no }} — {{ s.floor }} ({{ s.owner_name }})</option>
-            </select>
+            <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" placeholder="Select space…" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Type
             <select v-model="meterForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
@@ -1837,10 +1847,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <label style="font-size:12px;color:var(--text-mute)">Owner mobile<input v-model="form.owner_mobile" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Owner NID<input v-model="form.owner_nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Owner (directory)
-              <select v-model="form.owner_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option :value="0">— standalone (name above) —</option>
-                <option v-for="o in owners" :key="o.id" :value="o.id">{{ o.name }} ({{ o.type }})</option>
-              </select>
+              <SearchableSelect v-model="form.owner_id" :options="owners.map(o => ({ value: o.id, label: o.name + ' (' + o.type + ')' }))" placeholder="— standalone (name above) —" allow-add add-label="New owner" @add="setAfterAdd(form, 'owner_id', () => owners.find(o => o.name === ownerForm.name?.trim())?.id); openOwnerAdd()" style="margin-top:4px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Space type
               <select v-model="form.space_type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
@@ -1895,10 +1902,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div class="modal-h"><div class="t">{{ compModal.title }}</div><button class="close" @click="compModal = null">✕</button></div>
         <div class="modal-b">
           <label style="font-size:12px;color:var(--text-mute)">Space *
-            <select v-model="compForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="">Select space…</option>
-              <option v-for="s in shops.filter(x => x.status === 'Active')" :key="s.id" :value="s.id">{{ s.no }} — {{ s.floor }} ({{ s.owner_name }})</option>
-            </select>
+            <SearchableSelect v-model="compForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" placeholder="Select space…" allow-add add-label="New space" @add="setAfterAdd(compForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Subject *<input v-model="compForm.subject" placeholder="e.g. Lift not working on 2nd floor" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Details<textarea v-model="compForm.descr" rows="2" placeholder="Describe the issue…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
@@ -2083,10 +2087,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Space (owner of)
-              <select v-model="memberForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option value="">Independent / no shop</option>
-                <option v-for="s in shops" :key="s.id" :value="s.no">{{ s.no }} — {{ s.owner_name }}</option>
-              </select>
+              <SearchableSelect v-model="memberForm.shop" :options="shops.map(s => ({ value: s.no, label: s.no + ' — ' + s.owner_name }))" placeholder="Independent / no shop" allow-add add-label="New space" @add="setAfterAdd(memberForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.no); openAdd()" style="margin-top:4px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Phone
               <input v-model="memberForm.phone" placeholder="e.g. 01711-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
@@ -2164,10 +2165,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <textarea v-model="resForm.body" rows="3" placeholder="The full resolution text — archived as the governance record…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Linked meeting (optional)
-            <select v-model="resForm.meeting_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option :value="0">— none —</option>
-              <option v-for="m in committee?.meetings || []" :key="m.id" :value="m.id">#{{ m.id }} · {{ m.title }} ({{ m.date }})</option>
-            </select>
+            <SearchableSelect v-model="resForm.meeting_id" :options="(committee?.meetings || []).map(m => ({ value: m.id, label: '#' + m.id + ' · ' + m.title + ' (' + m.date + ')' }))" placeholder="— none —" allow-add add-label="New meeting" @add="setAfterAdd(resForm, 'meeting_id', () => committee?.meetings?.find(m => m.title === meetingForm.title?.trim())?.id); openMeetingAdd()" style="margin-top:4px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;margin-top:12px;padding-bottom:8px">
             <input type="checkbox" v-model="resForm.passed" style="width:16px;height:16px" /> Passed by the committee
@@ -2290,16 +2288,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">Space *
-              <select v-model="agrForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option value="">— choose space —</option>
-                <option v-for="s in shops" :key="s.id" :value="s.no">{{ s.no }} · {{ s.space_type || 'Shop' }}</option>
-              </select>
+              <SearchableSelect v-model="agrForm.shop" :options="shops.map(s => ({ value: s.no, label: s.no + ' · ' + (s.space_type || 'Shop') }))" placeholder="— choose space —" allow-add add-label="New space" @add="setAfterAdd(agrForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.no); openAdd()" style="margin-top:4px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Tenant
-              <select v-model="agrForm.tenant_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option :value="0">— choose tenant —</option>
-                <option v-for="t in tenants" :key="t.id" :value="t.id">{{ t.name }}</option>
-              </select>
+              <SearchableSelect v-model="agrForm.tenant_id" :options="tenants.map(t => ({ value: t.id, label: t.name }))" placeholder="— choose tenant —" allow-add add-label="New tenant" @add="setAfterAdd(agrForm, 'tenant_id', () => tenants.find(t => t.name === tenantForm.name?.trim())?.id); openTenantAdd()" style="margin-top:4px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Monthly rent (৳)
               <input type="number" v-model.number="agrForm.rent" min="0" placeholder="e.g. 25000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
