@@ -93,7 +93,7 @@ img{max-width:100%}
   .topbar-in:has(.page-head){height:64px;padding:0;align-items:center}
   .topbar-in .menu-toggle{order:0}
   .topbar-in .page-head{order:1;flex:0 1 auto;min-width:0;padding:0;gap:10px;white-space:nowrap}
-  .topbar-in .tb-search{order:2;flex:1 1 140px;min-width:110px}
+  .topbar-in .tb-search{order:2;flex:0 0 auto;min-width:0}
   .topbar-in .tb-actions{order:3}
   .topbar-in .head-actions{flex-wrap:nowrap;flex-shrink:1;min-width:0}
 }
@@ -107,8 +107,7 @@ img{max-width:100%}
   .topbar-in .menu-toggle{order:0}
   .topbar-in .page-head{order:1;flex:0 1 auto;min-width:0;padding:0;gap:6px;white-space:nowrap}
   .topbar-in .page-head .head-actions{flex-wrap:nowrap;gap:6px}
-  .topbar-in .tb-search{order:2;flex:1 1 70px;min-width:56px;max-width:none}
-  .topbar-in .tb-search .gs-box{height:36px;padding:0 8px}
+  .topbar-in .tb-search{order:2;flex:0 0 auto;min-width:0;max-width:none}
   .topbar-in .tb-actions{order:3;flex-shrink:0}
   .topbar-in .page-head input[type=month]{font-size:12px;padding:4px 6px}
   .topbar-in .page-head .head-actions > div:first-child{padding:3px 6px}

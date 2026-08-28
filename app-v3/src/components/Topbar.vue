@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
@@ -121,7 +121,6 @@ const initials = computed(() => {
 function onDocClick(e) {
   if (!e.target.closest('.tb-user') && !e.target.closest('.user-menu')) menuOpen.value = false
   if (!e.target.closest('.tb-bell') && !e.target.closest('.bell-menu') && !e.target.closest('.more-menu')) bellOpen.value = false
-  if (!e.target.closest('.tb-search') && !e.target.closest('.search-menu')) searchOpen.value = false
   if (!e.target.closest('.tb-actions') && !e.target.closest('.more-menu')) moreOpen.value = false
 }
 
@@ -204,7 +203,7 @@ function runSearch() {
     searchBusy.value = false
   }, 180)
 }
-function openSearch() { searchOpen.value = true; searchFocus.value = 0 }
+function openSearch() { searchOpen.value = true; searchFocus.value = 0; nextTick(() => { searchInput.value && searchInput.value.focus() }) }
 function closeSearch() { searchOpen.value = false; searchQ.value = ''; results.value = []; recent.value = getRecent() }
 function flatItems() { return results.value.flatMap((g, gi) => g.items.map((it, ii) => ({ gi, ii }))) }
 function goSearch(item) {
@@ -252,55 +251,7 @@ onBeforeUnmount(() => {
     <header class="topbar">
       <div class="topbar-in">
         <button class="menu-toggle" @click="emit('toggle-sidebar')">☰</button>
-        <!-- Global search -->
-        <div class="tb-search" style="position:relative;flex:1;max-width:420px;min-width:140px">
-          <div class="gs-box" @click="openSearch">
-            <span class="gs-ic">🔍</span>
-            <input ref="searchInput" v-model="searchQ" @input="runSearch" @focus="openSearch" @keydown="onSearchKey"
-                   :placeholder="SEARCH_HINT" class="gs-input" aria-label="Global search" />
-            <button v-if="searchQ" class="gs-clear" @click.stop="searchQ = ''; runSearch()">✕</button>
-          </div>
-          <!-- dropdown -->
-          <div v-if="searchOpen" class="search-menu" style="position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16);z-index:95;overflow:hidden">
-            <template v-if="searchQ.trim().length >= 2">
-              <div v-if="searchBusy" style="padding:20px;text-align:center;color:var(--text-mute);font-size:13px">Searching…</div>
-              <div v-else-if="!results.length" style="padding:26px 16px;text-align:center;color:var(--text-mute);font-size:13px">No matches for <b>{{ searchQ }}</b></div>
-              <div v-else style="max-height:min(480px,62vh);overflow-y:auto;padding:6px 0">
-                <template v-for="(g, gi) in results" :key="g.group">
-                  <div class="gs-group" style="padding:8px 14px 4px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ g.ic }} {{ g.group }} <span style="font-weight:600;opacity:.7">· {{ g.items.length }}</span></div>
-                  <div v-for="(it, ii) in g.items" :key="g.group + '-' + it.id + '-' + ii"
-                       class="gs-item" :class="{ active: searchFocus === flatItems().findIndex(x => x.gi === gi && x.ii === ii) }"
-                       @mousedown.prevent="goSearch({ gi, ii })"
-                       @mouseenter="searchFocus = flatItems().findIndex(x => x.gi === gi && x.ii === ii)"
-                       style="display:flex;gap:10px;align-items:center;padding:8px 14px;cursor:pointer">
-                    <div style="font-size:15px;flex-shrink:0;width:22px;text-align:center">{{ g.kind === 'cmd' ? '⚡' : g.ic }}</div>
-                    <div style="flex:1;min-width:0">
-                      <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" v-html="hlHtml(it.title, searchQ)"></div>
-                      <div class="c-sub" style="font-size:11.5px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" v-html="hlHtml(it.sub, searchQ)"></div>
-                    </div>
-                    <span class="gs-go" style="color:var(--text-mute);font-size:11px;flex-shrink:0">↗</span>
-                  </div>
-                </template>
-                <div style="padding:8px 14px 6px;border-top:1px solid var(--border);display:flex;gap:10px;font-size:10.5px;color:var(--text-mute)">
-                  <span><b>↑↓</b> navigate</span><span><b>↵</b> open</span><span><b>Esc</b> close</span>
-                  <span style="margin-left:auto">search shops · bills · staff · assets · complaints · notices</span>
-                </div>
-              </div>
-            </template>
-            <template v-else>
-              <div v-if="recent.length" style="padding:6px 0">
-                <div class="gs-group" style="padding:8px 14px 4px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">🕘 Recent searches</div>
-                <div v-for="(r, i) in recent" :key="i" class="gs-item" @mousedown.prevent="pickRecent(r)" style="display:flex;gap:10px;align-items:center;padding:8px 14px;cursor:pointer">
-                  <div style="font-size:13px;flex-shrink:0;width:22px;text-align:center;opacity:.6">🕘</div>
-                  <div style="flex:1;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r }}</div>
-                </div>
-              </div>
-              <div style="padding:20px 16px;text-align:center;color:var(--text-mute);font-size:12.5px">
-                Type at least 2 characters to search <b>shops, bills, staff, assets, complaints &amp; notices</b> — or try a quick action like “generate bills”.
-              </div>
-            </template>
-          </div>
-        </div>
+        <button class="icon-btn tb-search" @click="openSearch" title="Global search (Ctrl+K)" style="font-size:15px">🔍</button>
         <div class="tb-actions">
           <button class="icon-btn" @click="toggleLang()" title="Switch language: English / বাংলা">বাংলা</button>
           <button class="icon-btn" @click="toggleTheme()" title="Toggle light / dark theme">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
@@ -448,4 +399,57 @@ onBeforeUnmount(() => {
       </div>
     </header>
   </div>
+  <!-- Global search MODAL (command-palette style) -->
+  <Teleport to="body">
+  <div v-if="searchOpen" class="overlay gs-modal" style="z-index:220;align-items:flex-start;padding-top:9vh" @click.self="closeSearch">
+    <div class="modal" style="max-width:620px;width:100%;padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border)">
+        <span style="font-size:15px;opacity:.75;flex-shrink:0">🔍</span>
+        <input ref="searchInput" v-model="searchQ" @input="runSearch" @keydown="onSearchKey"
+               :placeholder="SEARCH_HINT" class="gs-input" aria-label="Global search" autofocus style="flex:1;min-width:0;font-size:14px;background:transparent;border:none;outline:none" />
+        <button v-if="searchQ" class="gs-clear" @click.stop="searchQ = ''; runSearch()" style="font-size:13px;flex-shrink:0">✕</button>
+        <button class="close" @click="closeSearch" style="flex-shrink:0">✕</button>
+      </div>
+      <div style="max-height:min(520px,58vh);overflow-y:auto">
+        <template v-if="searchQ.trim().length >= 2">
+          <div v-if="searchBusy" style="padding:22px;text-align:center;color:var(--text-mute);font-size:13px">Searching…</div>
+          <div v-else-if="!results.length" style="padding:28px 16px;text-align:center;color:var(--text-mute);font-size:13px">No matches for <b>{{ searchQ }}</b></div>
+          <div v-else style="padding:6px 0">
+            <template v-for="(g, gi) in results" :key="g.group">
+              <div class="gs-group" style="padding:8px 14px 4px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ g.ic }} {{ g.group }} <span style="font-weight:600;opacity:.7">· {{ g.items.length }}</span></div>
+              <div v-for="(it, ii) in g.items" :key="g.group + '-' + it.id + '-' + ii"
+                   class="gs-item" :class="{ active: searchFocus === flatItems().findIndex(x => x.gi === gi && x.ii === ii) }"
+                   @mousedown.prevent="goSearch({ gi, ii })"
+                   @mouseenter="searchFocus = flatItems().findIndex(x => x.gi === gi && x.ii === ii)"
+                   style="display:flex;gap:10px;align-items:center;padding:9px 14px;cursor:pointer">
+                <div style="font-size:15px;flex-shrink:0;width:22px;text-align:center">{{ g.kind === 'cmd' ? '⚡' : g.ic }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" v-html="hlHtml(it.title, searchQ)"></div>
+                  <div class="c-sub" style="font-size:11.5px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" v-html="hlHtml(it.sub, searchQ)"></div>
+                </div>
+                <span class="gs-go" style="color:var(--text-mute);font-size:11px;flex-shrink:0">↗</span>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template v-else>
+          <div v-if="recent.length" style="padding:6px 0">
+            <div class="gs-group" style="padding:8px 14px 4px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">🕘 Recent searches</div>
+            <div v-for="(r, i) in recent" :key="i" class="gs-item" @mousedown.prevent="pickRecent(r)" style="display:flex;gap:10px;align-items:center;padding:9px 14px;cursor:pointer">
+              <div style="font-size:13px;flex-shrink:0;width:22px;text-align:center;opacity:.6">🕘</div>
+              <div style="flex:1;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r }}</div>
+            </div>
+          </div>
+          <div style="padding:22px 16px;text-align:center;color:var(--text-mute);font-size:12.5px">
+            Type at least 2 characters to search <b>spaces, bills, staff, assets, complaints &amp; notices</b> — or try a quick action like “generate bills”.
+          </div>
+        </template>
+      </div>
+      <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;gap:10px;font-size:10.5px;color:var(--text-mute)">
+        <span><b>↑↓</b> navigate</span><span><b>↵</b> open</span><span><b>Esc</b> close</span>
+        <span style="margin-left:auto">Ctrl+K to open anytime</span>
+      </div>
+    </div>
+  </div>
+</Teleport>
 </template>
