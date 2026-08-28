@@ -157,12 +157,19 @@ async function generateBills() {
 }
 const finesBusy = ref(false)
 async function calcFines() {
+  if (!config.value.late_fees_enabled) { window.__krToast?.('Late fees are disabled in ⚙️ Settings → Billing rules', 'err'); return }
   finesBusy.value = true
   try {
     const r = await apiCall('mall', { action: 'fine-calc', month: month.value })
-    window.__krToast?.(r.ok ? `💸 Late fees applied to ${r.count} bills (${money(r.total_fine)} @ ${r.pct}%)` : (r.error || 'Failed'), r.ok ? 'ok' : 'err')
+    window.__krToast?.(r.ok ? `💸 Late fees applied to ${r.count} bills (${money(r.total_fine)} @ ${r.pct}%, ${r.grace}d grace)` : (r.error || 'Failed'), r.ok ? 'ok' : 'err')
     if (r.ok) await loadBills()
   } finally { finesBusy.value = false }
+}
+async function clearFines() {
+  if (!window.confirm(`Remove all computed late fees for ${monthLabel(month.value)}?`)) return
+  const r = await apiCall('mall', { action: 'fine-clear', month: month.value })
+  window.__krToast?.(r.ok ? `🧹 Cleared ${r.cleared} fines (${money(r.amount)} removed)` : (r.error || 'Failed'), r.ok ? 'ok' : 'err')
+  if (r.ok) await loadBills()
 }
 const isOverdue = (b) => b.due_date && b.status === 'Unpaid' && new Date(b.due_date) < new Date()
 const payModal = ref(null)
@@ -688,11 +695,16 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Billed</div><div class="s-value">{{ money(billsTotals.billed) }}</div><div class="s-trend">{{ bills.length }} bills</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Collected</div><div class="s-value" style="color:var(--ok)">{{ money(billsTotals.collected) }}</div><div class="s-trend">{{ payments.length }} receipts</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Outstanding</div><div class="s-value" :style="Number(billsTotals.billed) - Number(billsTotals.collected) > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(Number(billsTotals.billed) - Number(billsTotals.collected)) }}</div><div class="s-trend">after collections</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Late fees</div><div class="s-value">{{ money(billsTotals.fines) }}</div><div class="s-trend">{{ config.late_fee_pct }}% of overdue bills</div></div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">💸</span>Late fees</div>
+          <div class="s-value" :style="config.late_fees_enabled ? '' : 'color:var(--text-mute);font-size:16px'">{{ config.late_fees_enabled ? money(billsTotals.fines) : 'OFF' }}</div>
+          <div class="s-trend">{{ config.late_fees_enabled ? `${config.late_fee_pct}% · ${config.late_fee_grace}d grace · min ৳${config.late_fee_min} · cap ${config.late_fee_max_pct}%` : 'disabled in ⚙️ Settings' }}</div>
+        </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="generateBills" :disabled="billsBusy" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">⚙️ Generate service-charge bills</button>
-        <button v-if="canManage" @click="calcFines" :disabled="finesBusy" class="btn-ghost" title="Apply late payment fines to overdue unpaid bills">💸 Compute late fees</button>
+        <button v-if="canManage" @click="calcFines" :disabled="finesBusy || !config.late_fees_enabled" class="btn-ghost" :title="config.late_fees_enabled ? 'Apply late payment fines to overdue bills' : 'Late fees are disabled in ⚙️ Settings → Billing rules'">💸 Compute late fees</button>
+        <button v-if="canManage" @click="clearFines" class="btn-ghost" title="Remove all computed fines for this month">🧹 Clear fines</button>
         <button @click="exportBills" class="btn-ghost" title="Download this month's bills as Excel-compatible CSV">⬇ CSV</button>
         <select v-model="billKind" @change="loadBills" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">All kinds</option>
@@ -1219,11 +1231,30 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <label style="font-size:12px;color:var(--text-mute)">Due day of month
               <input type="number" v-model.number="config.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Late fee (% of bill)
+            <div style="display:flex;align-items:flex-end;padding-bottom:6px">
+              <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:9px;cursor:pointer">
+                <span class="lf-switch" :class="{ on: !!config.late_fees_enabled }" @click="config.late_fees_enabled = config.late_fees_enabled ? 0 : 1; cfgDirty = true" style="width:40px;height:22px;border-radius:99px;background:config.late_fees_enabled ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;flex-shrink:0">
+                  <span style="position:absolute;top:2px;left:config.late_fees_enabled ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
+                </span>
+                <b :style="config.late_fees_enabled ? '' : 'color:var(--danger)'">{{ config.late_fees_enabled ? 'Late fees ON' : 'Late fees OFF' }}</b>
+              </label>
+            </div>
+          </div>
+          <div v-if="config.late_fees_enabled" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+            <label style="font-size:12px;color:var(--text-mute)">Fine rate (% of bill)
               <input type="number" v-model.number="config.late_fee_pct" min="0" max="100" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
+            <label style="font-size:12px;color:var(--text-mute)">Grace days (after due date)
+              <input type="number" v-model.number="config.late_fee_grace" min="0" max="60" title="Days after the due date before a fine applies" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Minimum fine (৳)
+              <input type="number" v-model.number="config.late_fee_min" min="0" title="Even small bills pay at least this fine" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Max cap (% of bill)
+              <input type="number" v-model.number="config.late_fee_max_pct" min="1" max="100" title="A fine can never exceed this % of the bill" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
           </div>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Late fee auto-applies to unpaid bills past the due date (💸 Compute late fees).</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
         </div>
         <div class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🏦 Bank details (shown on receipts)</h3>

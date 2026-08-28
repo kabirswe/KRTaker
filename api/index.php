@@ -14942,7 +14942,11 @@ case 'mall': {
             'secretary'      => $mcfg('secretary', ''),
             'elec_unit_rate' => (int)$mcfg('elec_unit_rate', '8'),
             'water_unit_rate'=> (int)$mcfg('water_unit_rate', '30'),
+            'late_fees_enabled' => (int)$mcfg('late_fees_enabled', '1'),
             'late_fee_pct'   => (int)$mcfg('late_fee_pct', '5'),
+            'late_fee_grace' => (int)$mcfg('late_fee_grace', '0'),
+            'late_fee_min'   => (int)$mcfg('late_fee_min', '0'),
+            'late_fee_max_pct' => (int)$mcfg('late_fee_max_pct', '100'),
             'due_day'        => (int)$mcfg('due_day', '10'),
             'bank_name'      => $mcfg('bank_name', ''),
             'bank_account_title' => $mcfg('bank_account_title', ''),
@@ -14952,7 +14956,7 @@ case 'mall': {
     }
     if ($a === 'config-set') {
         foreach (['mall_name', 'mall_address', 'mall_phone', 'mall_email', 'chairman', 'secretary',
-                  'elec_unit_rate', 'water_unit_rate', 'late_fee_pct', 'due_day',
+                  'elec_unit_rate', 'water_unit_rate', 'late_fees_enabled', 'late_fee_pct', 'late_fee_grace', 'late_fee_min', 'late_fee_max_pct', 'due_day',
                   'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note'] as $ck) {
             if (isset($body[$ck])) $mset($ck, $body[$ck]);
         }
@@ -14960,23 +14964,45 @@ case 'mall': {
         json_out(['ok' => true]);
     }
 
-    /* fine-calc — spec 3.2: late payment fine auto-calculation. For every unpaid
-       bill in a month past its due date: fine = amount * late_fee_pct / 100. */
+    /* fine-calc — spec 3.2: late payment fine auto-calculation, rule-driven.
+       Rules (mall_config): late_fees_enabled toggle, late_fee_pct rate,
+       late_fee_grace grace days after due date, late_fee_min minimum fine,
+       late_fee_max_pct cap (% of bill), rounded to the nearest ৳5. */
     if ($a === 'fine-calc') {
+        if ((int)$mcfg('late_fees_enabled', '1') !== 1) {
+            json_out(['ok' => false, 'error' => 'Late fees are disabled in Settings → Billing rules.'], 409);
+        }
         $month = trim($body['month'] ?? date('Y-m'));
         $pct = (int)$mcfg('late_fee_pct', '5');
-        $st = $pdo->prepare("SELECT id, amount FROM shop_bills WHERE month=? AND status='Unpaid' AND due_date != '' AND due_date < date('now')");
-        $st->execute([$month]);
+        $grace = (int)$mcfg('late_fee_grace', '0');
+        $min = (int)$mcfg('late_fee_min', '0');
+        $maxPct = (int)$mcfg('late_fee_max_pct', '100');
+        /* overdue = due_date + grace days < today */
+        $st = $pdo->prepare("SELECT id, amount FROM shop_bills
+                             WHERE month=? AND status='Unpaid' AND due_date != '' AND date(due_date, '+' || ? || ' days') < date('now')");
+        $st->execute([$month, $grace]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-        $n = 0; $total = 0;
-        $upd = $pdo->prepare("UPDATE shop_bills SET fine=? WHERE id=?");
+        $count = 0; $total = 0;
         foreach ($rows as $r) {
             $fine = (int)round((int)$r['amount'] * $pct / 100);
-            $upd->execute([$fine, $r['id']]);
-            $n++; $total += $fine;
+            if ($min > 0) $fine = max($fine, $min);
+            if ($maxPct > 0 && $maxPct < 100) $fine = min($fine, (int)round((int)$r['amount'] * $maxPct / 100));
+            $fine = (int)round($fine / 5) * 5;   /* tidy: nearest ৳5 */
+            $pdo->prepare('UPDATE shop_bills SET fine=? WHERE id=?')->execute([$fine, $r['id']]);
+            $count++; $total += $fine;
         }
-        audit($u['name'], 'Fine calc', 'mall', $month, "$n bills, ৳$total");
-        json_out(['ok' => true, 'count' => $n, 'total_fine' => $total, 'pct' => $pct]);
+        audit($u['name'], 'Fine calc', 'mall', $month, "$count bills, $total total (@$pct% grace $grace min $min cap $maxPct%)");
+        json_out(['ok' => true, 'count' => $count, 'total_fine' => $total, 'pct' => $pct, 'grace' => $grace]);
+    }
+    /* fine-clear — remove computed fines for a month (used when disabling the rule) */
+    if ($a === 'fine-clear') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $st = $pdo->prepare("SELECT COUNT(*), COALESCE(SUM(fine),0) FROM shop_bills WHERE month=? AND fine > 0");
+        $st->execute([$month]);
+        list($n, $sum) = $st->fetch(PDO::FETCH_NUM);
+        $pdo->prepare('UPDATE shop_bills SET fine=0 WHERE month=?')->execute([$month]);
+        audit($u['name'], 'Fine clear', 'mall', $month, "$n bills, $sum removed");
+        json_out(['ok' => true, 'cleared' => (int)$n, 'amount' => (int)$sum]);
     }
 
     /* receipt — full receipt payload (bill + shop + payment) for printing. */
