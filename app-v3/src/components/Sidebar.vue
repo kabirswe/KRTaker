@@ -48,13 +48,65 @@ const emit = defineEmits(['close'])
 // Mall Manager Edition — nav trimmed to the committee product only.
 // (KRTaker residential modules — portfolio, finance, BMS, community, legal,
 //  safety & security — are intentionally NOT exposed here.)
+// V2.0: all Mall tabs live IN the sidebar, organised in sub-groups.
 const GROUPS = [
-  { id: 'mall', label: 'Mall Management', items: [['mall', '🏬', 'Mall Management', 'Spaces, service charges, elec/water meters, collections, expenses, complaints, assets, notices, audit & ledger for shopping malls and commercial buildings']] },
+  {
+    id: 'mall', label: 'Mall Management',
+    groups: [
+      { sub: 'Overview', items: [
+        ['dashboard', '📊', 'Dashboard', 'Collections, outstanding, expenses & budget for the month'],
+        ['ledger', '📒', 'Ledger', 'Per-space paid vs billed, by-kind summary, DESCO/WASA custodial reconciliation'],
+      ]},
+      { sub: 'Spaces & Owners', items: [
+        ['shops', '🏪', 'Spaces', 'All commercial spaces — owners, space types, occupancy, service rates'],
+        ['owners', '🏢', 'Owners', 'Persons & entities who own spaces; multi-space portfolios'],
+        ['rent', '🧾', 'Rent & Tenants', 'Tenant profiles, rental agreements & optional rent collection'],
+      ]},
+      { sub: 'Billing', items: [
+        ['bills', '🧾', 'Bills & Collections', 'Monthly service-charge bills, collections, receipts & late fees'],
+        ['meters', '⚡', 'Meters', 'Sub-meter readings → automatic electricity / water bills'],
+      ]},
+      { sub: 'Operations', items: [
+        ['expenses', '📉', 'Expenses', 'Lift, DESCO/WASA, security, salaries & other spending'],
+        ['complaints', '🔧', 'Complaints', 'Space owner issues — open → in progress → resolved'],
+        ['assets', '🛠️', 'Assets & AMC', 'Mall assets with AMC & warranty tracking'],
+        ['vendors', '🧰', 'Vendors', 'Vendor profiles, ledgers & payment tracking'],
+      ]},
+      { sub: 'Governance', items: [
+        ['committee', '🏛️', 'Committee', 'Bearers, meeting register & resolutions'],
+        ['notices', '📢', 'Notices', 'Committee announcements to all owners'],
+        ['staff', '🧑‍💼', 'Staff', 'Office staff & security guards, salaries'],
+        ['users', '👥', 'Users & Roles', 'System users, roles & the access matrix'],
+      ]},
+      { sub: 'System', items: [
+        ['audit', '📋', 'Audit', 'Who did what, when'],
+        ['settings', '⚙️', 'Settings', 'Property profile, billing rules, invoice & license'],
+      ]},
+    ],
+  },
   { id: 'help', label: 'Help', items: [['wiki', '📚', 'Wiki & Help', 'Product guide, feature walkthroughs, FAQs and troubleshooting help'], ['backup', '💾', 'Backup & Restore', 'Download a full JSON backup of your workspace data or restore from a previous export']] },
 ]
 
 const VIEW_ROUTES = {
-  mall: '/mall', wiki: '/wiki', backup: '/backup',
+  mall: '/mall',
+  dashboard: { path: '/mall', query: { tab: 'dashboard' } },
+  shops: { path: '/mall', query: { tab: 'shops' } },
+  bills: { path: '/mall', query: { tab: 'bills' } },
+  meters: { path: '/mall', query: { tab: 'meters' } },
+  expenses: { path: '/mall', query: { tab: 'expenses' } },
+  complaints: { path: '/mall', query: { tab: 'complaints' } },
+  assets: { path: '/mall', query: { tab: 'assets' } },
+  notices: { path: '/mall', query: { tab: 'notices' } },
+  audit: { path: '/mall', query: { tab: 'audit' } },
+  staff: { path: '/mall', query: { tab: 'staff' } },
+  users: { path: '/mall', query: { tab: 'users' } },
+  committee: { path: '/mall', query: { tab: 'committee' } },
+  owners: { path: '/mall', query: { tab: 'owners' } },
+  rent: { path: '/mall', query: { tab: 'rent' } },
+  vendors: { path: '/mall', query: { tab: 'vendors' } },
+  ledger: { path: '/mall', query: { tab: 'ledger' } },
+  settings: { path: '/mall', query: { tab: 'settings' } },
+  wiki: '/wiki', backup: '/backup',
 }
 
 // Module gating follows the EFFECTIVE user (updates after a real role switch).
@@ -71,11 +123,15 @@ const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
 const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
 const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events', 'samity']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS, society: SOCIETY_MODS }
+const MALL_TABS = new Set(['dashboard', 'shops', 'bills', 'meters', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'ledger', 'settings'])
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true
   // Wiki/Help is available to every role — no module gate.
   if (mod === 'wiki') return true
+  // Mall Manager tabs are always available to every mall role (the role
+  // matrix gates ACTIONS, not navigation).
+  if (MALL_TABS.has(mod)) return true
   // V2.39.3: tenant role is portal-scoped — owner hub menus are hidden entirely.
   if (user.role === 'tenant' && TENANT_HIDDEN.has(mod)) return false
   const mods = user.role_modules ? (user.role_modules[user.role] || user.modules || []) : []
@@ -84,7 +140,14 @@ const can = (mod) => {
 }
 
 const groups = computed(() =>
-  GROUPS.map(g => ({ ...g, label: t(g.label), items: g.items.filter(i => can(i[0])) })).filter(g => g.items.length)
+  GROUPS.map(g => ({
+    ...g,
+    label: t(g.label),
+    items: g.items ? g.items.filter(i => can(i[0])) : undefined,
+    groups: g.groups
+      ? g.groups.map(sg => ({ ...sg, items: sg.items.filter(i => can(i[0])) })).filter(sg => sg.items.length)
+      : undefined,
+  })).filter(g => g.items ? g.items.length : (g.groups && g.groups.length))
 )
 
 // V2.39.3: the sb-bottom role-switch button/modal was removed — subordinate
@@ -159,7 +222,23 @@ async function backToMe() {
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
         <div class="sb-group">{{ g.label }}</div>
-        <div v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])"
+        <!-- collapsed rail: one icon per group linking to the product home -->
+        <div v-if="collapsed && g.groups" class="sb-item" :class="{ active: route.path === '/mall' && !route.query.tab }" @click="go('mall')"
+             @mouseenter="tipEnter($event, ['mall', '🏬', 'Mall Management', 'Open the property dashboard & menu']) " @mouseleave="tipLeave" @focus="tipEnter($event, ['mall', '🏬', 'Mall Management', 'Open the property dashboard & menu'])" @blur="tipLeave">
+          <span class="ic">🏬</span><span class="lbl">{{ g.label }}</span>
+        </div>
+        <!-- expanded: sub-groups + leaf items -->
+        <template v-else-if="g.groups">
+          <template v-for="(sg, si) in g.groups" :key="si">
+            <div class="sb-sub">{{ sg.sub }}</div>
+            <div v-for="i in sg.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])"
+                 @mouseenter="tipEnter($event, i)" @mouseleave="tipLeave" @focus="tipEnter($event, i)" @blur="tipLeave">
+              <span class="ic">{{ i[1] }}</span><span class="lbl">{{ t(i[2]) }}</span>
+            </div>
+          </template>
+        </template>
+        <!-- flat groups (Help) -->
+        <div v-else v-for="i in g.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])"
              @mouseenter="tipEnter($event, i)" @mouseleave="tipLeave" @focus="tipEnter($event, i)" @blur="tipLeave">
           <span class="ic">{{ i[1] }}</span><span class="lbl">{{ t(i[2]) }}</span>
         </div>

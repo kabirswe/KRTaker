@@ -6,7 +6,6 @@ import { useDataStore } from '../stores/data'
 import { useRoute } from 'vue-router'
 import { apiCall } from '../api/client'
 import { money, monthLabel, badge } from '../lib/ui'
-import ScrollTabs from '../components/ScrollTabs.vue'
 
 const route = useRoute()
 
@@ -812,12 +811,8 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
     </Teleport>
 
-    <ScrollTabs style="gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:10px">
-      <button v-for="[id, ico, label] in TABS" :key="id" @click="switchTab(id)"
-        :style="tab === id ? 'background:var(--primary);color:#fff' : 'background:var(--bg-alt);color:var(--text-mute)'"
-        style="padding:8px 14px;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer">{{ ico }} {{ label }}</button>
-    </ScrollTabs>
-
+    <!-- Navigation moved to the sidebar (MALL MANAGEMENT sub-groups) — the
+         route watch below switches tabs from /mall?tab=<id> deep links. -->
     <!-- ═══════ DASHBOARD ═══════ -->
     <template v-if="tab === 'dashboard'">
       <div class="stats">
