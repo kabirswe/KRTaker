@@ -25,6 +25,7 @@ const TABS = [
   ['coa', '🏦', 'Chart of Accounts'],
   ['journal', '📖', 'Journal'],
   ['trial', '⚖️', 'Trial Balance'],
+  ['pnl', '📊', 'P&L Statement'],
   ['expenses', '📉', 'Expenses'],
   ['complaints', '🔧', 'Complaints'],
   ['assets', '🛠️', 'Assets & AMC'],
@@ -823,6 +824,8 @@ const journal = ref(null)
 const jModal = ref(null)
 const jForm = ref({})
 const trial = ref(null)
+const pnl = ref(null)
+async function loadPnl() { const r = await apiCall('mall', { action: 'pnl', month: month.value }); if (r.ok) pnl.value = r }
 async function loadAccounts() { const r = await apiCall('mall', { action: 'accounts' }); if (r.ok) accounts.value = r.accounts }
 async function loadJournal() { const r = await apiCall('mall', { action: 'journal' }); if (r.ok) journal.value = r }
 async function loadTrial() { const r = await apiCall('mall', { action: 'trial' }); if (r.ok) trial.value = r.accounts }
@@ -894,6 +897,7 @@ function switchTab(x) {
   if (x === 'coa') loadAccounts()
   if (x === 'journal') loadJournal()
   if (x === 'trial') loadTrial()
+  if (x === 'pnl') loadPnl()
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
   if (x === 'staff') loadStaff()
@@ -1251,6 +1255,50 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </table>
         </div>
         <p style="font-size:11.5px;color:var(--text-mute);padding:10px 16px">💡 Debit total should equal credit total (including the opening-balance equity entry) — that is the trial balance.</p>
+      </div>
+    </template>
+
+    <!-- ═══════ P&L STATEMENT ═══════ -->
+    <template v-if="tab === 'pnl'">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>Income</div><div class="s-value" style="color:var(--ok)">{{ pnl ? money(pnl.total_income) : money(0) }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Expenses</div><div class="s-value" style="color:var(--danger)">{{ pnl ? money(pnl.total_expense) : money(0) }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Net result</div><div class="s-value" :style="(pnl ? pnl.net : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ pnl ? money(pnl.net) : money(0) }}</div><div class="s-trend">{{ (pnl ? pnl.net : 0) >= 0 ? 'surplus' : 'deficit' }} for the month</div></div>
+      </div>
+      <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ <b>Smart Ledger</b> — every collection, expense, salary, vendor payment, rent and bill now auto-posts to the Chart of Accounts. This statement is built from those journal entries for {{ monthLabel(month) }}.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="pnl-grid">
+        <div class="panel" style="overflow:hidden">
+          <h3 style="font-size:13px;font-weight:800;padding:12px 16px;background:rgba(39,174,96,.08);color:var(--ok);border-bottom:1px solid var(--border)">📈 INCOME</h3>
+          <div class="tbl-wrap" style="max-height:340px">
+            <table class="kr">
+              <thead><tr><th>Account</th><th style="text-align:right">Amount</th></tr></thead>
+              <tbody>
+                <tr v-for="i in (pnl ? pnl.income : [])" :key="i.code + i.name">
+                  <td><b>{{ i.name }}</b></td>
+                  <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(i.amount) }}</td>
+                </tr>
+                <tr v-if="!pnl || !pnl.income.length"><td colspan="2" style="text-align:center;color:var(--text-mute);padding:22px">No income entries for this month yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 16px;border-top:2px solid var(--border);color:var(--ok)"><span>TOTAL INCOME</span><span>{{ pnl ? money(pnl.total_income) : money(0) }}</span></div>
+        </div>
+        <div class="panel" style="overflow:hidden">
+          <h3 style="font-size:13px;font-weight:800;padding:12px 16px;background:rgba(235,87,87,.08);color:var(--danger);border-bottom:1px solid var(--border)">📉 EXPENSES</h3>
+          <div class="tbl-wrap" style="max-height:340px">
+            <table class="kr">
+              <thead><tr><th>Account</th><th style="text-align:right">Amount</th></tr></thead>
+              <tbody>
+                <tr v-for="e in (pnl ? pnl.expense : [])" :key="e.code + e.name">
+                  <td><b>{{ e.name }}</b></td>
+                  <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(e.amount) }}</td>
+                </tr>
+                <tr v-if="!pnl || !pnl.expense.length"><td colspan="2" style="text-align:center;color:var(--text-mute);padding:22px">No expense entries for this month yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 16px;border-top:2px solid var(--border);color:var(--danger)"><span>TOTAL EXPENSES</span><span>{{ pnl ? money(pnl.total_expense) : money(0) }}</span></div>
+        </div>
       </div>
     </template>
 
@@ -3222,4 +3270,5 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 }
 @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr !important; } }
 @media (max-width: 900px) { .cm-grid { grid-template-columns: 1fr !important; } }
+@media (max-width: 800px) { .pnl-grid { grid-template-columns: 1fr !important; } }
 </style>

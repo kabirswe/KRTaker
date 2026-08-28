@@ -15014,7 +15014,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15026,6 +15026,49 @@ case 'mall': {
     $mset = function ($k, $v) use ($pdo) {
         $pdo->prepare('INSERT INTO mall_config (k, v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v')->execute([$k, (string)$v]);
     };
+
+    /* ── SMART LEDGER: auto-post every operational flow into the COA ──
+       Collections → Dr cash/bank/bKash, Cr income (by kind incl. fine)
+       Expenses    → Dr expense account (by category), Cr cash/bank/bKash
+       Vendor pay  → Dr expense (by vendor category), Cr bank/cash
+       Salaries    → Dr Staff Salary, Cr cash/bank/bKash
+       Rent        → Dr cash/bank/bKash, Cr Rent Income
+       Bills       → Dr Accounts Receivable, Cr income (service/utility)   */
+    $ACCT_ID = function ($name) use ($pdo) {
+        static $cache = [];
+        if (!isset($cache[$name])) {
+            $st = $pdo->prepare('SELECT id FROM mall_accounts WHERE name=?'); $st->execute([$name]);
+            $id = (int)$st->fetchColumn();
+            $cache[$name] = $id ?: null;
+        }
+        return $cache[$name];
+    };
+    $EXP_ACCT = [
+        'Lift Maintenance' => 'Lift Maintenance', 'Escalator' => 'Lift Maintenance',
+        'Common Electricity (DESCO)' => 'Electricity Cost', 'AC Servicing' => 'General Maintenance',
+        'Generator / Fuel' => 'General Maintenance', 'Cleaning' => 'General Maintenance',
+        'Security' => 'Security Service', 'Staff Salary' => 'Staff Salary',
+        'Repairs' => 'General Maintenance', 'Other' => 'General Maintenance',
+    ];
+    $VENDOR_ACCT = [
+        'Lift / Escalator' => 'Lift Maintenance', 'Lift' => 'Lift Maintenance',
+        'Security' => 'Security Service', 'AC / HVAC' => 'General Maintenance',
+        'Generator' => 'General Maintenance', 'Cleaning' => 'General Maintenance',
+        'Electrical' => 'Electricity Cost', 'General' => 'General Maintenance',
+    ];
+    $METHOD_ACCT = ['cash' => 'Cash in Hand', 'bank' => 'Bank Account', 'bkash' => 'bKash', 'nagad' => 'bKash'];
+    $post_journal = function ($date, $ref, $note, $lines, $by = 'system') use ($pdo, $ACCT_ID) {
+        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by) VALUES (?,?,?,?,?,?,?)");
+        foreach ($lines as $ln) {
+            [$an, $d, $c] = $ln;
+            $id = $ACCT_ID($an);
+            if (!$id) continue;                    // unknown account → skip, never break ops
+            $ins->execute([$date, $ref, $id, (int)$d, (int)$c, $note, $by]);
+        }
+    };
+    $exp_acct_for = function ($cat) use ($EXP_ACCT) { return $EXP_ACCT[$cat] ?? 'General Maintenance'; };
+    $method_acct = function ($m) use ($METHOD_ACCT) { return $METHOD_ACCT[$m] ?? 'Cash in Hand'; };
+    $ar_acct = function () use ($ACCT_ID) { return 'Accounts Receivable (space dues)'; };
 
     /* config-get / config-set — mall-wide identity, rates, rules & receipt details */
     if ($a === 'config-get') {
@@ -15168,7 +15211,12 @@ case 'mall': {
         $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts)
                        VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
             ->execute([$cat, $cat . ' — ' . trim($body['note'] ?? ''), $amount, $method, '', trim($body['note'] ?? ''), trim($body['vendor'] ?? '')]);
+        $expId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Expense', 'mall', $cat, "$amount via $method");
+        /* Smart Ledger: Dr expense account (by category), Cr cash/bank/bKash */
+        $post_journal(date('Y-m-d'), 'EXP-' . str_pad((string)$expId, 5, '0', STR_PAD_LEFT),
+            $cat . ($body['vendor'] ? ' — ' . trim($body['vendor']) : ''),
+            [[$exp_acct_for($cat), $amount, 0], [$method_acct($method), 0, $amount]], $u['name']);
         json_out(['ok' => true]);
     }
 
@@ -15361,6 +15409,25 @@ case 'mall': {
         $pdo->prepare('DELETE FROM mall_journal WHERE id=?')->execute([$id]);
         json_out(['ok' => true]);
     }
+    /* pnl — monthly income statement (Smart Ledger): income vs expense by account */
+    if ($a === 'pnl') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $m0 = $month . '-01';
+        $m1 = date('Y-m-d', strtotime($month . '-01 +1 month'));
+        $rows = $pdo->query("SELECT a.name, a.type, a.code,
+            COALESCE(SUM(j.debit),0) AS d, COALESCE(SUM(j.credit),0) AS c
+            FROM mall_journal j JOIN mall_accounts a ON a.id=j.account
+            WHERE j.date >= '$m0' AND j.date < '$m1'
+            GROUP BY a.id ORDER BY a.code")->fetchAll(PDO::FETCH_ASSOC);
+        $income = []; $expense = []; $totI = 0; $totE = 0;
+        foreach ($rows as $r) {
+            $bal = (int)$r['c'] - (int)$r['d'];
+            if ($r['type'] === 'Income') { $income[] = ['name' => $r['name'], 'code' => $r['code'], 'amount' => $bal]; $totI += $bal; }
+            elseif ($r['type'] === 'Expense') { $expense[] = ['name' => $r['name'], 'code' => $r['code'], 'amount' => -$bal]; $totE += -$bal; }
+        }
+        json_out(['ok' => true, 'month' => $month, 'income' => $income, 'expense' => $expense,
+                  'total_income' => $totI, 'total_expense' => $totE, 'net' => $totI - $totE]);
+    }
     if ($a === 'trial') {
         $rows = $pdo->query("SELECT a.id, a.code, a.name, a.type, a.opening,
             COALESCE(SUM(j.debit),0) AS debit, COALESCE(SUM(j.credit),0) AS credit
@@ -15537,7 +15604,12 @@ case 'mall': {
             ->execute(['Staff Salary — ' . $s['name'] . ' (' . $month . ')', $amount, $method, '', trim($body['note'] ?? '') . ' Salary ' . $month, $s['name']]);
         $pdo->prepare('INSERT INTO mall_staff_salaries (staff_id, month, amount, method, note) VALUES (?,?,?,?,?)')
             ->execute([$staffId, $month, $amount, $method, trim($body['note'] ?? '')]);
+        $salId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Salary', 'mall', $s['name'], "$amount for $month via $method");
+        /* Smart Ledger: Dr Staff Salary, Cr cash/bank/bKash */
+        $post_journal(date('Y-m-d'), 'SAL-' . str_pad((string)$salId, 5, '0', STR_PAD_LEFT),
+            'Salary — ' . $s['name'] . ' (' . $month . ')',
+            [['Staff Salary', $amount, 0], [$method_acct($method), 0, $amount]], $u['name']);
         json_out(['ok' => true, 'staff' => $s['name'], 'amount' => $amount, 'month' => $month]);
     }
     /* salaries — salary history for a month or a staff member */
@@ -15928,7 +16000,12 @@ case 'mall': {
         $receipt = 'RNT-' . str_replace('-', '', $month) . '-' . str_pad((string)$agId, 4, '0', STR_PAD_LEFT);
         $pdo->prepare("INSERT INTO mall_rent_payments (agreement_id, shop, month, amount, method, ref, receipt) VALUES (?,?,?,?,?,?,?)")
             ->execute([$agId, $ag['shop'], $month, $amount, trim($body['method'] ?? 'cash'), trim($body['ref'] ?? ''), $receipt]);
+        $rpId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Rent collect', 'mall', $ag['shop'], "$month $amount");
+        /* Smart Ledger: Dr cash/bank/bKash, Cr Rent Income */
+        $post_journal(date('Y-m-d'), 'RNT-' . str_pad((string)$rpId, 5, '0', STR_PAD_LEFT),
+            'Rent — ' . $ag['shop'] . ' (' . $month . ')',
+            [[$method_acct(trim($body['method'] ?? 'cash')), $amount, 0], ['Rent Income', 0, $amount]], $u['name']);
         json_out(['ok' => true, 'receipt' => $receipt]);
     }
     if ($a === 'rent-payments') {
@@ -15982,8 +16059,14 @@ case 'mall': {
         if (!$vid || $amount <= 0) json_out(['ok' => false, 'error' => 'vendor_id and amount required.'], 400);
         $pdo->prepare('INSERT INTO mall_vendor_payments (vendor_id, amount, method, ref, note) VALUES (?,?,?,?,?)')
             ->execute([$vid, $amount, trim($body['method'] ?? 'bank'), trim($body['ref'] ?? ''), trim($body['note'] ?? '')]);
-        $vn = $pdo->query("SELECT name FROM mall_vendors WHERE id=$vid")->fetchColumn();
-        audit($u['name'], 'Vendor payment', 'mall', (string)$vn, "$amount via " . trim($body['method'] ?? 'bank'));
+        $vpId = (int)$pdo->lastInsertId();
+        $vn = $pdo->query("SELECT name, category FROM mall_vendors WHERE id=$vid")->fetch(PDO::FETCH_ASSOC);
+        audit($u['name'], 'Vendor payment', 'mall', (string)($vn['name'] ?? ''), "$amount via " . trim($body['method'] ?? 'bank'));
+        /* Smart Ledger: Dr expense (by vendor category), Cr bank/cash */
+        $post_journal(date('Y-m-d'), 'VNP-' . str_pad((string)$vpId, 5, '0', STR_PAD_LEFT),
+            'Vendor payment — ' . ($vn['name'] ?? ''),
+            [[$VENDOR_ACCT[$vn['category'] ?? ''] ?? 'General Maintenance', $amount, 0],
+             [$method_acct(trim($body['method'] ?? 'bank')), 0, $amount]], $u['name']);
         json_out(['ok' => true]);
     }
     if ($a === 'vendor-payments') {
@@ -16049,7 +16132,12 @@ case 'mall': {
             if ($rate <= 0) $rate = max(0, (int)$s['sqft']) * (int)$mcfg('per_sqft_rate', '0');
             if ($rate <= 0) $rate = (int)$mcfg('service_default_rate', '500');
             $ins->execute([$s['id'], $month, $rate]);
+            $newId = (int)$pdo->lastInsertId();
             $created++;
+            /* Smart Ledger: Dr Accounts Receivable, Cr Service Charge Income */
+            $post_journal($month . '-01', 'BIL-' . str_pad((string)$newId, 5, '0', STR_PAD_LEFT),
+                'Service bill — ' . $s['id'] . ' (' . $month . ')',
+                [[$ar_acct(), $rate, 0], ['Service Charge Income', 0, $rate]], $u['name']);
         }
         audit($u['name'], 'Bill generate', 'mall', $month, "$created created, $skipped skipped");
         json_out(['ok' => true, 'created' => $created, 'skipped' => $skipped]);
@@ -16071,8 +16159,19 @@ case 'mall': {
         $pdo->prepare("INSERT INTO shop_payments (shop, bill_id, month, kind, amount, method, ref, receipt)
                        VALUES (?,?,?,?,?,?,?,?)")
             ->execute([$bill['shop'], $billId, $bill['month'], $bill['kind'], $amount, $method, trim($body['ref'] ?? ''), $receipt]);
+        $payId = (int)$pdo->lastInsertId();
         $pdo->prepare("UPDATE shop_bills SET status='Paid' WHERE id=?")->execute([$billId]);
         audit($u['name'], 'Collect', 'mall', $bill['shop'], "$receipt $amount via $method");
+        /* Smart Ledger: Dr cash/bank/bKash; Cr income by kind (+ fine portion) */
+        $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
+        $billAmt = (int)$bill['amount'];
+        $incomePart = min($amount, $billAmt);
+        $finePart = max(0, $amount - $billAmt);
+        $lines = [[$method_acct($method), $amount, 0]];
+        if ($incomePart > 0) $lines[] = [$kindAcct[$bill['kind']] ?? 'Service Charge Income', 0, $incomePart];
+        if ($finePart > 0) $lines[] = ['Late Fine Income', 0, $finePart];
+        $post_journal(date('Y-m-d'), 'RCT-' . str_pad((string)$payId, 5, '0', STR_PAD_LEFT),
+            'Collection ' . $receipt . ' — ' . $bill['shop'] . ' (' . $bill['month'] . ')', $lines, $u['name']);
         json_out(['ok' => true, 'receipt' => $receipt]);
     }
 
@@ -16102,6 +16201,11 @@ case 'mall': {
                 $pdo->prepare("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status)
                                VALUES (?,?,?,?,0,?,'Unpaid')")
                     ->execute([$shop, $month, $type, $amount, date('Y-m-d', strtotime($month . '-' . sprintf('%02d', $dueDay)))]);
+                $billId = (int)$pdo->lastInsertId();
+                /* Smart Ledger: Dr Accounts Receivable, Cr Utility Billing Income */
+                $post_journal($month . '-28', 'BIL-' . str_pad((string)$billId, 5, '0', STR_PAD_LEFT),
+                    'Utility bill — ' . $shop . ' (' . $month . ') ' . $type,
+                    [[$ar_acct(), $amount, 0], ['Utility Billing Income', 0, $amount]], $u['name']);
             }
         }
         audit($u['name'], 'Meter', 'mall', $shop, "$type $reading ($units units)");
