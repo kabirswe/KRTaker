@@ -169,7 +169,7 @@ async function backToMe() {
       <!-- V2.37: user identity card removed — show software credit & version only -->
       <div class="sb-credit">
         <div class="sc-brand">{{ sbLogo.mark }} Mall Manager</div>
-        <div class="sc-ver">v1.0 · Mall & Commercial Edition</div>
+        <div class="sc-ver">v2.0 · Mall & Commercial Edition</div>
         <div class="sc-copy">© {{ new Date().getFullYear() }} Mall Manager — dedicated on-premise / online software</div>
       </div>
       <template v-if="auth.isImpersonating">
