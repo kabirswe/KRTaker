@@ -1,0 +1,468 @@
+<script setup>
+import { computed } from 'vue'
+import { useDataStore } from '../stores/data'
+import { useAuthStore } from '../stores/auth'
+import { lang } from '../lib/i18n'
+
+const data = useDataStore()
+const auth = useAuthStore()
+
+const money = n => '৳' + Math.round(n || 0).toLocaleString('en-IN')
+const list = k => data.list(k)
+const total = k => list(k).length
+
+// ── Role awareness ──
+const role = computed(() => data.previewRole || data.user?.role || 'owner')
+const isTenant = computed(() => role.value === 'tenant')
+const isPartner = computed(() => role.value === 'partner')
+const isResident = computed(() => isTenant.value || isPartner.value)
+const isStaff = computed(() => !isResident.value)
+
+const roleLabel = computed(() => {
+  const m = { superadmin: 'Super Admin', owner: 'Owner', manager: 'Property Manager', staff: 'Staff', tenant: 'Tenant', partner: 'Partner' }
+  return m[role.value] || role.value
+})
+
+const today = computed(() => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
+const firstName = computed(() => (data.user?.name || '').split(' ')[0] || 'there')
+
+// ── Portfolio stats (staff/owner view) ──
+const stats = computed(() => [
+  { label: lang.value === 'bn' ? 'প্রপার্টি' : 'Properties', ico: '🏢', value: total('properties') },
+  { label: lang.value === 'bn' ? 'ইউনিট' : 'Units', ico: '🚪', value: total('units') },
+  { label: lang.value === 'bn' ? 'ভাড়াটিয়া' : 'Tenants', ico: '👤', value: total('tenants') },
+  { label: lang.value === 'bn' ? 'লিজ' : 'Leases', ico: '📄', value: total('leases') },
+  { label: lang.value === 'bn' ? 'ইনভয়েস' : 'Invoices', ico: '🧾', value: total('invoices') },
+  { label: lang.value === 'bn' ? 'রসিদ' : 'Receipts', ico: '📎', value: total('receipts') },
+  { label: lang.value === 'bn' ? 'পেমেন্ট' : 'Payments', ico: '💳', value: total('payments') },
+  { label: lang.value === 'bn' ? 'খোলা টিকেট' : 'Open tickets', ico: '🔧', value: list('tickets').filter(t => t.status === 'Open').length },
+])
+
+// ── Financial health (staff/owner) ──
+const totalBilled = computed(() => list('invoices').reduce((a, i) => a + (i.net || 0), 0))
+const totalCollected = computed(() => list('payments').reduce((a, p) => a + (p.amount || 0), 0))
+const outstanding = computed(() => Math.max(0, totalBilled.value - totalCollected.value))
+const collectRate = computed(() => totalBilled.value ? Math.min(100, Math.round(totalCollected.value / totalBilled.value * 100)) : 0)
+const invByStatus = computed(() => {
+  const m = {}
+  list('invoices').forEach(i => { const k = i.status || 'Pending'; m[k] = (m[k] || 0) + 1 })
+  return m
+})
+const statusPct = (k) => { const n = invByStatus.value[k] || 0; const tot = list('invoices').length || 1; return Math.round(n / tot * 100) }
+const statusBadge = (k) => {
+  const m = { Paid: 'b-green', Active: 'b-green', Success: 'b-green', Unpaid: 'b-orange', Overdue: 'b-red', 'Awaiting Payment': 'b-orange', Pending: 'b-orange' }
+  return m[k] || 'b-gray'
+}
+
+// ── Monthly billing chart (pure SVG) ──
+const monthly = computed(() => {
+  const m = {}
+  list('invoices').forEach(i => { const k = i.m || ''; m[k] = (m[k] || 0) + (i.net || 0) })
+  return Object.entries(m).sort().slice(-6).map(([mm, v]) => ({ m: mm, v }))
+})
+const chartMax = computed(() => Math.max(...monthly.value.map(x => x.v), 1))
+const barH = (v) => Math.max(4, Math.round(v / chartMax.value * 110))
+const barW = computed(() => monthly.value.length ? Math.floor(520 / monthly.value.length) : 60)
+
+// ── Upcoming lease expiries (staff/owner) ──
+const leaseEnd = (l) => l.end || l.until || l.to || ''
+const expiring = computed(() => list('leases')
+  .map(l => ({ ...l, _end: leaseEnd(l) }))
+  .filter(l => l._end)
+  .map(l => ({ ...l, _days: Math.round((new Date(l._end) - Date.now()) / 86400000) }))
+  .filter(l => l._days >= 0 && l._days <= 90)
+  .sort((a, b) => a._days - b._days)
+  .slice(0, 5))
+const daysLabel = (d) => d === 0 ? 'today' : d === 1 ? 'tomorrow' : `${d} days`
+const unitName = (id) => list('units').find(u => u.id === id)?.name || id || '—'
+const tenantName = (id) => list('tenants').find(t => t.id === id)?.name || id || '—'
+
+// ── Tenant / partner personal view ──
+const myLease = computed(() => list('leases')[0] || null)
+const myUnit = computed(() => (myLease.value && list('units').find(u => u.id === myLease.value.u)) || null)
+const myProp = computed(() => (myUnit.value && list('properties').find(p => p.id === myUnit.value.p)) || null)
+const myInvoices = computed(() => list('invoices'))
+const myDue = computed(() => myInvoices.value.filter(i => (i.status || '').match(/unpaid|overdue|pending|awaiting/i)).reduce((a, i) => a + (i.net || 0), 0))
+const myPaid = computed(() => list('payments').reduce((a, p) => a + (p.amount || 0), 0))
+const myTickets = computed(() => list('tickets'))
+const myOpenTickets = computed(() => myTickets.value.filter(t => t.status === 'Open'))
+// V2.39.3: maintenance/service requests for the tenant's units (ongoing/pending first)
+const myMaint = computed(() => list('maintenance_requests'))
+const myMaintOpen = computed(() => myMaint.value.filter(m => m.status !== 'Closed'))
+const maintBadge = (s) => {
+  const m = { Open: ['b-red', 'Open'], 'In Progress': ['b-orange', 'In progress'], Pending: ['b-orange', 'Pending'], Completed: ['b-green', 'Completed'], Closed: ['b-green', 'Closed'] }
+  const r = m[s] || ['b-gray', s || '—']
+  return { cls: r[0], label: r[1] }
+}
+const myPayouts = computed(() => list('vendor_payouts').reduce((a, p) => a + (p.amount || 0), 0))
+const myPartnerInvoices = computed(() => list('partner_invoices'))
+
+const openTickets = computed(() => list('tickets').filter(t => t.status === 'Open'))
+const recentReceipts = computed(() => [...list('receipts')].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5))
+
+// ── Quick actions ──
+const actions = computed(() => {
+  if (isTenant.value) return [
+    { label: lang.value === 'bn' ? 'ভাড়া পরিশোধ' : 'Pay rent', ico: '💳', to: '/invoices' },
+    { label: lang.value === 'bn' ? 'টিকেট তৈরি' : 'Raise ticket', ico: '🔧', to: '/maintenance' },
+    { label: lang.value === 'bn' ? 'আমার লিজ' : 'My lease', ico: '📄', to: '/leases' },
+    { label: 'Ask AI', ico: '🤖', to: '/ai' },
+  ]
+  if (isPartner.value) return [
+    { label: lang.value === 'bn' ? 'আমার টিকেট' : 'My tickets', ico: '🔧', to: '/maintenance' },
+    { label: lang.value === 'bn' ? 'ইনভয়েস' : 'Invoices', ico: '🧾', to: '/partner-invoices' },
+    { label: lang.value === 'bn' ? 'পেআউট' : 'Payouts', ico: '💰', to: '/vendor-payouts' },
+    { label: 'Ask AI', ico: '🤖', to: '/ai' },
+  ]
+  return [
+    { label: lang.value === 'bn' ? 'নতুন ইনভয়েস' : 'New invoice', ico: '🧾', to: '/invoices' },
+    { label: lang.value === 'bn' ? 'ভাড়াটিয়া যোগ করুন' : 'Add tenant', ico: '👤', to: '/tenants' },
+    { label: lang.value === 'bn' ? 'মেইনটেন্যান্স' : 'Maintenance', ico: '🔧', to: '/maintenance' },
+    { label: lang.value === 'bn' ? 'রিপোর্ট' : 'Reports', ico: '📈', to: '/analytics' },
+    { label: lang.value === 'bn' ? 'লিগ্যাল' : 'Legal', ico: '⚖️', to: '/legal' },
+    { label: 'Ask AI', ico: '🤖', to: '/ai' },
+  ]
+})
+
+function refresh() { data.bootstrap() }
+
+// ── GO-LIVE 4.1: first-run setup checklist (shown on the 0-property empty state) ──
+const setupChecklist = computed(() => {
+  const has = (k) => total(k) > 0
+  const bn = lang.value === 'bn'
+  return [
+    { k: 'p', ico: '🏢', label: bn ? 'প্রথম প্রপার্টি যোগ করুন' : 'Add your first property', hint: bn ? 'বিল্ডিং বা জমি যা আপনি ম্যানেজ করেন' : 'The building or land you manage', done: has('properties') },
+    { k: 'u', ico: '🚪', label: bn ? 'একটি ইউনিট যোগ করুন' : 'Add your first unit', hint: bn ? 'ফ্ল্যাট, দোকান বা অফিস — ভাড়া যার সাথে সংযুক্ত' : 'Flat, shop or office that rent attaches to', done: has('units') },
+    { k: 't', ico: '👤', label: bn ? 'প্রথম ভাড়াটিয়া যোগ করুন' : 'Add your first tenant', hint: bn ? 'নাম, ফোন ও NID — তাদের পোর্টাল অ্যাকাউন্ট স্বয়ংক্রিয়' : 'Name, phone & NID — their portal account is auto-created', done: has('tenants') },
+    { k: 'r', ico: '🧾', label: bn ? 'প্রথম ভাড়া আদায় করুন' : 'Collect your first rent', hint: bn ? 'ইনভয়েস তৈরি → পেমেন্ট রেকর্ড করুন' : 'Create an invoice and record the payment', done: has('payments') },
+  ]
+})
+</script>
+
+<template>
+  <div>
+    <!-- Offline banner -->
+    <div v-if="data.offline" class="panel" style="margin-bottom:16px;padding:14px 18px;border-left:4px solid var(--warn)">
+      <b>📡 You're offline</b> — showing the last-loaded snapshot. Reconnect and refresh to get live data.
+    </div>
+
+    <!-- Refresh hint -->
+    <div v-if="data.loading" class="panel" style="margin-bottom:16px;padding:12px 18px;border-left:4px solid var(--accent)">
+      🔄 Refreshing data…
+    </div>
+
+    <!-- Hero -->
+    <div class="page-head">
+      <div>
+        <h1>{{ isResident ? (lang === 'bn' ? 'আমার হোম' : 'My home') : (lang === 'bn' ? 'ওভারভিউ' : 'Overview') }}</h1>
+        <div class="sub">
+          {{ isResident
+            ? (lang === 'bn' ? `${firstName}, আপনার ${roleLabel.toLowerCase()} ভিউ — ${today}.` : `${firstName}, here's your ${roleLabel.toLowerCase()} view — ${today}.`)
+            : (lang === 'bn' ? `আবারও স্বাগতম, ${firstName} — ${today}.` : `Welcome back, ${firstName} — ${today}.`) }}
+        </div>
+      </div>
+      <div class="head-actions">
+        <span class="badge" :class="role === 'superadmin' ? 'b-blue' : isResident ? 'b-green' : 'b-gray'">{{ roleLabel }}</span>
+        <button @click="refresh" class="btn-ghost" title="Refresh data">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="quick" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      <router-link v-for="a in actions" :key="a.label" :to="a.to" class="chip" style="display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border:1px solid var(--border);border-radius:12px;background:var(--bg-alt);font-size:13px;font-weight:600;color:var(--text);text-decoration:none">
+        <span>{{ a.ico }}</span>{{ a.label }}
+      </router-link>
+    </div>
+
+    <!-- ── EMPTY STATE (staff/owner with zero properties) — GO-LIVE 4.1 ── -->
+    <template v-if="isStaff && !total('properties')">
+      <div class="panel" style="padding:38px 30px;text-align:center;background:linear-gradient(180deg,var(--bg-alt),var(--card));border:1.5px dashed var(--border);border-radius:18px">
+        <div style="font-size:46px;margin-bottom:12px">🏗️</div>
+        <h2 style="margin:0 0 6px;font-size:21px;font-weight:800;letter-spacing:-.3px">{{ lang === 'bn' ? 'আপনার পোর্টফোলিও এখন খালি' : 'Your portfolio is empty — let’s set it up' }}</h2>
+        <p style="margin:0 auto 22px;max-width:460px;font-size:13.5px;color:var(--text-soft);line-height:1.6">
+          {{ lang === 'bn'
+            ? '৩টি দ্রুত ধাপে প্রথম প্রপার্টি, ইউনিট ও ভাড়াটিয়া যোগ করুন — অথবা পুরনো তালিকা থাকলে CSV দিয়ে একসাথে ইমপোর্ট করুন।'
+            : 'Add your first property, unit and tenant in 3 quick steps — or, if you already run a ledger, import everything from CSV in one go.' }}
+        </p>
+
+        <!-- setup checklist -->
+        <div style="max-width:520px;margin:0 auto 24px;text-align:left;display:flex;flex-direction:column;gap:8px">
+          <div v-for="s in setupChecklist" :key="s.k" style="display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 15px">
+            <div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;background:var(--bg-alt);color:var(--text-mute)">{{ s.ico }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:700">{{ s.label }}</div>
+              <div style="font-size:11.5px;color:var(--text-mute)">{{ s.hint }}</div>
+            </div>
+            <span v-if="s.done" class="badge b-green" style="flex-shrink:0">✓ done</span>
+            <span v-else class="badge b-orange" style="flex-shrink:0">todo</span>
+          </div>
+        </div>
+
+        <!-- CTAs -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+          <router-link to="/properties?add=1" class="chip" style="display:inline-flex;align-items:center;gap:7px;padding:11px 20px;background:var(--grad);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:700;text-decoration:none;box-shadow:0 8px 20px rgba(47,128,237,.28)">
+            🏢 {{ lang === 'bn' ? 'প্রথম প্রপার্টি যোগ করুন' : 'Add your first property' }}
+          </router-link>
+          <router-link to="/units?import=1" class="chip" style="display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border:1px solid var(--border);border-radius:12px;background:var(--card);font-size:13.5px;font-weight:700;color:var(--text);text-decoration:none">
+            ⬆ {{ lang === 'bn' ? 'CSV ইমপোর্ট' : 'Import from CSV' }}
+          </router-link>
+          <router-link to="/setup" class="chip" style="display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border:1px solid var(--border);border-radius:12px;background:var(--card);font-size:13.5px;font-weight:700;color:var(--text);text-decoration:none">
+            🎬 {{ lang === 'bn' ? 'ট্যুর দেখুন' : 'Watch the tour' }}
+          </router-link>
+        </div>
+
+        <div style="margin-top:20px;font-size:12px;color:var(--text-mute)">
+          {{ lang === 'bn' ? 'আরও সাহায্য দরকার? ⚙️ সেটিংস → সাহায্য, অথবা 🤖 Ask AI' : 'Need a hand? Visit ⚙️ Settings → Help, or just 🤖 Ask AI.' }}
+        </div>
+      </div>
+    </template>
+
+    <!-- ── STAFF / OWNER PORTFOLIO VIEW ── -->
+    <template v-else-if="isStaff">
+      <div class="stats">
+        <div v-for="s in stats" :key="s.label" class="stat">
+          <div class="s-label"><span class="s-ico">{{ s.ico }}</span>{{ s.label }}</div>
+          <div class="s-value">{{ s.value }}</div>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">📊</span>{{ lang === 'bn' ? 'মাসিক বিলিং' : 'Monthly billing' }}</div></div>
+          <div class="panel-b">
+            <div v-if="monthly.length">
+              <svg :viewBox="`0 0 560 150`" style="width:100%;height:auto;display:block">
+                <line v-for="i in [0,1,2,3]" :key="i" x1="0" :y1="12 + i * 32" x2="560" :y2="12 + i * 32" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 4"/>
+                <g v-for="(b, i) in monthly" :key="b.m">
+                  <rect :x="30 + i * (barW + 12)" :y="120 - barH(b.v)" :width="barW" :height="barH(b.v)" rx="6" fill="var(--accent)" opacity="0.9">
+                    <title>{{ b.m }} — {{ money(b.v) }}</title>
+                  </rect>
+                  <text :x="30 + i * (barW + 12) + barW / 2" y="136" text-anchor="middle" font-size="10" fill="var(--text-mute)">{{ b.m.slice(2) }}</text>
+                  <text :x="30 + i * (barW + 12) + barW / 2" :y="110 - barH(b.v)" text-anchor="middle" font-size="9" fill="var(--text-mute)">{{ money(b.v).replace('৳', '৳') }}</text>
+                </g>
+              </svg>
+            </div>
+            <div v-else class="c-sub">No invoice data yet.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">💰</span>{{ lang === 'bn' ? 'আর্থিক অবস্থা' : 'Financial health' }}</div></div>
+          <div class="panel-b">
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'মোট বিল' : 'Total billed' }}</span><span class="v">{{ money(totalBilled) }}</span></div>
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'আদায়কৃত' : 'Collected' }}</span><span class="v">{{ money(totalCollected) }}</span></div>
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'বকেয়া' : 'Outstanding' }}</span><span class="v" :style="{ color: outstanding ? 'var(--danger)' : 'var(--ok)' }">{{ money(outstanding) }}</span></div>
+            <div class="kv"><span class="k">{{ lang === 'bn' ? 'আদায়ের হার' : 'Collection rate' }}</span><span class="v">{{ collectRate }}%</span></div>
+            <div style="height:8px;border-radius:6px;background:var(--bg-alt);overflow:hidden;margin:10px 0 14px">
+              <div :style="{ width: collectRate + '%', height: '100%', background: collectRate > 75 ? 'var(--ok)' : collectRate > 40 ? 'var(--warn)' : 'var(--danger)', borderRadius: 6 }"></div>
+            </div>
+            <div v-if="Object.keys(invByStatus).length" style="display:flex;flex-wrap:wrap;gap:6px">
+              <span v-for="(n, k) in invByStatus" :key="k" class="badge" :class="statusBadge(k)" style="font-size:11px">{{ k }} · {{ n }} ({{ statusPct(k) }}%)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:18px">
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🔧</span>{{ lang === 'bn' ? 'খোলা টিকেট' : 'Open tickets' }}</div><router-link to="/maintenance" class="link">{{ lang === 'bn' ? 'সব দেখুন →' : 'View all →' }}</router-link></div>
+          <div class="panel-b">
+            <div v-if="openTickets.length">
+              <div v-for="t in openTickets.slice(0, 5)" :key="t.id" style="padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px">
+                <div style="font-weight:700">{{ t.id }} — {{ t.desc }}</div>
+                <div class="c-sub">{{ t.liab }} liability · {{ t.con || 'unassigned' }}</div>
+              </div>
+            </div>
+            <div v-else class="c-sub">No open tickets 🎉</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">📎</span>{{ lang === 'bn' ? 'সাম্প্রতিক রসিদ' : 'Recent receipts' }}</div></div>
+          <div class="panel-b">
+            <div v-if="recentReceipts.length" class="tbl-wrap">
+              <table class="kr">
+                <thead><tr><th>{{ lang === 'bn' ? 'আইডি' : 'ID' }}</th><th>{{ lang === 'bn' ? 'তারিখ' : 'Date' }}</th><th>{{ lang === 'bn' ? 'পদ্ধতি' : 'Method' }}</th><th>{{ lang === 'bn' ? 'পরিমাণ' : 'Amount' }}</th></tr></thead>
+                <tbody>
+                  <tr v-for="r in recentReceipts" :key="r.id">
+                    <td>{{ r.id }}</td>
+                    <td>{{ r.date }}</td>
+                    <td>{{ r.method }}</td>
+                    <td>{{ money(r.amount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="c-sub">No receipts yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="expiring.length" class="panel" style="margin-top:18px">
+        <div class="panel-h"><div class="t"><span class="pi">⏳</span>{{ lang === 'bn' ? 'শীঘ্রই মেয়াদ শেষ হচ্ছে' : 'Leases expiring soon' }}</div><router-link to="/leases" class="link">{{ lang === 'bn' ? 'সব লিজ →' : 'All leases →' }}</router-link></div>
+        <div class="panel-b">
+          <div class="tbl-wrap">
+            <table class="kr">
+              <thead><tr><th>{{ lang === 'bn' ? 'লিজ' : 'Lease' }}</th><th>{{ lang === 'bn' ? 'ইউনিট' : 'Unit' }}</th><th>{{ lang === 'bn' ? 'ভাড়াটিয়া' : 'Tenant' }}</th><th>{{ lang === 'bn' ? 'ভাড়া' : 'Rent' }}</th><th>{{ lang === 'bn' ? 'মেয়াদ শেষ' : 'Expires' }}</th></tr></thead>
+              <tbody>
+                <tr v-for="l in expiring" :key="l.id">
+                  <td style="font-weight:700">{{ l.id }}</td>
+                  <td>{{ unitName(l.u) }}</td>
+                  <td>{{ tenantName(l.t) }}</td>
+                  <td>{{ money(l.rent) }}/mo</td>
+                  <td><span class="badge" :class="l._days <= 14 ? 'b-red' : l._days <= 45 ? 'b-orange' : 'b-gray'">{{ l._end }} · {{ daysLabel(l._days) }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── TENANT VIEW ── -->
+    <template v-else-if="isTenant">
+      <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">🏠</span>My unit</div>
+          <div class="s-value" style="font-size:17px">{{ myUnit?.name || myLease?.u || '—' }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">🏢</span>Property</div>
+          <div class="s-value" style="font-size:17px">{{ myProp?.name || '—' }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">📄</span>Rent / month</div>
+          <div class="s-value" style="font-size:17px">{{ money(myLease?.rent || myUnit?.rent) }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">🧾</span>Due balance</div>
+          <div class="s-value" :style="{ fontSize: '17px', color: myDue ? 'var(--danger)' : 'var(--ok)' }">{{ money(myDue) }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">💳</span>Paid to date</div>
+          <div class="s-value" style="font-size:17px">{{ money(myPaid) }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">🔧</span>Open tickets</div>
+          <div class="s-value" style="font-size:17px">{{ myOpenTickets.length }}</div>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🧾</span>My invoices</div><router-link to="/invoices" class="link">View all →</router-link></div>
+          <div class="panel-b">
+            <div v-if="myInvoices.length" class="tbl-wrap" style="max-height:340px;overflow:auto">
+              <table class="kr">
+                <thead><tr><th>ID</th><th>Month</th><th>Amount</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr v-for="i in [...myInvoices].sort((a,b)=>(b.m||'').localeCompare(a.m||''))" :key="i.id">
+                    <td style="font-weight:700">{{ i.id }}</td>
+                    <td>{{ i.m }}</td>
+                    <td>{{ money(i.net) }}</td>
+                    <td><span class="badge" :class="statusBadge(i.status || 'Pending')">{{ i.status || 'Pending' }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="c-sub">No invoices yet.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🔧</span>My tickets</div><router-link to="/maintenance" class="link">View all →</router-link></div>
+          <div class="panel-b">
+            <div v-if="myTickets.length">
+              <div v-for="t in myTickets.slice(0, 5)" :key="t.id" style="padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px">
+                <div style="font-weight:700">{{ t.id }} — {{ t.desc }}</div>
+                <div class="c-sub">{{ t.liab }} liability · <span class="badge" :class="t.status === 'Open' ? 'b-red' : 'b-green'" style="font-size:10px">{{ t.status }}</span></div>
+              </div>
+            </div>
+            <div v-else class="c-sub">No tickets yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- V2.39.3: ongoing/pending maintenance & service work on the tenant's unit -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-h">
+          <div class="t"><span class="pi">🛠️</span>Maintenance & service</div>
+          <span style="margin-left:auto" class="badge" :class="myMaintOpen.length ? 'b-orange' : 'b-green'">{{ myMaintOpen.length }} ongoing</span>
+        </div>
+        <div class="panel-b" style="padding:0">
+          <div v-if="myMaint.length" class="tbl-wrap">
+            <table class="kr">
+              <thead><tr><th>ID</th><th>Work</th><th>Status</th><th>Priority</th><th>Reported</th></tr></thead>
+              <tbody>
+                <tr v-for="m in [...myMaint].sort((a,b)=>(a.status === 'Closed') - (b.status === 'Closed') || String(b.ts||'').localeCompare(String(a.ts||'')))" :key="m.id">
+                  <td style="font-weight:700">{{ m.id }}</td>
+                  <td style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.title || m.desc || '—' }}</td>
+                  <td><span class="badge" :class="maintBadge(m.status).cls">{{ maintBadge(m.status).label }}</span></td>
+                  <td>{{ m.priority || '—' }}</td>
+                  <td class="c-sub">{{ m.ts || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else style="padding:22px;text-align:center;color:var(--text-mute);font-size:13px">No maintenance work 🎉</div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── PARTNER VIEW ── -->
+    <template v-else>
+      <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">🔧</span>My tickets</div>
+          <div class="s-value" style="font-size:17px">{{ myTickets.length }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">✅</span>Open</div>
+          <div class="s-value" style="font-size:17px">{{ myOpenTickets.length }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">🧾</span>Invoices</div>
+          <div class="s-value" style="font-size:17px">{{ myPartnerInvoices.length }}</div>
+        </div>
+        <div class="stat">
+          <div class="s-label"><span class="s-ico">💰</span>Payouts</div>
+          <div class="s-value" style="font-size:17px">{{ money(myPayouts) }}</div>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🔧</span>Assigned tickets</div><router-link to="/maintenance" class="link">View all →</router-link></div>
+          <div class="panel-b">
+            <div v-if="myTickets.length">
+              <div v-for="t in myTickets.slice(0, 6)" :key="t.id" style="padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px">
+                <div style="font-weight:700">{{ t.id }} — {{ t.desc }}</div>
+                <div class="c-sub">{{ t.liab }} liability · <span class="badge" :class="t.status === 'Open' ? 'b-red' : 'b-green'" style="font-size:10px">{{ t.status }}</span></div>
+              </div>
+            </div>
+            <div v-else class="c-sub">No tickets assigned yet.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><div class="t"><span class="pi">🧾</span>Partner invoices</div><router-link to="/partner-invoices" class="link">View all →</router-link></div>
+          <div class="panel-b">
+            <div v-if="myPartnerInvoices.length" class="tbl-wrap">
+              <table class="kr">
+                <thead><tr><th>ID</th><th>Amount</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr v-for="i in myPartnerInvoices.slice(0, 6)" :key="i.id">
+                    <td style="font-weight:700">{{ i.id }}</td>
+                    <td>{{ money(i.amount) }}</td>
+                    <td><span class="badge" :class="statusBadge(i.status || 'Pending')">{{ i.status || 'Pending' }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="c-sub">No invoices yet.</div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
