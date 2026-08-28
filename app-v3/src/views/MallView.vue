@@ -26,6 +26,8 @@ const TABS = [
   ['journal', '📖', 'Journal'],
   ['trial', '⚖️', 'Trial Balance'],
   ['pnl', '📊', 'P&L Statement'],
+  ['pl', '🧾', 'Party Ledger'],
+  ['ledger', '📒', 'Ledger'],
   ['expenses', '📉', 'Expenses'],
   ['complaints', '🔧', 'Complaints'],
   ['assets', '🛠️', 'Assets & AMC'],
@@ -888,6 +890,63 @@ const journalVouchers = computed(() => {
 })
 const jStatusBadge = { Pending: 'b-orange', Approved: 'b-green', Rejected: 'b-red' }
 const myName = computed(() => (data.user && data.user.name) || (auth.user && auth.user.name) || '')
+
+/* ══════════ PARTY LEDGER (Vendor / Owner / Tenant / Staff) ══════════ */
+const partyType = ref('vendor')
+const partyId = ref(0)
+const partyLedger = ref(null)
+async function loadPartyLedger() {
+  if (!partyId.value) return
+  const r = await apiCall('mall', { action: 'party-ledger', type: partyType.value, id: partyId.value })
+  if (r.ok) partyLedger.value = r
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function pickParty(type) {
+  if (partyType.value !== type) { partyType.value = type; partyId.value = 0; partyLedger.value = null }
+}
+const partyOptions = computed(() => {
+  if (partyType.value === 'vendor') return vendors.value.map(v => ({ value: v.id, label: v.name + ' (' + v.category + ')' }))
+  if (partyType.value === 'owner') return owners.value.map(o => ({ value: o.id, label: o.name + (o.type ? ' (' + o.type + ')' : '') }))
+  if (partyType.value === 'tenant') return tenants.value.map(t => ({ value: t.id, label: t.name + (t.phone ? ' · ' + t.phone : '') }))
+  return staff.value.map(s => ({ value: s.id, label: s.name + ' (' + s.designation + ')' }))
+})
+
+/* ══════════ EXPORT / PRINT (accounting-wide) ══════════ */
+function csvDownload(filename, headers, rows) {
+  const esc = v => '"' + String(v ?? '').replace(/"/g, '""') + '"'
+  const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n')
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  a.download = filename
+  a.click()
+}
+function printTable(title, el) {
+  let area = document.getElementById('printArea')
+  if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area) }
+  area.innerHTML = `<h2 style="margin:0 0 4px;font-size:18px">${title}</h2>
+    <p style="margin:0 0 14px;color:#555;font-size:12px">${config.mall_name || 'Mall Manager'} · ${new Date().toLocaleString()}</p>` + el.outerHTML
+  window.print()
+}
+function exportAccountsCsv() {
+  csvDownload('chart-of-accounts.csv', ['Code', 'Account', 'Type', 'Opening', 'Debits', 'Credits', 'Balance'],
+    accounts.value.map(a => [a.code, a.name, a.type, a.opening, a.total_debit, a.total_credit, a.balance]))
+}
+function exportJournalCsv() {
+  csvDownload('journal.csv', ['Ref', 'Date', 'Account', 'Type', 'Debit', 'Credit', 'Status', 'Note', 'By'],
+    (journal.value?.entries || []).map(e => [e.ref, e.date, e.account_name, e.account_type, e.debit, e.credit, e.status, e.note, e.created_by]))
+}
+function exportTrialCsv() {
+  csvDownload('trial-balance.csv', ['Code', 'Account', 'Type', 'Opening', 'Debit', 'Credit', 'Balance'],
+    (trial.value || []).map(a => [a.code, a.name, a.type, a.opening, a.debit, a.credit, a.balance]))
+}
+function exportPnlCsv() {
+  const rows = [...(pnl.value?.income || []).map(i => ['Income', i.name, i.amount]), ...(pnl.value?.expense || []).map(e => ['Expense', e.name, e.amount])]
+  csvDownload('pnl-' + month.value + '.csv', ['Type', 'Account', 'Amount'], rows)
+}
+function exportPartyCsv() {
+  csvDownload('party-ledger.csv', ['Date', 'Particulars', 'Method', 'Debit', 'Credit', 'Balance'],
+    (partyLedger.value?.rows || []).map(r => [r.date, r.particulars, r.method, r.debit, r.credit, r.balance]))
+}
 async function delJournal(x) {
   if (!window.confirm(`Delete journal entry #${x.id}?`)) return
   const r = await apiCall('mall', { action: 'journal-del', id: x.id })
@@ -932,6 +991,7 @@ function switchTab(x) {
   if (x === 'journal') { loadJournal(); loadAccounts() }
   if (x === 'trial') loadTrial()
   if (x === 'pnl') loadPnl()
+  if (x === 'pl') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff(); loadPartyLedger() }
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
   if (x === 'staff') loadStaff()
@@ -1191,11 +1251,14 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openAccountAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add account</button>
-        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Double-entry basics — every journal entry posts a debit or credit to an account; the trial balance stays balanced.</span>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button @click="exportAccountsCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+          <button @click="printTable('Chart of Accounts — ' + (config.mall_name || 'Mall'), $refs.coaTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+        </span>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
-          <table class="kr">
+          <table class="kr" ref="coaTbl">
             <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debits</th><th style="text-align:right">Credits</th><th style="text-align:right">Balance</th><th></th></tr></thead>
             <tbody>
               <template v-for="t in ACCOUNT_TYPES" :key="t">
@@ -1233,14 +1296,18 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New voucher (double entry)</button>
-        <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt);margin-left:auto">
+        <span style="display:flex;gap:6px;margin-left:auto">
+          <button @click="exportJournalCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+          <button @click="printTable('Journal — ' + (config.mall_name || 'Mall'), $refs.journalArea)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+        </span>
+        <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
           <button v-for="f in ['All', 'Pending', 'Approved', 'Rejected']" :key="f" @click="journalFilter = f"
             :style="journalFilter === f ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
             style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ f }}<template v-if="f === 'Pending' && journal && journal.counts.pending"> ({{ journal.counts.pending }})</template></button>
         </div>
       </div>
       <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ Every voucher is <b>double-entry</b> (debit total = credit total) and goes through <b>approval</b> — pending entries do not appear in the COA, trial balance or P&amp;L until approved. Smart-Ledger posts are auto-approved.</p>
-      <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;flex-direction:column;gap:12px" ref="journalArea">
         <div v-for="v in journalVouchers" :key="v.ref" class="panel" style="padding:0;overflow:hidden">
           <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--bg-alt)">
             <b style="font-family:monospace;font-size:12.5px">{{ v.ref }}</b>
@@ -1288,9 +1355,13 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 
     <!-- ═══════ TRIAL BALANCE ═══════ -->
     <template v-if="tab === 'trial'">
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">
+        <button @click="exportTrialCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+        <button @click="printTable('Trial Balance — ' + (config.mall_name || 'Mall'), $refs.trialTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+      </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
-          <table class="kr">
+          <table class="kr" ref="trialTbl">
             <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
             <tbody>
               <template v-for="t in ACCOUNT_TYPES" :key="t">
@@ -1328,8 +1399,12 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Expenses</div><div class="s-value" style="color:var(--danger)">{{ pnl ? money(pnl.total_expense) : money(0) }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Net result</div><div class="s-value" :style="(pnl ? pnl.net : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ pnl ? money(pnl.net) : money(0) }}</div><div class="s-trend">{{ (pnl ? pnl.net : 0) >= 0 ? 'surplus' : 'deficit' }} for the month</div></div>
       </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">
+        <button @click="exportPnlCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+        <button @click="printTable('P&L Statement — ' + monthLabel(month) + ' — ' + (config.mall_name || 'Mall'), $refs.pnlArea)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+      </div>
       <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ <b>Smart Ledger</b> — every collection, expense, salary, vendor payment, rent and bill now auto-posts to the Chart of Accounts. This statement is built from those journal entries for {{ monthLabel(month) }}.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="pnl-grid">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="pnl-grid" ref="pnlArea">
         <div class="panel" style="overflow:hidden">
           <h3 style="font-size:13px;font-weight:800;padding:12px 16px;background:rgba(39,174,96,.08);color:var(--ok);border-bottom:1px solid var(--border)">📈 INCOME</h3>
           <div class="tbl-wrap" style="max-height:340px">
@@ -1363,6 +1438,57 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 16px;border-top:2px solid var(--border);color:var(--danger)"><span>TOTAL EXPENSES</span><span>{{ pnl ? money(pnl.total_expense) : money(0) }}</span></div>
         </div>
       </div>
+    </template>
+
+    <!-- ═══════ PARTY LEDGER (Vendor / Owner / Tenant / Staff) ═══════ -->
+    <template v-if="tab === 'pl'">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
+          <button v-for="t in [{id:'vendor',ic:'🧰',label:'Vendor'},{id:'owner',ic:'🏢',label:'Owner'},{id:'tenant',ic:'🧑‍🤝‍🧑',label:'Tenant'},{id:'staff',ic:'🧑‍💼',label:'Staff'}]" :key="t.id" @click="pickParty(t.id)"
+            :style="partyType === t.id ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
+            style="border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">{{ t.ic }} {{ t.label }}</button>
+        </div>
+        <div style="min-width:260px;flex:1;max-width:420px">
+          <SearchableSelect v-model="partyId" :options="partyOptions" :placeholder="'Select ' + partyType + '…'" style="width:100%" @update:modelValue="loadPartyLedger" />
+        </div>
+      </div>
+      <div v-if="partyLedger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat"><div class="s-label"><span class="s-ico">👤</span>Party</div><div class="s-value" style="font-size:15px">{{ partyLedger.party.name }}</div><div class="s-trend">{{ partyLedger.label }}<template v-if="partyLedger.party.phone"> · {{ partyLedger.party.phone }}</template></div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📒</span>Transactions</div><div class="s-value">{{ partyLedger.count }}</div><div class="s-trend">ledger lines</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Balance</div><div class="s-value" :style="partyLedger.closing > 0 ? 'color:var(--danger)' : partyLedger.closing < 0 ? 'color:var(--ok)' : ''">{{ money(partyLedger.closing) }}</div><div class="s-trend">{{ partyLedger.closing > 0 ? 'receivable / paid (Dr)' : partyLedger.closing < 0 ? 'credit side (Cr)' : 'settled' }}</div></div>
+      </div>
+      <div v-if="partyLedger" class="panel" style="overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap">
+          <h3 style="font-size:14px">{{ partyLedger.label }} ledger — {{ partyLedger.party.name }}</h3>
+          <span style="margin-left:auto;display:flex;gap:6px">
+            <button @click="exportPartyCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+            <button @click="printTable(partyLedger.label + ' ledger — ' + partyLedger.party.name, $refs.partyTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+          </span>
+        </div>
+        <div class="tbl-wrap" style="max-height:480px">
+          <table class="kr" ref="partyTbl">
+            <thead><tr><th>Date</th><th>Particulars</th><th>Method</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+            <tbody>
+              <tr v-for="(r, i) in partyLedger.rows" :key="i">
+                <td style="font-size:12px">{{ r.date }}</td>
+                <td style="font-size:12.5px">{{ r.particulars }}</td>
+                <td><span class="badge b-gray" style="font-size:10px">{{ r.method || '—' }}</span></td>
+                <td style="text-align:right;font-weight:700;color:var(--danger)">{{ r.debit ? money(r.debit) : '' }}</td>
+                <td style="text-align:right;font-weight:700;color:var(--ok)">{{ r.credit ? money(r.credit) : '' }}</td>
+                <td style="text-align:right;font-weight:800" :style="r.balance > 0 ? 'color:var(--danger)' : r.balance < 0 ? 'color:var(--ok)' : ''">{{ money(r.balance) }}</td>
+              </tr>
+              <tr v-if="!partyLedger.rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:24px">No ledger transactions for this party.</td></tr>
+            </tbody>
+            <tfoot style="border-top:2px solid var(--border)">
+              <tr><td colspan="3" style="font-weight:800">CLOSING BALANCE</td>
+                <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(partyLedger.rows.reduce((s, r) => s + r.debit, 0)) }}</td>
+                <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(partyLedger.rows.reduce((s, r) => s + r.credit, 0)) }}</td>
+                <td style="text-align:right;font-weight:800">{{ money(partyLedger.closing) }}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <div v-else class="panel" style="padding:28px;text-align:center;color:var(--text-mute)">Pick a {{ partyType }} to open their accounts ledger — bills &amp; collections for owners, expenses &amp; payments for vendors, rent for tenants, salaries for staff.</div>
     </template>
 
     <!-- ═══════ METERS ═══════ -->
@@ -1980,10 +2106,11 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <div style="display:flex;gap:8px;align-items:center">
               <span class="badge b-green" style="font-size:12px">Net balance {{ money(Number(ledger.by_kind.reduce((s, k) => s + k.collected, 0)) - Number(ledger.expenses)) }}</span>
               <button @click="exportLedger" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+              <button @click="printTable('Ledger — ' + monthLabel(ledger.month) + ' — ' + (config.mall_name || 'Mall'), $refs.ledgerTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
             </div>
           </div>
           <div class="tbl-wrap" style="max-height:420px">
-            <table class="kr">
+            <table class="kr" ref="ledgerTbl">
               <thead><tr><th>Space</th><th>Owner</th><th style="text-align:right">Service</th><th style="text-align:right">Elec</th><th style="text-align:right">Water</th><th style="text-align:right">Total due</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="s in ledger.per_shop" :key="s.id">
@@ -3349,6 +3476,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
   body * { visibility: hidden !important; }
   #receiptPrint, #receiptPrint * { visibility: visible !important; }
   #receiptPrint { position: fixed; left: 0; top: 0; width: 100%; background: #fff; color: #111; padding: 24px; }
+  #printArea, #printArea * { visibility: visible !important; }
+  #printArea { position: fixed; left: 0; top: 0; width: 100%; background: #fff; color: #111; padding: 20px 24px; }
+  #printArea table.kr th { background: #f1f5f9 !important; color: #0f172a !important; border-color: #cbd5e1 !important; }
+  #printArea table.kr td, #printArea table.kr th { border-color: #cbd5e1 !important; color: #0f172a !important; }
 }
 @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr !important; } }
 @media (max-width: 900px) { .cm-grid { grid-template-columns: 1fr !important; } }

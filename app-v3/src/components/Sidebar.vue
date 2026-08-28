@@ -55,7 +55,6 @@ const GROUPS = [
     groups: [
       { sub: 'Overview', ico: '📊', items: [
         ['dashboard', '📊', 'Dashboard', 'Collections, outstanding, expenses & budget for the month'],
-        ['ledger', '📒', 'Ledger', 'Per-space paid vs billed, by-kind summary, DESCO/WASA custodial reconciliation'],
       ]},
       { sub: 'Spaces & Owners', ico: '🏪', items: [
         ['space', '🏪', 'Spaces', 'All commercial spaces — owners, space types, occupancy, service rates'],
@@ -67,6 +66,8 @@ const GROUPS = [
         ['meters', '⚡', 'Meters', 'Sub-meter readings → automatic electricity / water bills'],
       ]},
       { sub: 'Accounting', ico: '🏦', items: [
+        ['ledger', '📒', 'Ledger', 'Per-space paid vs billed, by-kind summary, DESCO/WASA custodial reconciliation'],
+        ['pl', '🧾', 'Party Ledger', 'Vendor, owner, tenant & staff ledgers with running balance'],
         ['coa', '🏦', 'Chart of Accounts', 'Account list by type with balances'],
         ['journal', '📖', 'Journal', 'Debit / credit journal entries'],
         ['trial', '⚖️', 'Trial Balance', 'Balanced debit vs credit summary'],
@@ -114,6 +115,7 @@ const VIEW_ROUTES = {
   journal: { path: '/mall', query: { tab: 'journal' } },
   trial: { path: '/mall', query: { tab: 'trial' } },
   pnl: { path: '/mall', query: { tab: 'pnl' } },
+  pl: { path: '/mall', query: { tab: 'pl' } },
   settings: { path: '/mall', query: { tab: 'settings' } },
   wiki: '/wiki', backup: '/backup',
 }
@@ -132,7 +134,7 @@ const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
 const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
 const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events', 'samity']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS, society: SOCIETY_MODS }
-const MALL_TABS = new Set(['dashboard', 'space', 'bills', 'meters', 'coa', 'journal', 'trial', 'pnl', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'ledger', 'settings'])
+const MALL_TABS = new Set(['dashboard', 'space', 'bills', 'meters', 'coa', 'journal', 'trial', 'pnl', 'pl', 'ledger', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'settings'])
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true

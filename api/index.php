@@ -15020,7 +15020,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15504,6 +15504,76 @@ case 'mall': {
         }
         unset($r);
         json_out(['ok' => true, 'accounts' => $rows]);
+    }
+    /* party-ledger — per-party accounts ledger (Vendor / Owner / Tenant / Staff):
+       opening balance + transactions with running Dr/Cr balance */
+    if ($a === 'party-ledger') {
+        $type = trim($body['type'] ?? 'vendor');
+        $id = (int)($body['id'] ?? 0);
+        if (!in_array($type, ['vendor', 'owner', 'tenant', 'staff'], true) || !$id) json_out(['ok' => false, 'error' => 'type (vendor/owner/tenant/staff) and id required.'], 400);
+        $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
+        $one = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetch(PDO::FETCH_ASSOC); };
+        $rows = []; $opening = 0;
+        if ($type === 'vendor') {
+            $p = $one('SELECT * FROM mall_vendors WHERE id=?', [$id]);
+            if (!$p) json_out(['ok' => false, 'error' => 'Vendor not found.'], 404);
+            $exps = $q("SELECT 'Expense' AS kind, ts, label AS particulars, amount, method FROM company_ledger WHERE kind='expense' AND payee=? ORDER BY ts", [$p['name']]);
+            $pays = $q("SELECT 'Payment' AS kind, ts, note AS particulars, amount, method FROM mall_vendor_payments WHERE vendor_id=? ORDER BY ts", [$id]);
+            foreach ($exps as $e) $rows[] = ['date' => substr($e['ts'], 0, 10), 'particulars' => $e['particulars'], 'method' => $e['method'], 'debit' => 0, 'credit' => (int)$e['amount']];
+            foreach ($pays as $e) $rows[] = ['date' => substr($e['ts'], 0, 10), 'particulars' => $e['particulars'] ?: 'Payment', 'method' => $e['method'], 'debit' => (int)$e['amount'], 'credit' => 0];
+            usort($rows, fn($a, $b) => strcmp($a['date'], $b['date']));
+            $label = '🧰 Vendor';
+        } elseif ($type === 'owner') {
+            $p = $one('SELECT * FROM mall_owners WHERE id=?', [$id]);
+            if (!$p) json_out(['ok' => false, 'error' => 'Owner not found.'], 404);
+            $shops = $q('SELECT id, no FROM shops WHERE owner_id=?', [$id]);
+            $shopIds = array_column($shops, 'id');
+            if ($shopIds) {
+                $in = implode(',', array_map(fn($x) => "'" . $x . "'", $shopIds));
+                $bills = $q("SELECT * FROM shop_bills WHERE shop IN ($in) ORDER BY due_date, id");
+                $pays = $q("SELECT * FROM shop_payments WHERE shop IN ($in) ORDER BY created_at");
+                $shopNo = [];
+                foreach ($shops as $s) $shopNo[$s['id']] = $s['no'];
+                foreach ($bills as $b) $rows[] = ['date' => $b['due_date'], 'particulars' => 'Bill ' . $b['month'] . ' ' . $b['kind'] . ' — ' . ($shopNo[$b['shop']] ?? $b['shop']), 'method' => '', 'debit' => (int)$b['amount'] + (int)($b['fine'] ?? 0), 'credit' => 0];
+                foreach ($pays as $e) $rows[] = ['date' => substr($e['created_at'], 0, 10), 'particulars' => 'Collection ' . $e['receipt'] . ' — ' . ($shopNo[$e['shop']] ?? $e['shop']), 'method' => $e['method'], 'debit' => 0, 'credit' => (int)$e['amount']];
+                usort($rows, fn($a, $b) => strcmp($a['date'], $b['date']));
+            }
+            $label = '🏢 Owner';
+        } elseif ($type === 'tenant') {
+            $p = $one('SELECT * FROM mall_tenants WHERE id=?', [$id]);
+            if (!$p) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
+            $agrs = $q('SELECT * FROM mall_agreements WHERE tenant_id=? ORDER BY start_date', [$id]);
+            $rp = $q("SELECT rp.*, a.shop FROM mall_rent_payments rp LEFT JOIN mall_agreements a ON a.id=rp.agreement_id WHERE a.tenant_id=? ORDER BY rp.ts", [$id]);
+            foreach ($agrs as $ag) {
+                $paid = 0;
+                foreach ($rp as $x) if ($x['agreement_id'] == $ag['id']) $paid += (int)$x['amount'];
+                $months = 0;
+                if ($ag['status'] === 'Active') {
+                    $from = strtotime($ag['start_date']);
+                    $to = strtotime(date('Y-m-01'));
+                    if ($from && $from <= $to) $months = max(0, (int)floor(($to - $from) / 2592000));
+                }
+                $due = max(0, (int)$ag['rent'] * $months - $paid);
+                $rows[] = ['date' => $ag['start_date'], 'particulars' => 'Agreement ' . $ag['shop'] . ' — rent ' . (int)$ag['rent'] . '/mo' . ($months ? ' × ' . $months . ' mo' : ''), 'method' => '', 'debit' => $due, 'credit' => 0];
+            }
+            foreach ($rp as $e) $rows[] = ['date' => substr($e['ts'], 0, 10), 'particulars' => 'Rent ' . $e['month'] . ' — ' . ($e['shop'] ?? ''), 'method' => $e['method'], 'debit' => 0, 'credit' => (int)$e['amount']];
+            usort($rows, fn($a, $b) => strcmp($a['date'], $b['date']));
+            $label = '🧑‍🤝‍🧑 Tenant';
+        } else {
+            $p = $one('SELECT * FROM mall_staff WHERE id=?', [$id]);
+            if (!$p) json_out(['ok' => false, 'error' => 'Staff not found.'], 404);
+            $sals = $q('SELECT * FROM mall_staff_salaries WHERE staff_id=? ORDER BY month', [$id]);
+            foreach ($sals as $e) $rows[] = ['date' => substr($e['ts'] ?? $e['month'], 0, 10), 'particulars' => 'Salary ' . $e['month'], 'method' => $e['method'], 'debit' => (int)$e['amount'], 'credit' => 0];
+            $label = '🧑‍💼 Staff';
+        }
+        $bal = $opening; $out = [];
+        foreach ($rows as $r) {
+            $bal += (int)$r['debit'] - (int)$r['credit'];
+            $out[] = ['date' => $r['date'], 'particulars' => $r['particulars'], 'method' => $r['method'],
+                      'debit' => (int)$r['debit'], 'credit' => (int)$r['credit'], 'balance' => $bal];
+        }
+        json_out(['ok' => true, 'type' => $type, 'party' => $p, 'label' => $label,
+                  'rows' => $out, 'opening' => $opening, 'closing' => $bal, 'count' => count($out)]);
     }
     if ($a === 'complaint-add') {
         $shop = trim($body['shop'] ?? '');
