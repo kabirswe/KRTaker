@@ -53,32 +53,37 @@ const GROUPS = [
   {
     id: 'mall', label: 'Mall Management',
     groups: [
-      { sub: 'Overview', items: [
+      { sub: 'Overview', ico: '📊', items: [
         ['dashboard', '📊', 'Dashboard', 'Collections, outstanding, expenses & budget for the month'],
         ['ledger', '📒', 'Ledger', 'Per-space paid vs billed, by-kind summary, DESCO/WASA custodial reconciliation'],
       ]},
-      { sub: 'Spaces & Owners', items: [
+      { sub: 'Spaces & Owners', ico: '🏪', items: [
         ['space', '🏪', 'Spaces', 'All commercial spaces — owners, space types, occupancy, service rates'],
         ['owners', '🏢', 'Owners', 'Persons & entities who own spaces; multi-space portfolios'],
         ['rent', '🧾', 'Rent & Tenants', 'Tenant profiles, rental agreements & optional rent collection'],
       ]},
-      { sub: 'Billing', items: [
+      { sub: 'Billing', ico: '🧾', items: [
         ['bills', '🧾', 'Bills & Collections', 'Monthly service-charge bills, collections, receipts & late fees'],
         ['meters', '⚡', 'Meters', 'Sub-meter readings → automatic electricity / water bills'],
       ]},
-      { sub: 'Operations', items: [
+      { sub: 'Accounting', ico: '🏦', items: [
+        ['coa', '🏦', 'Chart of Accounts', 'Account list by type with balances'],
+        ['journal', '📖', 'Journal', 'Debit / credit journal entries'],
+        ['trial', '⚖️', 'Trial Balance', 'Balanced debit vs credit summary'],
+      ]},
+      { sub: 'Operations', ico: '📉', items: [
         ['expenses', '📉', 'Expenses', 'Lift, DESCO/WASA, security, salaries & other spending'],
         ['complaints', '🔧', 'Complaints', 'Space owner issues — open → in progress → resolved'],
         ['assets', '🛠️', 'Assets & AMC', 'Mall assets with AMC & warranty tracking'],
         ['vendors', '🧰', 'Vendors', 'Vendor profiles, ledgers & payment tracking'],
       ]},
-      { sub: 'Governance', items: [
+      { sub: 'Governance', ico: '🏛️', items: [
         ['committee', '🏛️', 'Committee', 'Bearers, meeting register & resolutions'],
         ['notices', '📢', 'Notices', 'Committee announcements to all owners'],
         ['staff', '🧑‍💼', 'Staff', 'Office staff & security guards, salaries'],
         ['users', '👥', 'Users & Roles', 'System users, roles & the access matrix'],
       ]},
-      { sub: 'System', items: [
+      { sub: 'System', ico: '⚙️', items: [
         ['audit', '📋', 'Audit', 'Who did what, when'],
         ['settings', '⚙️', 'Settings', 'Property profile, billing rules, invoice & license'],
       ]},
@@ -104,7 +109,9 @@ const VIEW_ROUTES = {
   owners: { path: '/mall', query: { tab: 'owners' } },
   rent: { path: '/mall', query: { tab: 'rent' } },
   vendors: { path: '/mall', query: { tab: 'vendors' } },
-  ledger: { path: '/mall', query: { tab: 'ledger' } },
+  coa: { path: '/mall', query: { tab: 'coa' } },
+  journal: { path: '/mall', query: { tab: 'journal' } },
+  trial: { path: '/mall', query: { tab: 'trial' } },
   settings: { path: '/mall', query: { tab: 'settings' } },
   wiki: '/wiki', backup: '/backup',
 }
@@ -123,7 +130,7 @@ const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
 const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
 const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events', 'samity']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS, society: SOCIETY_MODS }
-const MALL_TABS = new Set(['dashboard', 'space', 'bills', 'meters', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'ledger', 'settings'])
+const MALL_TABS = new Set(['dashboard', 'space', 'bills', 'meters', 'coa', 'journal', 'trial', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'ledger', 'settings'])
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true
@@ -173,19 +180,14 @@ const activeSub = computed(() => {
 })
 watch(() => route.query.tab, () => { openSub.value = activeSub.value }, { immediate: true })
 function toggleSub(i) { openSub.value = openSub.value === i ? -1 : i }
-
-/* collapsed rail: show the ACTIVE tab's icon so you always see where you are */
-const rail = computed(() => {
-  const t = route.query.tab
+/* rail click: expand the sidebar, open that sub-group, go to its first tab */
+function railOpen(si) {
   const g = groups.value.find(x => x.groups)
-  if (g) {
-    for (const sg of g.groups) {
-      const it = sg.items.find(i => i[0] === t)
-      if (it) return { ico: it[1], label: it[2], desc: it[3], id: it[0] }
-    }
-  }
-  return { ico: '🏬', label: 'Mall Management', desc: 'Open the property dashboard & menu', id: 'mall' }
-})
+  if (!g || !g.groups[si]) return
+  collapsed.value = false
+  openSub.value = si
+  go(g.groups[si].items[0][0])
+}
 
 /* ── collapsible sidebar (persisted) ── */
 const collapsed = ref((() => { try { return localStorage.getItem('mm_sb_collapsed') === '1' } catch (e) { return false } })())
@@ -247,10 +249,9 @@ async function backToMe() {
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
         <div class="sb-group">{{ g.label }}</div>
-        <!-- collapsed rail: shows the ACTIVE section's icon per group -->
-        <div v-if="collapsed && g.groups" class="sb-item" :class="{ active: route.path === '/mall' }" @click="go(rail.id)"
-             @mouseenter="tipEnter($event, [rail.id, rail.ico, rail.label, rail.desc])" @mouseleave="tipLeave" @focus="tipEnter($event, [rail.id, rail.ico, rail.label, rail.desc])" @blur="tipLeave">
-          <span class="ic">{{ rail.ico }}</span><span class="lbl">{{ rail.label }}</span>
+        <!-- collapsed rail: ALL sub-groups as icons (click → expand + open) -->
+        <div v-if="collapsed && g.groups" v-for="(sg, si) in g.groups" :key="si" class="sb-item" :class="{ active: activeSub === si }" @click="railOpen(si)" @mouseenter="tipEnter($event, [sg.ico || sg.items[0][1], sg.ico || sg.items[0][1], sg.sub, sg.items.map(i => i[2]).join(' · ')])" @mouseleave="tipLeave" @focus="tipEnter($event, [sg.ico || sg.items[0][1], sg.ico || sg.items[0][1], sg.sub, sg.items.map(i => i[2]).join(' · ')])" @blur="tipLeave">
+          <span class="ic">{{ sg.ico || sg.items[0][1] }}</span><span class="lbl">{{ sg.sub }}</span>
         </div>
         <!-- expanded: collapsible sub-groups + leaf items -->
         <template v-else-if="g.groups">

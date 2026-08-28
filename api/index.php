@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260928) {
+        if ($__sv < 20260929) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -415,6 +415,56 @@ function db() {
             id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id INTEGER DEFAULT 0, amount INTEGER DEFAULT 0,
             method TEXT DEFAULT 'bank', ref TEXT DEFAULT '', note TEXT DEFAULT '',
             ts TEXT DEFAULT (datetime('now')))");
+        /* ── Basic Accounting: Chart of Accounts + Journal (V2.0 accounting) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT DEFAULT '', name TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'Asset', opening INTEGER DEFAULT 0, active INTEGER DEFAULT 1,
+            note TEXT DEFAULT '')");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_journal (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT DEFAULT (datetime('now')),
+            date TEXT DEFAULT '', ref TEXT DEFAULT '', account INTEGER DEFAULT 0,
+            debit INTEGER DEFAULT 0, credit INTEGER DEFAULT 0,
+            note TEXT DEFAULT '', created_by TEXT DEFAULT '')");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_journal_account ON mall_journal(account)");
+        /* seed the default Chart of Accounts once (COUNT-guarded) */
+        if ((int)$pdo->query('SELECT COUNT(*) FROM mall_accounts')->fetchColumn() === 0) {
+            $acc = [
+                ['1010', 'Cash in Hand', 'Asset'], ['1020', 'Bank Account', 'Asset'], ['1030', 'bKash', 'Asset'],
+                ['1040', 'Accounts Receivable (space dues)', 'Asset'],
+                ['2010', 'DESCO / Electricity Payable', 'Liability'], ['2020', 'WASA / Water Payable', 'Liability'],
+                ['2030', 'Security Deposits', 'Liability'],
+                ['3010', 'Opening Balance Equity', 'Equity'],
+                ['4010', 'Service Charge Income', 'Income'], ['4020', 'Utility Billing Income', 'Income'],
+                ['4030', 'Rent Income', 'Income'], ['4040', 'Late Fine Income', 'Income'],
+                ['5010', 'Staff Salary', 'Expense'], ['5020', 'Electricity Cost', 'Expense'],
+                ['5030', 'Water Cost', 'Expense'], ['5040', 'Lift Maintenance', 'Expense'],
+                ['5050', 'General Maintenance', 'Expense'], ['5060', 'Security Service', 'Expense'],
+                ['5070', 'Office Expense', 'Expense'],
+            ];
+            $ains = $pdo->prepare("INSERT INTO mall_accounts (code, name, type) VALUES (?,?,?)");
+            foreach ($acc as $x) $ains->execute($x);
+            /* open the three cash/bank balances as Equity → Asset journal entries
+               (same computation as the balances API: collections + income − expenses) */
+            $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
+            $balFor = function ($m) use ($b) {
+                return $b("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=?", [$m])
+                     + $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND method=?", [$m])
+                     - $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND method=?", [$m]);
+            };
+            $bals = ['Cash in Hand' => $balFor('cash'), 'Bank Account' => $balFor('bank'), 'bKash' => $balFor('bkash')];
+            $aid = function ($name) use ($pdo) { return (int)$pdo->query("SELECT id FROM mall_accounts WHERE name='" . $name . "'")->fetchColumn(); };
+            $eq = $aid('Opening Balance Equity');
+            $tot = array_sum($bals);
+            if ($eq && $tot > 0) {
+                $jins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by) VALUES ('2026-08-01', 'OB-001', ?, 0, ?, 'Opening balance', 'system')");
+                $jins->execute([$eq, $tot]);
+                foreach ($bals as $nm => $amt) {
+                    if ($amt <= 0) continue;
+                    $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by) VALUES ('2026-08-01', 'OB-001', ?, ?, 0, 'Opening balance — $nm', 'system')")
+                        ->execute([$aid($nm), $amt]);
+                }
+            }
+        }
         /* shops gains ownership + space-type columns (fresh-DB guard) */
         $scols = array_column($pdo->query('PRAGMA table_info(shops)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         foreach (['owner_id' => 'INTEGER DEFAULT 0', 'space_type' => "TEXT DEFAULT 'Shop'", 'occupancy' => "TEXT DEFAULT 'Owner'"] as $col => $def) {
@@ -1268,7 +1318,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260922'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260929'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -14964,7 +15014,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15236,6 +15286,93 @@ case 'mall': {
                         WHERE a.tenant_id=? ORDER BY rp.ts DESC", [$id]);
         $rentTotal = 0; foreach ($rentPays as $p) $rentTotal += (int)$p['amount'];
         json_out(['ok' => true, 'tenant' => $t, 'agreements' => $agreements, 'rent_payments' => $rentPays, 'rent_total' => $rentTotal]);
+    }
+    /* ── BASIC ACCOUNTING: Chart of Accounts / Journal / Trial balance ── */
+    if ($a === 'accounts') {
+        $rows = $pdo->query("SELECT * FROM mall_accounts ORDER BY CASE type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, code")->fetchAll(PDO::FETCH_ASSOC);
+        $acts = $pdo->query('SELECT account, SUM(debit) d, SUM(credit) c FROM mall_journal GROUP BY account')->fetchAll(PDO::FETCH_ASSOC);
+        $map = [];
+        foreach ($acts as $x) $map[(int)$x['account']] = $x;
+        foreach ($rows as &$r) {
+            $r['total_debit'] = (int)($map[(int)$r['id']]['d'] ?? 0);
+            $r['total_credit'] = (int)($map[(int)$r['id']]['c'] ?? 0);
+            $r['balance'] = in_array($r['type'], ['Asset', 'Expense'], true)
+                ? (int)$r['opening'] + $r['total_debit'] - $r['total_credit']
+                : (int)$r['opening'] + $r['total_credit'] - $r['total_debit'];
+        }
+        unset($r);
+        json_out(['ok' => true, 'accounts' => $rows]);
+    }
+    if ($a === 'account-save') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $name = trim($body['name'] ?? '');
+        $type = trim($body['type'] ?? 'Asset');
+        $code = trim($body['code'] ?? '');
+        if ($name === '' || !in_array($type, ['Asset', 'Liability', 'Equity', 'Income', 'Expense'], true)) json_out(['ok' => false, 'error' => 'Account name and a valid type are required.'], 400);
+        $opening = (int)($body['opening'] ?? 0);
+        $active = $body['active'] ? 1 : 0;
+        $note = trim($body['note'] ?? '');
+        if ($id) {
+            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, note=? WHERE id=?')
+                ->execute([$code, $name, $type, $opening, $active, $note, $id]);
+        } else {
+            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, note) VALUES (?,?,?,?,?,?)')
+                ->execute([$code, $name, $type, $opening, $active, $note]);
+            $id = (int)$pdo->lastInsertId();
+        }
+        audit($u['name'], 'Account ' . ($body['id'] ? 'updated' : 'added'), 'mall', (string)$id, $name);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($a === 'account-del') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $used = (int)$pdo->query("SELECT COUNT(*) FROM mall_journal WHERE account=$id")->fetchColumn();
+        if ($used) json_out(['ok' => false, 'error' => "This account has $used journal entries — deactivate it instead."], 400);
+        $pdo->prepare('DELETE FROM mall_accounts WHERE id=?')->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'journal') {
+        $rows = $pdo->query("SELECT j.*, a.name AS account_name, a.code AS account_code, a.type AS account_type
+            FROM mall_journal j LEFT JOIN mall_accounts a ON a.id=j.account ORDER BY j.date DESC, j.id DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        $totD = 0; $totC = 0;
+        foreach ($rows as $x) { $totD += (int)$x['debit']; $totC += (int)$x['credit']; }
+        json_out(['ok' => true, 'entries' => $rows, 'total_debit' => $totD, 'total_credit' => $totC]);
+    }
+    if ($a === 'journal-add') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $account = (int)($body['account'] ?? 0);
+        $debit = (int)($body['debit'] ?? 0);
+        $credit = (int)($body['credit'] ?? 0);
+        if (!$account || ($debit <= 0 && $credit <= 0)) json_out(['ok' => false, 'error' => 'Account and an amount (debit or credit) are required.'], 400);
+        if ($debit > 0 && $credit > 0) json_out(['ok' => false, 'error' => 'An entry is either a debit OR a credit — not both.'], 400);
+        $date = trim($body['date'] ?? '') ?: date('Y-m-d');
+        $ref = trim($body['ref'] ?? '');
+        $note = trim($body['note'] ?? '');
+        $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$date, $ref, $account, $debit, $credit, $note, $u['name']]);
+        $id = (int)$pdo->lastInsertId();
+        audit($u['name'], 'Journal entry', 'mall', (string)$id, ($debit ? 'Dr ' . $debit : 'Cr ' . $credit) . ' → ' . $ref);
+        json_out(['ok' => true, 'id' => $id]);
+    }
+    if ($a === 'journal-del') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $pdo->prepare('DELETE FROM mall_journal WHERE id=?')->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'trial') {
+        $rows = $pdo->query("SELECT a.id, a.code, a.name, a.type, a.opening,
+            COALESCE(SUM(j.debit),0) AS debit, COALESCE(SUM(j.credit),0) AS credit
+            FROM mall_accounts a LEFT JOIN mall_journal j ON j.account=a.id
+            GROUP BY a.id ORDER BY CASE a.type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, a.code")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) {
+            $r['balance'] = in_array($r['type'], ['Asset', 'Expense'], true)
+                ? (int)$r['opening'] + (int)$r['debit'] - (int)$r['credit']
+                : (int)$r['opening'] + (int)$r['credit'] - (int)$r['debit'];
+        }
+        unset($r);
+        json_out(['ok' => true, 'accounts' => $rows]);
     }
     if ($a === 'complaint-add') {
         $shop = trim($body['shop'] ?? '');

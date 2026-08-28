@@ -22,6 +22,9 @@ const TABS = [
   ['space', '🏪', 'Spaces'],
   ['bills', '🧾', 'Bills & Collections'],
   ['meters', '⚡', 'Meters'],
+  ['coa', '🏦', 'Chart of Accounts'],
+  ['journal', '📖', 'Journal'],
+  ['trial', '⚖️', 'Trial Balance'],
   ['expenses', '📉', 'Expenses'],
   ['complaints', '🔧', 'Complaints'],
   ['assets', '🛠️', 'Assets & AMC'],
@@ -809,6 +812,64 @@ const meterBilled = computed(() => {
 /* staff: grid/list toggle (like Spaces) */
 const staffView = ref('table')
 
+/* ══════════ BASIC ACCOUNTING: COA / Journal / Trial ══════════ */
+const ACCOUNT_TYPES = ['Asset', 'Liability', 'Equity', 'Income', 'Expense']
+const TYPE_ICONS = { Asset: '💵', Liability: '🏦', Equity: '⚖️', Income: '📈', Expense: '📉' }
+const TYPE_PLURAL = { Asset: 'Assets', Liability: 'Liabilities', Equity: 'Equity', Income: 'Income', Expense: 'Expenses' }
+const accounts = ref([])
+const accountModal = ref(null)
+const accountForm = ref({})
+const journal = ref(null)
+const jModal = ref(null)
+const jForm = ref({})
+const trial = ref(null)
+async function loadAccounts() { const r = await apiCall('mall', { action: 'accounts' }); if (r.ok) accounts.value = r.accounts }
+async function loadJournal() { const r = await apiCall('mall', { action: 'journal' }); if (r.ok) journal.value = r }
+async function loadTrial() { const r = await apiCall('mall', { action: 'trial' }); if (r.ok) trial.value = r.accounts }
+function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
+function openAccountEdit(x) { accountForm.value = { ...x }; accountModal.value = { mode: 'edit', title: '✏️ Edit account' } }
+async function saveAccount() {
+  const f = accountForm.value
+  if (!f.name || !f.name.trim()) { window.__krToast?.('Account name required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, note: f.note })
+  if (r.ok) { window.__krToast?.(accountModal.value.mode === 'edit' ? '✏️ Account updated' : '✅ Account added', 'ok'); accountModal.value = null; await loadAccounts() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delAccount(x) {
+  if (!window.confirm(`Delete account "${x.name}"?`)) return
+  const r = await apiCall('mall', { action: 'account-del', id: x.id })
+  if (r.ok) { window.__krToast?.('🗑️ Account deleted', 'ok'); await loadAccounts() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function openJournalAdd() { jForm.value = { date: month.value + '-10', ref: '', account: 0, debit: '', credit: '', note: '' }; jModal.value = { mode: 'add' } }
+async function saveJournal() {
+  const f = jForm.value
+  if (!f.account) { window.__krToast?.('Select an account.', 'err'); return }
+  if ((!f.debit || Number(f.debit) <= 0) && (!f.credit || Number(f.credit) <= 0)) { window.__krToast?.('Enter a debit or credit amount.', 'err'); return }
+  if (Number(f.debit) > 0 && Number(f.credit) > 0) { window.__krToast?.('An entry is either a debit OR a credit.', 'err'); return }
+  const r = await apiCall('mall', { action: 'journal-add', date: f.date, ref: f.ref, account: f.account, debit: Number(f.debit) || 0, credit: Number(f.credit) || 0, note: f.note })
+  if (r.ok) { window.__krToast?.('✅ Journal entry posted', 'ok'); jModal.value = null; await loadJournal() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delJournal(x) {
+  if (!window.confirm(`Delete journal entry #${x.id}?`)) return
+  const r = await apiCall('mall', { action: 'journal-del', id: x.id })
+  if (r.ok) { window.__krToast?.('🗑️ Entry deleted', 'ok'); await loadJournal() }
+}
+const coaStats = computed(() => {
+  const s = { total: accounts.value.length, byType: {}, sumD: 0, sumC: 0, assets: 0, liab: 0, equity: 0, income: 0, exp: 0 }
+  accounts.value.forEach(a => {
+    s.byType[a.type] = (s.byType[a.type] || 0) + 1
+    s.sumD += a.total_debit || 0; s.sumC += a.total_credit || 0
+    if (a.type === 'Asset') s.assets += a.balance
+    if (a.type === 'Liability') s.liab += a.balance
+    if (a.type === 'Equity') s.equity += a.balance
+    if (a.type === 'Income') s.income += a.balance
+    if (a.type === 'Expense') s.exp += a.balance
+  })
+  return s
+})
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -830,6 +891,9 @@ function switchTab(x) {
   if (x === 'expenses') { loadExpenses(); loadVendors() }
   if (x === 'complaints') loadComplaints()
   if (x === 'assets') loadAssets()
+  if (x === 'coa') loadAccounts()
+  if (x === 'journal') loadJournal()
+  if (x === 'trial') loadTrial()
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
   if (x === 'staff') loadStaff()
@@ -1074,6 +1138,119 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </tbody>
           </table>
         </div>
+      </div>
+    </template>
+
+    <!-- ═══════ CHART OF ACCOUNTS ═══════ -->
+    <template v-if="tab === 'coa'">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat"><div class="s-label"><span class="s-ico">📒</span>Accounts</div><div class="s-value">{{ coaStats.total }}</div><div class="s-trend">chart of accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Assets</div><div class="s-value" style="color:var(--ok)">{{ money(coaStats.assets) }}</div><div class="s-trend">{{ coaStats.byType.Asset || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏦</span>Liabilities</div><div class="s-value" style="color:var(--danger)">{{ money(coaStats.liab) }}</div><div class="s-trend">{{ coaStats.byType.Liability || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>Income</div><div class="s-value">{{ money(coaStats.income) }}</div><div class="s-trend">{{ coaStats.byType.Income || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Expenses</div><div class="s-value">{{ money(coaStats.exp) }}</div><div class="s-trend">{{ coaStats.byType.Expense || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Equity</div><div class="s-value">{{ money(coaStats.equity) }}</div><div class="s-trend">{{ coaStats.byType.Equity || 0 }} accounts</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openAccountAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add account</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Double-entry basics — every journal entry posts a debit or credit to an account; the trial balance stays balanced.</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debits</th><th style="text-align:right">Credits</th><th style="text-align:right">Balance</th><th></th></tr></thead>
+            <tbody>
+              <template v-for="t in ACCOUNT_TYPES" :key="t">
+                <tr v-if="accounts.some(a => a.type === t)" style="background:var(--bg-alt)">
+                  <td colspan="8" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ TYPE_ICONS[t] }} {{ TYPE_PLURAL[t] || (t + 's') }}</td>
+                </tr>
+                <tr v-for="a in accounts.filter(x => x.type === t)" :key="a.id">
+                  <td style="font-family:monospace;font-size:11.5px;color:var(--text-mute)">{{ a.code || '—' }}</td>
+                  <td><b>{{ a.name }}</b><br /><small style="color:var(--text-mute)">{{ a.note || '' }}</small></td>
+                  <td><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[a.type] || 'b-gray'" style="font-size:10px">{{ a.type }}</span></td>
+                  <td style="text-align:right;font-size:12px">{{ money(a.opening) }}</td>
+                  <td style="text-align:right;font-size:12px">{{ money(a.total_debit) }}</td>
+                  <td style="text-align:right;font-size:12px">{{ money(a.total_credit) }}</td>
+                  <td style="text-align:right;font-weight:800" :style="a.balance < 0 ? 'color:var(--danger)' : ''">{{ money(a.balance) }}</td>
+                  <td style="text-align:right;white-space:nowrap">
+                    <button v-if="canManage" @click="openAccountEdit(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
+                    <button v-if="canManage" @click="delAccount(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
+                  </td>
+                </tr>
+              </template>
+              <tr v-if="!accounts.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No accounts yet — add your first account.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════ JOURNAL ═══════ -->
+    <template v-if="tab === 'journal'">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat"><div class="s-label"><span class="s-ico">📖</span>Entries</div><div class="s-value">{{ journal ? journal.entries.length : 0 }}</div><div class="s-trend">journal entries</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Total debit</div><div class="s-value" style="color:var(--danger)">{{ journal ? money(journal.total_debit) : money(0) }}</div><div class="s-trend">debit side</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total credit</div><div class="s-value" style="color:var(--ok)">{{ journal ? money(journal.total_credit) : money(0) }}</div><div class="s-trend">credit side</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New journal entry</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Each line is a debit or credit to one account — post pairs to keep the books balanced.</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>#</th><th>Date</th><th>Ref</th><th>Account</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th>Note</th><th>By</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="e in (journal ? journal.entries : [])" :key="e.id">
+                <td style="font-weight:700">{{ e.id }}</td>
+                <td style="font-size:12px">{{ e.date }}</td>
+                <td style="font-family:monospace;font-size:11.5px">{{ e.ref || '—' }}</td>
+                <td><b>{{ e.account_name || '—' }}</b> <span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[e.account_type] || 'b-gray'" style="font-size:9px">{{ e.account_type }}</span></td>
+                <td style="text-align:right;font-weight:800;color:var(--danger)">{{ e.debit ? money(e.debit) : '' }}</td>
+                <td style="text-align:right;font-weight:800;color:var(--ok)">{{ e.credit ? money(e.credit) : '' }}</td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ e.note }}</td>
+                <td style="font-size:11.5px;color:var(--text-mute)">{{ e.created_by }}</td>
+                <td style="text-align:right"><button v-if="canManage" @click="delJournal(e)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button></td>
+              </tr>
+              <tr v-if="journal && !journal.entries.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:28px">No journal entries yet — post the opening balances and day-to-day adjustments.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════ TRIAL BALANCE ═══════ -->
+    <template v-if="tab === 'trial'">
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+            <tbody>
+              <template v-for="t in ACCOUNT_TYPES" :key="t">
+                <tr v-if="trial && trial.some(a => a.type === t)" style="background:var(--bg-alt)">
+                  <td colspan="7" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ TYPE_ICONS[t] }} {{ TYPE_PLURAL[t] || (t + 's') }}</td>
+                </tr>
+                <tr v-for="a in (trial || []).filter(x => x.type === t)" :key="a.id">
+                  <td style="font-family:monospace;font-size:11.5px;color:var(--text-mute)">{{ a.code || '—' }}</td>
+                  <td><b>{{ a.name }}</b></td>
+                  <td><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[a.type] || 'b-gray'" style="font-size:10px">{{ a.type }}</span></td>
+                  <td style="text-align:right;font-size:12px">{{ money(a.opening) }}</td>
+                  <td style="text-align:right;font-size:12px">{{ money(a.debit) }}</td>
+                  <td style="text-align:right;font-size:12px">{{ money(a.credit) }}</td>
+                  <td style="text-align:right;font-weight:800" :style="a.balance < 0 ? 'color:var(--danger)' : ''">{{ money(a.balance) }}</td>
+                </tr>
+              </template>
+              <tr v-if="trial" style="border-top:2px solid var(--border)">
+                <td colspan="4" style="font-weight:800">TOTAL</td>
+                <td style="text-align:right;font-weight:800">{{ money(trial.reduce((s, a) => s + Number(a.debit), 0)) }}</td>
+                <td style="text-align:right;font-weight:800">{{ money(trial.reduce((s, a) => s + Number(a.credit), 0)) }}</td>
+                <td style="text-align:right;font-weight:800">{{ money(trial.reduce((s, a) => s + Number(a.balance), 0)) }}</td>
+              </tr>
+              <tr v-if="trial && !trial.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:28px">No accounts.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:11.5px;color:var(--text-mute);padding:10px 16px">💡 Debit total should equal credit total (including the opening-balance equity entry) — that is the trial balance.</p>
       </div>
     </template>
 
@@ -2558,6 +2735,79 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <span style="color:var(--text-mute);font-size:11px">{{ (p.ts || '').slice(0, 10) }}</span>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ ACCOUNT MODAL ═══════ -->
+    <div v-if="accountModal" class="overlay" @click.self="accountModal = null">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-h"><div class="t">{{ accountModal.title }}</div><button @click="accountModal = null" class="x">✕</button></div>
+        <div class="modal-b" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label style="font-size:12px;color:var(--text-mute)">Code
+            <input v-model="accountForm.code" placeholder="e.g. 5080" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Type
+            <select v-model="accountForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option v-for="t in ACCOUNT_TYPES" :key="t" :value="t">{{ TYPE_ICONS[t] }} {{ t }}</option>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Account name *
+            <input v-model="accountForm.name" placeholder="e.g. Generator Fuel" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Opening balance (৳)
+            <input type="number" v-model.number="accountForm.opening" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:flex-end;gap:9px;cursor:pointer;padding-bottom:8px">
+            <span class="lf-switch" :class="{ on: !!accountForm.active }" @click="accountForm.active = accountForm.active ? 0 : 1" style="width:40px;height:22px;border-radius:99px;background:accountForm.active ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;flex-shrink:0">
+              <span style="position:absolute;top:2px;left:accountForm.active ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
+            </span>
+            <b :style="accountForm.active ? '' : 'color:var(--danger)'">{{ accountForm.active ? 'Active' : 'Inactive' }}</b>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note
+            <input v-model="accountForm.note" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+        </div>
+        <div class="modal-b" style="display:flex;gap:8px;justify-content:flex-end">
+          <button @click="accountModal = null" class="btn-ghost">Cancel</button>
+          <button @click="saveAccount" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save account</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ JOURNAL ENTRY MODAL ═══════ -->
+    <div v-if="jModal" class="overlay" @click.self="jModal = null">
+      <div class="modal" style="max-width:440px">
+        <div class="modal-h"><div class="t">📖 New journal entry</div><button @click="jModal = null" class="x">✕</button></div>
+        <div class="modal-b" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label style="font-size:12px;color:var(--text-mute)">Date
+            <input type="date" v-model="jForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Reference
+            <input v-model="jForm.ref" placeholder="e.g. JV-001" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Account *
+            <select v-model="jForm.account" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option :value="0" disabled>Select account…</option>
+              <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + t + 's'">
+                <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
+              </optgroup>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Debit (৳)
+            <input type="number" v-model.number="jForm.debit" min="0" placeholder="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Credit (৳)
+            <input type="number" v-model.number="jForm.credit" min="0" placeholder="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note
+            <input v-model="jForm.note" placeholder="e.g. Generator fuel for August" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <p style="grid-column:1/-1;font-size:11.5px;color:var(--text-mute);margin:0">💡 Post <b>two lines</b> for a balanced entry — e.g. Debit Generator Fuel ৳5,000 AND Credit Bank Account ৳5,000.</p>
+        </div>
+        <div class="modal-b" style="display:flex;gap:8px;justify-content:flex-end">
+          <button @click="jModal = null" class="btn-ghost">Cancel</button>
+          <button @click="saveJournal" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Post entry</button>
         </div>
       </div>
     </div>
