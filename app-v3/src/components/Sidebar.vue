@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
@@ -162,6 +162,31 @@ const go = (view) => {
   emit('close')
 }
 
+/* ── collapsible sub-groups (accordion: the ACTIVE sub-group stays open) ── */
+const openSub = ref(0)   // index of the expanded sub-group (-1 = all collapsed)
+const activeSub = computed(() => {
+  const t = route.query.tab
+  const g = groups.value.find(x => x.groups)
+  if (!g) return 0
+  const idx = g.groups.findIndex(sg => sg.items.some(i => i[0] === t))
+  return idx === -1 ? 0 : idx
+})
+watch(() => route.query.tab, () => { openSub.value = activeSub.value }, { immediate: true })
+function toggleSub(i) { openSub.value = openSub.value === i ? -1 : i }
+
+/* collapsed rail: show the ACTIVE tab's icon so you always see where you are */
+const rail = computed(() => {
+  const t = route.query.tab
+  const g = groups.value.find(x => x.groups)
+  if (g) {
+    for (const sg of g.groups) {
+      const it = sg.items.find(i => i[0] === t)
+      if (it) return { ico: it[1], label: it[2], desc: it[3], id: it[0] }
+    }
+  }
+  return { ico: '🏬', label: 'Mall Management', desc: 'Open the property dashboard & menu', id: 'mall' }
+})
+
 /* ── collapsible sidebar (persisted) ── */
 const collapsed = ref((() => { try { return localStorage.getItem('mm_sb_collapsed') === '1' } catch (e) { return false } })())
 function toggleCollapsed() {
@@ -222,19 +247,23 @@ async function backToMe() {
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
         <div class="sb-group">{{ g.label }}</div>
-        <!-- collapsed rail: one icon per group linking to the product home -->
-        <div v-if="collapsed && g.groups" class="sb-item" :class="{ active: route.path === '/mall' && !route.query.tab }" @click="go('mall')"
-             @mouseenter="tipEnter($event, ['mall', '🏬', 'Mall Management', 'Open the property dashboard & menu']) " @mouseleave="tipLeave" @focus="tipEnter($event, ['mall', '🏬', 'Mall Management', 'Open the property dashboard & menu'])" @blur="tipLeave">
-          <span class="ic">🏬</span><span class="lbl">{{ g.label }}</span>
+        <!-- collapsed rail: shows the ACTIVE section's icon per group -->
+        <div v-if="collapsed && g.groups" class="sb-item" :class="{ active: route.path === '/mall' }" @click="go(rail.id)"
+             @mouseenter="tipEnter($event, [rail.id, rail.ico, rail.label, rail.desc])" @mouseleave="tipLeave" @focus="tipEnter($event, [rail.id, rail.ico, rail.label, rail.desc])" @blur="tipLeave">
+          <span class="ic">{{ rail.ico }}</span><span class="lbl">{{ rail.label }}</span>
         </div>
-        <!-- expanded: sub-groups + leaf items -->
+        <!-- expanded: collapsible sub-groups + leaf items -->
         <template v-else-if="g.groups">
           <template v-for="(sg, si) in g.groups" :key="si">
-            <div class="sb-sub">{{ sg.sub }}</div>
-            <div v-for="i in sg.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])"
-                 @mouseenter="tipEnter($event, i)" @mouseleave="tipLeave" @focus="tipEnter($event, i)" @blur="tipLeave">
-              <span class="ic">{{ i[1] }}</span><span class="lbl">{{ t(i[2]) }}</span>
+            <div class="sb-sub" :class="{ open: openSub === si, active: activeSub === si }" @click="toggleSub(si)" :title="(openSub === si ? 'Collapse' : 'Expand') + ' ' + sg.sub">
+              <span>{{ sg.sub }}</span><span class="sb-caret">{{ openSub === si ? '▾' : '▸' }}</span>
             </div>
+            <template v-if="openSub === si">
+              <div v-for="i in sg.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])"
+                   @mouseenter="tipEnter($event, i)" @mouseleave="tipLeave" @focus="tipEnter($event, i)" @blur="tipLeave">
+                <span class="ic">{{ i[1] }}</span><span class="lbl">{{ t(i[2]) }}</span>
+              </div>
+            </template>
           </template>
         </template>
         <!-- flat groups (Help) -->
