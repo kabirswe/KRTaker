@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260927) {
+        if ($__sv < 20260928) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -387,6 +387,39 @@ function db() {
             id INTEGER PRIMARY KEY AUTOINCREMENT, meeting_id INTEGER DEFAULT 0, number TEXT,
             title TEXT, body TEXT DEFAULT '', date TEXT, passed INTEGER DEFAULT 1,
             created_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        /* ── Phase 4: ownership & mixed commercial spaces (flexible ownership model) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_owners (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, type TEXT DEFAULT 'Person',
+            contact_person TEXT DEFAULT '', phone TEXT DEFAULT '', email TEXT DEFAULT '',
+            nid TEXT DEFAULT '', trade_license TEXT DEFAULT '', address TEXT DEFAULT '',
+            notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_tenants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT DEFAULT '',
+            email TEXT DEFAULT '', nid TEXT DEFAULT '', address TEXT DEFAULT '',
+            employer TEXT DEFAULT '', notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_agreements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, shop TEXT NOT NULL, tenant_id INTEGER DEFAULT 0,
+            rent INTEGER DEFAULT 0, start_date TEXT DEFAULT '', end_date TEXT DEFAULT '',
+            advance_months INTEGER DEFAULT 0, due_day INTEGER DEFAULT 5,
+            rent_collection INTEGER DEFAULT 0, status TEXT DEFAULT 'Active',
+            notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_rent_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, agreement_id INTEGER DEFAULT 0, shop TEXT DEFAULT '',
+            month TEXT, amount INTEGER DEFAULT 0, method TEXT DEFAULT 'cash', ref TEXT DEFAULT '',
+            receipt TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_vendors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT DEFAULT '',
+            contact_person TEXT DEFAULT '', phone TEXT DEFAULT '', email TEXT DEFAULT '',
+            address TEXT DEFAULT '', notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_vendor_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id INTEGER DEFAULT 0, amount INTEGER DEFAULT 0,
+            method TEXT DEFAULT 'bank', ref TEXT DEFAULT '', note TEXT DEFAULT '',
+            ts TEXT DEFAULT (datetime('now')))");
+        /* shops gains ownership + space-type columns (fresh-DB guard) */
+        $scols = array_column($pdo->query('PRAGMA table_info(shops)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        foreach (['owner_id' => 'INTEGER DEFAULT 0', 'space_type' => "TEXT DEFAULT 'Shop'", 'occupancy' => "TEXT DEFAULT 'Owner'"] as $col => $def) {
+            if (!in_array($col, $scols, true)) { try { $pdo->exec("ALTER TABLE shops ADD COLUMN $col $def"); } catch (Exception $e) {} }
+        }
         $pdo->exec("CREATE TABLE IF NOT EXISTS property_rent (
             prop TEXT PRIMARY KEY, service_charge_pct REAL DEFAULT 0, utility_advance INTEGER DEFAULT 0,
             parking_fee INTEGER DEFAULT 0, escalation_pct REAL DEFAULT 0, advance_months INTEGER DEFAULT 0,
@@ -14931,7 +14964,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15506,6 +15539,233 @@ case 'mall': {
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
         $pdo->prepare('DELETE FROM mall_resolutions WHERE id=?')->execute([$id]);
         audit($u['name'], 'Resolution delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+
+    /* ── OWNERS / OWNERSHIP (flexible ownership model) ── */
+    if ($a === 'owners') {
+        $rows = $pdo->query('SELECT * FROM mall_owners ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $byShop = [];
+        foreach ($pdo->query("SELECT owner_id, COUNT(*) n, COALESCE(SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END),0) act FROM shops WHERE owner_id > 0 GROUP BY owner_id")->fetchAll(PDO::FETCH_ASSOC) as $r) $byShop[(int)$r['owner_id']] = $r;
+        foreach ($rows as $i => $o) {
+            $rows[$i]['shops'] = (int)($byShop[$o['id']]['n'] ?? 0);
+            $rows[$i]['active_shops'] = (int)($byShop[$o['id']]['act'] ?? 0);
+        }
+        json_out(['ok' => true, 'owners' => $rows, 'counts' => ['total' => count($rows),
+                  'companies' => count(array_filter($rows, fn($r) => $r['type'] !== 'Person'))]]);
+    }
+    if ($a === 'owner-add') {
+        $name = trim($body['name'] ?? '');
+        if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
+        $pdo->prepare("INSERT INTO mall_owners (name, type, contact_person, phone, email, nid, trade_license, address, notes) VALUES (?,?,?,?,?,?,?,?,?)")
+            ->execute([$name, trim($body['type'] ?? 'Person'), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
+                       trim($body['email'] ?? ''), trim($body['nid'] ?? ''), trim($body['trade_license'] ?? ''),
+                       trim($body['address'] ?? ''), trim($body['notes'] ?? '')]);
+        audit($u['name'], 'Owner add', 'mall', $name, trim($body['type'] ?? ''));
+        json_out(['ok' => true]);
+    }
+    if ($a === 'owner-update') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('UPDATE mall_owners SET name=?, type=?, contact_person=?, phone=?, email=?, nid=?, trade_license=?, address=?, notes=? WHERE id=?')
+            ->execute([trim($body['name'] ?? ''), trim($body['type'] ?? 'Person'), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
+                       trim($body['email'] ?? ''), trim($body['nid'] ?? ''), trim($body['trade_license'] ?? ''),
+                       trim($body['address'] ?? ''), trim($body['notes'] ?? ''), $id]);
+        audit($u['name'], 'Owner update', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'owner-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $n = (int)$pdo->query("SELECT COUNT(*) FROM shops WHERE owner_id=$id")->fetchColumn();
+        if ($n > 0) json_out(['ok' => false, 'error' => "Owner has $n shop(s) — reassign them first."], 409);
+        $pdo->prepare('DELETE FROM mall_owners WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Owner delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'owner-profile') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM mall_owners WHERE id=?'); $st->execute([$id]);
+        $o = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$o) json_out(['ok' => false, 'error' => 'Owner not found.'], 404);
+        $ss = $pdo->prepare("SELECT s.id, s.no, s.floor, s.sqft, s.space_type, s.occupancy, s.status, s.service_rate,
+                                    COALESCE(SUM(CASE WHEN b.status='Unpaid' THEN b.amount ELSE 0 END),0) due,
+                                    COALESCE(SUM(CASE WHEN b.status='Paid' THEN b.amount ELSE 0 END),0) paid
+                             FROM shops s LEFT JOIN shop_bills b ON b.shop=s.id
+                             WHERE s.owner_id=? GROUP BY s.id ORDER BY s.no");
+        $ss->execute([$id]);
+        $shops = $ss->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'owner' => $o, 'shops' => $shops,
+                  'total_due' => array_sum(array_column($shops, 'due')), 'total_paid' => array_sum(array_column($shops, 'paid'))]);
+    }
+
+    /* ── TENANTS / OCCUPANTS (KRTaker-style import shape) + RENTAL AGREEMENTS ── */
+    if ($a === 'tenants') {
+        $rows = $pdo->query('SELECT * FROM mall_tenants ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $ag = [];
+        foreach ($pdo->query("SELECT tenant_id, COUNT(*) n FROM mall_agreements WHERE status='Active' GROUP BY tenant_id")->fetchAll(PDO::FETCH_ASSOC) as $r) $ag[(int)$r['tenant_id']] = (int)$r['n'];
+        foreach ($rows as $i => $t) $rows[$i]['agreements'] = $ag[$t['id']] ?? 0;
+        json_out(['ok' => true, 'tenants' => $rows]);
+    }
+    if ($a === 'tenant-add') {
+        $name = trim($body['name'] ?? '');
+        if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
+        $pdo->prepare("INSERT INTO mall_tenants (name, phone, email, nid, address, employer, notes) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$name, trim($body['phone'] ?? ''), trim($body['email'] ?? ''), trim($body['nid'] ?? ''),
+                       trim($body['address'] ?? ''), trim($body['employer'] ?? ''), trim($body['notes'] ?? '')]);
+        audit($u['name'], 'Tenant add', 'mall', $name, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'tenant-update') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('UPDATE mall_tenants SET name=?, phone=?, email=?, nid=?, address=?, employer=?, notes=? WHERE id=?')
+            ->execute([trim($body['name'] ?? ''), trim($body['phone'] ?? ''), trim($body['email'] ?? ''), trim($body['nid'] ?? ''),
+                       trim($body['address'] ?? ''), trim($body['employer'] ?? ''), trim($body['notes'] ?? ''), $id]);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'tenant-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_tenants WHERE id=?')->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    /* agreements — with tenant names + rent due (when rent collection is enabled) */
+    if ($a === 'agreements') {
+        $rows = $pdo->query("SELECT a.*, t.name AS tenant_name FROM mall_agreements a LEFT JOIN mall_tenants t ON t.id=a.tenant_id ORDER BY a.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        $paid = [];
+        foreach ($pdo->query('SELECT agreement_id, COUNT(*) n FROM mall_rent_payments GROUP BY agreement_id')->fetchAll(PDO::FETCH_ASSOC) as $r) $paid[(int)$r['agreement_id']] = (int)$r['n'];
+        $today = date('Y-m-d');
+        foreach ($rows as $i => $ag) {
+            $rows[$i]['paid_months'] = $paid[$ag['id']] ?? 0;
+            $dueMonths = 0;
+            if ($ag['rent_collection'] && $ag['status'] === 'Active' && $ag['rent'] > 0 && $ag['start_date']) {
+                $s = strtotime($ag['start_date']); $e = $ag['end_date'] ? min(strtotime($ag['end_date']), strtotime($today)) : strtotime($today);
+                $dueMonths = max(0, (int)floor(($e - $s) / 2592000) - (int)($paid[$ag['id']] ?? 0));
+            }
+            $rows[$i]['due_months'] = $dueMonths;
+            $rows[$i]['rent_due'] = $dueMonths * (int)$ag['rent'];
+        }
+        json_out(['ok' => true, 'agreements' => $rows,
+                  'rent_collected' => (int)$pdo->query('SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments')->fetchColumn(),
+                  'rent_outstanding' => array_sum(array_column($rows, 'rent_due'))]);
+    }
+    if ($a === 'agreement-add') {
+        $shop = trim($body['shop'] ?? '');
+        if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
+        $pdo->prepare("INSERT INTO mall_agreements (shop, tenant_id, rent, start_date, end_date, advance_months, due_day, rent_collection, status, notes) VALUES (?,?,?,?,?,?,?,?,?,?)")
+            ->execute([$shop, (int)($body['tenant_id'] ?? 0), (int)($body['rent'] ?? 0), trim($body['start_date'] ?? ''),
+                       trim($body['end_date'] ?? ''), (int)($body['advance_months'] ?? 0), (int)($body['due_day'] ?? 5),
+                       isset($body['rent_collection']) ? ((int)$body['rent_collection'] ? 1 : 0) : 0,
+                       in_array(trim($body['status'] ?? ''), ['Active', 'Expired', 'Terminated'], true) ? trim($body['status']) : 'Active',
+                       trim($body['notes'] ?? '')]);
+        audit($u['name'], 'Agreement', 'mall', $shop, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'agreement-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_agreements WHERE id=?')->execute([$id]);
+        $pdo->prepare('DELETE FROM mall_rent_payments WHERE agreement_id=?')->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    /* rent-collect — optional rent management service: record a month's rent */
+    if ($a === 'rent-collect') {
+        $agId = (int)($body['agreement_id'] ?? 0);
+        if (!$agId) json_out(['ok' => false, 'error' => 'agreement_id required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM mall_agreements WHERE id=?'); $st->execute([$agId]);
+        $ag = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$ag) json_out(['ok' => false, 'error' => 'Agreement not found.'], 404);
+        if (!$ag['rent_collection']) json_out(['ok' => false, 'error' => 'Rent collection is OFF for this agreement (optional service).'], 409);
+        $month = trim($body['month'] ?? date('Y-m'));
+        $dup = $pdo->prepare('SELECT COUNT(*) FROM mall_rent_payments WHERE agreement_id=? AND month=?');
+        $dup->execute([$agId, $month]);
+        if ((int)$dup->fetchColumn() > 0) json_out(['ok' => false, 'error' => "$month already collected for this agreement."], 409);
+        $amount = (int)($body['amount'] ?? 0);
+        if ($amount <= 0) $amount = (int)$ag['rent'];
+        $receipt = 'RNT-' . str_replace('-', '', $month) . '-' . str_pad((string)$agId, 4, '0', STR_PAD_LEFT);
+        $pdo->prepare("INSERT INTO mall_rent_payments (agreement_id, shop, month, amount, method, ref, receipt) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$agId, $ag['shop'], $month, $amount, trim($body['method'] ?? 'cash'), trim($body['ref'] ?? ''), $receipt]);
+        audit($u['name'], 'Rent collect', 'mall', $ag['shop'], "$month $amount");
+        json_out(['ok' => true, 'receipt' => $receipt]);
+    }
+    if ($a === 'rent-payments') {
+        $agId = (int)($body['agreement_id'] ?? 0);
+        if ($agId) {
+            $st = $pdo->prepare('SELECT * FROM mall_rent_payments WHERE agreement_id=? ORDER BY id DESC LIMIT 100'); $st->execute([$agId]);
+        } else {
+            $st = $pdo->query('SELECT * FROM mall_rent_payments ORDER BY id DESC LIMIT 200');
+        }
+        json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* ── VENDORS (profiles + ledgers + payment tracking) ── */
+    if ($a === 'vendors') {
+        $rows = $pdo->query('SELECT * FROM mall_vendors ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $tot = [];
+        foreach ($pdo->query('SELECT vendor_id, COUNT(*) n, SUM(amount) amt FROM mall_vendor_payments GROUP BY vendor_id')->fetchAll(PDO::FETCH_ASSOC) as $r) $tot[(int)$r['vendor_id']] = $r;
+        foreach ($rows as $i => $v) {
+            $rows[$i]['payments'] = (int)($tot[$v['id']]['n'] ?? 0);
+            $rows[$i]['paid'] = (int)($tot[$v['id']]['amt'] ?? 0);
+        }
+        json_out(['ok' => true, 'vendors' => $rows, 'total_paid' => (int)$pdo->query('SELECT COALESCE(SUM(amount),0) FROM mall_vendor_payments')->fetchColumn()]);
+    }
+    if ($a === 'vendor-add') {
+        $name = trim($body['name'] ?? '');
+        if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
+        $pdo->prepare("INSERT INTO mall_vendors (name, category, contact_person, phone, email, address, notes) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$name, trim($body['category'] ?? ''), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
+                       trim($body['email'] ?? ''), trim($body['address'] ?? ''), trim($body['notes'] ?? '')]);
+        audit($u['name'], 'Vendor add', 'mall', $name, trim($body['category'] ?? ''));
+        json_out(['ok' => true]);
+    }
+    if ($a === 'vendor-update') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('UPDATE mall_vendors SET name=?, category=?, contact_person=?, phone=?, email=?, address=?, notes=? WHERE id=?')
+            ->execute([trim($body['name'] ?? ''), trim($body['category'] ?? ''), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
+                       trim($body['email'] ?? ''), trim($body['address'] ?? ''), trim($body['notes'] ?? ''), $id]);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'vendor-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_vendors WHERE id=?')->execute([$id]);
+        $pdo->prepare('DELETE FROM mall_vendor_payments WHERE vendor_id=?')->execute([$id]);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'vendor-payment-add') {
+        $vid = (int)($body['vendor_id'] ?? 0);
+        $amount = (int)($body['amount'] ?? 0);
+        if (!$vid || $amount <= 0) json_out(['ok' => false, 'error' => 'vendor_id and amount required.'], 400);
+        $pdo->prepare('INSERT INTO mall_vendor_payments (vendor_id, amount, method, ref, note) VALUES (?,?,?,?,?)')
+            ->execute([$vid, $amount, trim($body['method'] ?? 'bank'), trim($body['ref'] ?? ''), trim($body['note'] ?? '')]);
+        $vn = $pdo->query("SELECT name FROM mall_vendors WHERE id=$vid")->fetchColumn();
+        audit($u['name'], 'Vendor payment', 'mall', (string)$vn, "$amount via " . trim($body['method'] ?? 'bank'));
+        json_out(['ok' => true]);
+    }
+    if ($a === 'vendor-payments') {
+        $vid = (int)($body['vendor_id'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM mall_vendor_payments WHERE vendor_id=? ORDER BY id DESC LIMIT 100'); $st->execute([$vid]);
+        json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* ── LICENSE / PLAN (super admin is reserved for the vendor — US) ── */
+    if ($a === 'license-get') {
+        json_out(['ok' => true, 'license' => [
+            'plan' => $mcfg('license_plan', 'Yearly'), 'expiry' => $mcfg('license_expiry', ''),
+            'seats' => (int)$mcfg('license_seats', '10'), 'holder' => $mcfg('license_holder', ''),
+            'issued' => $mcfg('license_issued', ''), 'vendor' => 'Mall Manager by Deshik Lab',
+            'superadmin_reserved' => true,
+        ]]);
+    }
+    if ($a === 'license-set') {
+        if ($u['role'] !== 'superadmin') json_out(['ok' => false, 'error' => 'License management is reserved for the vendor (super admin).'], 403);
+        foreach (['license_plan', 'license_expiry', 'license_seats', 'license_holder', 'license_issued'] as $lk) {
+            if (isset($body[$lk])) $mset($lk, $body[$lk]);
+        }
+        audit($u['name'], 'License set', 'mall', '', json_encode($body));
         json_out(['ok' => true]);
     }
 

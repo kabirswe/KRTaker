@@ -30,6 +30,9 @@ const TABS = [
   ['staff', '🧑‍💼', 'Staff'],
   ['users', '👥', 'Users & Roles'],
   ['committee', '🏛️', 'Committee'],
+  ['owners', '🏢', 'Owners'],
+  ['rent', '🧾', 'Rent & Tenants'],
+  ['vendors', '🧰', 'Vendors'],
   ['ledger', '📒', 'Ledger'],
   ['settings', '⚙️', 'Settings'],
 ]
@@ -99,9 +102,9 @@ const shopKpis = computed(() => {
 })
 const modal = ref(null)
 const form = ref({})
-function openAdd() { form.value = { status: 'Active', sqft: 0, service_rate: 0, opening_balance: 0 }; modal.value = { mode: 'add', title: '➕ New shop' } }
+function openAdd() { form.value = { status: 'Active', sqft: 0, service_rate: 0, opening_balance: 0, owner_id: 0, space_type: 'Shop', occupancy: 'Owner' }; modal.value = { mode: 'add', title: '➕ New shop' } }
 function openEdit(s) {
-  form.value = { no: s.no || '', floor: s.floor || '', sqft: s.sqft || 0, owner_name: s.owner_name || '', owner_mobile: s.owner_mobile || '', owner_nid: s.owner_nid || '', status: s.status || 'Active', service_rate: s.service_rate || 0, opening_balance: s.opening_balance || 0 }
+  form.value = { no: s.no || '', floor: s.floor || '', sqft: s.sqft || 0, owner_name: s.owner_name || '', owner_mobile: s.owner_mobile || '', owner_nid: s.owner_nid || '', status: s.status || 'Active', service_rate: s.service_rate || 0, opening_balance: s.opening_balance || 0, owner_id: s.owner_id || 0, space_type: s.space_type || 'Shop', occupancy: s.occupancy || 'Owner' }
   modal.value = { mode: 'edit', title: '✏️ Edit shop', id: s.id }
 }
 const saving = ref(false)
@@ -113,6 +116,7 @@ async function saveShop() {
       no: form.value.no.trim(), floor: form.value.floor.trim(), sqft: Number(form.value.sqft) || 0,
       owner_name: form.value.owner_name.trim(), owner_mobile: form.value.owner_mobile.trim(), owner_nid: form.value.owner_nid.trim(),
       status: form.value.status, service_rate: Number(form.value.service_rate) || 0, opening_balance: Number(form.value.opening_balance) || 0,
+      owner_id: Number(form.value.owner_id) || 0, space_type: form.value.space_type || 'Shop', occupancy: form.value.occupancy || 'Owner',
     }
     const r = await apiCall('app-crud', {
       action: modal.value.mode === 'edit' ? 'update' : 'create', collection: 'shops',
@@ -606,6 +610,140 @@ function onLogoPick(e, key) {
 }
 function removeLogo(key) { config.value[key] = ''; cfgDirty.value = true }
 
+/* ══════════ OWNERS / OWNERSHIP ══════════ */
+const owners = ref([])
+const ownerCounts = ref({})
+const ownerModal = ref(null)
+const ownerForm = ref({})
+const ownerProfile = ref(null)
+const OWNER_TYPES = ['Person', 'Company', 'Bank', 'NGO', 'Govt / Authority', 'Trust']
+const SPACE_TYPES = ['Shop', 'Showroom', 'Store Room', 'Office Space', 'Community Hall', 'Convention Centre', 'Hospital / Clinic', 'Bank Branch', 'Supermarket', 'Mega Market', 'Food Court', 'Restaurant', 'Multiplex', 'Gaming Zone', 'Other']
+const OCCUPANCIES = ['Owner', 'Rented', 'Vacant']
+const ownerName = (id) => owners.value.find(o => o.id === id)?.name || '—'
+async function loadOwners() { const r = await apiCall('mall', { action: 'owners' }); if (r.ok) { owners.value = r.owners; ownerCounts.value = r.counts } }
+function openOwnerAdd() { ownerForm.value = { type: 'Person', name: '', contact_person: '', phone: '', email: '', nid: '', trade_license: '', address: '', notes: '' }; ownerModal.value = { mode: 'add', title: '➕ New owner' } }
+function openOwnerEdit(o) {
+  ownerForm.value = { ...o }
+  ownerModal.value = { mode: 'edit', title: '✏️ Edit owner', id: o.id }
+}
+async function saveOwner() {
+  if (!ownerForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  const action = ownerModal.value.mode === 'edit' ? 'owner-update' : 'owner-add'
+  const r = await apiCall('mall', { action, ...ownerForm.value, ...(ownerModal.value.mode === 'edit' ? { id: ownerModal.value.id } : {}) })
+  if (r.ok) { window.__krToast?.(ownerModal.value.mode === 'edit' ? '✏️ Owner updated' : '✅ Owner added', 'ok'); ownerModal.value = null; await loadOwners(); if (tab.value === 'shops') loadShops() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delOwner(o) {
+  if (!window.confirm(`Delete owner "${o.name}"?`)) return
+  const r = await apiCall('mall', { action: 'owner-del', id: o.id })
+  window.__krToast?.(r.ok ? '🗑️ Owner deleted' : (r.error || 'Failed.'), r.ok ? 'ok' : 'err')
+  if (r.ok) await loadOwners()
+}
+async function openOwnerProfile(o) {
+  const r = await apiCall('mall', { action: 'owner-profile', id: o.id })
+  if (r.ok) ownerProfile.value = r
+}
+
+/* ══════════ TENANTS + RENTAL AGREEMENTS (rent = optional service) ══════════ */
+const tenants = ref([])
+const agreements = ref([])
+const rentStats = ref({})
+const tenantModal = ref(null)
+const tenantForm = ref({})
+const agrModal = ref(null)
+const agrForm = ref({})
+const rentModal = ref(null)
+const rentForm = ref({})
+async function loadTenants() { const r = await apiCall('mall', { action: 'tenants' }); if (r.ok) tenants.value = r.tenants }
+async function loadAgreements() { const r = await apiCall('mall', { action: 'agreements' }); if (r.ok) { agreements.value = r.agreements; rentStats.value = { collected: r.rent_collected, outstanding: r.rent_outstanding } } }
+function openTenantAdd() { tenantForm.value = { name: '', phone: '', email: '', nid: '', address: '', employer: '', notes: '' }; tenantModal.value = { mode: 'add', title: '➕ New tenant' } }
+function openTenantEdit(t) { tenantForm.value = { ...t }; tenantModal.value = { mode: 'edit', title: '✏️ Edit tenant', id: t.id } }
+async function saveTenant() {
+  if (!tenantForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  const action = tenantModal.value.mode === 'edit' ? 'tenant-update' : 'tenant-add'
+  const r = await apiCall('mall', { action, ...tenantForm.value, ...(tenantModal.value.mode === 'edit' ? { id: tenantModal.value.id } : {}) })
+  if (r.ok) { window.__krToast?.(tenantModal.value.mode === 'edit' ? '✏️ Tenant updated' : '✅ Tenant added', 'ok'); tenantModal.value = null; await loadTenants() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delTenant(t) {
+  if (!window.confirm(`Delete tenant "${t.name}"?`)) return
+  const r = await apiCall('mall', { action: 'tenant-del', id: t.id })
+  if (r.ok) { window.__krToast?.('🗑️ Tenant deleted', 'ok'); await loadTenants() }
+}
+function openAgrAdd() { agrForm.value = { shop: '', tenant_id: 0, rent: 0, start_date: new Date().toISOString().slice(0, 10), end_date: '', advance_months: 0, due_day: 5, rent_collection: 0, status: 'Active', notes: '' }; agrModal.value = true }
+async function saveAgreement() {
+  if (!agrForm.value.shop) { window.__krToast?.('Shop required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'agreement-add', ...agrForm.value, rent_collection: agrForm.value.rent_collection ? 1 : 0 })
+  if (r.ok) { window.__krToast?.('✅ Agreement saved', 'ok'); agrModal.value = false; await loadAgreements() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delAgreement(a) {
+  if (!window.confirm(`Delete agreement for ${a.shop}?`)) return
+  const r = await apiCall('mall', { action: 'agreement-del', id: a.id })
+  if (r.ok) { window.__krToast?.('🗑️ Agreement deleted', 'ok'); await loadAgreements() }
+}
+function openRentCollect(a) { rentForm.value = { agreement_id: a.id, month: new Date().toISOString().slice(0, 7), amount: a.rent, method: 'cash', ref: '' }; rentModal.value = a }
+async function saveRent() {
+  const r = await apiCall('mall', { action: 'rent-collect', ...rentForm.value })
+  if (r.ok) { window.__krToast?.(`✅ Rent collected — ${r.receipt}`, 'ok'); rentModal.value = null; await loadAgreements() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+
+/* ══════════ VENDORS ══════════ */
+const vendors = ref([])
+const vendorsTotal = ref(0)
+const vendorModal = ref(null)
+const vendorForm = ref({})
+const vendorPayModal = ref(null)
+const vendorPayForm = ref({})
+const vendorPayments = ref([])
+const VENDOR_CATS = ['Security', 'Lift / Escalator', 'AC / HVAC', 'Generator', 'Cleaning', 'Electrical', 'Supplies', 'Repair & Maintenance', 'Other']
+async function loadVendors() { const r = await apiCall('mall', { action: 'vendors' }); if (r.ok) { vendors.value = r.vendors; vendorsTotal.value = r.total_paid } }
+function openVendorAdd() { vendorForm.value = { category: 'Repair & Maintenance', name: '', contact_person: '', phone: '', email: '', address: '', notes: '' }; vendorModal.value = { mode: 'add', title: '➕ New vendor' } }
+function openVendorEdit(v) { vendorForm.value = { ...v }; vendorModal.value = { mode: 'edit', title: '✏️ Edit vendor', id: v.id } }
+async function saveVendor() {
+  if (!vendorForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  const action = vendorModal.value.mode === 'edit' ? 'vendor-update' : 'vendor-add'
+  const r = await apiCall('mall', { action, ...vendorForm.value, ...(vendorModal.value.mode === 'edit' ? { id: vendorModal.value.id } : {}) })
+  if (r.ok) { window.__krToast?.(vendorModal.value.mode === 'edit' ? '✏️ Vendor updated' : '✅ Vendor added', 'ok'); vendorModal.value = null; await loadVendors() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delVendor(v) {
+  if (!window.confirm(`Delete vendor "${v.name}"?`)) return
+  const r = await apiCall('mall', { action: 'vendor-del', id: v.id })
+  if (r.ok) { window.__krToast?.('🗑️ Vendor deleted', 'ok'); await loadVendors() }
+}
+async function openVendorPay(v) {
+  vendorPayForm.value = { vendor_id: v.id, amount: 0, method: 'bank', ref: '', note: '' }
+  vendorPayModal.value = v
+  const r = await apiCall('mall', { action: 'vendor-payments', vendor_id: v.id })
+  if (r.ok) vendorPayments.value = r.payments
+}
+async function saveVendorPay() {
+  if (!vendorPayForm.value.amount || vendorPayForm.value.amount <= 0) { window.__krToast?.('Amount required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'vendor-payment-add', ...vendorPayForm.value })
+  if (r.ok) { window.__krToast?.('💸 Payment recorded', 'ok'); await openVendorPay(vendorPayModal.value); await loadVendors() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+
+/* ══════════ LICENSE (super admin reserved for the vendor) ══════════ */
+const license = ref(null)
+const licenseDirty = ref(false)
+const isSuperAdmin = computed(() => ['superadmin'].includes(auth.user?.role || ''))
+async function loadLicense() { const r = await apiCall('mall', { action: 'license-get' }); if (r.ok) license.value = r.license }
+async function saveLicense() {
+  const r = await apiCall('mall', { action: 'license-set', ...license.value })
+  if (r.ok) { licenseDirty.value = false; window.__krToast?.('🔑 License updated', 'ok') }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+const licenseBadge = computed(() => {
+  const l = license.value
+  if (!l) return ''
+  if (l.plan === 'One-off') return '🟢 One-off license'
+  if (l.expiry && l.expiry < new Date().toISOString().slice(0, 10)) return '🔴 Expired ' + l.expiry
+  return '🟢 ' + l.plan + (l.expiry ? ' · till ' + l.expiry : '')
+})
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -632,7 +770,10 @@ function switchTab(x) {
   if (x === 'staff') loadStaff()
   if (x === 'users') loadUsers()
   if (x === 'committee') loadCommittee()
-  if (x === 'settings') loadBudget()
+  if (x === 'owners') loadOwners()
+  if (x === 'rent') { loadTenants(); loadAgreements() }
+  if (x === 'vendors') loadVendors()
+  if (x === 'settings') { loadBudget(); loadLicense() }
   if (x === 'dashboard') { loadDash(); loadBalances() }
 }
 
@@ -754,7 +895,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>Shop</th><th>Floor</th><th>Sqft</th><th>Owner</th><th>Mobile</th><th>Status</th><th style="text-align:right">Rate/mo</th><th></th></tr></thead>
+            <thead><tr><th>Shop</th><th>Floor</th><th>Sqft</th><th>Owner</th><th>Mobile</th><th>Type</th><th>Status</th><th style="text-align:right">Rate/mo</th><th></th></tr></thead>
             <tbody>
               <tr v-for="s in filteredShops" :key="s.id">
                 <td><b>{{ s.no }}</b><br /><small style="color:var(--text-mute)">{{ s.id }}</small></td>
@@ -762,6 +903,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td>{{ (s.sqft || 0).toLocaleString('en-IN') }}</td>
                 <td>{{ s.owner_name || '—' }}</td>
                 <td>{{ s.owner_mobile || '—' }}</td>
+                <td><span class="badge b-gray" style="font-size:10px">{{ s.space_type || 'Shop' }}</span><br /><span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px;margin-top:2px">{{ s.occupancy || 'Owner' }}</span></td>
                 <td><span class="badge" :class="badge(s.status)">{{ s.status }}</span></td>
                 <td style="text-align:right;font-weight:800">{{ money(s.service_rate) }}</td>
                 <td style="text-align:right;white-space:nowrap">
@@ -1287,6 +1429,132 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
     </template>
 
+    <!-- ═══════ OWNERS / OWNERSHIP ═══════ -->
+    <template v-if="tab === 'owners'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>Owners</div><div class="s-value">{{ ownerCounts.total || owners.length }}</div><div class="s-trend">persons + entities</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏭</span>Companies / entities</div><div class="s-value">{{ ownerCounts.companies || 0 }}</div><div class="s-trend">company, bank, trust…</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏪</span>Spaces owned</div><div class="s-value">{{ owners.reduce((s, o) => s + o.shops, 0) }}</div><div class="s-trend">one owner can own many</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>Multi-space owners</div><div class="s-value">{{ owners.filter(o => o.shops > 1).length }}</div><div class="s-trend">portfolio owners</div></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openOwnerAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add owner</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Flexible ownership — a building can be owned by one person, many persons, or companies/banks. Owner-occupied spaces only bear the service charge.</span>
+      </div>
+      <div v-if="owners.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px">
+        <div v-for="o in owners" :key="o.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center;cursor:pointer" @click="openOwnerProfile(o)">
+          <div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff" :style="{ background: memberColor({ id: o.id, name: o.name }) }">{{ memberAvatar({ name: o.name }) }}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
+              <span class="badge" :class="{ Person: 'b-blue', Company: 'b-red', Bank: 'b-green', NGO: 'b-orange', Trust: 'b-purple' }[o.type] || 'b-gray'">{{ o.type }}</span>
+              <span v-if="o.shops > 1" class="badge b-orange" style="font-size:10px">{{ o.shops }} spaces</span>
+              <span v-else-if="o.shops === 1" class="badge b-gray" style="font-size:10px">1 space</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ o.phone }}<span v-if="o.trade_license"> · TL {{ o.trade_license }}</span></div>
+          </div>
+          <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0" @click.stop>
+            <button @click="openOwnerEdit(o)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">✏️</button>
+            <button @click="delOwner(o)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No owners yet — add persons &amp; entities, then assign spaces in 🏪 Shops.</div>
+    </template>
+
+    <!-- ═══════ RENT & TENANTS ═══════ -->
+    <template v-if="tab === 'rent'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">🧑‍🤝‍🧑</span>Tenants</div><div class="s-value">{{ tenants.length }}</div><div class="s-trend">occupants (KRTaker-style profile)</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📄</span>Rental agreements</div><div class="s-value">{{ agreements.length }}</div><div class="s-trend">{{ agreements.filter(a => a.rent_collection).length }} with rent collection</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Rent collected</div><div class="s-value" style="color:var(--ok)">{{ money(rentStats.collected) }}</div><div class="s-trend">optional service for owners</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Rent outstanding</div><div class="s-value" :style="rentStats.outstanding > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(rentStats.outstanding) }}</div><div class="s-trend">due months × rent</div></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openTenantAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add tenant</button>
+        <button v-if="canManage" @click="openAgrAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">📄 New agreement</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Rent collection is an <b>optional service</b> — owners may collect rent themselves; the committee can manage it on request.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:16px" class="rt-grid">
+        <div class="panel" style="padding:16px">
+          <h3 style="font-size:14px;margin-bottom:10px">🧑‍🤝‍🧑 Tenants / occupants</h3>
+          <div v-if="tenants.length" style="display:flex;flex-direction:column;gap:8px">
+            <div v-for="t in tenants" :key="t.id" style="border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center">
+              <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff" :style="{ background: memberColor({ id: t.id, name: t.name }) }">{{ memberAvatar({ name: t.name }) }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:800;font-size:13px">{{ t.name }}</div>
+                <div style="font-size:11px;color:var(--text-mute)">{{ t.phone }}<span v-if="t.nid"> · NID {{ t.nid }}</span><span v-if="t.employer"> · {{ t.employer }}</span></div>
+                <span v-if="t.agreements" class="badge b-blue" style="font-size:10px;margin-top:3px">{{ t.agreements }} active agreement(s)</span>
+              </div>
+              <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+                <button @click="openTenantEdit(t)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">✏️</button>
+                <button @click="delTenant(t)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
+              </div>
+            </div>
+          </div>
+          <p v-else style="color:var(--text-mute);font-size:12.5px">No tenants yet.</p>
+        </div>
+        <div class="panel" style="padding:16px">
+          <h3 style="font-size:14px;margin-bottom:10px">📄 Rental agreements</h3>
+          <div v-if="agreements.length" style="display:flex;flex-direction:column;gap:9px">
+            <div v-for="a in agreements" :key="a.id" style="border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <b style="font-size:13px">{{ a.shop }}</b>
+                <span class="badge" :class="{ Active: 'b-green', Expired: 'b-gray', Terminated: 'b-red' }[a.status] || 'b-gray'">{{ a.status }}</span>
+                <span v-if="a.rent_collection" class="badge b-blue" style="font-size:10px">committee collects rent</span>
+                <span v-else class="badge b-gray" style="font-size:10px">owner collects</span>
+                <span style="flex:1"></span>
+                <span style="font-weight:800;font-size:13px">{{ money(a.rent) }}/mo</span>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-mute);margin-top:5px">{{ a.tenant_name || '—' }} · {{ a.start_date }}<span v-if="a.end_date"> → {{ a.end_date }}</span><span v-if="a.advance_months"> · {{ a.advance_months }} mo advance</span></div>
+              <div v-if="a.rent_collection" style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+                <span style="font-size:12px;font-weight:700" :style="a.rent_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ a.due_months }} mo due · {{ money(a.rent_due) }}</span>
+                <span style="font-size:11px;color:var(--text-mute)">{{ a.paid_months }} mo paid</span>
+                <button v-if="canManage" @click="openRentCollect(a)" style="margin-left:auto;padding:7px 13px;border:none;border-radius:9px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💵 Collect rent</button>
+                <button v-if="canManage" @click="delAgreement(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:11px">🗑️</button>
+              </div>
+            </div>
+          </div>
+          <p v-else style="color:var(--text-mute);font-size:12.5px">No rental agreements — add one to track the occupant, rent &amp; term.</p>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════ VENDORS ═══════ -->
+    <template v-if="tab === 'vendors'">
+      <div class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">🧰</span>Vendors</div><div class="s-value">{{ vendors.length }}</div><div class="s-trend">profiles + ledgers</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Total paid</div><div class="s-value" style="color:var(--danger)">{{ money(vendorsTotal) }}</div><div class="s-trend">payment tracking</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>Categories</div><div class="s-value">{{ new Set(vendors.map(v => v.category).filter(Boolean)).size }}</div><div class="s-trend">security, lift, AC…</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📑</span>Payments</div><div class="s-value">{{ vendors.reduce((s, v) => s + v.payments, 0) }}</div><div class="s-trend">every payment tracked</div></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openVendorAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add vendor</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Vendor profile · payment ledger · every payout tracked with method &amp; reference.</span>
+      </div>
+      <div v-if="vendors.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+        <div v-for="v in vendors" :key="v.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center">
+          <div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff" :style="{ background: memberColor({ id: v.id, name: v.name }) }">{{ memberAvatar({ name: v.name }) }}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.name }}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
+              <span class="badge b-gray" style="font-size:10px">{{ v.category }}</span>
+              <span class="badge b-red" style="font-size:10px">{{ money(v.paid) }} paid</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ v.contact_person ? v.contact_person + ' · ' : '' }}{{ v.phone }}<span v-if="v.payments"> · {{ v.payments }} payments</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+            <button v-if="canManage" @click="openVendorPay(v)" style="padding:6px 10px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">💸 Pay</button>
+            <div v-if="canManage" style="display:flex;gap:4px">
+              <button @click="openVendorEdit(v)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:3px 7px;cursor:pointer;font-size:11px">✏️</button>
+              <button @click="delVendor(v)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:3px 7px;cursor:pointer;font-size:11px">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No vendors yet — security agencies, lift/AC contractors, cleaners &amp; suppliers.</div>
+    </template>
+
     <!-- ═══════ LEDGER ═══════ -->
     <template v-if="tab === 'ledger'">
       <div v-if="ledger">
@@ -1472,6 +1740,31 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </label>
         </div>
         <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">🔑 License &amp; plan</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">The solution is sold as <b>one-off, yearly subscription/license, or user/monthly</b>. The <b>super admin</b> account is reserved for the vendor (Mall Manager by Deshik Lab) — the owning company, somity/committee or private owner manages day-to-day operations.</p>
+          <div v-if="license" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Plan
+              <select v-model="license.plan" :disabled="!isSuperAdmin" @change="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="p in ['One-off', 'Yearly', 'Monthly']" :key="p" :value="p">{{ p }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Expiry
+              <input type="date" v-model="license.expiry" :disabled="!isSuperAdmin" @change="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">User seats
+              <input type="number" v-model.number="license.seats" min="1" :disabled="!isSuperAdmin" @input="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">License holder
+              <input v-model="license.holder" :disabled="!isSuperAdmin" placeholder="e.g. Razzak Plaza Owners' Committee" @input="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <div v-if="license" style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <span class="badge" :class="license.plan === 'One-off' ? 'b-green' : license.expiry && license.expiry < new Date().toISOString().slice(0, 10) ? 'b-red' : 'b-blue'" style="font-size:11px">{{ licenseBadge }}</span>
+            <button v-if="isSuperAdmin && licenseDirty" @click="saveLicense" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🔑 Save license</button>
+            <span v-if="!isSuperAdmin" style="font-size:11px;color:var(--text-mute)">🔒 Only the super admin (vendor) can change the license.</span>
+          </div>
+        </div>
+        <div class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🏦 Bank details (shown on receipts)</h3>
           <label style="font-size:12px;color:var(--text-mute)">Bank name
             <input v-model="config.bank_name" placeholder="e.g. Islami Bank Bangladesh PLC" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
@@ -1543,6 +1836,22 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <label style="font-size:12px;color:var(--text-mute)">Owner name *<input v-model="form.owner_name" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Owner mobile<input v-model="form.owner_mobile" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Owner NID<input v-model="form.owner_nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Owner (directory)
+              <select v-model="form.owner_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option :value="0">— standalone (name above) —</option>
+                <option v-for="o in owners" :key="o.id" :value="o.id">{{ o.name }} ({{ o.type }})</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Space type
+              <select v-model="form.space_type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="t in SPACE_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Occupancy
+              <select v-model="form.occupancy" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="o in OCCUPANCIES" :key="o" :value="o">{{ { Owner: 'Owner-occupied (service charge only)', Rented: 'Rented to a tenant', Vacant: 'Vacant' }[o] }}</option>
+              </select>
+            </label>
             <label style="font-size:12px;color:var(--text-mute)">Status
               <select v-model="form.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ v }}</option>
@@ -1866,6 +2175,262 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="saveResolution" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save resolution</button>
             <button @click="resModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ OWNER MODAL ═══════ -->
+    <div v-if="ownerModal" class="overlay" @click.self="ownerModal = null">
+      <div class="modal" style="max-width:540px">
+        <div class="modal-h"><div class="t">{{ ownerModal.title }}</div><button class="close" @click="ownerModal = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Name / entity name *
+              <input v-model="ownerForm.name" placeholder="e.g. Rahim Uddin or Rahim Traders Ltd" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Type
+              <select v-model="ownerForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="t in OWNER_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Phone
+              <input v-model="ownerForm.phone" placeholder="e.g. 01711-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Email
+              <input v-model="ownerForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">NID (person) / TIN
+              <input v-model="ownerForm.nid" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Trade license (company)
+              <input v-model="ownerForm.trade_license" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Contact person
+              <input v-model="ownerForm.contact_person" placeholder="for companies" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Address
+              <input v-model="ownerForm.address" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Notes
+            <textarea v-model="ownerForm.notes" rows="2" placeholder="e.g. owns A-101 &amp; B-201; self-occupies A-101" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          </label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveOwner" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save owner</button>
+            <button @click="ownerModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ OWNER PROFILE MODAL ═══════ -->
+    <div v-if="ownerProfile" class="overlay" @click.self="ownerProfile = null">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-h"><div class="t">🏢 {{ ownerProfile.owner.name }}</div><button class="close" @click="ownerProfile = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <span class="badge" :class="{ Person: 'b-blue', Company: 'b-red', Bank: 'b-green' }[ownerProfile.owner.type] || 'b-gray'">{{ ownerProfile.owner.type }}</span>
+            <span v-if="ownerProfile.owner.phone" class="badge b-gray">{{ ownerProfile.owner.phone }}</span>
+            <span v-if="ownerProfile.owner.trade_license" class="badge b-gray">TL {{ ownerProfile.owner.trade_license }}</span>
+            <span class="badge b-orange">{{ ownerProfile.shops.length }} space(s)</span>
+            <span class="badge" :class="ownerProfile.total_due > 0 ? 'b-red' : 'b-green'">due {{ money(ownerProfile.total_due) }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto">
+            <div v-for="s in ownerProfile.shops" :key="s.id" style="border:1px solid var(--border);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <b style="font-size:13px">{{ s.no }} <span style="color:var(--text-mute);font-weight:500">· {{ s.floor }} floor</span></b>
+              <span class="badge b-gray" style="font-size:10px">{{ s.space_type }}</span>
+              <span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'">{{ s.occupancy }}</span>
+              <span style="flex:1"></span>
+              <span style="font-size:11.5px;color:var(--text-mute)">paid {{ money(s.paid) }}</span>
+              <span style="font-size:12.5px;font-weight:800" :style="s.due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(s.due) }} due</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ TENANT MODAL ═══════ -->
+    <div v-if="tenantModal" class="overlay" @click.self="tenantModal = null">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-h"><div class="t">{{ tenantModal.title }}</div><button class="close" @click="tenantModal = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Full name *
+              <input v-model="tenantForm.name" placeholder="e.g. Abdul Kader" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Phone
+              <input v-model="tenantForm.phone" placeholder="e.g. 01800-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">NID
+              <input v-model="tenantForm.nid" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Email
+              <input v-model="tenantForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Employer / business
+              <input v-model="tenantForm.employer" placeholder="e.g. Mobile accessories shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Address
+              <input v-model="tenantForm.address" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveTenant" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save tenant</button>
+            <button @click="tenantModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ AGREEMENT MODAL ═══════ -->
+    <div v-if="agrModal" class="overlay" @click.self="agrModal = false">
+      <div class="modal" style="max-width:540px">
+        <div class="modal-h"><div class="t">📄 New rental agreement</div><button class="close" @click="agrModal = false">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Space *
+              <select v-model="agrForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option value="">— choose space —</option>
+                <option v-for="s in shops" :key="s.id" :value="s.no">{{ s.no }} · {{ s.space_type || 'Shop' }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Tenant
+              <select v-model="agrForm.tenant_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option :value="0">— choose tenant —</option>
+                <option v-for="t in tenants" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Monthly rent (৳)
+              <input type="number" v-model.number="agrForm.rent" min="0" placeholder="e.g. 25000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Advance months
+              <input type="number" v-model.number="agrForm.advance_months" min="0" placeholder="e.g. 3" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Start date
+              <input type="date" v-model="agrForm.start_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">End date (optional)
+              <input type="date" v-model="agrForm.end_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Rent due day
+              <input type="number" v-model.number="agrForm.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Status
+              <select v-model="agrForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="s in ['Active', 'Expired', 'Terminated']" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </label>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
+            <input type="checkbox" v-model="agrForm.rent_collection" style="width:16px;height:16px" />
+            <span><b>Committee collects rent</b> <span style="color:var(--text-mute)">— optional service: the owner gets rent collected on their behalf</span></span>
+          </label>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button @click="saveAgreement" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save agreement</button>
+            <button @click="agrModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ RENT COLLECT MODAL ═══════ -->
+    <div v-if="rentModal" class="overlay" @click.self="rentModal = null">
+      <div class="modal" style="max-width:440px">
+        <div class="modal-h"><div class="t">💵 Collect rent — {{ rentModal.shop }}</div><button class="close" @click="rentModal = null">✕</button></div>
+        <div class="modal-b">
+          <p style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px">Recording rent for <b>{{ rentModal.tenant_name }}</b> ({{ money(rentModal.rent) }}/mo). Receipt <b>RNT-…</b> auto-generated.</p>
+          <label style="font-size:12px;color:var(--text-mute);display:block">Month
+            <input type="month" v-model="rentForm.month" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+            <label style="font-size:12px;color:var(--text-mute)">Amount
+              <input type="number" v-model.number="rentForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Method
+              <select v-model="rentForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="m in ['cash', 'bank', 'bkash', 'nagad']" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </label>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reference
+            <input v-model="rentForm.ref" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveRent" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Record rent</button>
+            <button @click="rentModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ VENDOR MODAL ═══════ -->
+    <div v-if="vendorModal" class="overlay" @click.self="vendorModal = null">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-h"><div class="t">{{ vendorModal.title }}</div><button class="close" @click="vendorModal = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Vendor name *
+              <input v-model="vendorForm.name" placeholder="e.g. Otis Elevator Co." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Category
+              <select v-model="vendorForm.category" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="c in VENDOR_CATS" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Contact person
+              <input v-model="vendorForm.contact_person" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Phone
+              <input v-model="vendorForm.phone" placeholder="e.g. 02-9551234" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Email
+              <input v-model="vendorForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Address
+              <input v-model="vendorForm.address" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveVendor" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save vendor</button>
+            <button @click="vendorModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ VENDOR PAY MODAL ═══════ -->
+    <div v-if="vendorPayModal" class="overlay" @click.self="vendorPayModal = null">
+      <div class="modal" style="max-width:500px">
+        <div class="modal-h"><div class="t">💸 Pay {{ vendorPayModal.name }}</div><button class="close" @click="vendorPayModal = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Amount (৳)
+              <input type="number" v-model.number="vendorPayForm.amount" min="0" placeholder="e.g. 8500" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Method
+              <select v-model="vendorPayForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="m in ['bank', 'cash', 'bkash', 'nagad', 'cheque']" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </label>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reference / cheque no
+            <input v-model="vendorPayForm.ref" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Note (what is this for?)
+            <input v-model="vendorPayForm.note" placeholder="e.g. Lift AMC — August" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button @click="saveVendorPay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Record payment</button>
+          </div>
+          <div v-if="vendorPayments.length" style="margin-top:16px">
+            <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Payment ledger</div>
+            <div v-for="p in vendorPayments" :key="p.id" style="display:flex;align-items:center;gap:8px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
+              <b>{{ money(p.amount) }}</b>
+              <span class="badge b-gray" style="font-size:10px">{{ p.method }}</span>
+              <span style="color:var(--text-mute);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.note }}</span>
+              <span style="color:var(--text-mute);font-size:11px">{{ (p.ts || '').slice(0, 10) }}</span>
+            </div>
           </div>
         </div>
       </div>
