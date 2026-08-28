@@ -14964,7 +14964,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15154,6 +15154,41 @@ case 'mall': {
         $counts = ['Open' => 0, 'In Progress' => 0, 'Resolved' => 0];
         foreach ($rows as $r) if (isset($counts[$r['status']])) $counts[$r['status']]++;
         json_out(['ok' => true, 'complaints' => $rows, 'counts' => $counts]);
+    }
+    /* space-detail — everything about ONE space for the detail drawer
+       (Units-style: overview, owner, rent/agreements, bills, meters, complaints). */
+    if ($a === 'space-detail') {
+        $id = trim((string)($body['id'] ?? ''));
+        $st = $pdo->prepare('SELECT * FROM shops WHERE id=?'); $st->execute([$id]);
+        $s = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$s) json_out(['ok' => false, 'error' => 'Space not found.'], 404);
+        $q = function ($sql, $args = []) use ($pdo) {
+            $st = $pdo->prepare($sql); $st->execute($args);
+            return $st->fetchAll(PDO::FETCH_ASSOC);
+        };
+        $owner = null;
+        if ((int)$s['owner_id']) {
+            $os = $q('SELECT * FROM mall_owners WHERE id=?', [(int)$s['owner_id']]);
+            $owner = $os[0] ?? null;
+        }
+        $bills = $q("SELECT b.*, s.no AS shop_no, s.floor AS shop_floor, s.owner_name
+                     FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop WHERE b.shop=? ORDER BY b.month DESC, b.kind", [$id]);
+        $payments = $q("SELECT * FROM shop_payments WHERE shop=? ORDER BY created_at DESC", [$id]);
+        $readings = $q("SELECT r.* FROM mall_meter_readings r WHERE r.shop=? ORDER BY r.month DESC, r.type", [$id]);
+        $complaints = $q('SELECT * FROM mall_complaints WHERE shop=? ORDER BY id DESC', [$id]);
+        $agreements = $q("SELECT a.*, t.name AS tenant_name FROM mall_agreements a
+                          LEFT JOIN mall_tenants t ON t.id=a.tenant_id WHERE a.shop=? ORDER BY a.id DESC", [$s['no']]);
+        $rentPays = $q('SELECT * FROM mall_rent_payments WHERE shop=? ORDER BY ts DESC', [$s['no']]);
+        $due = 0; $paid = 0;
+        foreach ($bills as $b) {
+            $payd = 0;
+            foreach ($payments as $p) if ($p['bill_id'] == $b['id']) $payd += (int)$p['amount'];
+            if ($b['status'] !== 'Paid') $due += (int)$b['amount'] + (int)($b['fine'] ?? 0) - $payd;
+            $paid += $payd;
+        }
+        json_out(['ok' => true, 'shop' => $s, 'owner' => $owner, 'bills' => $bills, 'payments' => $payments,
+                  'readings' => $readings, 'complaints' => $complaints, 'agreements' => $agreements,
+                  'rent_payments' => $rentPays, 'total_due' => $due, 'total_paid' => $paid]);
     }
     if ($a === 'complaint-add') {
         $shop = trim($body['shop'] ?? '');

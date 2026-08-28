@@ -19,7 +19,7 @@ const canCollect = computed(() => canManage.value || isCollector.value)
 const tab = ref('dashboard')
 const TABS = [
   ['dashboard', '📊', 'Dashboard'],
-  ['shops', '🏪', 'Spaces'],
+  ['space', '🏪', 'Spaces'],
   ['bills', '🧾', 'Bills & Collections'],
   ['meters', '⚡', 'Meters'],
   ['expenses', '📉', 'Expenses'],
@@ -756,6 +756,25 @@ const licenseBadge = computed(() => {
   return '🟢 ' + l.plan + (l.expiry ? ' · till ' + l.expiry : '')
 })
 
+/* ══════════ SPACES: list/grid toggle + detail drawer (Units-style) ══════════ */
+const spaceView = ref('table')
+const drawer = ref(null)         // space-detail payload
+const drawerTab = ref('overview')
+const drawerLoading = ref(false)
+async function openSpaceDetail(s) {
+  drawerLoading.value = true
+  drawerTab.value = 'overview'
+  const r = await apiCall('mall', { action: 'space-detail', id: s.id })
+  if (r.ok) drawer.value = r
+  drawerLoading.value = false
+}
+function closeSpaceDetail() { drawer.value = null }
+const drawerOwner = computed(() => {
+  if (!drawer.value) return null
+  const d = drawer.value
+  return d.owner || { name: d.shop.owner_name || '—', phone: d.shop.owner_mobile || '—', nid: d.shop.owner_nid || '' }
+})
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -884,7 +903,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
     </template>
 
     <!-- ═══════ SHOPS ═══════ -->
-    <template v-if="tab === 'shops'">
+    <template v-if="tab === 'space'">
       <div class="stats">
         <div v-for="k in shopKpis" :key="k.label" class="stat">
           <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
@@ -899,13 +918,17 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <option value="">All statuses</option>
           <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ v }}</option>
         </select>
+        <span style="margin-left:auto;display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
+          <button @click="spaceView = 'table'" :style="spaceView === 'table' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">☰ List</button>
+          <button @click="spaceView = 'grid'" :style="spaceView === 'grid' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">⊞ Grid</button>
+        </span>
       </div>
-      <div class="panel" style="overflow:hidden">
+      <div v-if="spaceView === 'table'" class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
             <thead><tr><th>Space</th><th>Floor</th><th>Sqft</th><th>Owner</th><th>Mobile</th><th>Type</th><th>Status</th><th style="text-align:right">Rate/mo</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="s in filteredShops" :key="s.id">
+              <tr v-for="s in filteredShops" :key="s.id" style="cursor:pointer" @click="openSpaceDetail(s)">
                 <td><b>{{ s.no }}</b><br /><small style="color:var(--text-mute)">{{ s.id }}</small></td>
                 <td>{{ s.floor }}</td>
                 <td>{{ (s.sqft || 0).toLocaleString('en-IN') }}</td>
@@ -914,7 +937,8 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td><span class="badge b-gray" style="font-size:10px">{{ s.space_type || 'Shop' }}</span><br /><span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px;margin-top:2px">{{ s.occupancy || 'Owner' }}</span></td>
                 <td><span class="badge" :class="badge(s.status)">{{ s.status }}</span></td>
                 <td style="text-align:right;font-weight:800">{{ money(s.service_rate) }}</td>
-                <td style="text-align:right;white-space:nowrap">
+                <td style="text-align:right;white-space:nowrap" @click.stop>
+                  <button @click="openSpaceDetail(s)" title="Details" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">👁</button>
                   <button v-if="canManage" @click="openEdit(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
                   <button v-if="canManage" @click="deleteShop(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
                 </td>
@@ -923,6 +947,29 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </tbody>
           </table>
         </div>
+      </div>
+      <!-- grid view -->
+      <div v-else-if="spaceView === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
+        <div v-for="s in filteredShops" :key="s.id" class="panel chip" style="padding:15px;cursor:pointer" @click="openSpaceDetail(s)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#2F80ED,#27AE60);color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0">🏪</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:14px">{{ s.no }}</div>
+              <div style="font-size:11px;color:var(--text-mute)">{{ s.floor }} floor · {{ (s.sqft || 0).toLocaleString('en-IN') }} sqft</div>
+            </div>
+            <span class="badge" :class="badge(s.status)">{{ s.status }}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <span class="badge b-gray" style="font-size:10px">{{ s.space_type || 'Shop' }}</span>
+            <span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px">{{ s.occupancy || 'Owner' }}</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👤 {{ s.owner_name || '—' }}<span v-if="s.owner_mobile"> · {{ s.owner_mobile }}</span></div>
+          <div style="display:flex;align-items:center;margin-top:8px;border-top:1px dashed var(--border);padding-top:8px">
+            <span style="font-size:11px;color:var(--text-mute)">Rate/mo</span>
+            <b style="margin-left:auto;font-size:13.5px">{{ money(s.service_rate) }}</b>
+          </div>
+        </div>
+        <div v-if="!filteredShops.length" class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No spaces match the filters.</div>
       </div>
       <p style="color:var(--text-mute);font-size:12px;margin-top:10px">💡 Rate/mo = flat service charge per space. Space owners collect their own rent — service charges &amp; utilities are billed here.</p>
     </template>
@@ -2422,6 +2469,178 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         </div>
       </div>
     </div>
+
+    <!-- ═══════ SPACE DETAIL DRAWER (Units-style, tab by tab) ═══════ -->
+    <template v-if="drawer">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:200" @click="closeSpaceDetail"></div>
+      <div style="position:fixed;top:0;right:0;bottom:0;width:min(640px,94vw);background:var(--card);z-index:201;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
+        <div style="height:118px;background:linear-gradient(135deg,#2F80ED,#27AE60);position:relative;flex-shrink:0">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:46px;opacity:.9">🏪</div>
+          <button @click="closeSpaceDetail" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+          <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge" :class="badge(drawer.shop.status)">{{ drawer.shop.status }}</span>
+            <span v-if="drawer.shop.space_type" class="badge b-white" style="background:rgba(255,255,255,.2);color:#fff;border:none">{{ drawer.shop.space_type }}</span>
+            <span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[drawer.shop.occupancy] || 'b-gray'">{{ drawer.shop.occupancy }}</span>
+          </div>
+        </div>
+        <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+          <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ drawer.shop.no }} <span style="font-size:13px;color:var(--text-mute);font-weight:600">· {{ drawer.shop.id }}</span></h2>
+          <div class="c-sub" style="margin-top:3px">🏢 {{ drawer.shop.owner_name || '—' }}<template v-if="drawer.shop.floor"> · {{ drawer.shop.floor }} floor</template><template v-if="drawer.shop.sqft"> · {{ Number(drawer.shop.sqft).toLocaleString('en-IN') }} sqft</template></div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rate / month</div>
+              <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(drawer.shop.service_rate) }}</div>
+            </div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Opening balance</div>
+              <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(drawer.shop.opening_balance) }}</div>
+            </div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div>
+              <div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(drawer.total_paid) }}</div>
+            </div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Due</div>
+              <div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="drawer.total_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(drawer.total_due) }}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
+            <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'owner',label:'Owner',ico:'🏢'},{id:'rent',label:'Rent',ico:'📄'},{id:'bills',label:'Bills',ico:'🧾'},{id:'meters',label:'Meters',ico:'⚡'},{id:'complaints',label:'Complaints',ico:'🔧'}]" :key="t.id" @click="drawerTab = t.id"
+              style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)"
+              :style="drawerTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">
+              {{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : t.id === 'owner' ? (drawer.owner ? 1 : 0) : t.id === 'rent' ? drawer.agreements.length : t.id === 'bills' ? drawer.bills.length : t.id === 'meters' ? drawer.readings.length : drawer.complaints.length }})</span>
+            </button>
+          </div>
+
+          <!-- OVERVIEW -->
+          <div v-if="drawerTab === 'overview'" style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+            <div v-for="r in [
+              ['Space no', drawer.shop.no], ['Floor', drawer.shop.floor || '—'], ['Size', (drawer.shop.sqft ? Number(drawer.shop.sqft).toLocaleString('en-IN') + ' sqft' : '—')],
+              ['Space type', drawer.shop.space_type || 'Shop'], ['Occupancy', drawer.shop.occupancy || '—'], ['Status', drawer.shop.status],
+              ['Service rate', money(drawer.shop.service_rate) + '/mo'], ['Opening balance', money(drawer.shop.opening_balance)],
+              ['Owner', drawer.shop.owner_name || '—'], ['Owner mobile', drawer.shop.owner_mobile || '—'],
+              ['Owner NID', drawer.shop.owner_nid || '—'], ['Bills (all months)', drawer.bills.length],
+            ]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
+              <span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b>
+            </div>
+          </div>
+
+          <!-- OWNER -->
+          <div v-else-if="drawerTab === 'owner'" class="drawer-tbl-wrap">
+            <div v-if="drawerOwner" style="display:flex;gap:12px;align-items:center;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+              <div style="width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff" :style="{ background: memberColor({ id: 1, name: drawerOwner.name }) }">{{ memberAvatar({ name: drawerOwner.name }) }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:800;font-size:14px">{{ drawerOwner.name }}</div>
+                <div style="font-size:11.5px;color:var(--text-mute)">{{ drawerOwner.type || 'Owner' }}<span v-if="drawerOwner.phone"> · {{ drawerOwner.phone }}</span><span v-if="drawerOwner.email"> · {{ drawerOwner.email }}</span></div>
+              </div>
+            </div>
+            <div v-if="drawerOwner" style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+              <div v-for="r in [
+                ['Type', drawerOwner.type || '—'], ['Phone', drawerOwner.phone || '—'], ['Email', drawerOwner.email || '—'],
+                ['NID / TIN', drawerOwner.nid || '—'], ['Trade license', drawerOwner.trade_license || '—'], ['Contact person', drawerOwner.contact_person || '—'],
+                ['Address', drawerOwner.address || '—'], ['Notes', drawerOwner.notes || '—'],
+              ]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
+                <span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b>
+              </div>
+            </div>
+            <p v-else style="color:var(--text-mute);font-size:13px;padding:10px 0">No owner record — add one from 🏢 Owners and link it in the Space form.</p>
+          </div>
+
+          <!-- RENT -->
+          <div v-else-if="drawerTab === 'rent'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>Space</th><th>Tenant</th><th>Rent/mo</th><th>Term</th><th>Advance</th><th>Collection</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr v-for="a in drawer.agreements" :key="a.id">
+                  <td style="font-weight:700">{{ a.shop }}</td>
+                  <td>{{ a.tenant_name || '—' }}</td>
+                  <td style="font-weight:700">{{ money(a.rent) }}</td>
+                  <td style="font-size:12px">{{ a.start_date }}<template v-if="a.end_date"> → {{ a.end_date }}</template></td>
+                  <td>{{ a.advance_months }} mo</td>
+                  <td><span class="badge" :class="a.rent_collection ? 'b-blue' : 'b-gray'" style="font-size:10px">{{ a.rent_collection ? 'committee collects' : 'owner collects' }}</span></td>
+                  <td><span class="badge" :class="badge(a.status)">{{ a.status }}</span></td>
+                </tr>
+                <tr v-if="!drawer.agreements.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No rental agreement for this space.</td></tr>
+              </tbody>
+            </table>
+            <div v-if="drawer.rent_payments.length" style="margin-top:12px">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Rent collections</div>
+              <div v-for="p in drawer.rent_payments" :key="p.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
+                <b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ p.method }}</span>
+                <span style="color:var(--text-mute);flex:1">{{ p.receipt }} · {{ p.month }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BILLS -->
+          <div v-else-if="drawerTab === 'bills'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>Bill</th><th>Month</th><th>Kind</th><th>Amount</th><th>Fine</th><th>Due</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr v-for="b in drawer.bills" :key="b.id">
+                  <td style="font-weight:700">{{ b.id }}</td>
+                  <td>{{ b.month }}</td>
+                  <td>{{ { service: 'Service', elec: 'Electricity', water: 'Water' }[b.kind] || b.kind }}</td>
+                  <td style="font-weight:700">{{ money(b.amount) }}</td>
+                  <td>{{ money(b.fine) }}</td>
+                  <td style="font-size:12px">{{ b.due_date }}</td>
+                  <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
+                </tr>
+                <tr v-if="!drawer.bills.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No bills for this space yet.</td></tr>
+              </tbody>
+            </table>
+            <div v-if="drawer.payments.length" style="margin-top:12px">
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Collection history</div>
+              <table class="kr" style="width:100%">
+                <thead><tr><th>Receipt</th><th>Month</th><th>Kind</th><th>Method</th><th style="text-align:right">Amount</th></tr></thead>
+                <tbody>
+                  <tr v-for="p in drawer.payments" :key="p.id">
+                    <td style="font-weight:700">{{ p.receipt }}</td><td>{{ p.month }}</td><td>{{ p.kind }}</td><td>{{ p.method }}</td><td style="text-align:right;font-weight:700">{{ money(p.amount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- METERS -->
+          <div v-else-if="drawerTab === 'meters'" class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>Month</th><th>Type</th><th style="text-align:right">Reading</th><th style="text-align:right">Units</th><th style="text-align:right">Billed</th></tr></thead>
+              <tbody>
+                <tr v-for="r in drawer.readings" :key="r.id">
+                  <td>{{ r.month }}</td>
+                  <td>{{ r.type === 'elec' ? '⚡ Electricity' : '💧 Water' }}</td>
+                  <td style="text-align:right">{{ Number(r.reading).toLocaleString('en-IN') }}</td>
+                  <td style="text-align:right">{{ Number(r.units).toLocaleString('en-IN') }}</td>
+                  <td style="text-align:right;font-weight:700">{{ money(r.billed) }}</td>
+                </tr>
+                <tr v-if="!drawer.readings.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No meter readings for this space.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- COMPLAINTS -->
+          <div v-else class="drawer-tbl-wrap">
+            <table class="kr" style="width:100%">
+              <thead><tr><th>#</th><th>Subject</th><th>Priority</th><th>Opened</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr v-for="c in drawer.complaints" :key="c.id">
+                  <td style="font-weight:700">{{ c.id }}</td>
+                  <td>{{ c.subject }}</td>
+                  <td><span class="badge" :class="c.priority === 'High' ? 'b-red' : c.priority === 'Urgent' ? 'b-red' : c.priority === 'Low' ? 'b-gray' : 'b-orange'" style="font-size:10px">{{ c.priority }}</span></td>
+                  <td style="font-size:12px">{{ (c.created_at || '').slice(0, 10) }}</td>
+                  <td><span class="badge" :class="badge(c.status)">{{ c.status }}</span></td>
+                </tr>
+                <tr v-if="!drawer.complaints.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No complaints for this space.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="height:24px"></div>
+        </div>
+      </div>
+    </template>
 
     <!-- ═══════ RECEIPT MODAL ═══════ -->
     <div v-if="recModal" class="overlay" @click.self="recModal = null">

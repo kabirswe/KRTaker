@@ -9,7 +9,7 @@
 //   fields — array of [value, weight] pairs; weight 2 = id/code (prefix match), 1 = name/contact
 //   sub    — function(row, db) → subtitle string
 const SPECS = [
-  { coll: 'shops', group: 'Spaces', ic: '🏪', tab: 'shops',
+  { coll: 'shops', group: 'Spaces', ic: '🏪', tab: 'space',
     fields: [['no', 2], ['owner_name', 1], ['owner_mobile', 1], ['owner_nid', 1], ['floor', 1], ['status', 1], ['id', 2]],
     sub: (r) => [r.floor, r.owner_name, r.owner_mobile, r.status, '৳' + Number(r.service_rate || 0).toLocaleString('en-IN') + '/mo'].filter(Boolean).join(' · ') },
   { coll: 'shop_bills', group: 'Bills & Collections', ic: '🧾', tab: 'bills',
@@ -39,7 +39,7 @@ const SPECS = [
 const COMMANDS = [
   ['⚙️ Generate monthly bills', 'Create service-charge bills for all active shops', 'bills'],
   ['💸 Compute late fees', 'Apply late payment fines to overdue bills', 'bills'],
-  ['🏪 Add a Space', 'Register a new space with owner & rate', 'shops'],
+  ['🏪 Add a Space', 'Register a new space with owner & rate', 'space'],
   ['⚡ Enter meter reading', 'Sub-meter reading → auto elec/water bill', 'meters'],
   ['📉 Record an expense', 'Lift / DESCO / security / salary expense entry', 'expenses'],
   ['🔧 Log a complaint', 'Report a shop issue (lift, AC, light…)', 'complaints'],

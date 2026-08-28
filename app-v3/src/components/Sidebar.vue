@@ -58,7 +58,7 @@ const GROUPS = [
         ['ledger', '📒', 'Ledger', 'Per-space paid vs billed, by-kind summary, DESCO/WASA custodial reconciliation'],
       ]},
       { sub: 'Spaces & Owners', items: [
-        ['shops', '🏪', 'Spaces', 'All commercial spaces — owners, space types, occupancy, service rates'],
+        ['space', '🏪', 'Spaces', 'All commercial spaces — owners, space types, occupancy, service rates'],
         ['owners', '🏢', 'Owners', 'Persons & entities who own spaces; multi-space portfolios'],
         ['rent', '🧾', 'Rent & Tenants', 'Tenant profiles, rental agreements & optional rent collection'],
       ]},
@@ -90,7 +90,7 @@ const GROUPS = [
 const VIEW_ROUTES = {
   mall: '/mall',
   dashboard: { path: '/mall', query: { tab: 'dashboard' } },
-  shops: { path: '/mall', query: { tab: 'shops' } },
+  space: { path: '/mall', query: { tab: 'space' } },
   bills: { path: '/mall', query: { tab: 'bills' } },
   meters: { path: '/mall', query: { tab: 'meters' } },
   expenses: { path: '/mall', query: { tab: 'expenses' } },
@@ -123,7 +123,7 @@ const LEGAL_MODS = ['compliance', 'legal', 'cases', 'concierge']
 const SECURE_MODS = ['smarthome', 'land', 'build', 'firesafety', 'kyc', 'inspections', 'health', 'systems', 'nrb']
 const SOCIETY_MODS = ['parking', 'bookings', 'voting', 'forums', 'events', 'samity']
 const HUB_MODS = { finance: FINANCE_MODS, portfolio: PORTFOLIO_MODS, bms: BMS_MODS, community: COMMUNITY_MODS, legalhub: LEGAL_MODS, secure: SECURE_MODS, society: SOCIETY_MODS }
-const MALL_TABS = new Set(['dashboard', 'shops', 'bills', 'meters', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'ledger', 'settings'])
+const MALL_TABS = new Set(['dashboard', 'space', 'bills', 'meters', 'expenses', 'complaints', 'assets', 'notices', 'audit', 'staff', 'users', 'committee', 'owners', 'rent', 'vendors', 'ledger', 'settings'])
 const can = (mod) => {
   const user = auth.user || data.user
   if (!user) return true
