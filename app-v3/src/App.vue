@@ -117,7 +117,7 @@ document.documentElement.setAttribute('data-theme', savedTheme)
 
 <template>
   <div>
-    <!-- Shop-owner portal: standalone, no app shell -->
+    <!-- Space-owner portal: standalone, no app shell -->
     <div v-if="isPortal" class="app"><router-view /></div>
 
     <!-- Auth gate: show login UNLESS a token exists AND has been validated.

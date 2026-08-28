@@ -109,7 +109,7 @@ function openEdit(s) {
 }
 const saving = ref(false)
 async function saveShop() {
-  if (!form.value.no.trim() || !form.value.owner_name.trim()) { window.__krToast?.('Shop no and owner name required.', 'err'); return }
+  if (!form.value.no.trim() || !form.value.owner_name.trim()) { window.__krToast?.('Space no and owner name required.', 'err'); return }
   saving.value = true
   try {
     const payload = {
@@ -122,14 +122,14 @@ async function saveShop() {
       action: modal.value.mode === 'edit' ? 'update' : 'create', collection: 'shops',
       ...(modal.value.mode === 'edit' ? { id: modal.value.id } : {}), data: payload,
     })
-    if (r.ok) { window.__krToast?.(modal.value.mode === 'edit' ? '✏️ Shop updated' : '✅ Shop created', 'ok'); modal.value = null; await data.bootstrap() }
+    if (r.ok) { window.__krToast?.(modal.value.mode === 'edit' ? '✏️ Space updated' : '✅ Space created', 'ok'); modal.value = null; await data.bootstrap() }
     else window.__krToast?.(r.error || 'Save failed.', 'err')
   } finally { saving.value = false }
 }
 async function deleteShop(s) {
   if (!window.confirm(`Delete shop ${s.no}?`)) return
   const r = await apiCall('app-crud', { action: 'delete', collection: 'shops', id: s.id, data: {} })
-  if (r.ok) { window.__krToast?.('🗑️ Shop deleted', 'ok'); await data.bootstrap() }
+  if (r.ok) { window.__krToast?.('🗑️ Space deleted', 'ok'); await data.bootstrap() }
   else window.__krToast?.(r.error || 'Delete failed.', 'err')
 }
 
@@ -209,7 +209,7 @@ async function loadMeters() {
   if (r.ok) lastReadings.value = r.readings
 }
 async function saveMeter() {
-  if (!meterForm.value.shop || Number(meterForm.value.reading) <= 0) { window.__krToast?.('Shop and reading required.', 'err'); return }
+  if (!meterForm.value.shop || Number(meterForm.value.reading) <= 0) { window.__krToast?.('Space and reading required.', 'err'); return }
   const r = await apiCall('mall', { action: 'meter', shop: meterForm.value.shop, type: meterForm.value.type, reading: Number(meterForm.value.reading), month: meterForm.value.month || month.value })
   if (r.ok) { window.__krToast?.(`✅ Reading saved — ${r.units} units billed`, 'ok'); meterForm.value.reading = 0; await loadMeters(); await loadBills() }
   else window.__krToast?.(r.error || 'Meter save failed.', 'err')
@@ -248,7 +248,7 @@ async function loadComplaints() {
 }
 function openCompAdd() { compForm.value = { shop: '', subject: '', descr: '', priority: 'Normal' }; compModal.value = { mode: 'add', title: '➕ New complaint' } }
 async function saveComplaint() {
-  if (!compForm.value.shop || !compForm.value.subject.trim()) { window.__krToast?.('Shop and subject required.', 'err'); return }
+  if (!compForm.value.shop || !compForm.value.subject.trim()) { window.__krToast?.('Space and subject required.', 'err'); return }
   const r = await apiCall('mall', { action: 'complaint-add', shop: compForm.value.shop, subject: compForm.value.subject, descr: compForm.value.descr, priority: compForm.value.priority })
   if (r.ok) { window.__krToast?.('🔧 Complaint logged', 'ok'); compModal.value = null; await loadComplaints() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
@@ -441,12 +441,12 @@ function exportStaff() {
 }
 function exportBills() {
   exportCsv('bills-' + month.value + '.csv',
-    ['Bill', 'Shop', 'Floor', 'Kind', 'Amount', 'Fine', 'Due date', 'Status'],
+    ['Bill', 'Space', 'Floor', 'Kind', 'Amount', 'Fine', 'Due date', 'Status'],
     bills.value.map(b => [b.id, b.shop_no, b.shop_floor, b.kind, b.amount, b.fine || 0, b.due_date, b.status]))
 }
 function exportLedger() {
   exportCsv('ledger-' + month.value + '.csv',
-    ['Shop', 'Floor', 'Service paid/billed', 'Elec paid/billed', 'Water paid/billed', 'Due'],
+    ['Space', 'Floor', 'Service paid/billed', 'Elec paid/billed', 'Water paid/billed', 'Due'],
     (ledger.value?.per_shop || []).map(s => [s.no, s.floor, `${s.sc_paid}/${s.sc_billed}`, `${s.el_paid}/${s.el_billed}`, `${s.w_paid}/${s.w_billed}`, (s.sc_billed - s.sc_paid) + (s.el_billed - s.el_paid) + (s.w_billed - s.w_paid)]))
 }
 function exportExpenses() {
@@ -672,7 +672,7 @@ async function delTenant(t) {
 }
 function openAgrAdd() { agrForm.value = { shop: '', tenant_id: 0, rent: 0, start_date: new Date().toISOString().slice(0, 10), end_date: '', advance_months: 0, due_day: 5, rent_collection: 0, status: 'Active', notes: '' }; agrModal.value = true }
 async function saveAgreement() {
-  if (!agrForm.value.shop) { window.__krToast?.('Shop required.', 'err'); return }
+  if (!agrForm.value.shop) { window.__krToast?.('Space required.', 'err'); return }
   const r = await apiCall('mall', { action: 'agreement-add', ...agrForm.value, rent_collection: agrForm.value.rent_collection ? 1 : 0 })
   if (r.ok) { window.__krToast?.('✅ Agreement saved', 'ok'); agrModal.value = false; await loadAgreements() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
@@ -831,7 +831,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
           <div class="tbl-wrap" v-if="dash && dash.defaulters.length" style="max-height:300px">
             <table class="kr">
-              <thead><tr><th>Shop</th><th>Owner</th><th style="text-align:right">Due</th></tr></thead>
+              <thead><tr><th>Space</th><th>Owner</th><th style="text-align:right">Due</th></tr></thead>
               <tbody>
                 <tr v-for="d in dash.defaulters" :key="d.id">
                   <td><b>{{ d.no }}</b> <small style="color:var(--text-mute)">· {{ d.floor }}</small></td>
@@ -895,7 +895,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>Shop</th><th>Floor</th><th>Sqft</th><th>Owner</th><th>Mobile</th><th>Type</th><th>Status</th><th style="text-align:right">Rate/mo</th><th></th></tr></thead>
+            <thead><tr><th>Space</th><th>Floor</th><th>Sqft</th><th>Owner</th><th>Mobile</th><th>Type</th><th>Status</th><th style="text-align:right">Rate/mo</th><th></th></tr></thead>
             <tbody>
               <tr v-for="s in filteredShops" :key="s.id">
                 <td><b>{{ s.no }}</b><br /><small style="color:var(--text-mute)">{{ s.id }}</small></td>
@@ -916,7 +916,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </table>
         </div>
       </div>
-      <p style="color:var(--text-mute);font-size:12px;margin-top:10px">💡 Rate/mo = flat service charge per shop. Shop owners collect their own rent — service charges &amp; utilities are billed here.</p>
+      <p style="color:var(--text-mute);font-size:12px;margin-top:10px">💡 Rate/mo = flat service charge per space. Space owners collect their own rent — service charges &amp; utilities are billed here.</p>
     </template>
 
     <!-- ═══════ BILLS & COLLECTIONS ═══════ -->
@@ -947,7 +947,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>#</th><th>Shop</th><th>Floor</th><th>Kind</th><th style="text-align:right">Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Space</th><th>Floor</th><th>Kind</th><th style="text-align:right">Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
             <tbody>
               <tr v-for="b in bills" :key="b.id">
                 <td><small style="color:var(--text-mute)">{{ b.id }}</small></td>
@@ -963,7 +963,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                   <button v-if="b.status === 'Paid'" @click="openReceipt(b)" title="View / print receipt" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">🖨️ Receipt</button>
                 </td>
               </tr>
-              <tr v-if="!bills.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No bills for {{ monthLabel(month) }} — press ⚙️ Generate to create monthly service-charge bills for all active shops.</td></tr>
+              <tr v-if="!bills.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No bills for {{ monthLabel(month) }} — press ⚙️ Generate to create monthly service-charge bills for all active spaces.</td></tr>
             </tbody>
           </table>
         </div>
@@ -972,7 +972,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <h3 style="font-size:14px;margin-bottom:10px">🕘 Collection history — {{ monthLabel(month) }}</h3>
         <div class="tbl-wrap" style="max-height:260px">
           <table class="kr">
-            <thead><tr><th>Receipt</th><th>Shop</th><th>Kind</th><th>Method</th><th>Ref</th><th style="text-align:right">Amount</th></tr></thead>
+            <thead><tr><th>Receipt</th><th>Space</th><th>Kind</th><th>Method</th><th>Ref</th><th style="text-align:right">Amount</th></tr></thead>
             <tbody>
               <tr v-for="p in payments" :key="p.id">
                 <td><b>{{ p.receipt }}</b></td>
@@ -994,9 +994,9 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <h3 style="font-size:14px;margin-bottom:6px">⚡ Sub-meter reading → auto bill</h3>
         <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Collected amounts are <b>custodial</b> — forwarded to DESCO/WASA, tracked separately from service charges.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <label style="font-size:12px;color:var(--text-mute)">Shop
+          <label style="font-size:12px;color:var(--text-mute)">Space
             <select v-model="meterForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="">Select shop…</option>
+              <option value="">Select space…</option>
               <option v-for="s in shops.filter(x => x.status === 'Active')" :key="s.id" :value="s.id">{{ s.no }} — {{ s.floor }} ({{ s.owner_name }})</option>
             </select>
           </label>
@@ -1018,7 +1018,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <h3 style="font-size:14px;margin-bottom:10px">📋 Readings — {{ monthLabel(meterForm.month || month) }}</h3>
         <div class="tbl-wrap" style="max-height:280px">
           <table class="kr">
-            <thead><tr><th>Shop</th><th>Type</th><th style="text-align:right">Reading</th><th style="text-align:right">Units</th><th>Billed</th></tr></thead>
+            <thead><tr><th>Space</th><th>Type</th><th style="text-align:right">Reading</th><th style="text-align:right">Units</th><th>Billed</th></tr></thead>
             <tbody>
               <tr v-for="r in lastReadings" :key="r.id">
                 <td><b>{{ r.no || r.shop }}</b></td>
@@ -1104,12 +1104,12 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <select v-model="compStatus" @change="loadComplaints" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">All statuses</option><option>Open</option><option>In Progress</option><option>Resolved</option>
         </select>
-        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Shop owners report issues (lift / AC / light…) — committee tracks Open → In Progress → Resolved</span>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Space owners report issues (lift / AC / light…) — committee tracks Open → In Progress → Resolved</span>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>#</th><th>Shop</th><th>Subject</th><th>Priority</th><th>Opened</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Space</th><th>Subject</th><th>Priority</th><th>Opened</th><th>Status</th><th></th></tr></thead>
             <tbody>
               <tr v-for="c in complaints" :key="c.id">
                 <td><small style="color:var(--text-mute)">{{ c.id }}</small></td>
@@ -1371,7 +1371,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <span class="badge" :class="{ Chairman: 'b-red', 'Vice Chairman': 'b-orange', Secretary: 'b-blue', Treasurer: 'b-green', Member: 'b-gray' }[m.role] || 'b-gray'">{{ m.role }}</span>
               <span v-if="!m.active" class="badge b-red" style="font-size:10px">inactive</span>
             </div>
-            <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ m.shop ? 'Shop ' + m.shop : 'Independent' }}<span v-if="m.phone"> · {{ m.phone }}</span></div>
+            <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ m.shop ? 'Space ' + m.shop : 'Independent' }}<span v-if="m.phone"> · {{ m.phone }}</span></div>
           </div>
           <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
             <button @click="openMemberEdit(m)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">✏️</button>
@@ -1572,7 +1572,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         </div>
         <div class="panel" style="padding:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <h3 style="font-size:14px">🏪 Per-shop ledger — {{ monthLabel(ledger.month) }}</h3>
+            <h3 style="font-size:14px">🏪 Per-space ledger — {{ monthLabel(ledger.month) }}</h3>
             <div style="display:flex;gap:8px;align-items:center">
               <span class="badge b-green" style="font-size:12px">Net balance {{ money(Number(ledger.by_kind.reduce((s, k) => s + k.collected, 0)) - Number(ledger.expenses)) }}</span>
               <button @click="exportLedger" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
@@ -1580,7 +1580,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
           <div class="tbl-wrap" style="max-height:420px">
             <table class="kr">
-              <thead><tr><th>Shop</th><th>Owner</th><th style="text-align:right">Service</th><th style="text-align:right">Elec</th><th style="text-align:right">Water</th><th style="text-align:right">Total due</th><th>Status</th></tr></thead>
+              <thead><tr><th>Space</th><th>Owner</th><th style="text-align:right">Service</th><th style="text-align:right">Elec</th><th style="text-align:right">Water</th><th style="text-align:right">Total due</th><th>Status</th></tr></thead>
               <tbody>
                 <tr v-for="s in ledger.per_shop" :key="s.id">
                   <td><b>{{ s.no }}</b> <small style="color:var(--text-mute)">· {{ s.floor }}</small></td>
@@ -1603,7 +1603,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <h3 style="font-size:14px">⚡💧 Custodial fund reconciliation — DESCO/WASA (spec 3.3)</h3>
           <span class="badge" :class="recon.current_balance >= 0 ? 'b-green' : 'b-orange'" style="font-size:12px">{{ monthLabel(recon.month) }}: {{ recon.current_balance >= 0 ? 'forward ' : 'shortfall ' }}{{ money(Math.abs(recon.current_balance)) }}</span>
         </div>
-        <p style="font-size:12px;color:var(--text-mute);margin-bottom:12px">Shop collections for electricity &amp; water are <b>custodial</b> — collected from shop owners, forwarded to the utility. Compare with the DESCO / WASA main bills paid.</p>
+        <p style="font-size:12px;color:var(--text-mute);margin-bottom:12px">Space collections for electricity &amp; water are <b>custodial</b> — collected from space owners, forwarded to the utility. Compare with the DESCO / WASA main bills paid.</p>
         <div class="tbl-wrap" style="max-height:300px">
           <table class="kr">
             <thead><tr><th></th><th style="text-align:right">Elec collected</th><th style="text-align:right">Water collected</th><th style="text-align:right">DESCO bill paid</th><th style="text-align:right">WASA bill paid</th><th style="text-align:right">Balance</th></tr></thead>
@@ -1829,7 +1829,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div class="modal-h"><div class="t">{{ modal.title }}</div><button class="close" @click="modal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Shop no *<input v-model="form.no" placeholder="e.g. A-101" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Space no *<input v-model="form.no" placeholder="e.g. A-101" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Floor<input v-model="form.floor" placeholder="e.g. Ground" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Size (sqft)<input type="number" v-model.number="form.sqft" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Service rate (৳/mo)<input type="number" v-model.number="form.service_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -1894,9 +1894,9 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       <div class="modal" style="max-width:480px">
         <div class="modal-h"><div class="t">{{ compModal.title }}</div><button class="close" @click="compModal = null">✕</button></div>
         <div class="modal-b">
-          <label style="font-size:12px;color:var(--text-mute)">Shop *
+          <label style="font-size:12px;color:var(--text-mute)">Space *
             <select v-model="compForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="">Select shop…</option>
+              <option value="">Select space…</option>
               <option v-for="s in shops.filter(x => x.status === 'Active')" :key="s.id" :value="s.id">{{ s.no }} — {{ s.floor }} ({{ s.owner_name }})</option>
             </select>
           </label>
@@ -2082,7 +2082,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <option v-for="r in COMMITTEE_ROLES" :key="r" :value="r">{{ { Chairman: '👑 Chairman', 'Vice Chairman': '👑 Vice Chairman', Secretary: '📝 Secretary', Treasurer: '💰 Treasurer', Member: '👤 Executive Member' }[r] || r }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Shop (owner of)
+            <label style="font-size:12px;color:var(--text-mute)">Space (owner of)
               <select v-model="memberForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option value="">Independent / no shop</option>
                 <option v-for="s in shops" :key="s.id" :value="s.no">{{ s.no }} — {{ s.owner_name }}</option>
@@ -2472,7 +2472,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <tbody>
                 <tr><td style="color:var(--text-mute)">Receipt No</td><td style="text-align:right;font-weight:800">{{ recData.payment.receipt }}</td></tr>
                 <tr><td style="color:var(--text-mute)">Date</td><td style="text-align:right">{{ (recData.payment.created_at || '').slice(0, 16) }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Shop</td><td style="text-align:right;font-weight:800">{{ recData.bill.shop_no }} · {{ recData.bill.shop_floor }} floor</td></tr>
+                <tr><td style="color:var(--text-mute)">Space</td><td style="text-align:right;font-weight:800">{{ recData.bill.shop_no }} · {{ recData.bill.shop_floor }} floor</td></tr>
                 <tr><td style="color:var(--text-mute)">Owner</td><td style="text-align:right">{{ recData.bill.owner_name || '—' }}</td></tr>
                 <tr><td style="color:var(--text-mute)">Month</td><td style="text-align:right">{{ monthLabel(recData.bill.month) }}</td></tr>
                 <tr><td style="color:var(--text-mute)">Charge</td><td style="text-align:right">{{ { service: 'Service charge', elec: 'Electricity (sub-meter)', water: 'Water (sub-meter)' }[recData.bill.kind] }}</td></tr>

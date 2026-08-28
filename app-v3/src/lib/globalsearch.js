@@ -49,7 +49,7 @@ const COMMANDS = [
   ['👥 Add a system user', 'Create owner / manager / accountant / collector', 'users'],
   ['📢 Post a notice', 'Committee announcement for shop owners', 'notices'],
   ['📋 Audit trail', 'Who did what, when', 'audit'],
-  ['🏪 Per-shop ledger', 'Paid vs billed for every shop', 'ledger'],
+  ['🏪 Per-space ledger', 'Paid vs billed for every space', 'ledger'],
   ['⚡💧 Custodial reconciliation', 'DESCO/WASA collected vs paid', 'ledger'],
   ['⚙️ Mall settings', 'Profile, billing rules, bank, receipt', 'settings'],
   ['👤 My profile', 'Name, password, preferences', 'settings'],
@@ -133,4 +133,4 @@ export function addRecent(q) {
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 5))) } catch (e) {}
 }
 
-export const SEARCH_HINT = 'Search shops, bills, staff, assets…  (Ctrl+K)'
+export const SEARCH_HINT = 'Search spaces, bills, staff, assets…  (Ctrl+K)'

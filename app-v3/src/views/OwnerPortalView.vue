@@ -1,5 +1,5 @@
 <script setup>
-// Shop Owner Portal (spec 3.8) — view-only login for shop owners.
+// Space Owner Portal (spec 3.8) — view-only login for space owners.
 // Owners see ONLY their own shop: bills, dues, payment history, notices,
 // and can file complaints. No access to any committee functions.
 import { ref, computed, onMounted } from 'vue'
@@ -83,7 +83,7 @@ onMounted(() => { if (tok.value) loadMe() })
     <div style="width:100%;max-width:400px;background:var(--card,#fff);border-radius:20px;padding:30px 28px;box-shadow:0 30px 80px rgba(0,0,0,.35)">
       <div style="text-align:center;margin-bottom:22px">
         <div style="width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#2F80ED,#27AE60);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">🏬</div>
-        <div style="font-size:19px;font-weight:800">Shop Owner Portal</div>
+        <div style="font-size:19px;font-weight:800">Space Owner Portal</div>
         <div style="font-size:12.5px;color:var(--text-mute,#5b6b83);margin-top:4px">Razzak Plaza — view your bills, dues &amp; payments</div>
       </div>
       <div v-if="err" style="background:rgba(235,87,87,.1);border:1px solid rgba(235,87,87,.35);color:#c0392b;font-size:12.5px;padding:10px 14px;border-radius:10px;margin-bottom:14px">⚠️ {{ err }}</div>
@@ -199,7 +199,7 @@ onMounted(() => { if (tok.value) loadMe() })
         <div v-if="!notices.length" style="text-align:center;color:var(--text-mute);padding:24px">No notices.</div>
       </template>
 
-      <div style="text-align:center;font-size:11px;color:var(--text-mute);margin-top:26px">Mall Manager — Shop Owner Portal · payments are collected at the committee office · receipt issued instantly</div>
+      <div style="text-align:center;font-size:11px;color:var(--text-mute);margin-top:26px">Mall Manager — Space Owner Portal · payments are collected at the committee office · receipt issued instantly</div>
     </main>
   </div>
 </template>
