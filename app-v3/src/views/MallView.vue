@@ -18,6 +18,8 @@ const TABS = [
   ['bills', '🧾', 'Bills & Collections'],
   ['meters', '⚡', 'Meters'],
   ['expenses', '📉', 'Expenses'],
+  ['complaints', '🔧', 'Complaints'],
+  ['assets', '🛠️', 'Assets & AMC'],
   ['ledger', '📒', 'Ledger'],
 ]
 const month = ref(new Date().toISOString().slice(0, 7))
@@ -206,6 +208,67 @@ async function delExpense(e) {
   if (r.ok) { window.__krToast?.('🗑️ Expense deleted', 'ok'); await loadExpenses(); await loadDash() }
 }
 
+/* ══════════ COMPLAINTS (spec 3.6) ══════════ */
+const complaints = ref([])
+const compCounts = ref({ Open: 0, 'In Progress': 0, Resolved: 0 })
+const compStatus = ref('')
+const compModal = ref(null)
+const compForm = ref({})
+async function loadComplaints() {
+  const r = await apiCall('mall', { action: 'complaints', status: compStatus.value })
+  if (r.ok) { complaints.value = r.complaints; compCounts.value = r.counts }
+}
+function openCompAdd() { compForm.value = { shop: '', subject: '', descr: '', priority: 'Normal' }; compModal.value = { mode: 'add', title: '➕ New complaint' } }
+async function saveComplaint() {
+  if (!compForm.value.shop || !compForm.value.subject.trim()) { window.__krToast?.('Shop and subject required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'complaint-add', shop: compForm.value.shop, subject: compForm.value.subject, descr: compForm.value.descr, priority: compForm.value.priority })
+  if (r.ok) { window.__krToast?.('🔧 Complaint logged', 'ok'); compModal.value = null; await loadComplaints() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function setCompStatus(c, st) {
+  const note = st === 'Resolved' ? window.prompt('Resolution note (optional):', '') : ''
+  if (st === 'Resolved' && note === null) return
+  const r = await apiCall('mall', { action: 'complaint-status', id: c.id, status: st, note: note || '' })
+  if (r.ok) { window.__krToast?.(`🔧 ${c.id} → ${st}`, 'ok'); await loadComplaints() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delComplaint(c) {
+  if (!window.confirm(`Delete complaint #${c.id}?`)) return
+  const r = await apiCall('mall', { action: 'complaint-del', id: c.id })
+  if (r.ok) { window.__krToast?.('🗑️ Deleted', 'ok'); await loadComplaints() }
+}
+
+/* ══════════ ASSETS & AMC (spec 3.5) ══════════ */
+const assets = ref([])
+const amcReminders = ref([])
+const assetModal = ref(null)
+const assetForm = ref({})
+const ASSET_TYPES = ['Lift', 'Escalator', 'Generator', 'Fire Extinguisher', 'AC Unit', 'CCTV', 'Pump', 'Other']
+async function loadAssets() {
+  const r = await apiCall('mall', { action: 'assets' })
+  if (r.ok) { assets.value = r.assets; amcReminders.value = r.reminders }
+}
+function openAssetAdd() { assetForm.value = { name: '', type: 'Lift', location: '', vendor: '', install_date: '', warranty_until: '', contract_until: '', cost: 0, status: 'Active', note: '' }; assetModal.value = { mode: 'add', title: '➕ New asset' } }
+function openAssetEdit(a) {
+  assetForm.value = { name: a.name, type: a.type, location: a.location, vendor: a.vendor, install_date: a.install_date, warranty_until: a.warranty_until, contract_until: a.contract_until, cost: a.cost, status: a.status, note: a.note }
+  assetModal.value = { mode: 'edit', title: '✏️ Edit asset', id: a.id }
+}
+async function saveAsset() {
+  if (!assetForm.value.name.trim()) { window.__krToast?.('Asset name required.', 'err'); return }
+  const action = assetModal.value.mode === 'edit' ? 'asset-update' : 'asset-add'
+  const payload = { ...assetForm.value, cost: Number(assetForm.value.cost) || 0, ...(assetModal.value.mode === 'edit' ? { id: assetModal.value.id } : {}) }
+  const r = await apiCall('mall', { action, ...payload })
+  if (r.ok) { window.__krToast?.(assetModal.value.mode === 'edit' ? '✏️ Asset updated' : '✅ Asset added', 'ok'); assetModal.value = null; await loadAssets() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delAsset(a) {
+  if (!window.confirm(`Delete asset "${a.name}"?`)) return
+  const r = await apiCall('mall', { action: 'asset-del', id: a.id })
+  if (r.ok) { window.__krToast?.('🗑️ Deleted', 'ok'); await loadAssets() }
+}
+const amcDays = (a) => a.days_left === null ? null : (a.days_left < 0 ? `expired ${Math.abs(a.days_left)}d ago` : `${a.days_left}d left`)
+const amcBadge = (a) => a.days_left === null ? 'b-gray' : a.days_left <= 0 ? 'b-red' : a.days_left <= 30 ? 'b-orange' : 'b-green'
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() { const r = await apiCall('mall', { action: 'ledger', month: month.value }); if (r.ok) ledger.value = r }
@@ -218,6 +281,8 @@ function switchTab(x) {
   if (x === 'ledger') loadLedger()
   if (x === 'meters') { meterForm.value.month = month.value; loadMeters() }
   if (x === 'expenses') loadExpenses()
+  if (x === 'complaints') loadComplaints()
+  if (x === 'assets') loadAssets()
 }
 
 onMounted(async () => { await loadConfig(); await loadDash() })
@@ -506,6 +571,90 @@ onMounted(async () => { await loadConfig(); await loadDash() })
       </div>
     </template>
 
+    <!-- ═══════ COMPLAINTS ═══════ -->
+    <template v-if="tab === 'complaints'">
+      <div class="stats">
+        <div v-for="(n, st) in compCounts" :key="st" class="stat">
+          <div class="s-label"><span class="s-ico">{{ { 'Open': '🔴', 'In Progress': '🔵', 'Resolved': '🟢' }[st] || '🔧' }}</span>{{ st }}</div>
+          <div class="s-value" :style="st === 'Resolved' ? 'color:var(--ok)' : st === 'Open' ? 'color:var(--danger)' : ''">{{ n }}</div>
+          <div class="s-trend">{{ st === 'Open' ? 'need attention' : st === 'In Progress' ? 'being handled' : 'closed' }}</div>
+        </div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📋</span>Total logged</div><div class="s-value">{{ compCounts.Open + compCounts['In Progress'] + compCounts.Resolved }}</div><div class="s-trend">all time</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openCompAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Log complaint</button>
+        <select v-model="compStatus" @change="loadComplaints" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
+          <option value="">All statuses</option><option>Open</option><option>In Progress</option><option>Resolved</option>
+        </select>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Shop owners report issues (lift / AC / light…) — committee tracks Open → In Progress → Resolved</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>#</th><th>Shop</th><th>Subject</th><th>Priority</th><th>Opened</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="c in complaints" :key="c.id">
+                <td><small style="color:var(--text-mute)">{{ c.id }}</small></td>
+                <td><b>{{ c.shop_no || c.shop }}</b> <small style="color:var(--text-mute)">· {{ c.shop_floor }}</small></td>
+                <td>{{ c.subject }}<br /><small style="color:var(--text-mute)">{{ c.descr }}</small></td>
+                <td><span class="badge" :class="{ Low: 'b-gray', Normal: 'b-blue', High: 'b-orange', Urgent: 'b-red' }[c.priority] || 'b-gray'">{{ c.priority }}</span></td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ (c.opened_at || '').slice(0, 10) }}</td>
+                <td><span class="badge" :class="badge(c.status)">{{ c.status }}</span></td>
+                <td style="text-align:right;white-space:nowrap">
+                  <template v-if="canManage">
+                    <button v-if="c.status === 'Open'" @click="setCompStatus(c, 'In Progress')" style="padding:5px 9px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">▶ Start</button>
+                    <button v-if="c.status !== 'Resolved'" @click="setCompStatus(c, 'Resolved')" style="padding:5px 9px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;margin-left:4px">✓ Resolve</button>
+                    <button @click="delComplaint(c)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:11px;margin-left:4px">🗑️</button>
+                  </template>
+                </td>
+              </tr>
+              <tr v-if="!complaints.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:28px">No complaints — log the first one with ＋ Log complaint.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════ ASSETS & AMC ═══════ -->
+    <template v-if="tab === 'assets'">
+      <div v-if="amcReminders.length" style="margin-bottom:14px;padding:13px 16px;border-radius:12px;background:rgba(235,87,87,.08);border:1px solid rgba(235,87,87,.3);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:14px">⏰</span>
+        <div style="flex:1;min-width:220px">
+          <b style="font-size:13px">{{ amcReminders.length }} AMC contract{{ amcReminders.length > 1 ? 's' : '' }} expiring within 30 days</b>
+          <div style="font-size:12px;color:var(--text-mute);margin-top:2px">{{ amcReminders.map(a => a.name + ' (' + a.contract_until + ')').join(' · ') }}</div>
+        </div>
+        <span class="badge b-red">renew soon</span>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openAssetAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add asset</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Lifts, escalators, generators, fire extinguishers — service contracts &amp; warranty with auto reminders</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>Asset</th><th>Type</th><th>Location</th><th>Vendor</th><th>Installed</th><th>Warranty until</th><th>AMC until</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="a in assets" :key="a.id">
+                <td><b>{{ a.name }}</b></td>
+                <td><span class="badge b-blue">{{ a.type }}</span></td>
+                <td>{{ a.location || '—' }}</td>
+                <td>{{ a.vendor || '—' }}</td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ a.install_date || '—' }}</td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ a.warranty_until || '—' }}</td>
+                <td style="font-size:12px">{{ a.contract_until || '—' }} <span v-if="amcDays(a)" class="badge" :class="amcBadge(a)" style="margin-left:4px">{{ amcDays(a) }}</span></td>
+                <td><span class="badge" :class="badge(a.status)">{{ a.status }}</span></td>
+                <td style="text-align:right;white-space:nowrap">
+                  <button v-if="canManage" @click="openAssetEdit(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
+                  <button v-if="canManage" @click="delAsset(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
+                </td>
+              </tr>
+              <tr v-if="!assets.length"><td colspan="9" style="text-align:center;color:var(--text-mute);padding:28px">No assets yet — add lifts, generators and fire extinguishers with ＋ Add asset.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════ LEDGER ═══════ -->
     <template v-if="tab === 'ledger'">
       <div v-if="ledger">
@@ -613,6 +762,65 @@ onMounted(async () => { await loadConfig(); await loadDash() })
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="savePay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save collection</button>
             <button @click="payModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ COMPLAINT MODAL ═══════ -->
+    <div v-if="compModal" class="overlay" @click.self="compModal = null">
+      <div class="modal" style="max-width:480px">
+        <div class="modal-h"><div class="t">{{ compModal.title }}</div><button class="close" @click="compModal = null">✕</button></div>
+        <div class="modal-b">
+          <label style="font-size:12px;color:var(--text-mute)">Shop *
+            <select v-model="compForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option value="">Select shop…</option>
+              <option v-for="s in shops.filter(x => x.status === 'Active')" :key="s.id" :value="s.id">{{ s.no }} — {{ s.floor }} ({{ s.owner_name }})</option>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Subject *<input v-model="compForm.subject" placeholder="e.g. Lift not working on 2nd floor" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Details<textarea v-model="compForm.descr" rows="2" placeholder="Describe the issue…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Priority
+            <select v-model="compForm.priority" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option v-for="p in ['Low', 'Normal', 'High', 'Urgent']" :key="p" :value="p">{{ p }}</option>
+            </select>
+          </label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveComplaint" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🔧 Log complaint</button>
+            <button @click="compModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ ASSET MODAL ═══════ -->
+    <div v-if="assetModal" class="overlay" @click.self="assetModal = null">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-h"><div class="t">{{ assetModal.title }}</div><button class="close" @click="assetModal = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Asset name *<input v-model="assetForm.name" placeholder="e.g. Passenger Lift 1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Type
+              <select v-model="assetForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="t in ASSET_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Location<input v-model="assetForm.location" placeholder="e.g. Block A, near main entrance" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Vendor / service provider<input v-model="assetForm.vendor" placeholder="e.g. Otis Elevator" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Install date<input type="date" v-model="assetForm.install_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Warranty until<input type="date" v-model="assetForm.warranty_until" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">AMC / contract until<input type="date" v-model="assetForm.contract_until" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Cost (৳)<input type="number" v-model.number="assetForm.cost" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Status
+              <select v-model="assetForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="st in ['Active', 'Under Service', 'Out of Service']" :key="st" :value="st">{{ st }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note<input v-model="assetForm.note" placeholder="Any notes…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveAsset" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save asset</button>
+            <button @click="assetModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
           </div>
         </div>
       </div>

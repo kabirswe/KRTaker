@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260922) {
+        if ($__sv < 20260923) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -341,6 +341,17 @@ function db() {
             id INTEGER PRIMARY KEY AUTOINCREMENT, shop TEXT, type TEXT DEFAULT 'elec',
             reading INTEGER DEFAULT 0, units INTEGER DEFAULT 0, month TEXT DEFAULT '',
             date TEXT DEFAULT (datetime('now')), note TEXT DEFAULT '')");
+        /* ── Phase 2: complaints + assets/AMC (spec 3.5 / 3.6) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_complaints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, shop TEXT, subject TEXT, descr TEXT DEFAULT '',
+            priority TEXT DEFAULT 'Normal', status TEXT DEFAULT 'Open',
+            opened_at TEXT DEFAULT (datetime('now')), resolved_at TEXT DEFAULT '',
+            note TEXT DEFAULT '', created_by TEXT DEFAULT '')");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_assets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT DEFAULT 'Lift',
+            location TEXT DEFAULT '', vendor TEXT DEFAULT '', install_date TEXT DEFAULT '',
+            warranty_until TEXT DEFAULT '', contract_until TEXT DEFAULT '',
+            cost INTEGER DEFAULT 0, status TEXT DEFAULT 'Active', note TEXT DEFAULT '')");
         $pdo->exec("CREATE TABLE IF NOT EXISTS property_rent (
             prop TEXT PRIMARY KEY, service_charge_pct REAL DEFAULT 0, utility_advance INTEGER DEFAULT 0,
             parking_fee INTEGER DEFAULT 0, escalation_pct REAL DEFAULT 0, advance_months INTEGER DEFAULT 0,
@@ -14987,6 +14998,89 @@ case 'mall': {
                              WHERE p.month=? ORDER BY p.id DESC");
         $st->execute([$month]);
         json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* complaints — list with shop info; filters: status, priority */
+    if ($a === 'complaints') {
+        $status = trim($body['status'] ?? '');
+        $sql = "SELECT c.*, s.no AS shop_no, s.floor AS shop_floor, s.owner_name, s.owner_mobile
+                FROM mall_complaints c LEFT JOIN shops s ON s.id=c.shop";
+        $args = [];
+        if ($status !== '') { $sql .= ' WHERE c.status=?'; $args[] = $status; }
+        $sql .= ' ORDER BY c.id DESC LIMIT 200';
+        $st = $pdo->prepare($sql); $st->execute($args);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        $counts = ['Open' => 0, 'In Progress' => 0, 'Resolved' => 0];
+        foreach ($rows as $r) if (isset($counts[$r['status']])) $counts[$r['status']]++;
+        json_out(['ok' => true, 'complaints' => $rows, 'counts' => $counts]);
+    }
+    if ($a === 'complaint-add') {
+        $shop = trim($body['shop'] ?? '');
+        $subject = trim($body['subject'] ?? '');
+        if (!$shop || $subject === '') json_out(['ok' => false, 'error' => 'shop and subject required.'], 400);
+        $pdo->prepare("INSERT INTO mall_complaints (shop, subject, descr, priority, status, note, created_by)
+                       VALUES (?,?,?,?, 'Open', ?, ?)")
+            ->execute([$shop, $subject, trim($body['descr'] ?? ''), in_array(trim($body['priority'] ?? ''), ['Low', 'Normal', 'High', 'Urgent'], true) ? trim($body['priority']) : 'Normal', trim($body['note'] ?? ''), $u['name']]);
+        audit($u['name'], 'Complaint', 'mall', $shop, $subject);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'complaint-status') {
+        $id = (int)($body['id'] ?? 0);
+        $status = trim($body['status'] ?? '');
+        if (!$id || !in_array($status, ['Open', 'In Progress', 'Resolved'], true)) json_out(['ok' => false, 'error' => 'id and status (Open/In Progress/Resolved) required.'], 400);
+        $pdo->prepare("UPDATE mall_complaints SET status=?, resolved_at=CASE WHEN ?='Resolved' THEN datetime('now') ELSE '' END, note=? WHERE id=?")
+            ->execute([$status, $status, trim($body['note'] ?? ''), $id]);
+        audit($u['name'], 'Complaint status', 'mall', (string)$id, $status);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'complaint-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_complaints WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Complaint delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+
+    /* assets — list + AMC/warranty reminders (contract expiring within 30 days) */
+    if ($a === 'assets') {
+        $rows = $pdo->query('SELECT * FROM mall_assets ORDER BY id DESC LIMIT 200')->fetchAll(PDO::FETCH_ASSOC);
+        $due = $pdo->query("SELECT * FROM mall_assets WHERE status='Active' AND contract_until != ''
+                            AND contract_until <= date('now','+30 days') ORDER BY contract_until LIMIT 50")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $i => $r) {
+            $days = null;
+            if ($r['contract_until'] !== '') $days = (int)round((strtotime($r['contract_until']) - time()) / 86400);
+            $rows[$i]['days_left'] = $days;
+        }
+        json_out(['ok' => true, 'assets' => $rows, 'reminders' => $due]);
+    }
+    if ($a === 'asset-add') {
+        $name = trim($body['name'] ?? '');
+        if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
+        $pdo->prepare("INSERT INTO mall_assets (name, type, location, vendor, install_date, warranty_until, contract_until, cost, status, note)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)")
+            ->execute([$name, trim($body['type'] ?? 'Lift'), trim($body['location'] ?? ''), trim($body['vendor'] ?? ''),
+                       trim($body['install_date'] ?? ''), trim($body['warranty_until'] ?? ''), trim($body['contract_until'] ?? ''),
+                       (int)($body['cost'] ?? 0), in_array(trim($body['status'] ?? ''), ['Active', 'Under Service', 'Out of Service'], true) ? trim($body['status']) : 'Active',
+                       trim($body['note'] ?? '')]);
+        audit($u['name'], 'Asset', 'mall', $name, 'added');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'asset-update') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare("UPDATE mall_assets SET name=?, type=?, location=?, vendor=?, install_date=?, warranty_until=?, contract_until=?, cost=?, status=?, note=? WHERE id=?")
+            ->execute([trim($body['name'] ?? ''), trim($body['type'] ?? ''), trim($body['location'] ?? ''), trim($body['vendor'] ?? ''),
+                       trim($body['install_date'] ?? ''), trim($body['warranty_until'] ?? ''), trim($body['contract_until'] ?? ''),
+                       (int)($body['cost'] ?? 0), trim($body['status'] ?? ''), trim($body['note'] ?? ''), $id]);
+        audit($u['name'], 'Asset update', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'asset-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_assets WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Asset delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
     }
 
     /* bills — list with shop info; filters: month (YYYY-MM), kind, status */
