@@ -14930,6 +14930,65 @@ case 'mall': {
                   'mall_name' => $mcfg('mall_name', '')]);
     }
 
+    /* readings — list sub-meter readings for a month (with shop numbers) */
+    if ($a === 'readings') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $st = $pdo->prepare("SELECT r.*, s.no FROM mall_meter_readings r LEFT JOIN shops s ON s.id=r.shop
+                             WHERE r.month=? ORDER BY r.id DESC LIMIT 100");
+        $st->execute([$month]);
+        json_out(['ok' => true, 'readings' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* expenses — list month expenses from company_ledger (kind=expense, cat=mall category) */
+    if ($a === 'expenses' || $a === 'expense-add' || $a === 'expense-del') {
+        /* fresh-DB guard: company_ledger may lack note/payee (added later on prod) */
+        $lcols = array_column($pdo->query('PRAGMA table_info(company_ledger)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        foreach (['note', 'payee'] as $lc) {
+            if (!in_array($lc, $lcols, true)) { try { $pdo->exec("ALTER TABLE company_ledger ADD COLUMN $lc TEXT DEFAULT ''"); } catch (Exception $e) {} }
+        }
+    }
+    if ($a === 'expenses') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $st = $pdo->prepare("SELECT id, cat AS category, amount, method, payee AS vendor, note, ts AS date
+                             FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=? ORDER BY id DESC");
+        $st->execute([$month]);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        $total = array_sum(array_map(fn($r) => (int)$r['amount'], $rows));
+        json_out(['ok' => true, 'expenses' => $rows, 'total' => $total]);
+    }
+
+    /* expense-add — record a mall expense (lift/escalator/elec/AC/generator/cleaning/security/salary) */
+    if ($a === 'expense-add') {
+        $cat = trim($body['category'] ?? '');
+        $amount = (int)($body['amount'] ?? 0);
+        if ($cat === '' || $amount <= 0) json_out(['ok' => false, 'error' => 'category and amount required.'], 400);
+        $method = in_array(trim($body['method'] ?? ''), ['cash', 'bank', 'bkash', 'nagad'], true) ? trim($body['method']) : 'cash';
+        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts)
+                       VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+            ->execute([$cat, $cat . ' — ' . trim($body['note'] ?? ''), $amount, $method, '', trim($body['note'] ?? ''), trim($body['vendor'] ?? '')]);
+        audit($u['name'], 'Expense', 'mall', $cat, "$amount via $method");
+        json_out(['ok' => true]);
+    }
+
+    /* expense-del — remove a mistaken expense entry */
+    if ($a === 'expense-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare("DELETE FROM company_ledger WHERE id=? AND kind='expense'")->execute([$id]);
+        audit($u['name'], 'Expense delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+
+    /* payments — collection history for the month (receipts ledger) */
+    if ($a === 'payments') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $st = $pdo->prepare("SELECT p.*, s.no AS shop_no, s.floor AS shop_floor
+                             FROM shop_payments p LEFT JOIN shops s ON s.id=p.shop
+                             WHERE p.month=? ORDER BY p.id DESC");
+        $st->execute([$month]);
+        json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
     /* bills — list with shop info; filters: month (YYYY-MM), kind, status */
     if ($a === 'bills') {
         $month = trim($body['month'] ?? date('Y-m'));
@@ -15059,6 +15118,7 @@ case 'mall': {
         $kpi = $pdo->prepare("SELECT
                     COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) collected,
                     COALESCE(SUM(CASE WHEN status='Unpaid' THEN amount ELSE 0 END),0) outstanding,
+                    COALESCE(SUM(amount),0) billed,
                     COUNT(CASE WHEN status='Unpaid' THEN 1 END) unpaid_bills
                     FROM shop_bills WHERE month=?");
         $kpi->execute([$month]);
@@ -15070,11 +15130,14 @@ case 'mall': {
                     WHERE kind='expense' AND substr(ts,1,7)=? GROUP BY cat ORDER BY total DESC LIMIT 10");
         $exC->execute([$month]);
         $expCats = $exC->fetchAll(PDO::FETCH_ASSOC);
+        $exT = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=?");
+        $exT->execute([$month]);
+        $expenseTotal = (int)$exT->fetchColumn();
         $shopCount = (int)$pdo->query("SELECT COUNT(*) FROM shops")->fetchColumn();
         $activeShops = (int)$pdo->query("SELECT COUNT(*) FROM shops WHERE status='Active'")->fetchColumn();
         json_out(['ok' => true, 'month' => $month, 'kpi' => $kpi->fetch(PDO::FETCH_ASSOC),
                   'defaulters' => $defaulters->fetchAll(PDO::FETCH_ASSOC),
-                  'expense_cats' => $expCats, 'shops' => ['total' => $shopCount, 'active' => $activeShops]]);
+                  'expense_cats' => $expCats, 'expense_total' => $expenseTotal, 'shops' => ['total' => $shopCount, 'active' => $activeShops]]);
     }
 
     json_out(['ok' => false, 'error' => "Unknown mall action '$a'."], 400);
