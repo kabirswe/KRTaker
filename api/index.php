@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260923) {
+        if ($__sv < 20260924) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -352,6 +352,11 @@ function db() {
             location TEXT DEFAULT '', vendor TEXT DEFAULT '', install_date TEXT DEFAULT '',
             warranty_until TEXT DEFAULT '', contract_until TEXT DEFAULT '',
             cost INTEGER DEFAULT 0, status TEXT DEFAULT 'Active', note TEXT DEFAULT '')");
+        /* ── Phase 2b: notices (spec 3.9 notice board) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_notices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, body TEXT DEFAULT '',
+            date TEXT DEFAULT (date('now')), pinned INTEGER DEFAULT 0,
+            author TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE TABLE IF NOT EXISTS property_rent (
             prop TEXT PRIMARY KEY, service_charge_pct REAL DEFAULT 0, utility_advance INTEGER DEFAULT 0,
             parking_fee INTEGER DEFAULT 0, escalation_pct REAL DEFAULT 0, advance_months INTEGER DEFAULT 0,
@@ -1680,6 +1685,7 @@ function ROLE_MODULES() {
         'crm'        => ['dashboard','maintenance','leads','onboarding','concierge','smarthome','health','ai','notices','documents','referrals','support'],
         'accountant' => ['dashboard','mall','invoices','receipts','payments','taxes','statements','remit','accounts','receive','expense','withdraw','deposit','reconcile','maintenance','vendors','legal','cases','nrb','concierge','smarthome','health','ai','analytics','notices','documents','recon','templates','support'],
         'hr'         => ['dashboard','staffwatch','staff','attendance','payroll','ai','notices','documents','support'],
+        'collector'  => ['dashboard','mall'],
     ];
 }
 
@@ -14875,8 +14881,24 @@ case 'mall': {
     $pdo = db();
     $a = $body['action'] ?? '';
     $mall_roles = ['superadmin', 'owner', 'manager', 'accountant'];
-    if (!in_array($u['role'], $mall_roles, true)) {
-        json_out(['ok' => false, 'error' => 'Access denied — Mall module requires owner/manager/accountant role.'], 403);
+    $mall_roles_read = array_merge($mall_roles, ['collector']);
+    if (!in_array($u['role'], $mall_roles_read, true)) {
+        json_out(['ok' => false, 'error' => 'Access denied — Mall module requires owner/manager/accountant/collector role.'], 403);
+    }
+    /* collector = field staff: may VIEW everything + record collections + enter
+       meter readings. All other writes require owner/manager/accountant. */
+    $is_collector = $u['role'] === 'collector';
+    $mall_write = ['config-set', 'bill-generate', 'fine-calc', 'shop-create', 'shop-update', 'shop-delete',
+                   'expense-add', 'expense-del', 'complaint-add', 'complaint-status', 'complaint-del',
+                   'asset-add', 'asset-update', 'asset-del', 'notice-add', 'notice-del', 'notice-pin'];
+    $collector_ok = ['collect', 'meter', 'readings'];
+    if ($is_collector) {
+        if (in_array($a, $mall_write, true)) {
+            json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
+        }
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list'], true)) {
+            json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
+        }
     }
     $mcfg = function ($k, $def = '') use ($pdo) {
         $st = $pdo->prepare('SELECT v FROM mall_config WHERE k=?'); $st->execute([$k]);
@@ -15080,6 +15102,44 @@ case 'mall': {
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
         $pdo->prepare('DELETE FROM mall_assets WHERE id=?')->execute([$id]);
         audit($u['name'], 'Asset delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+
+    /* audit — committee activity trail (who did what, when) */
+    if ($a === 'audit') {
+        $q = trim($body['q'] ?? '');
+        $sql = 'SELECT * FROM audit_log';
+        $args = [];
+        if ($q !== '') { $sql .= ' WHERE user LIKE ? OR action LIKE ? OR module LIKE ? OR entity LIKE ? OR details LIKE ?'; $like = '%' . $q . '%'; $args = [$like, $like, $like, $like, $like]; }
+        $sql .= ' ORDER BY id DESC LIMIT 150';
+        $st = $pdo->prepare($sql); $st->execute($args);
+        json_out(['ok' => true, 'audit' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* notices — committee notice board (spec 3.9) */
+    if ($a === 'notices') {
+        $rows = $pdo->query('SELECT * FROM mall_notices ORDER BY pinned DESC, id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'notices' => $rows]);
+    }
+    if ($a === 'notice-add') {
+        $title = trim($body['title'] ?? '');
+        if ($title === '') json_out(['ok' => false, 'error' => 'title required.'], 400);
+        $pdo->prepare("INSERT INTO mall_notices (title, body, date, pinned, author) VALUES (?,?,?,?,?)")
+            ->execute([$title, trim($body['body'] ?? ''), trim($body['date'] ?? date('Y-m-d')), (int)($body['pinned'] ?? 0) ? 1 : 0, $u['name']]);
+        audit($u['name'], 'Notice', 'mall', $title, 'posted');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'notice-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_notices WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Notice delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'notice-pin') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('UPDATE mall_notices SET pinned=? WHERE id=?')->execute([(int)($body['pinned'] ?? 0) ? 1 : 0, $id]);
         json_out(['ok' => true]);
     }
 

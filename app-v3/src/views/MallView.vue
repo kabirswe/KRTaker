@@ -9,6 +9,8 @@ import ScrollTabs from '../components/ScrollTabs.vue'
 const auth = useAuthStore()
 const data = useDataStore()
 const canManage = computed(() => ['superadmin', 'owner', 'manager', 'accountant'].includes(auth.user?.role || ''))
+const isCollector = computed(() => auth.user?.role === 'collector')
+const canCollect = computed(() => canManage.value || isCollector.value)
 
 /* ── tabs ── */
 const tab = ref('dashboard')
@@ -20,6 +22,8 @@ const TABS = [
   ['expenses', '📉', 'Expenses'],
   ['complaints', '🔧', 'Complaints'],
   ['assets', '🛠️', 'Assets & AMC'],
+  ['notices', '📢', 'Notices'],
+  ['audit', '📋', 'Audit'],
   ['ledger', '📒', 'Ledger'],
 ]
 const month = ref(new Date().toISOString().slice(0, 7))
@@ -269,6 +273,43 @@ async function delAsset(a) {
 const amcDays = (a) => a.days_left === null ? null : (a.days_left < 0 ? `expired ${Math.abs(a.days_left)}d ago` : `${a.days_left}d left`)
 const amcBadge = (a) => a.days_left === null ? 'b-gray' : a.days_left <= 0 ? 'b-red' : a.days_left <= 30 ? 'b-orange' : 'b-green'
 
+/* ══════════ NOTICES (spec 3.9) ══════════ */
+const notices = ref([])
+const noticeModal = ref(null)
+const noticeForm = ref({})
+async function loadNotices() { const r = await apiCall('mall', { action: 'notices' }); if (r.ok) notices.value = r.notices }
+function openNoticeAdd() { noticeForm.value = { title: '', body: '', date: new Date().toISOString().slice(0, 10), pinned: false }; noticeModal.value = true }
+async function saveNotice() {
+  if (!noticeForm.value.title.trim()) { window.__krToast?.('Title required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'notice-add', title: noticeForm.value.title, body: noticeForm.value.body, date: noticeForm.value.date, pinned: noticeForm.value.pinned ? 1 : 0 })
+  if (r.ok) { window.__krToast?.('📢 Notice posted', 'ok'); noticeModal.value = false; await loadNotices() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delNotice(n) {
+  if (!window.confirm(`Delete notice "${n.title}"?`)) return
+  const r = await apiCall('mall', { action: 'notice-del', id: n.id })
+  if (r.ok) { window.__krToast?.('🗑️ Notice deleted', 'ok'); await loadNotices() }
+}
+async function togglePin(n) {
+  const r = await apiCall('mall', { action: 'notice-pin', id: n.id, pinned: n.pinned ? 0 : 1 })
+  if (r.ok) { window.__krToast?.(n.pinned ? '📌 Unpinned' : '📌 Pinned to top', 'ok'); await loadNotices() }
+}
+
+/* ══════════ AUDIT TRAIL ══════════ */
+const auditRows = ref([])
+const auditQ = ref('')
+const auditBusy = ref(false)
+async function loadAudit() {
+  auditBusy.value = true
+  try { const r = await apiCall('mall', { action: 'audit', q: auditQ.value }); if (r.ok) auditRows.value = r.audit } finally { auditBusy.value = false }
+}
+const auditBadge = (a) => {
+  if (['Login', 'Logout'].includes(a.action)) return 'b-gray'
+  if (a.action.includes('delete')) return 'b-red'
+  if (['collect', 'Expense', 'Notice', 'Receipt'].some(x => a.action.includes(x))) return 'b-green'
+  return 'b-blue'
+}
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() { const r = await apiCall('mall', { action: 'ledger', month: month.value }); if (r.ok) ledger.value = r }
@@ -283,6 +324,8 @@ function switchTab(x) {
   if (x === 'expenses') loadExpenses()
   if (x === 'complaints') loadComplaints()
   if (x === 'assets') loadAssets()
+  if (x === 'notices') loadNotices()
+  if (x === 'audit') loadAudit()
 }
 
 onMounted(async () => { await loadConfig(); await loadDash() })
@@ -444,7 +487,7 @@ onMounted(async () => { await loadConfig(); await loadDash() })
                 <td style="font-size:12px;color:var(--text-mute)">{{ b.due_date }}<span v-if="isOverdue(b)" class="badge b-red" style="margin-left:6px">overdue</span></td>
                 <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
                 <td style="text-align:right;white-space:nowrap">
-                  <button v-if="b.status === 'Unpaid' && canManage" @click="openPay(b)" style="padding:6px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💵 Collect</button>
+                  <button v-if="b.status === 'Unpaid' && canCollect" @click="openPay(b)" style="padding:6px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💵 Collect</button>
                   <button v-if="b.status === 'Paid'" @click="openReceipt(b)" title="View / print receipt" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px">🖨️ Receipt</button>
                 </td>
               </tr>
@@ -655,6 +698,64 @@ onMounted(async () => { await loadConfig(); await loadDash() })
       </div>
     </template>
 
+    <!-- ═══════ NOTICES ═══════ -->
+    <template v-if="tab === 'notices'">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openNoticeAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">📢 Post notice</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Committee announcements for shop owners — pinned notices stay on top</span>
+      </div>
+      <div v-if="notices.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
+        <div v-for="n in notices" :key="n.id" class="panel chip" style="padding:16px;border-left:3px solid" :style="n.pinned ? 'border-left-color:var(--primary)' : 'border-left-color:var(--border)'">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:18px">{{ n.pinned ? '📌' : '📢' }}</span>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <b style="font-size:14px">{{ n.title }}</b>
+                <span v-if="n.pinned" class="badge b-blue" style="font-size:10px">PINNED</span>
+              </div>
+              <div style="font-size:12.5px;color:var(--text);margin-top:6px;white-space:pre-wrap">{{ n.body || '—' }}</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--text-mute);flex-wrap:wrap">
+                <span>📅 {{ n.date }}</span><span>· by {{ n.author || '—' }}</span>
+                <span style="flex:1"></span>
+                <template v-if="canManage">
+                  <button @click="togglePin(n)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px">{{ n.pinned ? 'Unpin' : '📌 Pin' }}</button>
+                  <button @click="delNotice(n)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px">🗑️</button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="panel" style="padding:30px;text-align:center;color:var(--text-mute)">No notices yet — post the first announcement with 📢 Post notice.</div>
+    </template>
+
+    <!-- ═══════ AUDIT TRAIL ═══════ -->
+    <template v-if="tab === 'audit'">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <input v-model="auditQ" placeholder="🔍 Search user / action / module…" @keyup.enter="loadAudit" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:260px;font-family:inherit;font-size:13px;outline:none" />
+        <button @click="loadAudit" class="btn-ghost">Search</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Who did what, when — collections, expenses, complaints, assets, notices, logins</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <div class="tbl-wrap" style="max-height:none">
+          <table class="kr">
+            <thead><tr><th>When</th><th>User</th><th>Action</th><th>Module</th><th>Entity</th><th>Details</th></tr></thead>
+            <tbody>
+              <tr v-for="r in auditRows" :key="r.id">
+                <td style="font-size:12px;color:var(--text-mute)">{{ (r.ts || '').slice(0, 16) }}</td>
+                <td><b>{{ r.user }}</b></td>
+                <td><span class="badge" :class="auditBadge(r)">{{ r.action }}</span></td>
+                <td style="color:var(--text-mute)">{{ r.module }}</td>
+                <td style="color:var(--text-mute)">{{ r.entity }}</td>
+                <td style="color:var(--text-mute);max-width:340px;overflow:hidden;text-overflow:ellipsis">{{ r.details || '' }}</td>
+              </tr>
+              <tr v-if="!auditRows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:28px">No activity recorded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════ LEDGER ═══════ -->
     <template v-if="tab === 'ledger'">
       <div v-if="ledger">
@@ -821,6 +922,25 @@ onMounted(async () => { await loadConfig(); await loadDash() })
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="saveAsset" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save asset</button>
             <button @click="assetModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ NOTICE MODAL ═══════ -->
+    <div v-if="noticeModal" class="overlay" @click.self="noticeModal = false">
+      <div class="modal" style="max-width:480px">
+        <div class="modal-h"><div class="t">📢 Post notice</div><button class="close" @click="noticeModal = false">✕</button></div>
+        <div class="modal-b">
+          <label style="font-size:12px;color:var(--text-mute)">Title *<input v-model="noticeForm.title" placeholder="e.g. Generator maintenance on Sunday 10am–2pm" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Details<textarea v-model="noticeForm.body" rows="3" placeholder="Full announcement…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+            <label style="font-size:12px;color:var(--text-mute)">Date<input type="date" v-model="noticeForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:flex-end;gap:8px;padding-bottom:8px"><input type="checkbox" v-model="noticeForm.pinned" style="width:16px;height:16px" /> 📌 Pin to top</label>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveNotice" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">📢 Post</button>
+            <button @click="noticeModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
           </div>
         </div>
       </div>
