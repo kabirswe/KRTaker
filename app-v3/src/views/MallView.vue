@@ -622,11 +622,13 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 
 <template>
   <div>
-    <div class="page-head">
-      <div>
-        <h1>🏬 {{ config.mall_name || 'Mall Management' }}</h1>
-        <div class="sub">Service charges · elec/water sub-meter billing · collections · expenses · ledger</div>
-      </div>
+    <!-- page-head teleports INTO .topbar-in → title rides the sticky header -->
+    <Teleport to=".topbar-in">
+      <div class="page-head">
+        <div>
+          <h1>🏬 {{ config.mall_name || 'Mall Management' }}</h1>
+          <div class="sub">Service charges · elec/water sub-meter billing · collections · expenses · ledger</div>
+        </div>
       <div class="head-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:5px 8px">
           <button @click="shiftMonth(-1)" style="border:none;background:none;cursor:pointer;font-weight:800;color:var(--text)">◀</button>
@@ -635,7 +637,8 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         </div>
         <button v-if="tab === 'shops' && canManage" @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add shop</button>
       </div>
-    </div>
+      </div>
+    </Teleport>
 
     <ScrollTabs style="gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:10px">
       <button v-for="[id, ico, label] in TABS" :key="id" @click="switchTab(id)"
