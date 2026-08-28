@@ -501,6 +501,17 @@ const userKpis = computed(() => {
   ]
 })
 
+/* ══════════ BUDGET (spec 3.7) ══════════ */
+const budget = ref({})
+const budgetDirty = ref(false)
+async function loadBudget() { const r = await apiCall('mall', { action: 'budget-get' }); if (r.ok) { budget.value = r.budget || {} } }
+async function saveBudget() {
+  const r = await apiCall('mall', { action: 'budget-set', budget: budget.value })
+  if (r.ok) { budgetDirty.value = false; window.__krToast?.('🎯 Budget saved', 'ok') }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+const budgetTotal = computed(() => Object.values(budget.value).reduce((s, v) => s + (Number(v) || 0), 0))
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -526,6 +537,7 @@ function switchTab(x) {
   if (x === 'audit') loadAudit()
   if (x === 'staff') loadStaff()
   if (x === 'users') loadUsers()
+  if (x === 'settings') loadBudget()
   if (x === 'dashboard') { loadDash(); loadBalances() }
 }
 
@@ -597,14 +609,18 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         </div>
         <div style="display:flex;flex-direction:column;gap:16px">
           <div class="panel" style="padding:16px;flex:1">
-            <h3 style="font-size:14px;margin-bottom:12px">📉 Expenses by category — {{ monthLabel(month) }}</h3>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <h3 style="font-size:14px">📉 Expenses by category — {{ monthLabel(month) }}</h3>
+              <span v-if="dash && dash.budget && dash.budget.total" class="badge" :class="dash.budget.used <= dash.budget.total ? 'b-green' : 'b-red'" style="font-size:11px">budget {{ money(dash.budget.used) }} / {{ money(dash.budget.total) }}</span>
+            </div>
             <div v-if="dash && dash.expense_cats.length" style="display:flex;flex-direction:column;gap:9px">
               <div v-for="c in dash.expense_cats" :key="c.cat">
                 <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px">
-                  <span style="color:var(--text)">{{ c.cat }}</span><b>{{ money(c.total) }}</b>
+                  <span style="color:var(--text)">{{ c.cat }}</span>
+                  <b :style="c.budget != null && Number(c.total) > c.budget ? 'color:var(--danger)' : ''">{{ money(c.total) }}<span v-if="c.budget != null" style="color:var(--text-mute);font-weight:500"> / {{ money(c.budget) }}</span></b>
                 </div>
                 <div style="height:6px;border-radius:99px;background:var(--bg-alt);overflow:hidden">
-                  <div :style="{ width: Math.min(100, Math.round(c.total / (dash.expense_cats[0].total || 1) * 100)) + '%', background: 'var(--primary)', height: '100%' }"></div>
+                  <div :style="{ width: Math.min(100, Math.round(Number(c.total) / Math.max(c.budget ?? c.total, 1) * 100)) + '%', background: c.budget != null && Number(c.total) > c.budget ? 'var(--danger)' : 'var(--primary)', height: '100%' }"></div>
                 </div>
               </div>
             </div>
@@ -1226,6 +1242,19 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <label style="font-size:12px;color:var(--text-mute)">Footer line on printed receipts
             <textarea v-model="config.receipt_note" rows="3" placeholder="e.g. Service charges are payable by the 10th of every month. Thank you for your cooperation." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical" @input="cfgDirty = true"></textarea>
           </label>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">🎯 Monthly budget (spec 3.7)</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Set a budget per expense category — the dashboard compares actual vs budget each month. Leave ৳0 to skip a category.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label v-for="c in EXP_CATEGORIES" :key="c" style="font-size:11.5px;color:var(--text-mute)">{{ c }}
+              <input type="number" min="0" step="500" :value="budget[c] ?? 0" @input="budget[c] = Number($event.target.value) || 0; budgetDirty = true" style="width:100%;margin-top:3px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
+            <button @click="saveBudget" :disabled="!budgetDirty" style="padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save budget</button>
+            <span style="font-size:12px;color:var(--text-mute)">Total {{ money(budgetTotal) }}/mo</span>
+          </div>
         </div>
       </div>
       <div v-if="canManage" style="margin-top:14px">

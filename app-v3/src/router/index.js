@@ -7,6 +7,7 @@ import { useDataStore } from '../stores/data'
 // Generic collection routes map each module to its bootstrap table.
 const routes = [
   { path: '/login', name: 'login', component: () => import('../views/LoginView.vue'), meta: { public: true } },
+  { path: '/owner', name: 'owner', component: () => import('../views/OwnerPortalView.vue'), meta: { public: true, portal: true } },
   { path: '/', redirect: '/mall' },
   { path: '/dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
   { path: '/mall', name: 'mall', component: () => import('../views/MallView.vue') },

@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260925) {
+        if ($__sv < 20260926) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -366,6 +366,14 @@ function db() {
             id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER, month TEXT,
             amount INTEGER DEFAULT 0, method TEXT DEFAULT 'cash', note TEXT DEFAULT '',
             ts TEXT DEFAULT (datetime('now')))");
+        /* ── Phase 3: shop-owner portal accounts (spec 3.8 view-only login) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_owner_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, shop TEXT, email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL, phone TEXT DEFAULT '', active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')))");
+        /* ── Phase 3: monthly budgets per expense category (spec 3.7 budget vs actual) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_budget (
+            cat TEXT PRIMARY KEY, amount INTEGER DEFAULT 0)");
         $pdo->exec("CREATE TABLE IF NOT EXISTS property_rent (
             prop TEXT PRIMARY KEY, service_charge_pct REAL DEFAULT 0, utility_advance INTEGER DEFAULT 0,
             parking_fee INTEGER DEFAULT 0, escalation_pct REAL DEFAULT 0, advance_months INTEGER DEFAULT 0,
@@ -15357,6 +15365,26 @@ case 'mall': {
         json_out(['ok' => true]);
     }
 
+    /* budget-get / budget-set — monthly budget per expense category (spec 3.7) */
+    if ($a === 'budget-get') {
+        $rows = $pdo->query('SELECT * FROM mall_budget ORDER BY amount DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $map = []; foreach ($rows as $r) $map[$r['cat']] = (int)$r['amount'];
+        json_out(['ok' => true, 'budget' => $map, 'total' => array_sum($map)]);
+    }
+    if ($a === 'budget-set') {
+        $b = $body['budget'] ?? [];
+        if (!is_array($b)) json_out(['ok' => false, 'error' => 'budget must be an object {category: amount}.'], 400);
+        $pdo->beginTransaction();
+        foreach ($b as $cat => $amt) {
+            $amt = (int)$amt;
+            if ($amt <= 0) $pdo->prepare('DELETE FROM mall_budget WHERE cat=?')->execute([(string)$cat]);
+            else $pdo->prepare('INSERT INTO mall_budget (cat, amount) VALUES (?,?) ON CONFLICT(cat) DO UPDATE SET amount=excluded.amount')->execute([(string)$cat, $amt]);
+        }
+        $pdo->commit();
+        audit($u['name'], 'Budget set', 'mall', '', json_encode($b));
+        json_out(['ok' => true]);
+    }
+
     /* bills — list with shop info; filters: month (YYYY-MM), kind, status */
     if ($a === 'bills') {
         $month = trim($body['month'] ?? date('Y-m'));
@@ -15498,6 +15526,13 @@ case 'mall': {
                     WHERE kind='expense' AND substr(ts,1,7)=? GROUP BY cat ORDER BY total DESC LIMIT 10");
         $exC->execute([$month]);
         $expCats = $exC->fetchAll(PDO::FETCH_ASSOC);
+        /* budget vs actual for the expense chart */
+        $bud = [];
+        foreach ($pdo->query('SELECT cat, amount FROM mall_budget')->fetchAll(PDO::FETCH_ASSOC) as $r) $bud[$r['cat']] = (int)$r['amount'];
+        foreach ($expCats as $i => $c) $expCats[$i]['budget'] = $bud[$c['cat']] ?? null;
+        $budUsed = 0; $budTotal = 0;
+        foreach ($bud as $cat => $amt) { $budTotal += $amt; }
+        foreach ($expCats as $c) if ($c['budget'] !== null) $budUsed += (int)$c['total'];
         $exT = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=?");
         $exT->execute([$month]);
         $expenseTotal = (int)$exT->fetchColumn();
@@ -15505,10 +15540,111 @@ case 'mall': {
         $activeShops = (int)$pdo->query("SELECT COUNT(*) FROM shops WHERE status='Active'")->fetchColumn();
         json_out(['ok' => true, 'month' => $month, 'kpi' => $kpi->fetch(PDO::FETCH_ASSOC),
                   'defaulters' => $defaulters->fetchAll(PDO::FETCH_ASSOC),
-                  'expense_cats' => $expCats, 'expense_total' => $expenseTotal, 'shops' => ['total' => $shopCount, 'active' => $activeShops]]);
+                  'expense_cats' => $expCats, 'expense_total' => $expenseTotal, 'shops' => ['total' => $shopCount, 'active' => $activeShops],
+                  'budget' => ['total' => $budTotal, 'used' => $budUsed]]);
     }
 
     json_out(['ok' => false, 'error' => "Unknown mall action '$a'."], 400);
+}
+
+/* ═══════════ SHOP-OWNER PORTAL (spec 3.8 view-only login) ═══════════ */
+case 'mall-owner-login': {
+    $pdo = db();
+    $email = strtolower(trim($body['email'] ?? ''));
+    $pw = (string)($body['password'] ?? '');
+    if ($email === '' || $pw === '') json_out(['ok' => false, 'error' => 'Email and password required.'], 400);
+    $st = $pdo->prepare('SELECT * FROM mall_owner_accounts WHERE email=?'); $st->execute([$email]);
+    $o = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$o || !password_verify($pw, $o['password_hash'] ?? '')) {
+        record_attempt($email, client_ip(), 'owner-login', false);
+        json_out(['ok' => false, 'error' => 'Invalid email or password.'], 403);
+    }
+    if (!$o['active']) json_out(['ok' => false, 'error' => 'Account disabled — contact the committee office.'], 403);
+    record_attempt($email, client_ip(), 'owner-login', true);
+    $tok = bin2hex(random_bytes(24));
+    $pdo->prepare('INSERT INTO app_tokens (token, user_id, kind, expires_at, impersonator, ip, ua) VALUES (?,?,?,?,?,?,?)')
+        ->execute([hash('sha256', $tok), $o['id'], 'owner', gmdate('Y-m-d H:i:s', time() + 86400 * 7), '',
+                   substr((string)client_ip(), 0, 45), substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500)]);
+    $shop = $pdo->prepare('SELECT no, floor, owner_name, id FROM shops WHERE id=?'); $shop->execute([$o['shop']]);
+    $s = $shop->fetch(PDO::FETCH_ASSOC);
+    $mn = $pdo->prepare('SELECT v FROM mall_config WHERE k=?'); $mn->execute(['mall_name']);
+    json_out(['ok' => true, 'token' => $tok, 'owner' => [
+        'name' => $s['owner_name'] ?? 'Shop Owner', 'shop_no' => $s['no'] ?? '', 'floor' => $s['floor'] ?? '',
+        'email' => $o['email'], 'mall' => (string)$mn->fetchColumn() ?: 'Mall Management',
+    ]]);
+}
+
+case 'mall-owner': {
+    $pdo = db();
+    $a = $body['action'] ?? '';
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!$auth) $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if (!preg_match('/Bearer\s+(\S+)/i', $auth, $m)) json_out(['ok' => false, 'error' => 'Login required.'], 401);
+    $st = $pdo->prepare("SELECT user_id, expires_at FROM app_tokens WHERE token=? AND kind='owner'");
+    $st->execute([hash('sha256', $m[1])]);
+    $tok = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$tok || ($tok['expires_at'] && strtotime($tok['expires_at']) < time())) json_out(['ok' => false, 'error' => 'Session expired — please log in again.'], 401);
+    $oa = $pdo->prepare('SELECT * FROM mall_owner_accounts WHERE id=? AND active=1');
+    $oa->execute([$tok['user_id']]);
+    $o = $oa->fetch(PDO::FETCH_ASSOC);
+    if (!$o) json_out(['ok' => false, 'error' => 'Owner account not found or disabled.'], 401);
+    $shop = $pdo->prepare('SELECT * FROM shops WHERE id=?'); $shop->execute([$o['shop']]);
+    $s = $shop->fetch(PDO::FETCH_ASSOC);
+    if (!$s) json_out(['ok' => false, 'error' => 'Shop not found.'], 404);
+
+    if ($a === 'me') {
+        $month = date('Y-m');
+        $due = function ($kind) use ($pdo, $o, $month) {
+            $st = $pdo->prepare("SELECT COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) paid,
+                                        COALESCE(SUM(CASE WHEN status='Unpaid' THEN amount ELSE 0 END),0) outstanding,
+                                        COALESCE(SUM(amount),0) billed, COUNT(CASE WHEN status='Unpaid' THEN 1 END) unpaid
+                                 FROM shop_bills WHERE shop=? AND month=? AND kind=?");
+            $st->execute([$o['shop'], $month, $kind]);
+            return $st->fetch(PDO::FETCH_ASSOC);
+        };
+        json_out(['ok' => true, 'owner' => $o, 'shop' => [
+            'no' => $s['no'], 'floor' => $s['floor'], 'sqft' => $s['sqft'], 'owner_name' => $s['owner_name'], 'owner_mobile' => $s['owner_mobile'],
+            'status' => $s['status'], 'service_rate' => $s['service_rate'], 'opening_balance' => $s['opening_balance'],
+        ], 'current' => [
+            'service' => $due('service'), 'elec' => $due('elec'), 'water' => $due('water'),
+        ]]);
+    }
+    if ($a === 'bills') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $st = $pdo->prepare('SELECT * FROM shop_bills WHERE shop=? AND month=? ORDER BY kind');
+        $st->execute([$o['shop'], $month]);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        $tot = ['billed' => 0, 'paid' => 0, 'outstanding' => 0, 'fines' => 0];
+        foreach ($rows as $r) {
+            $tot['billed'] += (int)$r['amount'];
+            $tot['fines'] += (int)$r['fine'];
+            if ($r['status'] === 'Paid') $tot['paid'] += (int)$r['amount']; else $tot['outstanding'] += (int)$r['amount'];
+        }
+        json_out(['ok' => true, 'bills' => $rows, 'totals' => $tot]);
+    }
+    if ($a === 'payments') {
+        $st = $pdo->prepare('SELECT * FROM shop_payments WHERE shop=? ORDER BY id DESC LIMIT 100');
+        $st->execute([$o['shop']]);
+        json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+    if ($a === 'notices') {
+        json_out(['ok' => true, 'notices' => $pdo->query('SELECT * FROM mall_notices ORDER BY pinned DESC, id DESC LIMIT 50')->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+    if ($a === 'complaints') {
+        $st = $pdo->prepare('SELECT * FROM mall_complaints WHERE shop=? ORDER BY id DESC LIMIT 50');
+        $st->execute([$o['shop']]);
+        json_out(['ok' => true, 'complaints' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+    if ($a === 'complaint-add') {
+        $subject = trim($body['subject'] ?? '');
+        if ($subject === '') json_out(['ok' => false, 'error' => 'Subject required.'], 400);
+        $pdo->prepare("INSERT INTO mall_complaints (shop, subject, descr, priority, status, created_by) VALUES (?,?,?,?, 'Open', ?)")
+            ->execute([$o['shop'], $subject, trim($body['descr'] ?? ''),
+                       in_array(trim($body['priority'] ?? ''), ['Low', 'Normal', 'High', 'Urgent'], true) ? trim($body['priority']) : 'Normal',
+                       $s['owner_name'] . ' (owner portal)']);
+        json_out(['ok' => true]);
+    }
+    json_out(['ok' => false, 'error' => "Unknown owner action '$a'."], 400);
 }
 
 case 'app-crud': {

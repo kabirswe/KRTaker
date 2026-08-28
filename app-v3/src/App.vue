@@ -3,7 +3,6 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useDataStore } from './stores/data'
-import { apiCall } from './api/client'
 import Sidebar from './components/Sidebar.vue'
 import Topbar from './components/Topbar.vue'
 import TenantTour from './components/TenantTour.vue'
@@ -15,6 +14,8 @@ const data = useDataStore()
 
 // V2.27: full-screen routes (guided setup wizard) hide the shell chrome
 const isSetup = computed(() => !!route.meta.setup)
+// Mall Manager: shop-owner portal renders standalone (no app shell)
+const isPortal = computed(() => !!route.meta.portal)
 
 const sidebarOpen = ref(false)
 const toasts = ref([])
@@ -116,10 +117,13 @@ document.documentElement.setAttribute('data-theme', savedTheme)
 
 <template>
   <div>
+    <!-- Shop-owner portal: standalone, no app shell -->
+    <div v-if="isPortal" class="app"><router-view /></div>
+
     <!-- Auth gate: show login UNLESS a token exists AND has been validated.
          A stale/expired token must never render the shell — that left users
          staring at an empty sidebar with no login form (fixed: validated flag). -->
-    <div v-if="!auth.isAuthed" class="auth-screen">
+    <div v-else-if="!auth.isAuthed" class="auth-screen">
       <router-view />
     </div>
 
