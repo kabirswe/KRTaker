@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260926) {
+        if ($__sv < 20260927) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -374,6 +374,19 @@ function db() {
         /* ── Phase 3: monthly budgets per expense category (spec 3.7 budget vs actual) ── */
         $pdo->exec("CREATE TABLE IF NOT EXISTS mall_budget (
             cat TEXT PRIMARY KEY, amount INTEGER DEFAULT 0)");
+        /* ── Phase 3b: committee / somity governance (spec 3.11) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_committee (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT DEFAULT 'Member', name TEXT NOT NULL,
+            shop TEXT DEFAULT '', phone TEXT DEFAULT '', email TEXT DEFAULT '', term TEXT DEFAULT '',
+            active INTEGER DEFAULT 1, created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_meetings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, type TEXT DEFAULT 'Executive',
+            title TEXT, agenda TEXT DEFAULT '', decisions TEXT DEFAULT '', minutes TEXT DEFAULT '',
+            created_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_resolutions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, meeting_id INTEGER DEFAULT 0, number TEXT,
+            title TEXT, body TEXT DEFAULT '', date TEXT, passed INTEGER DEFAULT 1,
+            created_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))");
         $pdo->exec("CREATE TABLE IF NOT EXISTS property_rent (
             prop TEXT PRIMARY KEY, service_charge_pct REAL DEFAULT 0, utility_advance INTEGER DEFAULT 0,
             parking_fee INTEGER DEFAULT 0, escalation_pct REAL DEFAULT 0, advance_months INTEGER DEFAULT 0,
@@ -14918,7 +14931,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15408,6 +15421,77 @@ case 'mall': {
         }
         $pdo->commit();
         audit($u['name'], 'Budget set', 'mall', '', json_encode($b));
+        json_out(['ok' => true]);
+    }
+
+    /* ── COMMITTEE / SOMITY (spec 3.11 governance) ── */
+    if ($a === 'committee') {
+        $rows = $pdo->query("SELECT * FROM mall_committee ORDER BY CASE role WHEN 'Chairman' THEN 0 WHEN 'Secretary' THEN 1 WHEN 'Treasurer' THEN 2 ELSE 3 END, id")->fetchAll(PDO::FETCH_ASSOC);
+        $meetings = $pdo->query('SELECT * FROM mall_meetings ORDER BY date DESC, id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
+        $resolutions = $pdo->query('SELECT * FROM mall_resolutions ORDER BY date DESC, id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
+        $counts = ['members' => count($rows), 'active' => count(array_filter($rows, fn($r) => $r['active'])),
+                   'meetings' => count($meetings), 'resolutions' => count($resolutions),
+                   'agm' => count(array_filter($meetings, fn($m) => $m['type'] === 'AGM'))];
+        json_out(['ok' => true, 'members' => $rows, 'meetings' => $meetings, 'resolutions' => $resolutions, 'counts' => $counts]);
+    }
+    if ($a === 'committee-add') {
+        $name = trim($body['name'] ?? '');
+        if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
+        $role = trim($body['role'] ?? 'Member');
+        if (!in_array($role, ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'], true)) $role = 'Member';
+        $pdo->prepare("INSERT INTO mall_committee (role, name, shop, phone, email, term, active) VALUES (?,?,?,?,?,?,?)")
+            ->execute([$role, $name, trim($body['shop'] ?? ''), trim($body['phone'] ?? ''), trim($body['email'] ?? ''),
+                       trim($body['term'] ?? ''), isset($body['active']) ? ((int)$body['active'] ? 1 : 0) : 1]);
+        audit($u['name'], 'Committee add', 'mall', $name, $role);
+        json_out(['ok' => true]);
+    }
+    if ($a === 'committee-update') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare("UPDATE mall_committee SET role=?, name=?, shop=?, phone=?, email=?, term=?, active=? WHERE id=?")
+            ->execute([trim($body['role'] ?? ''), trim($body['name'] ?? ''), trim($body['shop'] ?? ''), trim($body['phone'] ?? ''),
+                       trim($body['email'] ?? ''), trim($body['term'] ?? ''), isset($body['active']) ? ((int)$body['active'] ? 1 : 0) : 1, $id]);
+        audit($u['name'], 'Committee update', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'committee-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_committee WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Committee delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'meeting-add') {
+        $title = trim($body['title'] ?? '');
+        if ($title === '') json_out(['ok' => false, 'error' => 'title required.'], 400);
+        $pdo->prepare("INSERT INTO mall_meetings (date, type, title, agenda, decisions, minutes, created_by) VALUES (?,?,?,?,?,?,?)")
+            ->execute([trim($body['date'] ?? date('Y-m-d')), trim($body['type'] ?? 'Executive'), $title,
+                       trim($body['agenda'] ?? ''), trim($body['decisions'] ?? ''), trim($body['minutes'] ?? ''), $u['name']]);
+        audit($u['name'], 'Meeting', 'mall', $title, trim($body['type'] ?? ''));
+        json_out(['ok' => true]);
+    }
+    if ($a === 'meeting-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_meetings WHERE id=?')->execute([$id]);
+        $pdo->prepare('UPDATE mall_resolutions SET meeting_id=0 WHERE meeting_id=?')->execute([$id]);
+        audit($u['name'], 'Meeting delete', 'mall', (string)$id, '');
+        json_out(['ok' => true]);
+    }
+    if ($a === 'resolution-add') {
+        $title = trim($body['title'] ?? '');
+        if ($title === '') json_out(['ok' => false, 'error' => 'title required.'], 400);
+        $pdo->prepare("INSERT INTO mall_resolutions (meeting_id, number, title, body, date, passed, created_by) VALUES (?,?,?,?,?,?,?)")
+            ->execute([(int)($body['meeting_id'] ?? 0), trim($body['number'] ?? ''), $title, trim($body['body'] ?? ''),
+                       trim($body['date'] ?? date('Y-m-d')), isset($body['passed']) ? ((int)$body['passed'] ? 1 : 0) : 1, $u['name']]);
+        audit($u['name'], 'Resolution', 'mall', $title, trim($body['number'] ?? ''));
+        json_out(['ok' => true]);
+    }
+    if ($a === 'resolution-del') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
+        $pdo->prepare('DELETE FROM mall_resolutions WHERE id=?')->execute([$id]);
+        audit($u['name'], 'Resolution delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
 

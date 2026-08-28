@@ -29,6 +29,7 @@ const TABS = [
   ['audit', '📋', 'Audit'],
   ['staff', '🧑‍💼', 'Staff'],
   ['users', '👥', 'Users & Roles'],
+  ['committee', '🏛️', 'Committee'],
   ['ledger', '📒', 'Ledger'],
   ['settings', '⚙️', 'Settings'],
 ]
@@ -519,6 +520,70 @@ async function saveBudget() {
 }
 const budgetTotal = computed(() => Object.values(budget.value).reduce((s, v) => s + (Number(v) || 0), 0))
 
+/* ══════════ COMMITTEE / SOMITY (spec 3.11) ══════════ */
+const committee = ref(null)
+const memberModal = ref(null)
+const memberForm = ref({})
+const meetingModal = ref(null)
+const meetingForm = ref({})
+const resModal = ref(null)
+const resForm = ref({})
+const COMMITTEE_ROLES = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member']
+const MEETING_TYPES = ['AGM', 'Executive', 'Emergency', 'Budget']
+async function loadCommittee() { const r = await apiCall('mall', { action: 'committee' }); if (r.ok) committee.value = r }
+function openMemberAdd() { memberForm.value = { role: 'Member', name: '', shop: '', phone: '', email: '', term: '', active: 1 }; memberModal.value = { mode: 'add', title: '➕ New committee member' } }
+function openMemberEdit(m) {
+  memberForm.value = { role: m.role, name: m.name, shop: m.shop, phone: m.phone, email: m.email, term: m.term, active: m.active }
+  memberModal.value = { mode: 'edit', title: '✏️ Edit member', id: m.id }
+}
+async function saveMember() {
+  if (!memberForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  const action = memberModal.value.mode === 'edit' ? 'committee-update' : 'committee-add'
+  const r = await apiCall('mall', { action, ...memberForm.value, active: memberForm.value.active ? 1 : 0, ...(memberModal.value.mode === 'edit' ? { id: memberModal.value.id } : {}) })
+  if (r.ok) { window.__krToast?.(memberModal.value.mode === 'edit' ? '✏️ Member updated' : '✅ Member added', 'ok'); memberModal.value = null; await loadCommittee() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delMember(m) {
+  if (!window.confirm(`Remove ${m.name} from the committee?`)) return
+  const r = await apiCall('mall', { action: 'committee-del', id: m.id })
+  if (r.ok) { window.__krToast?.('🗑️ Member removed', 'ok'); await loadCommittee() }
+}
+function openMeetingAdd() { meetingForm.value = { date: new Date().toISOString().slice(0, 10), type: 'Executive', title: '', agenda: '', decisions: '', minutes: '' }; meetingModal.value = true }
+async function saveMeeting() {
+  if (!meetingForm.value.title.trim()) { window.__krToast?.('Title required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'meeting-add', ...meetingForm.value })
+  if (r.ok) { window.__krToast?.('✅ Meeting recorded', 'ok'); meetingModal.value = false; await loadCommittee() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delMeeting(m) {
+  if (!window.confirm(`Delete meeting "${m.title}"? Linked resolutions stay (unlinked).`)) return
+  const r = await apiCall('mall', { action: 'meeting-del', id: m.id })
+  if (r.ok) { window.__krToast?.('🗑️ Meeting deleted', 'ok'); await loadCommittee() }
+}
+function openResAdd(meetingId = 0) {
+  const last = (committee.value?.resolutions || [])[0]?.number || ''
+  const nextNum = last ? 'RES-' + (parseInt(String(last).replace(/\D/g, ''), 10) + 1) : 'RES-2026-01'
+  resForm.value = { meeting_id: meetingId, number: nextNum, title: '', body: '', date: new Date().toISOString().slice(0, 10), passed: 1 }
+  resModal.value = true
+}
+async function saveResolution() {
+  if (!resForm.value.title.trim()) { window.__krToast?.('Title required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'resolution-add', ...resForm.value, passed: resForm.value.passed ? 1 : 0 })
+  if (r.ok) { window.__krToast?.('📜 Resolution recorded', 'ok'); resModal.value = false; await loadCommittee() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function delResolution(r2) {
+  if (!window.confirm(`Delete resolution ${r2.number}?`)) return
+  const r = await apiCall('mall', { action: 'resolution-del', id: r2.id })
+  if (r.ok) { window.__krToast?.('🗑️ Resolution deleted', 'ok'); await loadCommittee() }
+}
+const memberAvatar = (m) => String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()
+const memberColor = (m) => {
+  const cols = ['#2F80ED', '#27AE60', '#E67E22', '#9B59B6', '#E74C3C', '#16A085']
+  let h = 0; for (const c of String(m.id || m.name)) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return cols[h % cols.length]
+}
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -544,6 +609,7 @@ function switchTab(x) {
   if (x === 'audit') loadAudit()
   if (x === 'staff') loadStaff()
   if (x === 'users') loadUsers()
+  if (x === 'committee') loadCommittee()
   if (x === 'settings') loadBudget()
   if (x === 'dashboard') { loadDash(); loadBalances() }
 }
@@ -1117,6 +1183,88 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
     </template>
 
+    <!-- ═══════ COMMITTEE / SOMITY ═══════ -->
+    <template v-if="tab === 'committee'">
+      <div v-if="committee" class="stats">
+        <div class="stat"><div class="s-label"><span class="s-ico">🏛️</span>Committee members</div><div class="s-value">{{ committee.counts.members }}</div><div class="s-trend">{{ committee.counts.active }} active</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👑</span>Office bearers</div><div class="s-value">{{ committee.members.filter(m => m.role !== 'Member' && m.active).length }}</div><div class="s-trend">chairman · secretary · treasurer</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Meetings</div><div class="s-value">{{ committee.counts.meetings }}</div><div class="s-trend">{{ committee.counts.agm }} AGM</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📜</span>Resolutions</div><div class="s-value">{{ committee.counts.resolutions }}</div><div class="s-trend">passed &amp; archived (spec 3.11)</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button v-if="canManage" @click="openMemberAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add member</button>
+        <button v-if="canManage" @click="openMeetingAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">📅 Log meeting</button>
+        <button v-if="canManage" @click="openResAdd()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);color:var(--text);font-size:12.5px;font-weight:800;cursor:pointer">📜 Add resolution</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">{{ config.mall_name || 'Mall' }} Market Owners' Committee — term 2024–2026</span>
+      </div>
+      <!-- office bearers grid -->
+      <div v-if="committee && committee.members.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:16px">
+        <div v-for="m in committee.members" :key="m.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center;cursor:default">
+          <div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff" :style="{ background: memberColor(m) }">{{ memberAvatar(m) }}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
+              <span class="badge" :class="{ Chairman: 'b-red', 'Vice Chairman': 'b-orange', Secretary: 'b-blue', Treasurer: 'b-green', Member: 'b-gray' }[m.role] || 'b-gray'">{{ m.role }}</span>
+              <span v-if="!m.active" class="badge b-red" style="font-size:10px">inactive</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ m.shop ? 'Shop ' + m.shop : 'Independent' }}<span v-if="m.phone"> · {{ m.phone }}</span></div>
+          </div>
+          <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+            <button @click="openMemberEdit(m)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">✏️</button>
+            <button @click="delMember(m)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="panel" style="padding:24px;text-align:center;color:var(--text-mute);margin-bottom:16px">No committee members yet — add the chairman, secretary &amp; treasurer with ＋ Add member.</div>
+
+      <!-- meetings + resolutions -->
+      <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px" class="cm-grid">
+        <div class="panel" style="padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="font-size:14px">📅 Meeting register</h3>
+            <span v-if="committee" class="badge b-blue" style="font-size:11px">{{ committee.counts.meetings }} meetings</span>
+          </div>
+          <div v-if="committee && committee.meetings.length" style="display:flex;flex-direction:column;gap:10px">
+            <div v-for="m in committee.meetings" :key="m.id" style="border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span class="badge" :class="{ AGM: 'b-red', Executive: 'b-blue', Emergency: 'b-orange', Budget: 'b-green' }[m.type] || 'b-gray'">{{ m.type }}</span>
+                <b style="font-size:13px">{{ m.title }}</b>
+                <span style="font-size:11.5px;color:var(--text-mute)">📅 {{ m.date }}</span>
+                <span style="flex:1"></span>
+                <button v-if="canManage" @click="delMeeting(m)" title="Delete meeting" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
+              </div>
+              <div v-if="m.agenda" style="font-size:12px;color:var(--text-mute);margin-top:6px"><b>Agenda:</b> {{ m.agenda }}</div>
+              <div v-if="m.decisions" style="font-size:12px;margin-top:4px"><b>Decisions:</b> {{ m.decisions }}</div>
+              <div v-if="m.minutes" style="font-size:12px;color:var(--text-mute);margin-top:4px;white-space:pre-wrap">{{ m.minutes }}</div>
+              <div style="font-size:10.5px;color:var(--text-mute);margin-top:6px">recorded by {{ m.created_by }}</div>
+            </div>
+          </div>
+          <p v-else style="color:var(--text-mute);font-size:12.5px">No meetings logged yet — record AGM &amp; executive meetings with 📅 Log meeting.</p>
+        </div>
+        <div class="panel" style="padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="font-size:14px">📜 Resolutions</h3>
+            <span v-if="committee" class="badge b-green" style="font-size:11px">{{ committee.counts.resolutions }} archived</span>
+          </div>
+          <div v-if="committee && committee.resolutions.length" style="display:flex;flex-direction:column;gap:10px">
+            <div v-for="r in committee.resolutions" :key="r.id" style="border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span class="badge b-gray" style="font-size:10.5px">{{ r.number }}</span>
+                <b style="font-size:13px">{{ r.title }}</b>
+                <span style="font-size:11.5px;color:var(--text-mute)">{{ r.date }}</span>
+                <span style="flex:1"></span>
+                <span class="badge" :class="r.passed ? 'b-green' : 'b-red'" style="font-size:10px">{{ r.passed ? 'passed' : 'not passed' }}</span>
+                <button v-if="canManage" @click="delResolution(r)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
+              </div>
+              <div v-if="r.body" style="font-size:12px;color:var(--text-mute);margin-top:6px">{{ r.body }}</div>
+              <div v-if="r.meeting_id" style="font-size:10.5px;color:var(--text-mute);margin-top:5px">from meeting #{{ r.meeting_id }}</div>
+            </div>
+          </div>
+          <p v-else style="color:var(--text-mute);font-size:12.5px">No resolutions yet — AGM resolutions are archived here as the governance record (spec 3.11).</p>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════ LEDGER ═══════ -->
     <template v-if="tab === 'ledger'">
       <div v-if="ledger">
@@ -1544,6 +1692,118 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
     </div>
 
+    <!-- ═══════ COMMITTEE MEMBER MODAL ═══════ -->
+    <div v-if="memberModal" class="overlay" @click.self="memberModal = null">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-h"><div class="t">{{ memberModal.title }}</div><button class="close" @click="memberModal = null">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Full name *
+              <input v-model="memberForm.name" placeholder="e.g. Alhaj Md. Abdul Razzak" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Role
+              <select v-model="memberForm.role" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="r in COMMITTEE_ROLES" :key="r" :value="r">{{ { Chairman: '👑 Chairman', 'Vice Chairman': '👑 Vice Chairman', Secretary: '📝 Secretary', Treasurer: '💰 Treasurer', Member: '👤 Executive Member' }[r] || r }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Shop (owner of)
+              <select v-model="memberForm.shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option value="">Independent / no shop</option>
+                <option v-for="s in shops" :key="s.id" :value="s.no">{{ s.no }} — {{ s.owner_name }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Phone
+              <input v-model="memberForm.phone" placeholder="e.g. 01711-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Email
+              <input v-model="memberForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Term
+              <input v-model="memberForm.term" placeholder="e.g. 2024–2026" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;padding-bottom:8px">
+              <input type="checkbox" v-model="memberForm.active" style="width:16px;height:16px" /> Active on the committee
+            </label>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveMember" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save member</button>
+            <button @click="memberModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ MEETING MODAL ═══════ -->
+    <div v-if="meetingModal" class="overlay" @click.self="meetingModal = false">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-h"><div class="t">📅 Log meeting</div><button class="close" @click="meetingModal = false">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Date
+              <input type="date" v-model="meetingForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Type
+              <select v-model="meetingForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option v-for="t in MEETING_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </label>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Title *
+            <input v-model="meetingForm.title" placeholder="e.g. Annual General Meeting 2026" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Agenda
+            <textarea v-model="meetingForm.agenda" rows="2" placeholder="Agenda items…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Decisions
+            <textarea v-model="meetingForm.decisions" rows="2" placeholder="What was decided…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Minutes / notes
+            <textarea v-model="meetingForm.minutes" rows="3" placeholder="Full minutes or notes (stored as the governance record)…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          </label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveMeeting" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save meeting</button>
+            <button @click="meetingModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ RESOLUTION MODAL ═══════ -->
+    <div v-if="resModal" class="overlay" @click.self="resModal = false">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-h"><div class="t">📜 New resolution</div><button class="close" @click="resModal = false">✕</button></div>
+        <div class="modal-b">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Number
+              <input v-model="resForm.number" placeholder="RES-2026-01" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Date
+              <input type="date" v-model="resForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Title *
+            <input v-model="resForm.title" placeholder="e.g. 5% service charge increase from October" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Resolution text
+            <textarea v-model="resForm.body" rows="3" placeholder="The full resolution text — archived as the governance record…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Linked meeting (optional)
+            <select v-model="resForm.meeting_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option :value="0">— none —</option>
+              <option v-for="m in committee?.meetings || []" :key="m.id" :value="m.id">#{{ m.id }} · {{ m.title }} ({{ m.date }})</option>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;margin-top:12px;padding-bottom:8px">
+            <input type="checkbox" v-model="resForm.passed" style="width:16px;height:16px" /> Passed by the committee
+          </label>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button @click="saveResolution" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save resolution</button>
+            <button @click="resModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══════ RECEIPT MODAL ═══════ -->
     <div v-if="recModal" class="overlay" @click.self="recModal = null">
       <div class="modal" style="max-width:460px">
@@ -1594,4 +1854,5 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
   #receiptPrint { position: fixed; left: 0; top: 0; width: 100%; background: #fff; color: #111; padding: 24px; }
 }
 @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr !important; } }
+@media (max-width: 900px) { .cm-grid { grid-template-columns: 1fr !important; } }
 </style>
