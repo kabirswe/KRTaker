@@ -14964,7 +14964,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15190,12 +15190,59 @@ case 'mall': {
                   'readings' => $readings, 'complaints' => $complaints, 'agreements' => $agreements,
                   'rent_payments' => $rentPays, 'total_due' => $due, 'total_paid' => $paid]);
     }
+    /* vendor-detail — one vendor: profile + payment ledger + linked expenses */
+    if ($a === 'vendor-detail') {
+        $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM mall_vendors WHERE id=?'); $st->execute([$id]);
+        $v = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$v) json_out(['ok' => false, 'error' => 'Vendor not found.'], 404);
+        $q = function ($sql, $args = []) use ($pdo) {
+            $st = $pdo->prepare($sql); $st->execute($args);
+            return $st->fetchAll(PDO::FETCH_ASSOC);
+        };
+        $payments = $q('SELECT * FROM mall_vendor_payments WHERE vendor_id=? ORDER BY ts DESC', [$id]);
+        $expenses = $q("SELECT * FROM company_ledger WHERE kind='expense' AND payee=? ORDER BY ts DESC, id DESC LIMIT 100", [$v['name']]);
+        $paid = 0; foreach ($payments as $p) $paid += (int)$p['amount'];
+        $expTotal = 0; foreach ($expenses as $e) $expTotal += (int)$e['amount'];
+        json_out(['ok' => true, 'vendor' => $v, 'payments' => $payments, 'expenses' => $expenses, 'total_paid' => $paid, 'total_expenses' => $expTotal]);
+    }
+    /* staff-detail — one staff: profile + salary history */
+    if ($a === 'staff-detail') {
+        $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM mall_staff WHERE id=?'); $st->execute([$id]);
+        $s = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$s) json_out(['ok' => false, 'error' => 'Staff not found.'], 404);
+        $q = function ($sql, $args = []) use ($pdo) {
+            $st = $pdo->prepare($sql); $st->execute($args);
+            return $st->fetchAll(PDO::FETCH_ASSOC);
+        };
+        $salaries = $q('SELECT * FROM mall_staff_salaries WHERE staff_id=? ORDER BY ts DESC', [$id]);
+        $total = 0; foreach ($salaries as $x) $total += (int)$x['amount'];
+        json_out(['ok' => true, 'staff' => $s, 'salaries' => $salaries, 'total_paid' => $total]);
+    }
+    /* tenant-detail — one tenant: profile + agreements + rent collections */
+    if ($a === 'tenant-detail') {
+        $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM mall_tenants WHERE id=?'); $st->execute([$id]);
+        $t = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$t) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
+        $q = function ($sql, $args = []) use ($pdo) {
+            $st = $pdo->prepare($sql); $st->execute($args);
+            return $st->fetchAll(PDO::FETCH_ASSOC);
+        };
+        $agreements = $q('SELECT * FROM mall_agreements WHERE tenant_id=? ORDER BY id DESC', [$id]);
+        $rentPays = $q("SELECT rp.*, a.shop FROM mall_rent_payments rp
+                        LEFT JOIN mall_agreements a ON a.id=rp.agreement_id
+                        WHERE a.tenant_id=? ORDER BY rp.ts DESC", [$id]);
+        $rentTotal = 0; foreach ($rentPays as $p) $rentTotal += (int)$p['amount'];
+        json_out(['ok' => true, 'tenant' => $t, 'agreements' => $agreements, 'rent_payments' => $rentPays, 'rent_total' => $rentTotal]);
+    }
     if ($a === 'complaint-add') {
         $shop = trim($body['shop'] ?? '');
         $subject = trim($body['subject'] ?? '');
         if (!$shop || $subject === '') json_out(['ok' => false, 'error' => 'shop and subject required.'], 400);
         $pdo->prepare("INSERT INTO mall_complaints (shop, subject, descr, priority, status, note, created_by)
-                       VALUES (?,?,?,?, 'Open', ?, ?)")
+            VALUES (?,?,?,?, 'Open', ?, ?)")
             ->execute([$shop, $subject, trim($body['descr'] ?? ''), in_array(trim($body['priority'] ?? ''), ['Low', 'Normal', 'High', 'Urgent'], true) ? trim($body['priority']) : 'Normal', trim($body['note'] ?? ''), $u['name']]);
         audit($u['name'], 'Complaint', 'mall', $shop, $subject);
         json_out(['ok' => true]);
@@ -15508,13 +15555,35 @@ case 'mall': {
 
     /* ── COMMITTEE / SOMITY (spec 3.11 governance) ── */
     if ($a === 'committee') {
-        $rows = $pdo->query("SELECT * FROM mall_committee ORDER BY CASE role WHEN 'Chairman' THEN 0 WHEN 'Secretary' THEN 1 WHEN 'Treasurer' THEN 2 ELSE 3 END, id")->fetchAll(PDO::FETCH_ASSOC);
-        $meetings = $pdo->query('SELECT * FROM mall_meetings ORDER BY date DESC, id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
-        $resolutions = $pdo->query('SELECT * FROM mall_resolutions ORDER BY date DESC, id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
-        $counts = ['members' => count($rows), 'active' => count(array_filter($rows, fn($r) => $r['active'])),
-                   'meetings' => count($meetings), 'resolutions' => count($resolutions),
-                   'agm' => count(array_filter($meetings, fn($m) => $m['type'] === 'AGM'))];
-        json_out(['ok' => true, 'members' => $rows, 'meetings' => $meetings, 'resolutions' => $resolutions, 'counts' => $counts]);
+        $rows = $pdo->query('SELECT * FROM mall_committee ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $meetings = $pdo->query('SELECT * FROM mall_meetings ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $resolutions = $pdo->query('SELECT * FROM mall_resolutions ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $roles = $mcfg('committee_roles', '');
+        $rolesArr = $roles !== '' ? json_decode($roles, true) : ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
+        if (!is_array($rolesArr) || !$rolesArr) $rolesArr = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
+        json_out(['ok' => true, 'members' => $rows, 'meetings' => $meetings, 'resolutions' => $resolutions, 'roles' => $rolesArr, 'counts' => ['members' => count($rows), 'meetings' => count($meetings), 'resolutions' => count($resolutions)]]);
+    }
+    /* committee-roles — the role list is DYNAMIC (config-driven) */
+    if ($a === 'committee-roles') {
+        $roles = $mcfg('committee_roles', '');
+        $rolesArr = $roles !== '' ? json_decode($roles, true) : ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
+        if (!is_array($rolesArr) || !$rolesArr) $rolesArr = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
+        json_out(['ok' => true, 'roles' => $rolesArr]);
+    }
+    if ($a === 'committee-roles-set') {
+        if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only the owner / superadmin can manage committee roles.'], 403);
+        $roles = $body['roles'] ?? [];
+        if (!is_array($roles)) json_out(['ok' => false, 'error' => 'roles must be a list.'], 400);
+        $clean = [];
+        foreach ($roles as $r) {
+            $r = trim((string)$r);
+            if ($r !== '' && !in_array($r, $clean, true)) $clean[] = $r;
+        }
+        if (!$clean) $clean = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
+        $st = $pdo->prepare('INSERT INTO mall_config (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v');
+        $st->execute(['committee_roles', json_encode($clean)]);
+        audit($u['name'], 'Committee roles', 'mall', '', implode(', ', $clean));
+        json_out(['ok' => true, 'roles' => $clean]);
     }
     if ($a === 'committee-add') {
         $name = trim($body['name'] ?? '');

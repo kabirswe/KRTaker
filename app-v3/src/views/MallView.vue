@@ -551,8 +551,14 @@ const meetingForm = ref({})
 const resModal = ref(null)
 const resForm = ref({})
 const COMMITTEE_ROLES = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member']
+const committeeRoles = ref([])   // DYNAMIC — managed in ⚙️ Settings → Committee roles
+const roleEdit = ref(false)
+const roleDraft = ref('')
+function addRole() { const n = roleDraft.value.trim(); if (!n || committeeRoles.value.includes(n)) return; committeeRoles.value.push(n); roleDraft.value = '' }
+function delRole(r) { committeeRoles.value = committeeRoles.value.filter(x => x !== r) }
+async function saveRoles() { const r = await apiCall('mall', { action: 'committee-roles-set', roles: committeeRoles.value }); if (r.ok) { window.__krToast?.('🏛️ Committee roles updated', 'ok'); roleEdit.value = false } else window.__krToast?.(r.error || 'Failed.', 'err') }
 const MEETING_TYPES = ['AGM', 'Executive', 'Emergency', 'Budget']
-async function loadCommittee() { const r = await apiCall('mall', { action: 'committee' }); if (r.ok) committee.value = r }
+async function loadCommittee() { const r = await apiCall('mall', { action: 'committee' }); if (r.ok) { committee.value = r; committeeRoles.value = r.roles || [] } }
 function openMemberAdd() { memberForm.value = { role: 'Member', name: '', shop: '', phone: '', email: '', term: '', active: 1 }; memberModal.value = { mode: 'add', title: '➕ New committee member' } }
 function openMemberEdit(m) {
   memberForm.value = { role: m.role, name: m.name, shop: m.shop, phone: m.phone, email: m.email, term: m.term, active: m.active }
@@ -775,6 +781,34 @@ const drawerOwner = computed(() => {
   return d.owner || { name: d.shop.owner_name || '—', phone: d.shop.owner_mobile || '—', nid: d.shop.owner_nid || '' }
 })
 
+/* ══════════ ENTITY DRAWERS (Units-style: Vendors / Staff / Tenants / Members / Owners) ══════════ */
+const vDrawer = ref(null)
+const sDrawer = ref(null)
+const tDrawer = ref(null)
+const mDrawer = ref(null)
+const oDrawer = ref(null)
+const eTab = ref('overview')     // shared sub-tab for entity drawers
+async function openVendorDrawer(v) { eTab.value = 'overview'; const r = await apiCall('mall', { action: 'vendor-detail', id: v.id }); if (r.ok) vDrawer.value = r }
+async function openStaffDrawer(s) { eTab.value = 'overview'; const r = await apiCall('mall', { action: 'staff-detail', id: s.id }); if (r.ok) sDrawer.value = r }
+async function openTenantDrawer(t) { eTab.value = 'overview'; const r = await apiCall('mall', { action: 'tenant-detail', id: t.id }); if (r.ok) tDrawer.value = r }
+function openMemberDrawer(m) { eTab.value = 'overview'; mDrawer.value = m }
+async function openOwnerDrawer(o) { eTab.value = 'overview'; const r = await apiCall('mall', { action: 'owner-profile', id: o.id }); if (r.ok) oDrawer.value = r }
+function closeEntityDrawers() { vDrawer.value = sDrawer.value = tDrawer.value = mDrawer.value = oDrawer.value = null }
+function drawerStats(d, rows) {
+  return d
+}
+/* meters: current billed amount for the selected space + month */
+const meterBilled = computed(() => {
+  if (!meterForm.value.shop) return null
+  const rows = bills.value.filter(b => b.shop == meterForm.value.shop && b.month === month.value)
+  if (!rows.length) return null
+  const byKind = { service: 0, elec: 0, water: 0 }
+  rows.forEach(b => { byKind[b.kind] = (byKind[b.kind] || 0) + Number(b.amount) })
+  return { total: byKind.service + byKind.elec + byKind.water, ...byKind, count: rows.length }
+})
+/* staff: grid/list toggle (like Spaces) */
+const staffView = ref('table')
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -792,7 +826,7 @@ function switchTab(x) {
   if (x === 'dashboard') loadDash()
   if (x === 'bills') loadBills()
   if (x === 'ledger') loadLedger()
-  if (x === 'meters') { meterForm.value.month = month.value; loadMeters() }
+  if (x === 'meters') { meterForm.value.month = month.value; loadMeters(); loadBills() }
   if (x === 'expenses') { loadExpenses(); loadVendors() }
   if (x === 'complaints') loadComplaints()
   if (x === 'assets') loadAssets()
@@ -1045,12 +1079,19 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 
     <!-- ═══════ METERS ═══════ -->
     <template v-if="tab === 'meters'">
-      <div class="panel" style="padding:18px;max-width:640px">
+      <div class="panel" style="padding:18px">
         <h3 style="font-size:14px;margin-bottom:6px">⚡ Sub-meter reading → auto bill</h3>
         <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Collected amounts are <b>custodial</b> — forwarded to DESCO/WASA, tracked separately from service charges.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Space
             <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" placeholder="Select space…" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
+            <div v-if="meterBilled" style="margin-top:6px;font-size:11.5px;color:var(--text-mute);background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:7px 10px">
+              💡 <b>Already billed</b> this month: <b style="color:var(--primary)">{{ money(meterBilled.total) }}</b>
+              <template v-if="meterBilled.service"> · 🧾 {{ money(meterBilled.service) }}</template>
+              <template v-if="meterBilled.elec"> · ⚡ {{ money(meterBilled.elec) }}</template>
+              <template v-if="meterBilled.water"> · 💧 {{ money(meterBilled.water) }}</template>
+            </div>
+            <div v-else-if="meterForm.shop" style="margin-top:6px;font-size:11.5px;color:var(--text-mute)">No bill for this space in {{ monthLabel(month) }} yet — the reading will create one.</div>
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Type
             <select v-model="meterForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
@@ -1295,13 +1336,17 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <button v-if="canManage" @click="openStaffAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add staff</button>
         <button @click="exportStaff" class="btn-ghost">⬇ CSV</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Office staff &amp; security guards — monthly salary entry posts to the expense ledger (spec 3.4)</span>
+        <span style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
+          <button @click="staffView = 'table'" :style="staffView === 'table' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">☰ List</button>
+          <button @click="staffView = 'grid'" :style="staffView === 'grid' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">⊞ Grid</button>
+        </span>
       </div>
-      <div class="panel" style="overflow:hidden">
+      <div v-if="staffView === 'table'" class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
             <thead><tr><th>Name</th><th>Designation</th><th>Phone</th><th>Joined</th><th style="text-align:right">Salary/mo</th><th>Status</th><th style="text-align:right">Paid</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="s in staff" :key="s.id">
+              <tr v-for="s in staff" :key="s.id" style="cursor:pointer" @click="openStaffDrawer(s)">
                 <td><b>{{ s.name }}</b><br /><small style="color:var(--text-mute)">{{ s.nid || '' }}</small></td>
                 <td><span class="badge b-blue">{{ s.designation }}</span></td>
                 <td>{{ s.phone || '—' }}</td>
@@ -1309,16 +1354,35 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td style="text-align:right;font-weight:800">{{ money(s.salary) }}</td>
                 <td><span class="badge" :class="badge(s.status)">{{ s.status }}</span></td>
                 <td style="text-align:right;font-size:12px;color:var(--text-mute)">{{ s.salaries_paid || 0 }}× {{ money(s.salaries_total) }}</td>
-                <td style="text-align:right;white-space:nowrap">
+                <td style="text-align:right;white-space:nowrap" @click.stop>
                   <button v-if="canManage && s.status === 'Active'" @click="openSal(s)" title="Pay monthly salary" style="padding:6px 12px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💸 Pay salary</button>
                   <button v-if="canManage" @click="openStaffEdit(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">✏️</button>
                   <button v-if="canManage" @click="delStaff(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
                 </td>
               </tr>
-              <tr v-if="!staff.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No staff yet — add security guards &amp; office staff with ＋ Add staff.</td></tr>
+              <tr v-if="!staff.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No staff yet — add security guards &amp; office staff.</td></tr>
             </tbody>
           </table>
         </div>
+      </div>
+      <!-- staff grid view -->
+      <div v-else-if="staffView === 'grid'" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px">
+        <div v-for="s in staff" :key="s.id" class="panel chip" style="padding:15px;cursor:pointer" @click="openStaffDrawer(s)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff" :style="{ background: memberColor({ id: s.id, name: s.name }) }">{{ memberAvatar({ name: s.name }) }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</div>
+              <div style="font-size:11px;color:var(--text-mute)">{{ s.designation }}<span v-if="s.phone"> · {{ s.phone }}</span></div>
+            </div>
+            <span class="badge" :class="badge(s.status)">{{ s.status }}</span>
+          </div>
+          <div style="display:flex;align-items:center;border-top:1px dashed var(--border);padding-top:8px">
+            <span style="font-size:11px;color:var(--text-mute)">Salary/mo</span>
+            <b style="margin-left:auto;font-size:13.5px">{{ money(s.salary) }}</b>
+            <span style="margin-left:12px;font-size:11px;color:var(--text-mute)">{{ s.salaries_paid || 0 }}× paid</span>
+          </div>
+        </div>
+        <div v-if="!staff.length" class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No staff yet.</div>
       </div>
       <div class="panel" style="padding:16px;margin-top:16px" v-if="salaryHistory.length">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -1415,7 +1479,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       </div>
       <!-- office bearers grid -->
       <div v-if="committee && committee.members.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:16px">
-        <div v-for="m in committee.members" :key="m.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center;cursor:default">
+        <div v-for="m in committee.members" :key="m.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center;cursor:pointer" @click="openMemberDrawer(m)">
           <div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff" :style="{ background: memberColor(m) }">{{ memberAvatar(m) }}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</div>
@@ -1425,7 +1489,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </div>
             <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ m.shop ? 'Space ' + m.shop : 'Independent' }}<span v-if="m.phone"> · {{ m.phone }}</span></div>
           </div>
-          <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+          <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0" @click.stop>
             <button @click="openMemberEdit(m)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">✏️</button>
             <button @click="delMember(m)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
           </div>
@@ -1494,7 +1558,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Flexible ownership — a building can be owned by one person, many persons, or companies/banks. Owner-occupied spaces only bear the service charge.</span>
       </div>
       <div v-if="owners.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px">
-        <div v-for="o in owners" :key="o.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center;cursor:pointer" @click="openOwnerProfile(o)">
+        <div v-for="o in owners" :key="o.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center;cursor:pointer" @click="openOwnerDrawer(o)">
           <div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff" :style="{ background: memberColor({ id: o.id, name: o.name }) }">{{ memberAvatar({ name: o.name }) }}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
@@ -1531,14 +1595,14 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div class="panel" style="padding:16px">
           <h3 style="font-size:14px;margin-bottom:10px">🧑‍🤝‍🧑 Tenants / occupants</h3>
           <div v-if="tenants.length" style="display:flex;flex-direction:column;gap:8px">
-            <div v-for="t in tenants" :key="t.id" style="border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center">
+            <div v-for="t in tenants" :key="t.id" style="border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center;cursor:pointer" @click="openTenantDrawer(t)">
               <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff" :style="{ background: memberColor({ id: t.id, name: t.name }) }">{{ memberAvatar({ name: t.name }) }}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-weight:800;font-size:13px">{{ t.name }}</div>
                 <div style="font-size:11px;color:var(--text-mute)">{{ t.phone }}<span v-if="t.nid"> · NID {{ t.nid }}</span><span v-if="t.employer"> · {{ t.employer }}</span></div>
                 <span v-if="t.agreements" class="badge b-blue" style="font-size:10px;margin-top:3px">{{ t.agreements }} active agreement(s)</span>
               </div>
-              <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+              <div v-if="canManage" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0" @click.stop>
                 <button @click="openTenantEdit(t)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">✏️</button>
                 <button @click="delTenant(t)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
               </div>
@@ -1585,7 +1649,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Vendor profile · payment ledger · every payout tracked with method &amp; reference.</span>
       </div>
       <div v-if="vendors.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
-        <div v-for="v in vendors" :key="v.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center">
+        <div v-for="v in vendors" :key="v.id" class="panel chip" style="padding:15px;display:flex;gap:12px;align-items:center;cursor:pointer" @click="openVendorDrawer(v)">
           <div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff" :style="{ background: memberColor({ id: v.id, name: v.name }) }">{{ memberAvatar({ name: v.name }) }}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.name }}</div>
@@ -1595,7 +1659,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </div>
             <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ v.contact_person ? v.contact_person + ' · ' : '' }}{{ v.phone }}<span v-if="v.payments"> · {{ v.payments }} payments</span></div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0" @click.stop>
             <button v-if="canManage" @click="openVendorPay(v)" style="padding:6px 10px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">💸 Pay</button>
             <div v-if="canManage" style="display:flex;gap:4px">
               <button @click="openVendorEdit(v)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:3px 7px;cursor:pointer;font-size:11px">✏️</button>
@@ -1710,7 +1774,8 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
         </div>
         <div class="panel" style="padding:18px">
-          <h3 style="font-size:14px;margin-bottom:12px">⚖️ Billing rules</h3>
+          <h3 style="font-size:14px;margin-bottom:4px">⚡ Utility costing (manual)</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Set the utility rates manually — they apply when a sub-meter reading generates the electricity / water bill.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">Elec rate (৳/unit)
               <input type="number" v-model.number="config.elec_unit_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
@@ -1721,16 +1786,20 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <label style="font-size:12px;color:var(--text-mute)">Due day of month
               <input type="number" v-model.number="config.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <div style="display:flex;align-items:flex-end;padding-bottom:6px">
-              <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:9px;cursor:pointer">
-                <span class="lf-switch" :class="{ on: !!config.late_fees_enabled }" @click="config.late_fees_enabled = config.late_fees_enabled ? 0 : 1; cfgDirty = true" style="width:40px;height:22px;border-radius:99px;background:config.late_fees_enabled ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;flex-shrink:0">
-                  <span style="position:absolute;top:2px;left:config.late_fees_enabled ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
-                </span>
-                <b :style="config.late_fees_enabled ? '' : 'color:var(--danger)'">{{ config.late_fees_enabled ? 'Late fees ON' : 'Late fees OFF' }}</b>
-              </label>
-            </div>
           </div>
-          <div v-if="config.late_fees_enabled" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">⚖️ Late fees &amp; fines (manual configuration)</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Full control over the late-payment fine rules engine.</p>
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+            <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:9px;cursor:pointer">
+              <span class="lf-switch" :class="{ on: !!config.late_fees_enabled }" @click="config.late_fees_enabled = config.late_fees_enabled ? 0 : 1; cfgDirty = true" style="width:40px;height:22px;border-radius:99px;background:config.late_fees_enabled ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;flex-shrink:0">
+                <span style="position:absolute;top:2px;left:config.late_fees_enabled ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
+              </span>
+              <b :style="config.late_fees_enabled ? '' : 'color:var(--danger)'">{{ config.late_fees_enabled ? 'Late fees ON' : 'Late fees OFF' }}</b>
+            </label>
+          </div>
+          <div v-if="config.late_fees_enabled" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">Fine rate (% of bill)
               <input type="number" v-model.number="config.late_fee_pct" min="0" max="100" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
@@ -1745,6 +1814,29 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
           </div>
           <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">🏛️ Committee roles (dynamic)</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Manage the role list used when adding committee members — add, rename or remove roles freely.</p>
+          <div v-if="!roleEdit" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+            <span v-for="r in committeeRoles.length ? committeeRoles : COMMITTEE_ROLES" :key="r" class="badge b-blue" style="font-size:11px">{{ r }}</span>
+            <button v-if="canManage" @click="roleEdit = true" class="btn-ghost" style="font-size:12px;margin-left:auto">✏️ Manage roles</button>
+          </div>
+          <div v-else>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+              <span v-for="r in committeeRoles.length ? committeeRoles : COMMITTEE_ROLES" :key="r" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-alt);border:1px solid var(--border);border-radius:99px;padding:4px 8px 4px 12px;font-size:12px;font-weight:700">
+                {{ r }} <button @click="delRole(r)" title="Remove role" style="border:none;background:var(--danger);color:#fff;width:16px;height:16px;border-radius:50%;font-size:10px;line-height:1;cursor:pointer;font-weight:800">✕</button>
+              </span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <input v-model="roleDraft" @keydown.enter="addRole" placeholder="New role, e.g. Auditor" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none" />
+              <button @click="addRole" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary-light);color:var(--primary-dark);font-size:12.5px;font-weight:800;cursor:pointer">＋ Add</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button @click="saveRoles" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save roles</button>
+              <button @click="roleEdit = false" class="btn-ghost" style="font-size:12.5px">Cancel</button>
+            </div>
+          </div>
         </div>
         <div class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🖨️ Invoice settings &amp; property logo</h3>
@@ -2125,7 +2217,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Role
               <select v-model="memberForm.role" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="r in COMMITTEE_ROLES" :key="r" :value="r">{{ { Chairman: '👑 Chairman', 'Vice Chairman': '👑 Vice Chairman', Secretary: '📝 Secretary', Treasurer: '💰 Treasurer', Member: '👤 Executive Member' }[r] || r }}</option>
+                <option v-for="r in committeeRoles.length ? committeeRoles : COMMITTEE_ROLES" :key="r" :value="r">{{ { Chairman: '👑 Chairman', 'Vice Chairman': '👑 Vice Chairman', Secretary: '📝 Secretary', Treasurer: '💰 Treasurer', Member: '👤 Executive Member' }[r] || r }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Space (owner of)
@@ -2639,6 +2731,157 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
           <div style="height:24px"></div>
         </div>
+      </div>
+    </template>
+
+    <!-- ═══════ ENTITY DRAWERS (Vendor / Staff / Tenant / Member / Owner) ═══════ -->
+    <template v-if="vDrawer || sDrawer || tDrawer || mDrawer || oDrawer">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:210" @click="closeEntityDrawers"></div>
+      <div style="position:fixed;top:0;right:0;bottom:0;width:min(600px,94vw);background:var(--card);z-index:211;box-shadow:-18px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden">
+        <!-- VENDOR -->
+        <template v-if="vDrawer">
+          <div style="height:104px;background:linear-gradient(135deg,#F2994A,#EB5757);position:relative;flex-shrink:0">
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;opacity:.9">🧰</div>
+            <button @click="closeEntityDrawers" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+            <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
+              <span class="badge" style="background:rgba(255,255,255,.2);color:#fff;border:none">{{ vDrawer.vendor.category }}</span>
+            </div>
+          </div>
+          <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+            <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ vDrawer.vendor.name }}</h2>
+            <div class="c-sub" style="margin-top:3px">🧰 Vendor · {{ vDrawer.vendor.category }}<span v-if="vDrawer.vendor.contact_person"> · {{ vDrawer.vendor.contact_person }}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--danger)">{{ money(vDrawer.total_paid) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Payments</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ vDrawer.payments.length }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Ledger expenses</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(vDrawer.total_expenses) }}</div></div>
+            </div>
+            <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
+              <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'payments',label:'Payments',ico:'💸'},{id:'expenses',label:'Expenses',ico:'📉'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : t.id === 'payments' ? vDrawer.payments.length : vDrawer.expenses.length }})</span></button>
+            </div>
+            <div v-if="eTab === 'overview'" style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+              <div v-for="r in [['Category', vDrawer.vendor.category || '—'], ['Contact person', vDrawer.vendor.contact_person || '—'], ['Phone', vDrawer.vendor.phone || '—'], ['Email', vDrawer.vendor.email || '—'], ['Address', vDrawer.vendor.address || '—'], ['Notes', vDrawer.vendor.notes || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
+            </div>
+            <div v-else-if="eTab === 'payments'" class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%"><thead><tr><th>Amount</th><th>Method</th><th>Ref</th><th>Note</th><th>Date</th></tr></thead><tbody>
+                <tr v-for="p in vDrawer.payments" :key="p.id"><td style="font-weight:700">{{ money(p.amount) }}</td><td>{{ p.method }}</td><td>{{ p.ref || '—' }}</td><td style="font-size:12px">{{ p.note }}</td><td style="font-size:12px;color:var(--text-mute)">{{ (p.ts || '').slice(0, 10) }}</td></tr>
+                <tr v-if="!vDrawer.payments.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No payments recorded.</td></tr>
+              </tbody></table>
+            </div>
+            <div v-else class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%"><thead><tr><th>Date</th><th>Label</th><th>Method</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+                <tr v-for="e in vDrawer.expenses" :key="e.id"><td style="font-size:12px;color:var(--text-mute)">{{ (e.ts || '').slice(0, 10) }}</td><td style="font-size:12.5px">{{ e.label }}</td><td>{{ e.method }}</td><td style="text-align:right;font-weight:700">{{ money(e.amount) }}</td></tr>
+                <tr v-if="!vDrawer.expenses.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">No ledger expenses linked to this vendor.</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </template>
+        <!-- STAFF -->
+        <template v-else-if="sDrawer">
+          <div style="height:104px;background:linear-gradient(135deg,#2F80ED,#9B51E0);position:relative;flex-shrink:0">
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;opacity:.9">🧑‍💼</div>
+            <button @click="closeEntityDrawers" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+          </div>
+          <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+            <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ sDrawer.staff.name }}</h2>
+            <div class="c-sub" style="margin-top:3px">🧑‍💼 {{ sDrawer.staff.designation }} · joined {{ sDrawer.staff.join_date || '—' }}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Salary / month</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sDrawer.staff.salary) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(sDrawer.total_paid) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Salaries</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ sDrawer.salaries.length }}</div></div>
+            </div>
+            <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
+              <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'salaries',label:'Salaries',ico:'💰'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : sDrawer.salaries.length }})</span></button>
+            </div>
+            <div v-if="eTab === 'overview'" style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+              <div v-for="r in [['Designation', sDrawer.staff.designation || '—'], ['Phone', sDrawer.staff.phone || '—'], ['NID', sDrawer.staff.nid || '—'], ['Joined', sDrawer.staff.join_date || '—'], ['Status', sDrawer.staff.status], ['Salary/mo', money(sDrawer.staff.salary)]]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
+            </div>
+            <div v-else class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%"><thead><tr><th>Month</th><th>Amount</th><th>Method</th><th>Paid on</th></tr></thead><tbody>
+                <tr v-for="x in sDrawer.salaries" :key="x.id"><td style="font-weight:700">{{ x.month }}</td><td style="font-weight:700">{{ money(x.amount) }}</td><td>{{ x.method }}</td><td style="font-size:12px;color:var(--text-mute)">{{ (x.ts || '').slice(0, 10) }}</td></tr>
+                <tr v-if="!sDrawer.salaries.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">No salary payments yet.</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </template>
+        <!-- TENANT -->
+        <template v-else-if="tDrawer">
+          <div style="height:104px;background:linear-gradient(135deg,#27AE60,#2D9CDB);position:relative;flex-shrink:0">
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;opacity:.9">🧑‍🤝‍🧑</div>
+            <button @click="closeEntityDrawers" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+          </div>
+          <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+            <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ tDrawer.tenant.name }}</h2>
+            <div class="c-sub" style="margin-top:3px">🧑‍🤝‍🧑 Tenant<template v-if="tDrawer.tenant.employer"> · {{ tDrawer.tenant.employer }}</template></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Agreements</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ tDrawer.agreements.length }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rent collected</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(tDrawer.rent_total) }}</div></div>
+            </div>
+            <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
+              <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'agreements',label:'Agreements',ico:'📄'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : tDrawer.agreements.length }})</span></button>
+            </div>
+            <div v-if="eTab === 'overview'" style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+              <div v-for="r in [['Phone', tDrawer.tenant.phone || '—'], ['Email', tDrawer.tenant.email || '—'], ['NID', tDrawer.tenant.nid || '—'], ['Employer / business', tDrawer.tenant.employer || '—'], ['Address', tDrawer.tenant.address || '—'], ['Notes', tDrawer.tenant.notes || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
+            </div>
+            <div v-else class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%"><thead><tr><th>Space</th><th>Rent/mo</th><th>Term</th><th>Advance</th><th>Status</th></tr></thead><tbody>
+                <tr v-for="a in tDrawer.agreements" :key="a.id"><td style="font-weight:700">{{ a.shop }}</td><td style="font-weight:700">{{ money(a.rent) }}</td><td style="font-size:12px">{{ a.start_date }}<template v-if="a.end_date"> → {{ a.end_date }}</template></td><td>{{ a.advance_months }} mo</td><td><span class="badge" :class="badge(a.status)">{{ a.status }}</span></td></tr>
+                <tr v-if="!tDrawer.agreements.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No agreements for this tenant.</td></tr>
+              </tbody></table>
+              <div v-if="tDrawer.rent_payments.length" style="margin-top:12px">
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Rent collections</div>
+                <div v-for="p in tDrawer.rent_payments" :key="p.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ p.method }}</span><span style="color:var(--text-mute);flex:1">{{ p.receipt }} · {{ p.month }}<template v-if="p.shop"> · {{ p.shop }}</template></span></div>
+              </div>
+            </div>
+          </div>
+        </template>
+        <!-- COMMITTEE MEMBER -->
+        <template v-else-if="mDrawer">
+          <div style="height:104px;background:linear-gradient(135deg,#EB5757,#F2994A);position:relative;flex-shrink:0">
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;opacity:.9">🏛️</div>
+            <button @click="closeEntityDrawers" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+          </div>
+          <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+            <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ mDrawer.name }}</h2>
+            <div class="c-sub" style="margin-top:3px">🏛️ Committee member · term {{ mDrawer.term || '—' }}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Role</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ mDrawer.role }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Space</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ mDrawer.shop || 'Independent' }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Status</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="mDrawer.active ? 'color:var(--ok)' : 'color:var(--danger)'">{{ mDrawer.active ? 'Active' : 'Inactive' }}</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+              <div v-for="r in [['Role', mDrawer.role], ['Phone', mDrawer.phone || '—'], ['Email', mDrawer.email || '—'], ['Space (owner of)', mDrawer.shop || 'Independent'], ['Term', mDrawer.term || '—'], ['Status', mDrawer.active ? 'Active' : 'Inactive']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
+            </div>
+          </div>
+        </template>
+        <!-- OWNER -->
+        <template v-else-if="oDrawer">
+          <div style="height:104px;background:linear-gradient(135deg,#2D9CDB,#27AE60);position:relative;flex-shrink:0">
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:42px;opacity:.9">🏢</div>
+            <button @click="closeEntityDrawers" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:800;cursor:pointer">✕</button>
+            <div style="position:absolute;left:16px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap"><span class="badge" style="background:rgba(255,255,255,.2);color:#fff;border:none">{{ oDrawer.owner.type }}</span></div>
+          </div>
+          <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
+            <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ oDrawer.owner.name }}</h2>
+            <div class="c-sub" style="margin-top:3px">🏢 {{ oDrawer.owner.type }}<span v-if="oDrawer.owner.phone"> · {{ oDrawer.owner.phone }}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Spaces</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ oDrawer.shops.length }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(oDrawer.total_paid) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Due</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="oDrawer.total_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(oDrawer.total_due) }}</div></div>
+            </div>
+            <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
+              <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'spaces',label:'Spaces',ico:'🏪'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : oDrawer.shops.length }})</span></button>
+            </div>
+            <div v-if="eTab === 'overview'" style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+              <div v-for="r in [['Type', oDrawer.owner.type || '—'], ['Phone', oDrawer.owner.phone || '—'], ['Email', oDrawer.owner.email || '—'], ['NID / TIN', oDrawer.owner.nid || '—'], ['Trade license', oDrawer.owner.trade_license || '—'], ['Contact person', oDrawer.owner.contact_person || '—'], ['Address', oDrawer.owner.address || '—'], ['Notes', oDrawer.owner.notes || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
+            </div>
+            <div v-else class="drawer-tbl-wrap">
+              <table class="kr" style="width:100%"><thead><tr><th>Space</th><th>Floor</th><th>Type</th><th>Occupancy</th><th style="text-align:right">Paid</th><th style="text-align:right">Due</th></tr></thead><tbody>
+                <tr v-for="s in oDrawer.shops" :key="s.id"><td style="font-weight:700">{{ s.no }}</td><td>{{ s.floor }}</td><td>{{ s.space_type }}</td><td><span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px">{{ s.occupancy }}</span></td><td style="text-align:right">{{ money(s.paid) }}</td><td style="text-align:right;font-weight:800" :style="s.due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(s.due) }}</td></tr>
+                <tr v-if="!oDrawer.shops.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No spaces linked to this owner.</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
 
