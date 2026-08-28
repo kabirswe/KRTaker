@@ -190,6 +190,12 @@ async function openReceipt(b) {
   else window.__krToast?.(r.error || 'Receipt load failed.', 'err')
 }
 function printReceipt() { window.print() }
+/* receipt logo: modern/classic use the dark variant (colored band), minimal the light one */
+const recLogo = computed(() => {
+  const b = recData.value?.brand
+  if (!b) return ''
+  return (b.invoice_template === 'minimal' ? (b.logo || b.logo_dark) : (b.logo_dark || b.logo)) || ''
+})
 
 /* ══════════ METERS ══════════ */
 const meterForm = ref({ shop: '', type: 'elec', reading: 0, month: '' })
@@ -584,6 +590,22 @@ const memberColor = (m) => {
   return cols[h % cols.length]
 }
 
+/* ══════════ PROPERTY BRAND (invoice templates + logo, Al Bayan pattern) ══════════ */
+const INVOICE_TEMPLATES = [
+  { key: 'classic', name: 'Classic', desc: 'Centered — logo above the mall name, dashed divider.' },
+  { key: 'modern', name: 'Modern', desc: 'Gradient band — logo & name left, MONEY RECEIPT right.' },
+  { key: 'minimal', name: 'Minimal', desc: 'Monochrome — logo/name left, title right, hairline.' },
+]
+function onLogoPick(e, key) {
+  const f = e.target.files?.[0]
+  if (!f) return
+  if (f.size > 700 * 1024) { window.__krToast?.('Logo too large — max 700KB.', 'err'); return }
+  const rd = new FileReader()
+  rd.onload = () => { config.value[key] = rd.result; cfgDirty.value = true }
+  rd.readAsDataURL(f)
+}
+function removeLogo(key) { config.value[key] = ''; cfgDirty.value = true }
+
 /* ══════════ LEDGER ══════════ */
 const ledger = ref(null)
 async function loadLedger() {
@@ -622,21 +644,18 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 
 <template>
   <div>
-    <!-- page-head teleports INTO .topbar-in → title rides the sticky header -->
+    <!-- page-head teleports INTO .topbar-in → actions ride the sticky header;
+         the brand/title lives in the sidebar (property identity) -->
     <Teleport to=".topbar-in">
       <div class="page-head">
-        <div>
-          <h1>🏬 {{ config.mall_name || 'Mall Management' }}</h1>
-          <div class="sub">Service charges · elec/water sub-meter billing · collections · expenses · ledger</div>
+        <div class="head-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:5px 8px">
+            <button @click="shiftMonth(-1)" style="border:none;background:none;cursor:pointer;font-weight:800;color:var(--text)">◀</button>
+            <input type="month" v-model="month" @change="switchTab(tab)" style="padding:6px 8px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13px;outline:none;font-family:inherit" />
+            <button @click="shiftMonth(1)" style="border:none;background:none;cursor:pointer;font-weight:800;color:var(--text)">▶</button>
+          </div>
+          <button v-if="tab === 'shops' && canManage" @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add shop</button>
         </div>
-      <div class="head-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:6px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:5px 8px">
-          <button @click="shiftMonth(-1)" style="border:none;background:none;cursor:pointer;font-weight:800;color:var(--text)">◀</button>
-          <input type="month" v-model="month" @change="switchTab(tab)" style="padding:6px 8px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13px;outline:none;font-family:inherit" />
-          <button @click="shiftMonth(1)" style="border:none;background:none;cursor:pointer;font-weight:800;color:var(--text)">▶</button>
-        </div>
-        <button v-if="tab === 'shops' && canManage" @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add shop</button>
-      </div>
       </div>
     </Teleport>
 
@@ -1408,6 +1427,51 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
         </div>
         <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">🖨️ Invoice settings &amp; property logo</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Branding used on printed receipts — logo, template &amp; prefix. The sidebar keeps the product brand; the property name &amp; logo live on the document.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="font-size:12px;color:var(--text-mute);margin-bottom:6px">Logo (light background)</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:56px;height:56px;border-radius:10px;border:1px dashed var(--border);background:var(--bg-alt);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                  <img v-if="config.mall_logo" :src="config.mall_logo" alt="logo" style="max-width:100%;max-height:100%;object-fit:contain" />
+                  <span v-else style="font-size:18px;opacity:.4">🖼️</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">⬆ Upload<input type="file" accept="image/*" style="display:none" @change="onLogoPick($event, 'mall_logo')" /></label>
+                  <button v-if="config.mall_logo" @click="removeLogo('mall_logo')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">🗑 Remove</button>
+                </div>
+              </div>
+              <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">White paper (minimal template), light areas</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--text-mute);margin-bottom:6px">Logo (dark background)</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:56px;height:56px;border-radius:10px;border:1px dashed var(--border);background:#1e3a5f;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                  <img v-if="config.mall_logo_dark" :src="config.mall_logo_dark" alt="logo dark" style="max-width:100%;max-height:100%;object-fit:contain" />
+                  <span v-else style="font-size:18px;opacity:.4">🖼️</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">⬆ Upload<input type="file" accept="image/*" style="display:none" @change="onLogoPick($event, 'mall_logo_dark')" /></label>
+                  <button v-if="config.mall_logo_dark" @click="removeLogo('mall_logo_dark')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">🗑 Remove</button>
+                </div>
+              </div>
+              <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">Colored bands (classic/modern). Falls back to the normal logo.</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text-mute);margin:14px 0 6px">Receipt template</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <button v-for="t in INVOICE_TEMPLATES" :key="t.key" @click="config.invoice_template = t.key; cfgDirty = true"
+              :title="t.desc" style="padding:10px 8px;border-radius:10px;cursor:pointer;font-size:11.5px;font-weight:800;text-align:center;font-family:inherit"
+              :style="config.invoice_template === t.key ? 'background:var(--primary);color:#fff;border:2px solid var(--primary)' : 'background:var(--bg-alt);color:var(--text);border:2px solid var(--border)'">
+              {{ t.name }}
+            </button>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:14px">Receipt / invoice prefix
+            <input v-model="config.invoice_prefix" maxlength="8" placeholder="RCT" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;text-transform:uppercase" @input="cfgDirty = true" />
+          </label>
+        </div>
+        <div class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🏦 Bank details (shown on receipts)</h3>
           <label style="font-size:12px;color:var(--text-mute)">Bank name
             <input v-model="config.bank_name" placeholder="e.g. Islami Bank Bangladesh PLC" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
@@ -1812,12 +1876,32 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       <div class="modal" style="max-width:460px">
         <div class="modal-h"><div class="t">🖨️ Money receipt</div><button class="close" @click="recModal = null">✕</button></div>
         <div class="modal-b">
-          <div id="receiptPrint">
-            <div style="text-align:center;border-bottom:2px dashed var(--border);padding-bottom:12px;margin-bottom:14px">
-              <div style="font-size:17px;font-weight:800">{{ recData.mall_name || 'MALL MANAGEMENT' }}</div>
-              <div style="font-size:12px;color:var(--text-mute)">Money Receipt · Service Collection</div>
-              <div v-if="config.mall_address" style="font-size:11.5px;color:var(--text-mute);margin-top:2px">{{ config.mall_address }}</div>
-              <div v-if="config.mall_phone" style="font-size:11.5px;color:var(--text-mute)">☎ {{ config.mall_phone }}<span v-if="config.mall_email"> · ✉ {{ config.mall_email }}</span></div>
+          <div id="receiptPrint" :class="'tpl-' + (recData.brand.invoice_template || 'classic')">
+            <!-- ═══ CLASSIC: centered header, logo above the name ═══ -->
+            <div v-if="(recData.brand.invoice_template || 'classic') === 'classic'" class="rc-head rc-classic">
+              <img v-if="recLogo" :src="recLogo" alt="logo" style="max-height:52px;max-width:140px;object-fit:contain;margin:0 auto 8px" />
+              <div class="rc-name">{{ recData.brand.mall_name || 'MALL MANAGEMENT' }}</div>
+              <div class="rc-sub">Money Receipt · Service Collection</div>
+              <div v-if="recData.brand.mall_address" class="rc-meta">{{ recData.brand.mall_address }}</div>
+              <div v-if="recData.brand.mall_phone || recData.brand.mall_email" class="rc-meta">☎ {{ recData.brand.mall_phone }}<span v-if="recData.brand.mall_email"> · ✉ {{ recData.brand.mall_email }}</span></div>
+            </div>
+            <!-- ═══ MODERN: accent band — logo left, name left, title right ═══ -->
+            <div v-else-if="recData.brand.invoice_template === 'modern'" class="rc-head rc-modern">
+              <div class="rc-band-left">
+                <img v-if="recLogo" :src="recLogo" alt="logo" style="max-height:40px;max-width:120px;object-fit:contain" />
+                <div v-if="!recLogo" class="rc-name" style="color:#fff">{{ recData.brand.mall_name || 'MALL MANAGEMENT' }}</div>
+                <div class="rc-band-sub">{{ recData.brand.mall_address }}<span v-if="recData.brand.mall_phone"> · ☎ {{ recData.brand.mall_phone }}</span><span v-if="recData.brand.mall_email"> · {{ recData.brand.mall_email }}</span></div>
+              </div>
+              <div class="rc-title" style="color:#fff">MONEY<br />RECEIPT</div>
+            </div>
+            <!-- ═══ MINIMAL: monochrome — logo/name left, title right, hairline ═══ -->
+            <div v-else class="rc-head rc-minimal">
+              <div class="rc-min-left">
+                <img v-if="recLogo" :src="recLogo" alt="logo" style="max-height:36px;max-width:120px;object-fit:contain" />
+                <div class="rc-name">{{ recData.brand.mall_name || 'MALL MANAGEMENT' }}</div>
+                <div class="rc-meta">{{ recData.brand.mall_address }}<span v-if="recData.brand.mall_phone"> · ☎ {{ recData.brand.mall_phone }}</span><span v-if="recData.brand.mall_email"> · {{ recData.brand.mall_email }}</span></div>
+              </div>
+              <div class="rc-title">MONEY RECEIPT</div>
             </div>
             <table style="width:100%;font-size:13.5px;line-height:2">
               <tbody>
@@ -1830,15 +1914,15 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <tr><td style="color:var(--text-mute)">Amount</td><td style="text-align:right;font-weight:800">{{ money(recData.bill.amount) }}</td></tr>
                 <tr v-if="recData.bill.fine"><td style="color:var(--text-mute)">Late fee</td><td style="text-align:right;color:var(--danger)">{{ money(recData.bill.fine) }}</td></tr>
                 <tr><td style="color:var(--text-mute)">Paid via</td><td style="text-align:right">{{ recData.payment.method }} <span v-if="recData.payment.ref" style="color:var(--text-mute)">({{ recData.payment.ref }})</span></td></tr>
-                <tr v-if="config.bank_name"><td style="color:var(--text-mute)">Bank</td><td style="text-align:right">{{ config.bank_name }}<span v-if="config.bank_account_no"> · A/C {{ config.bank_account_no }}</span></td></tr>
-                <tr v-if="config.bank_account_title"><td style="color:var(--text-mute)">A/C title</td><td style="text-align:right">{{ config.bank_account_title }}</td></tr>
+                <tr v-if="recData.brand.bank_name"><td style="color:var(--text-mute)">Bank</td><td style="text-align:right">{{ recData.brand.bank_name }}<span v-if="recData.brand.bank_account_no"> · A/C {{ recData.brand.bank_account_no }}</span></td></tr>
+                <tr v-if="recData.brand.bank_account_title"><td style="color:var(--text-mute)">A/C title</td><td style="text-align:right">{{ recData.brand.bank_account_title }}</td></tr>
               </tbody>
             </table>
             <div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-mute)">
-              <span>Received by: ________________<span v-if="config.secretary"><br /><small style="font-size:10.5px">{{ config.secretary }} — Secretary</small></span></span>
-              <span>Chairman: ________________<span v-if="config.chairman"><br /><small style="font-size:10.5px">{{ config.chairman }}</small></span></span>
+              <span>Received by: ________________<span v-if="recData.brand.secretary"><br /><small style="font-size:10.5px">{{ recData.brand.secretary }} — Secretary</small></span></span>
+              <span>Chairman: ________________<span v-if="recData.brand.chairman"><br /><small style="font-size:10.5px">{{ recData.brand.chairman }}</small></span></span>
             </div>
-            <div v-if="config.receipt_note" style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-mute);text-align:center">{{ config.receipt_note }}</div>
+            <div v-if="recData.brand.receipt_note" style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-mute);text-align:center">{{ recData.brand.receipt_note }}</div>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="printReceipt" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🖨️ Print receipt</button>
@@ -1851,6 +1935,22 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 </template>
 
 <style>
+/* ── Receipt / invoice templates (Al Bayan pattern: classic · modern · minimal) ── */
+.rc-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.rc-classic{flex-direction:column;text-align:center;border-bottom:2px dashed var(--border);padding-bottom:12px}
+.rc-classic .rc-name{font-size:17px;font-weight:800}
+.rc-classic .rc-sub{font-size:12px;color:var(--text-mute)}
+.rc-meta{font-size:11.5px;color:var(--text-mute);margin-top:2px;text-align:center}
+.rc-modern{background:linear-gradient(135deg,#1e3a5f 0%,#2F80ED 100%);border-radius:10px;padding:14px 16px;color:#fff}
+.rc-modern .rc-band-left{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rc-modern .rc-band-sub{font-size:10.5px;opacity:.85;line-height:1.5}
+.rc-title{font-size:15px;font-weight:900;letter-spacing:.5px;text-align:right;white-space:nowrap}
+.rc-modern .rc-title{font-size:17px;line-height:1.15}
+.rc-minimal{border-bottom:1px solid #c8c8c8;padding-bottom:10px}
+.rc-minimal .rc-min-left{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rc-minimal .rc-name{font-size:15px;font-weight:800}
+.rc-minimal .rc-title{color:#1f2937}
+#receiptPrint.tpl-modern .rc-meta{color:#fff}
 @media print {
   body * { visibility: hidden !important; }
   #receiptPrint, #receiptPrint * { visibility: visible !important; }

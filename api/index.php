@@ -14960,6 +14960,10 @@ case 'mall': {
             'late_fee_grace' => (int)$mcfg('late_fee_grace', '0'),
             'late_fee_min'   => (int)$mcfg('late_fee_min', '0'),
             'late_fee_max_pct' => (int)$mcfg('late_fee_max_pct', '100'),
+            'invoice_template' => in_array($mcfg('invoice_template', 'classic'), ['classic', 'modern', 'minimal'], true) ? $mcfg('invoice_template', 'classic') : 'classic',
+            'invoice_prefix'   => $mcfg('invoice_prefix', 'RCT'),
+            'mall_logo'        => $mcfg('mall_logo', ''),
+            'mall_logo_dark'   => $mcfg('mall_logo_dark', ''),
             'due_day'        => (int)$mcfg('due_day', '10'),
             'bank_name'      => $mcfg('bank_name', ''),
             'bank_account_title' => $mcfg('bank_account_title', ''),
@@ -14970,6 +14974,7 @@ case 'mall': {
     if ($a === 'config-set') {
         foreach (['mall_name', 'mall_address', 'mall_phone', 'mall_email', 'chairman', 'secretary',
                   'elec_unit_rate', 'water_unit_rate', 'late_fees_enabled', 'late_fee_pct', 'late_fee_grace', 'late_fee_min', 'late_fee_max_pct', 'due_day',
+                  'invoice_template', 'invoice_prefix', 'mall_logo', 'mall_logo_dark',
                   'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note'] as $ck) {
             if (isset($body[$ck])) $mset($ck, $body[$ck]);
         }
@@ -15032,7 +15037,16 @@ case 'mall': {
         $ps->execute([$billId]);
         $pay = $ps->fetch(PDO::FETCH_ASSOC) ?: null;
         json_out(['ok' => true, 'bill' => $bill, 'payment' => $pay,
-                  'mall_name' => $mcfg('mall_name', '')]);
+                  'brand' => [
+                      'mall_name' => $mcfg('mall_name', ''), 'mall_address' => $mcfg('mall_address', ''),
+                      'mall_phone' => $mcfg('mall_phone', ''), 'mall_email' => $mcfg('mall_email', ''),
+                      'chairman' => $mcfg('chairman', ''), 'secretary' => $mcfg('secretary', ''),
+                      'bank_name' => $mcfg('bank_name', ''), 'bank_account_title' => $mcfg('bank_account_title', ''),
+                      'bank_account_no' => $mcfg('bank_account_no', ''), 'receipt_note' => $mcfg('receipt_note', ''),
+                      'invoice_template' => in_array($mcfg('invoice_template', 'classic'), ['classic', 'modern', 'minimal'], true) ? $mcfg('invoice_template', 'classic') : 'classic',
+                      'invoice_prefix' => $mcfg('invoice_prefix', 'RCT'),
+                      'logo' => $mcfg('mall_logo', ''), 'logo_dark' => $mcfg('mall_logo_dark', ''),
+                  ]]);
     }
 
     /* readings — list sub-meter readings for a month (with shop numbers) */
@@ -15552,7 +15566,7 @@ case 'mall': {
         $bill = $st->fetch(PDO::FETCH_ASSOC);
         if (!$bill) json_out(['ok' => false, 'error' => 'Bill not found.'], 404);
         if ($bill['status'] === 'Paid') json_out(['ok' => false, 'error' => 'Bill already paid.'], 409);
-        $receipt = 'RCT-' . str_replace('-', '', $bill['month']) . '-' . str_pad((string)$billId, 4, '0', STR_PAD_LEFT);
+        $receipt = $mcfg('invoice_prefix', 'RCT') . '-' . str_replace('-', '', $bill['month']) . '-' . str_pad((string)$billId, 4, '0', STR_PAD_LEFT);
         $pdo->prepare("INSERT INTO shop_payments (shop, bill_id, month, kind, amount, method, ref, receipt)
                        VALUES (?,?,?,?,?,?,?,?)")
             ->execute([$bill['shop'], $billId, $bill['month'], $bill['kind'], $amount, $method, trim($body['ref'] ?? ''), $receipt]);

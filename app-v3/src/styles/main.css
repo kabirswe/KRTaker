@@ -92,12 +92,9 @@ img{max-width:100%}
 @media (min-width: 1024px) {
   .topbar-in:has(.page-head){height:64px;padding:0;align-items:center}
   .topbar-in .menu-toggle{order:0}
-  .topbar-in .page-head{order:1;flex:0 1 300px;max-width:42%;min-width:0;padding:0;gap:10px;white-space:nowrap}
+  .topbar-in .page-head{order:1;flex:0 1 auto;min-width:0;padding:0;gap:10px;white-space:nowrap}
   .topbar-in .tb-search{order:2;flex:1 1 140px;min-width:110px}
   .topbar-in .tb-actions{order:3}
-  .topbar-in .page-head > div:first-child{display:flex;align-items:baseline;gap:8px;min-width:0;max-width:230px;overflow:hidden}
-  .topbar-in .page-head h1{font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .topbar-in .page-head .sub{display:inline-block;font-size:11.5px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
   .topbar-in .head-actions{flex-wrap:nowrap;flex-shrink:1;min-width:0}
 }
 .tb-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
