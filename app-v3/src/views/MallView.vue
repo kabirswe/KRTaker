@@ -717,7 +717,7 @@ async function saveVendor() {
   if (!vendorForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
   const action = vendorModal.value.mode === 'edit' ? 'vendor-update' : 'vendor-add'
   const r = await apiCall('mall', { action, ...vendorForm.value, ...(vendorModal.value.mode === 'edit' ? { id: vendorModal.value.id } : {}) })
-  if (r.ok) { window.__krToast?.(vendorModal.value.mode === 'edit' ? '✏️ Vendor updated' : '✅ Vendor added', 'ok'); vendorModal.value = null; await loadVendors() }
+  if (r.ok) { window.__krToast?.(vendorModal.value.mode === 'edit' ? '✏️ Vendor updated' : '✅ Vendor added', 'ok'); vendorModal.value = null; await loadVendors(); applyAfterAdd() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delVendor(v) {
@@ -774,7 +774,7 @@ function switchTab(x) {
   if (x === 'bills') loadBills()
   if (x === 'ledger') loadLedger()
   if (x === 'meters') { meterForm.value.month = month.value; loadMeters() }
-  if (x === 'expenses') loadExpenses()
+  if (x === 'expenses') { loadExpenses(); loadVendors() }
   if (x === 'complaints') loadComplaints()
   if (x === 'assets') loadAssets()
   if (x === 'notices') loadNotices()
@@ -1041,7 +1041,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 
     <!-- ═══════ EXPENSES ═══════ -->
     <template v-if="tab === 'expenses'">
-      <div class="panel" style="padding:18px;max-width:640px">
+      <div class="panel" style="padding:18px">
         <h3 style="font-size:14px;margin-bottom:14px">📉 Record an expense — {{ monthLabel(month) }}</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Category
@@ -1050,7 +1050,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Vendor / supplier
-            <input v-model="expForm.vendor" placeholder="e.g. Otis Elevator, DESCO" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <SearchableSelect v-model="expForm.vendor" :options="vendors.map(v => ({ value: v.name, label: v.name + ' (' + v.category + ')' }))" placeholder="— choose vendor —" allow-add add-label="New vendor" @add="setAfterAdd(expForm, 'vendor', () => vendors.find(v => v.name === vendorForm.name?.trim())?.name); openVendorAdd()" style="margin-top:4px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Amount (৳)
             <input type="number" v-model.number="expForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
