@@ -49,7 +49,7 @@ const emit = defineEmits(['close'])
 // (KRTaker residential modules — portfolio, finance, BMS, community, legal,
 //  safety & security — are intentionally NOT exposed here.)
 const GROUPS = [
-  { id: 'mall', label: 'Mall Management', items: [['mall', '🏬', 'Mall Management', 'Shops, service charges, elec/water meters, collections, expenses, complaints, assets, notices, audit & ledger for shopping malls and commercial buildings']] },
+  { id: 'mall', label: 'Mall Management', items: [['mall', '🏬', 'Mall Management', 'Spaces, service charges, elec/water meters, collections, expenses, complaints, assets, notices, audit & ledger for shopping malls and commercial buildings']] },
   { id: 'help', label: 'Help', items: [['wiki', '📚', 'Wiki & Help', 'Product guide, feature walkthroughs, FAQs and troubleshooting help'], ['backup', '💾', 'Backup & Restore', 'Download a full JSON backup of your workspace data or restore from a previous export']] },
 ]
 

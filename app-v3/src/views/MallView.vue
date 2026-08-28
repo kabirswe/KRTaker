@@ -19,7 +19,7 @@ const canCollect = computed(() => canManage.value || isCollector.value)
 const tab = ref('dashboard')
 const TABS = [
   ['dashboard', '📊', 'Dashboard'],
-  ['shops', '🏪', 'Shops'],
+  ['shops', '🏪', 'Spaces'],
   ['bills', '🧾', 'Bills & Collections'],
   ['meters', '⚡', 'Meters'],
   ['expenses', '📉', 'Expenses'],
@@ -74,7 +74,7 @@ const dashKpis = computed(() => {
     { label: 'Collected', ico: '💵', value: money(k.collected), trend: `${rate}% of billed` },
     { label: 'Outstanding', ico: '⏳', value: money(k.outstanding), trend: `${k.unpaid_bills || 0} unpaid bills`, ok: !k.outstanding },
     { label: 'Expenses', ico: '📉', value: money(dash.value.expense_total), trend: 'this month' },
-    { label: 'Shops', ico: '🏪', value: `${dash.value.shops.active} / ${dash.value.shops.total}`, trend: `${dash.value.shops.total - dash.value.shops.active} inactive` },
+    { label: 'Spaces', ico: '🏪', value: `${dash.value.shops.active} / ${dash.value.shops.total}`, trend: `${dash.value.shops.total - dash.value.shops.active} inactive` },
   ]
 })
 
@@ -102,10 +102,10 @@ const shopKpis = computed(() => {
 })
 const modal = ref(null)
 const form = ref({})
-function openAdd() { form.value = { status: 'Active', sqft: 0, service_rate: 0, opening_balance: 0, owner_id: 0, space_type: 'Shop', occupancy: 'Owner' }; modal.value = { mode: 'add', title: '➕ New shop' } }
+function openAdd() { form.value = { status: 'Active', sqft: 0, service_rate: 0, opening_balance: 0, owner_id: 0, space_type: 'Shop', occupancy: 'Owner' }; modal.value = { mode: 'add', title: '➕ New Space' } }
 function openEdit(s) {
   form.value = { no: s.no || '', floor: s.floor || '', sqft: s.sqft || 0, owner_name: s.owner_name || '', owner_mobile: s.owner_mobile || '', owner_nid: s.owner_nid || '', status: s.status || 'Active', service_rate: s.service_rate || 0, opening_balance: s.opening_balance || 0, owner_id: s.owner_id || 0, space_type: s.space_type || 'Shop', occupancy: s.occupancy || 'Owner' }
-  modal.value = { mode: 'edit', title: '✏️ Edit shop', id: s.id }
+  modal.value = { mode: 'edit', title: '✏️ Edit Space', id: s.id }
 }
 const saving = ref(false)
 async function saveShop() {
@@ -472,7 +472,7 @@ const ROLE_MATRIX = [
   { cap: 'View dashboard / ledger / reports', r: [1, 1, 1, 1, 1] },
   { cap: 'Collect payments + receipts', r: [1, 1, 1, 1, 1] },
   { cap: 'Enter meter readings', r: [1, 1, 1, 1, 1] },
-  { cap: 'Shops master (add/edit/delete)', r: [1, 1, 1, 1, 0] },
+  { cap: 'Spaces master (add/edit/delete)', r: [1, 1, 1, 1, 0] },
   { cap: 'Generate monthly bills + late fees', r: [1, 1, 1, 1, 0] },
   { cap: 'Expenses entry', r: [1, 1, 1, 1, 0] },
   { cap: 'Complaints / assets / notices / staff', r: [1, 1, 1, 1, 0] },
@@ -795,7 +795,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <input type="month" v-model="month" @change="switchTab(tab)" style="padding:6px 8px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13px;outline:none;font-family:inherit" />
             <button @click="shiftMonth(1)" style="border:none;background:none;cursor:pointer;font-weight:800;color:var(--text)">▶</button>
           </div>
-          <button v-if="tab === 'shops' && canManage" @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add shop</button>
+          <button v-if="tab === 'shops' && canManage" @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add Space</button>
         </div>
       </div>
     </Teleport>
@@ -911,7 +911,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                   <button v-if="canManage" @click="deleteShop(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
                 </td>
               </tr>
-              <tr v-if="!filteredShops.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No shops yet — add your first shop with ＋ Add shop. Opening balance covers legacy dues.</td></tr>
+              <tr v-if="!filteredShops.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No spaces yet — add your first space with ＋ Add Space. Opening balance covers legacy dues.</td></tr>
             </tbody>
           </table>
         </div>
@@ -1459,7 +1459,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
         </div>
       </div>
-      <div v-else class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No owners yet — add persons &amp; entities, then assign spaces in 🏪 Shops.</div>
+      <div v-else class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No owners yet — add persons &amp; entities, then assign spaces in 🏪 Spaces.</div>
     </template>
 
     <!-- ═══════ RENT & TENANTS ═══════ -->
