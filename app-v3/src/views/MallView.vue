@@ -499,6 +499,14 @@ function waPhone(m) {
   if (!d.startsWith('880')) d = '880' + d
   return d
 }
+/* spec 3.9: one-tap SMS blast — remind all defaulters or broadcast a notice */
+async function sendBlast(mode, text) {
+  const label = mode === 'notice' ? 'broadcast this notice to ALL owners & tenants' : 'send dues-reminder SMS to ALL defaulting spaces'
+  if (!window.confirm(`📲 ${label}? (uses the recipient setting from Settings → SMS)`)) return
+  const r = await apiCall('mall', { action: 'sms', sub: 'send-blast', mode, text: text || '' })
+  if (r.ok) window.__krToast?.(`📲 Blast done — ${r.sent}/${r.targets} SMS sent${r.failed ? `, ${r.failed} failed` : ''}`, r.failed ? 'err' : 'ok')
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
 function waRemind(b) {
   if (!b.owner_mobile) return
   const kindTxt = b.kind === 'elec' ? 'বিদ্যুৎ বিল' : b.kind === 'water' ? 'পানি বিল' : 'সার্ভিস চার্জ'
@@ -1751,6 +1759,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="generateBills" :disabled="billsBusy" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">⚙️ Generate service-charge bills</button>
         <button v-if="canManage" @click="calcFines" :disabled="finesBusy || !config.late_fees_enabled" class="btn-ghost" :title="config.late_fees_enabled ? 'Apply late payment fines to overdue bills' : 'Late fees are disabled in ⚙️ Settings → Billing rules'">💸 Compute late fees</button>
+        <button v-if="canManage" @click="sendBlast('remind')" class="btn-ghost" title="Send a dues-reminder SMS to every space with unpaid bills (spec 3.9)">📲 Remind all defaulters</button>
         <button v-if="canManage" @click="clearFines" class="btn-ghost" title="Remove all computed fines for this month">🧹 Clear fines</button>
         <button @click="exportBills" class="btn-ghost" title="Download this month's bills as Excel-compatible CSV">⬇ CSV</button>
         <button @click="loadApprovals(); showApprovals = !showApprovals" class="btn-ghost" style="font-size:12px">🛡️ Waivers &amp; voids <span v-if="pendingApprovals" class="badge b-red" style="font-size:10px">{{ pendingApprovals }}</span></button>
@@ -2630,6 +2639,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <span style="flex:1"></span>
                 <template v-if="canManage">
                   <button @click="togglePin(n)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px">{{ n.pinned ? 'Unpin' : '📌 Pin' }}</button>
+                  <button @click="sendBlast('notice', (n.title + ' — ' + (n.body || '')).slice(0, 150))" style="border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px" title="SMS this notice to all owners & tenants (spec 3.9)">📲 SMS broadcast</button>
                   <button @click="delNotice(n)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px">🗑️</button>
                 </template>
               </div>

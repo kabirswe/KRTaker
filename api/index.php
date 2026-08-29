@@ -15377,6 +15377,37 @@ case 'mall': {
             audit($u['name'], 'Dues alert SMS', 'mall', $shop, "$kind ৳$due ($months months) — sent $sent");
             json_out(['ok' => true, 'sent' => $sent, 'total' => count($phones), 'due' => $due, 'errors' => $errs]);
         }
+        if ($act === 'send-blast') {
+            /* spec 3.9: one-tap bill-reminder / notice broadcast to owners+tenants */
+            if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+            $mode = in_array(trim($body['mode'] ?? ''), ['remind', 'notice'], true) ? trim($body['mode']) : 'remind';
+            $to = in_array(trim($body['to'] ?? ''), ['owner', 'tenant', 'both'], true) ? trim($body['to']) : $mcfg('sms_recipients', 'both');
+            $mallName = $mcfg('mall_name', 'Mall Manager');
+            $sent = 0; $fail = 0; $targets = 0;
+            if ($mode === 'notice') {
+                $text = trim($body['text'] ?? '');
+                if ($text === '') json_out(['ok' => false, 'error' => 'Notice text required.'], 400);
+                $shops = $pdo->query("SELECT id FROM shops WHERE status='Active'")->fetchAll(PDO::FETCH_COLUMN);
+                foreach ($shops as $sid) foreach ($mall_phones($sid, $to) as $ph) {
+                    $targets++;
+                    $r = $sms_send($ph, "📢 $mallName — $text", 'notice');
+                    if ($r['ok']) $sent++; else $fail++;
+                }
+            } else {
+                $dst = $pdo->prepare("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'");
+                foreach ($pdo->query("SELECT DISTINCT s.id, s.no FROM shops s JOIN shop_bills b ON b.shop=s.id AND b.status='Unpaid'") as $srow) {
+                    $dst->execute([$srow['id']]);
+                    $due = (int)$dst->fetchColumn();
+                    foreach ($mall_phones($srow['id'], $to) as $ph) {
+                        $targets++;
+                        $r = $sms_send($ph, "জরুরি নোটিশ: $mallName — দোকান {$srow['no']} এর বকেয়া ৳" . number_format($due) . "। অনুগ্রহ করে দ্রুত পরিশোধ করুন। ধন্যবাদ।", 'remind');
+                        if ($r['ok']) $sent++; else $fail++;
+                    }
+                }
+            }
+            audit($u['name'], 'SMS blast', 'mall', '', "$mode → $sent/$targets");
+            json_out(['ok' => true, 'mode' => $mode, 'sent' => $sent, 'failed' => $fail, 'targets' => $targets]);
+        }
         json_out(['ok' => false, 'error' => 'Unknown sms action.'], 400);
     }
 
