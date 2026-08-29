@@ -51,7 +51,52 @@ export async function apiCall(path, data = null) {
       await sleep(700 * (i + 1))
     }
   }
+  // Spec 3.8.1: offline write → queue it; it replays when the connection returns.
+  if (last && last._net && data && path !== 'app-login' && !SYNCING) {
+    queueOfflineWrite(path, data)
+    return { ok: false, queued: true, error: 'Offline — entry queued and will sync automatically.' }
+  }
   return last || { ok: false, error: 'Request failed.' }
+}
+
+/* ── Offline write queue (spec 3.8.1) ─────────────────────────────── */
+const QKEY = 'mall_offline_queue'
+let SYNCING = false
+
+export function getOfflineQueue() {
+  try { return JSON.parse(localStorage.getItem(QKEY) || '[]') } catch (e) { return [] }
+}
+function saveQueue(q) {
+  try { localStorage.setItem(QKEY, JSON.stringify(q)) } catch (e) { /* full */ }
+}
+export function queueOfflineWrite(path, data) {
+  const q = getOfflineQueue()
+  q.push({ path, data, ts: Date.now() })
+  saveQueue(q)
+  try { window.dispatchEvent(new CustomEvent('mall-offline-queue')) } catch (e) { /* noop */ }
+}
+export async function syncOfflineQueue() {
+  if (SYNCING) return 0
+  const q = getOfflineQueue()
+  if (!q.length) return 0
+  SYNCING = true
+  let done = 0
+  const keep = []
+  for (const item of q) {
+    const r = await apiCall(item.path, item.data)
+    if (r && r.ok) { done++; continue }
+    if (r && r._status === 401) continue // auth expired — drop, user must re-login
+    keep.push(item)
+  }
+  saveQueue(keep)
+  SYNCING = false
+  try { window.dispatchEvent(new CustomEvent('mall-offline-queue')) } catch (e) { /* noop */ }
+  return done
+}
+// Auto-sync when the connection returns.
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { syncOfflineQueue() })
+  window.__mallOffline = { sync: syncOfflineQueue, count: () => getOfflineQueue().length }
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }

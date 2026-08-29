@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
@@ -1488,10 +1488,28 @@ function switchTab(x) {
   if (x === 'dashboard') { loadDash(); loadBalances(); loadAlerts() }
 }
 
+const offlinePending = ref(window.__mallOffline?.count?.() || 0)
+const offlineNow = ref(typeof navigator !== 'undefined' && navigator.onLine === false)
+function refreshOfflineState() { offlinePending.value = window.__mallOffline?.count?.() || 0; offlineNow.value = navigator.onLine === false }
+async function syncNow() {
+  const r = await window.__mallOffline?.sync?.()
+  refreshOfflineState()
+  if (r > 0) { window.__krToast?.(`📡 Synced ${r} offline entr${r === 1 ? 'y' : 'ies'}`, 'ok'); await switchTab(tab) }
+  else if (r === 0) window.__krToast?.('📡 Nothing to sync', 'ok')
+}
 onMounted(async () => { await loadConfig(); await loadDash(); loadBalances() })
 
 /* deep-links from global search: /mall?tab=<tab> */
 watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switchTab(t) }, { immediate: true })
+/* offline state listeners (spec 3.8.1) */
+window.addEventListener('online', refreshOfflineState)
+window.addEventListener('offline', refreshOfflineState)
+window.addEventListener('mall-offline-queue', refreshOfflineState)
+onBeforeUnmount(() => {
+  window.removeEventListener('online', refreshOfflineState)
+  window.removeEventListener('offline', refreshOfflineState)
+  window.removeEventListener('mall-offline-queue', refreshOfflineState)
+})
 </script>
 
 <template>
@@ -1501,6 +1519,8 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
     <Teleport to=".topbar-in">
       <div class="page-head">
         <div class="head-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button v-if="offlinePending > 0" @click="syncNow" title="Offline entries waiting to sync (spec 3.8.1)" style="display:flex;align-items:center;gap:6px;border:none;background:var(--primary);color:#fff;border-radius:99px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">📡 Sync <span style="background:#fff;color:var(--primary);border-radius:99px;padding:0 6px;font-size:11px">{{ offlinePending }}</span></button>
+          <span v-if="offlineNow" style="display:flex;align-items:center;gap:6px;background:rgba(242,153,74,.15);border:1px solid #F2994A;color:#B96B1B;border-radius:99px;padding:6px 12px;font-size:12px;font-weight:800">📴 Offline — entries will sync automatically</span>
           <div style="display:flex;align-items:center;gap:6px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:5px 8px">
             <button @click="shiftMonth(-1)" style="border:none;background:none;cursor:pointer;font-weight:800;color:var(--text)">◀</button>
             <input type="month" v-model="month" @change="switchTab(tab)" style="padding:6px 8px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13px;outline:none;font-family:inherit" />

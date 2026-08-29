@@ -8,6 +8,14 @@
     <meta name="theme-color" content="#2F80ED" />
     <meta name="description" content="Mall Manager — shopping mall & commercial building management: service charges, elec/water sub-meter billing, collections, ledger" />
     <title>Mall Manager — Mall & Commercial Building Management</title>
+    <!-- Offline support (spec 3.8.1): service worker caches the shell + last data -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('./sw-mall.js').catch(function () { /* noop */ })
+        })
+      }
+    </script>
     <!-- Mall Manager analytics placeholder (V1) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-C68G5Q03ZT"></script>
     <script>
