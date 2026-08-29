@@ -54,6 +54,21 @@ const utilHeadInput = ref('')
 const incomeHeadInput = ref('')
 function addUtilHead() { const v = utilHeadInput.value.trim(); if (!v) return; if (!config.value.util_heads) config.value.util_heads = []; if (!config.value.util_heads.includes(v)) config.value.util_heads.push(v); utilHeadInput.value = ''; cfgDirty.value = true }
 function addIncomeHead() { const v = incomeHeadInput.value.trim(); if (!v) return; if (!config.value.income_heads) config.value.income_heads = []; if (!config.value.income_heads.includes(v)) config.value.income_heads.push(v); incomeHeadInput.value = ''; cfgDirty.value = true }
+/* SMS engine (ported from KRTaker) */
+const smsCfg = ref({ enabled: 0, provider: 'log', api_key: '', sender_id: 'Mall Manager', api_url: '', log: [] })
+const smsTestPhone = ref('')
+async function loadSmsCfg() { const r = await apiCall('mall', { action: 'sms' }); if (r.ok) smsCfg.value = r }
+async function saveSmsCfg() {
+  const r = await apiCall('mall', { action: 'sms', sub: 'config-save', enabled: smsCfg.value.enabled ? 1 : 0, provider: smsCfg.value.provider, api_key: smsCfg.value.api_key, sender_id: smsCfg.value.sender_id, api_url: smsCfg.value.api_url })
+  if (r.ok) { smsCfg.value = { ...smsCfg.value, ...r }; window.__krToast?.(r.enabled ? '📱 SMS enabled' : '📱 SMS disabled', 'ok') }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function sendTestSms() {
+  if (!smsTestPhone.value.trim()) { window.__krToast?.('Enter a phone number to test.', 'err'); return }
+  const r = await apiCall('mall', { action: 'sms', sub: 'send-test', phone: smsTestPhone.value.trim() })
+  if (r.ok) { window.__krToast?.(`📱 Test SMS ${r.status} (${r.ref})`, 'ok'); await loadSmsCfg() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
 const cfgDirty = ref(false)
 async function loadConfig() {
   const r = await apiCall('mall', { action: 'config-get' })
@@ -228,22 +243,39 @@ const recLogo = computed(() => {
 })
 
 /* ══════════ METERS ══════════ */
-const meterForm = ref({ shop: '', type: 'elec', reading: 0, month: '' })
+const meterForm = ref({ shop: '', type: 'elec', reading: 0, month: '', photo: '', photoName: '' })
 const lastReadings = ref([])
+const meterPhotoView = ref('')
 async function loadMeters() {
   const r = await apiCall('mall', { action: 'readings', month: meterForm.value.month || month.value })
   if (r.ok) lastReadings.value = r.readings
 }
+function onMeterPhotoPick(e) {
+  const f = e.target.files[0]; if (!f) return
+  if (f.size > 1500000) { window.__krToast?.('Photo too large — max 1.5 MB.', 'err'); return }
+  const rd = new FileReader()
+  rd.onload = () => { meterForm.value.photo = rd.result; meterForm.value.photoName = f.name }
+  rd.readAsDataURL(f)
+}
 async function saveMeter() {
   if (!meterForm.value.shop || Number(meterForm.value.reading) <= 0) { window.__krToast?.('Space and reading required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'meter', shop: meterForm.value.shop, type: meterForm.value.type, reading: Number(meterForm.value.reading), month: meterForm.value.month || month.value })
-  if (r.ok) { window.__krToast?.(`✅ Reading saved — ${r.units} units billed`, 'ok'); meterForm.value.reading = 0; await loadMeters(); await loadBills() }
-  else window.__krToast?.(r.error || 'Meter save failed.', 'err')
+  if (!meterForm.value.photo) { window.__krToast?.('📸 A meter photo is required (spec 3.3).', 'err'); return }
+  const r = await apiCall('mall', { action: 'meter', shop: meterForm.value.shop, type: meterForm.value.type, reading: Number(meterForm.value.reading), month: meterForm.value.month || month.value, photo: meterForm.value.photo })
+  if (r.ok) { window.__krToast?.(`✅ Reading saved — ${r.units} units` + (r.flag ? ' ⚠️ anomaly flagged' : ''), 'ok'); meterForm.value.reading = 0; meterForm.value.photo = ''; meterForm.value.photoName = ''; await loadMeters(); await loadBills() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 
 /* ══════════ EXPENSES ══════════ */
-const expForm = ref({ category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '' })
+const expForm = ref({ category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '', voucher: '', voucherName: '' })
 const incForm = ref({ category: 'Parking Fee', amount: 0, method: 'cash', note: '' })
+const expVoucherView = ref('')
+function onExpVoucherPick(e) {
+  const f = e.target.files[0]; if (!f) return
+  if (f.size > 1500000) { window.__krToast?.('File too large — max 1.5 MB.', 'err'); return }
+  const rd = new FileReader()
+  rd.onload = () => { expForm.value.voucher = rd.result; expForm.value.voucherName = f.name }
+  rd.readAsDataURL(f)
+}
 const expenses = ref([])
 const expTotal = ref(0)
 const incomeList = ref([])
@@ -261,8 +293,8 @@ async function loadExpenses() {
 }
 async function saveExpense() {
   if (Number(expForm.value.amount) <= 0) { window.__krToast?.('Amount required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'expense-add', category: expForm.value.category, vendor: expForm.value.vendor, amount: Number(expForm.value.amount), method: expForm.value.method, note: expForm.value.note })
-  if (r.ok) { window.__krToast?.('📉 Expense recorded', 'ok'); expForm.value = { category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '' }; await loadExpenses(); await loadDash() }
+  const r = await apiCall('mall', { action: 'expense-add', category: expForm.value.category, vendor: expForm.value.vendor, amount: Number(expForm.value.amount), method: expForm.value.method, note: expForm.value.note, voucher: expForm.value.voucher })
+  if (r.ok) { window.__krToast?.('📉 Expense recorded', 'ok'); expForm.value = { category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '', voucher: '', voucherName: '' }; await loadExpenses(); await loadDash() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function saveIncome() {
@@ -1110,6 +1142,7 @@ function switchTab(x) {
   if (x === 'cashflow') loadCashflow()
   if (x === 'statements') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff() }
   if (x === 'reconcile') loadReconcile()
+  if (x === 'settings') loadSmsCfg()
   if (x === 'pl') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff(); loadPartyLedger() }
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
@@ -1853,6 +1886,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <label style="font-size:12px;color:var(--text-mute)">Meter reading
             <input type="number" v-model.number="meterForm.reading" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span>📸 Meter photo <b style="color:var(--danger)">*</b> (spec 3.3 — mandatory)</span><span v-if="meterForm.photoName" style="color:var(--ok);font-size:11.5px">✅ {{ meterForm.photoName }}</span></div>
+            <input type="file" accept="image/*" capture="environment" @change="onMeterPhotoPick" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+          </label>
         </div>
         <button @click="saveMeter" :disabled="saving" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save reading &amp; generate bill</button>
       </div>
@@ -1860,7 +1897,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <h3 style="font-size:14px;margin-bottom:10px">📋 Readings — {{ monthLabel(meterForm.month || month) }}</h3>
         <div class="tbl-wrap" style="max-height:280px">
           <table class="kr">
-            <thead><tr><th>Space</th><th>Type</th><th style="text-align:right">Reading</th><th style="text-align:right">Units</th><th>Billed</th></tr></thead>
+            <thead><tr><th>Space</th><th>Type</th><th style="text-align:right">Reading</th><th style="text-align:right">Units</th><th>Billed</th><th>Photo</th><th>Flag</th></tr></thead>
             <tbody>
               <tr v-for="r in lastReadings" :key="r.id">
                 <td><b>{{ r.no || r.shop }}</b></td>
@@ -1868,11 +1905,20 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td style="text-align:right">{{ r.reading.toLocaleString('en-IN') }}</td>
                 <td style="text-align:right;font-weight:800">{{ r.units.toLocaleString('en-IN') }}</td>
                 <td>{{ money((r.units || 0) * (r.type === 'elec' ? config.elec_unit_rate : config.water_unit_rate)) }}</td>
+                <td><button v-if="r.photo" @click="meterPhotoView = r.photo" style="border:none;background:none;cursor:pointer;font-size:15px" title="View meter photo">📎</button><span v-else style="color:var(--text-mute);font-size:11px">—</span></td>
+                <td><span v-if="r.flag" class="badge b-red" style="font-size:10px" title="Reading is 200%+ above last month">⚠️ anomaly</span><span v-else style="color:var(--text-mute);font-size:11px">ok</span></td>
               </tr>
-              <tr v-if="!lastReadings.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:24px">No readings yet this month.</td></tr>
+              <tr v-if="!lastReadings.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:24px">No readings yet this month.</td></tr>
             </tbody>
           </table>
         </div>
+      </div>
+    </template>
+    <!-- meter photo lightbox -->
+    <template v-if="meterPhotoView">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.7);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px" @click="meterPhotoView = ''">
+        <img :src="meterPhotoView" style="max-width:92vw;max-height:78vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)" />
+        <button style="padding:9px 18px;border:none;border-radius:10px;background:#fff;color:#111;font-weight:800;cursor:pointer">✕ Close</button>
       </div>
     </template>
 
@@ -1899,6 +1945,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </label>
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note (voucher / invoice)
             <input v-model="expForm.note" placeholder="e.g. Monthly lift AMC — invoice #88412" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span>📎 Voucher / invoice photo (optional)</span><span v-if="expForm.voucherName" style="color:var(--ok);font-size:11.5px">✅ {{ expForm.voucherName }}</span></div>
+            <input type="file" accept="image/*" @change="onExpVoucherPick" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
           </label>
         </div>
         <button @click="saveExpense" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Record expense</button>
@@ -1957,7 +2007,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         </div>
         <div class="tbl-wrap" style="max-height:300px">
           <table class="kr">
-            <thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Note</th><th>Method</th><th style="text-align:right">Amount</th><th></th></tr></thead>
+            <thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Note</th><th>Method</th><th style="text-align:right">Amount</th><th>Voucher</th><th></th></tr></thead>
             <tbody>
               <tr v-for="e in expenses" :key="e.id">
                 <td style="font-size:12px;color:var(--text-mute)">{{ (e.date || '').slice(0, 10) }}</td>
@@ -1966,12 +2016,20 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td style="color:var(--text-mute)">{{ e.note || '—' }}</td>
                 <td><span class="badge b-blue">{{ e.method }}</span></td>
                 <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(e.amount) }}</td>
+                <td><button v-if="e.voucher" @click="expVoucherView = e.voucher" style="border:none;background:none;cursor:pointer;font-size:15px" title="View voucher">📎</button><span v-else style="color:var(--text-mute);font-size:11px">—</span></td>
                 <td style="text-align:right"><button v-if="canManage" @click="delExpense(e)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">🗑️</button></td>
               </tr>
-              <tr v-if="!expenses.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:24px">No expenses recorded for {{ monthLabel(month) }}.</td></tr>
+              <tr v-if="!expenses.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:24px">No expenses recorded for {{ monthLabel(month) }}.</td></tr>
             </tbody>
           </table>
         </div>
+      </div>
+    </template>
+    <!-- expense voucher lightbox -->
+    <template v-if="expVoucherView">
+      <div style="position:fixed;inset:0;background:rgba(10,20,40,.7);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px" @click="expVoucherView = ''">
+        <img :src="expVoucherView" style="max-width:92vw;max-height:78vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)" />
+        <button style="padding:9px 18px;border:none;border-radius:10px;background:#fff;color:#111;font-weight:800;cursor:pointer">✕ Close</button>
       </div>
     </template>
 
@@ -2623,6 +2681,48 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
           </div>
           <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
+        </div>
+        <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">📱 SMS &amp; notifications (KRTaker engine)</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Auto SMS receipt confirmation to shop owners &amp; tenants on every collection, plus reminders and alerts. <b>Log</b> provider just records messages (testing); <b>bulksmsbd</b> sends for real.</p>
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+            <span class="lf-switch" :class="{ on: !!smsCfg.enabled }" @click="smsCfg.enabled = smsCfg.enabled ? 0 : 1" style="width:44px;height:24px;border-radius:99px;background:smsCfg.enabled ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;cursor:pointer;flex-shrink:0">
+              <span style="position:absolute;top:2px;left:smsCfg.enabled ? '22px' : '2px';width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
+            </span>
+            <b :style="smsCfg.enabled ? 'color:var(--ok)' : ''">{{ smsCfg.enabled ? 'SMS enabled' : 'SMS disabled' }}</b>
+            <button @click="saveSmsCfg" style="margin-left:auto;padding:8px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Provider
+              <select v-model="smsCfg.provider" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option value="log">Log (testing — no real send)</option>
+                <option value="bulksmsbd">bulksmsbd (real gateway)</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Sender ID
+              <input v-model="smsCfg.sender_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">API key
+              <input v-model="smsCfg.api_key" :placeholder="smsCfg.masked ? '•••• saved — type to replace' : ''" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">API URL
+              <input v-model="smsCfg.api_url" placeholder="https://api.bulksmsbd.com/smsapi" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+            <input v-model="smsTestPhone" placeholder="Test phone (01XXXXXXXXX)…" style="flex:1;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+            <button @click="sendTestSms" class="btn-ghost" style="font-size:12px">📤 Send test</button>
+          </div>
+          <div v-if="smsCfg.log && smsCfg.log.length" style="margin-top:14px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Recent SMS log</div>
+            <div style="display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto">
+              <div v-for="l in smsCfg.log" :key="l.id" style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:6px 9px;border-radius:8px;background:var(--bg-alt)">
+                <span style="color:var(--text-mute)">{{ l.ts }} · {{ l.to_phone }}</span>
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="l.message">{{ l.message }}</span>
+                <b :style="l.status === 'sent' ? 'color:var(--ok)' : 'color:var(--danger)'">{{ l.status }}</b>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🧾 Service billing config</h3>

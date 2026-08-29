@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260933) {
+        if ($__sv < 20260934) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -468,6 +468,23 @@ function db() {
         }
         $bcols = array_column($pdo->query('PRAGMA table_info(shop_bills)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('note', $bcols, true)) { try { $pdo->exec("ALTER TABLE shop_bills ADD COLUMN note TEXT DEFAULT ''"); } catch (Exception $e) {} }
+        /* V2.4 (KRTaker import): meter photo + anomaly flag, expense voucher
+           attachment, SMS engine (mall_sms_log + config) */
+        $mrcols = array_column($pdo->query('PRAGMA table_info(mall_meter_readings)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        foreach (['photo' => "TEXT DEFAULT ''", 'flag' => "INTEGER DEFAULT 0"] as $col => $def) {
+            if (!in_array($col, $mrcols, true)) { try { $pdo->exec("ALTER TABLE mall_meter_readings ADD COLUMN $col $def"); } catch (Exception $e) {} }
+        }
+        $clcols = array_column($pdo->query('PRAGMA table_info(company_ledger)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('voucher', $clcols, true)) { try { $pdo->exec("ALTER TABLE company_ledger ADD COLUMN voucher TEXT DEFAULT ''"); } catch (Exception $e) {} }
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_sms_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, to_phone TEXT DEFAULT '', message TEXT DEFAULT '',
+            provider TEXT DEFAULT 'log', ref TEXT DEFAULT '', status TEXT DEFAULT 'sent',
+            kind TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        foreach (['sms_enabled' => '0', 'sms_provider' => 'log', 'sms_api_key' => '',
+                  'sms_sender_id' => 'Mall Manager', 'sms_api_url' => 'https://api.bulksmsbd.com/smsapi'] as $k => $v) {
+            $st = $pdo->prepare('SELECT COUNT(*) FROM mall_config WHERE k=?'); $st->execute([$k]);
+            if ((int)$st->fetchColumn() === 0) $pdo->prepare('INSERT INTO mall_config (k, v) VALUES (?,?)')->execute([$k, $v]);
+        }
         /* seed the default common-utility heads + income heads once */
         $seedHeads = function ($key, $items) use ($pdo) {
             $st = $pdo->prepare('SELECT COUNT(*) FROM mall_config WHERE k=?'); $st->execute([$key]);
@@ -1369,7 +1386,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260933'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260934'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15066,7 +15083,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15134,6 +15151,88 @@ case 'mall': {
     $exp_acct_for = function ($cat) use ($acct_name_for, $EXP_ACCT) { return $acct_name_for('exp:' . $cat, $EXP_ACCT[$cat] ?? 'General Maintenance'); };
     $method_acct = function ($m) use ($acct_name_for, $METHOD_ACCT) { return $acct_name_for('met:' . $m, $METHOD_ACCT[$m] ?? 'Cash in Hand'); };
     $vendor_acct_for = function ($cat) use ($acct_name_for, $VENDOR_ACCT) { return $acct_name_for('ven:' . $cat, $VENDOR_ACCT[$cat] ?? 'General Maintenance'); };
+
+    /* ── SMS engine (ported from KRTaker app-sms): log provider by default,
+       bulksmsbd gateway when configured — receipts, reminders, alerts ── */
+    $sms_cfg = function () use ($mcfg) {
+        return [
+            'enabled'   => (int)$mcfg('sms_enabled', '0'),
+            'provider'  => $mcfg('sms_provider', 'log'),
+            'api_key'   => $mcfg('sms_api_key', ''),
+            'sender_id' => $mcfg('sms_sender_id', 'Mall Manager'),
+            'api_url'   => $mcfg('sms_api_url', 'https://api.bulksmsbd.com/smsapi'),
+        ];
+    };
+    $sms_normalize = function ($p) {
+        $d = preg_replace('/\D/', '', (string)$p);
+        if (strlen($d) === 11 && substr($d, 0, 2) === '01') $d = '88' . $d;
+        elseif (strlen($d) === 10 && substr($d, 0, 1) === '1') $d = '880' . $d;
+        return $d;
+    };
+    $sms_send = function ($phone, $message, $kind = '') use ($pdo, $sms_cfg, $sms_normalize) {
+        $cfg = $sms_cfg();
+        if (!$cfg['enabled']) return ['ok' => false, 'reason' => 'sms-disabled'];
+        $to = $sms_normalize($phone);
+        if (strlen($to) < 11) return ['ok' => false, 'reason' => 'bad-phone'];
+        $prov = $cfg['provider'];
+        $ref = 'SMS-' . strtoupper(bin2hex(random_bytes(3)));
+        $status = 'sent';
+        if ($prov === 'bulksmsbd' && $cfg['api_key'] !== '') {
+            $data = http_build_query([
+                'api_key' => $cfg['api_key'], 'type' => 'text', 'contacts' => $to,
+                'senderid' => $cfg['sender_id'], 'msg' => $message,
+            ]);
+            $resp = '';
+            if (function_exists('curl_init')) {
+                $ch = curl_init(rtrim($cfg['api_url'], '/'));
+                curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $data, CURLOPT_TIMEOUT => 12]);
+                $resp = (string)curl_exec($ch); curl_close($ch);
+            }
+            $status = (strpos($resp, 'SUCCESS') !== false || strpos($resp, '"status":1') !== false) ? 'sent' : 'failed';
+        }
+        $pdo->prepare('INSERT INTO mall_sms_log (to_phone, message, provider, ref, status, kind) VALUES (?,?,?,?,?,?)')
+            ->execute([$to, mb_substr($message, 0, 480), $prov, $ref, $status, $kind]);
+        return ['ok' => $status === 'sent', 'to' => $to, 'ref' => $ref, 'provider' => $prov, 'status' => $status];
+    };
+    $mall_owner_tenant_phones = function ($shopId) use ($pdo) {
+        $phones = ['owner' => '', 'tenant' => ''];
+        $st = $pdo->prepare("SELECT owner_mobile FROM shops WHERE id=?"); $st->execute([$shopId]);
+        $phones['owner'] = (string)$st->fetchColumn();
+        $st = $pdo->prepare("SELECT t.phone FROM mall_agreements a JOIN mall_tenants t ON t.id=a.tenant_id WHERE a.shop=? AND a.status='Active' LIMIT 1"); $st->execute([$shopId]);
+        $phones['tenant'] = (string)$st->fetchColumn();
+        return $phones;
+    };
+
+    /* sms — SMS engine config (ported from KRTaker app-sms): get/save/test/log.
+       Sub-action in $body['sub'] — $body['action'] is consumed by the router. */
+    if ($a === 'sms') {
+        $act = trim($body['sub'] ?? 'config-get');
+        if ($act === 'config-get') {
+            $c = $sms_cfg();
+            if ($c['api_key'] !== '') $c['api_key'] = substr($c['api_key'], 0, 4) . '…' . substr($c['api_key'], -2);
+            $c['masked'] = 1;
+            $log = $pdo->query('SELECT * FROM mall_sms_log ORDER BY id DESC LIMIT 25')->fetchAll(PDO::FETCH_ASSOC);
+            json_out(['ok' => true] + $c + ['log' => $log]);
+        }
+        if ($act === 'config-save') {
+            if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only the admin can change SMS settings.'], 403);
+            foreach ([['enabled', 'sms_enabled'], ['provider', 'sms_provider'], ['api_key', 'sms_api_key'],
+                      ['sender_id', 'sms_sender_id'], ['api_url', 'sms_api_url']] as [$k, $ck]) {
+                if (isset($body[$k])) $mset($ck, (string)$body[$k]);
+            }
+            audit($u['name'], 'SMS config', 'mall', '', json_encode($body));
+            $c = $sms_cfg();
+            if ($c['api_key'] !== '') $c['api_key'] = substr($c['api_key'], 0, 4) . '…' . substr($c['api_key'], -2);
+            json_out(['ok' => true] + $c);
+        }
+        if ($act === 'send-test') {
+            if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+            $phone = trim($body['phone'] ?? '');
+            $r = $sms_send($phone, 'Test SMS from ' . ($mcfg('mall_name', 'Mall Manager')) . ' — SMS engine working ✔', 'test');
+            json_out($r + ($r['ok'] ? [] : ['error' => $r['reason'] === 'sms-disabled' ? 'SMS is disabled in Settings.' : 'Invalid phone number.']));
+        }
+        json_out(['ok' => false, 'error' => 'Unknown sms action.'], 400);
+    }
 
     /* config-get / config-set — mall-wide identity, rates, rules & receipt details */
     if ($a === 'config-get') {
@@ -15269,7 +15368,7 @@ case 'mall': {
     }
     if ($a === 'expenses') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $st = $pdo->prepare("SELECT id, cat AS category, amount, method, payee AS vendor, note, ts AS date
+        $st = $pdo->prepare("SELECT id, cat AS category, amount, method, payee AS vendor, note, ts AS date, voucher
                              FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=? ORDER BY id DESC");
         $st->execute([$month]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -15309,9 +15408,12 @@ case 'mall': {
         $amount = (int)($body['amount'] ?? 0);
         if ($cat === '' || $amount <= 0) json_out(['ok' => false, 'error' => 'category and amount required.'], 400);
         $method = in_array(trim($body['method'] ?? ''), ['cash', 'bank', 'bkash', 'nagad'], true) ? trim($body['method']) : 'cash';
-        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts)
-                       VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-            ->execute([$cat, $cat . ' — ' . trim($body['note'] ?? ''), $amount, $method, '', trim($body['note'] ?? ''), trim($body['vendor'] ?? '')]);
+        $vendor = trim($body['vendor'] ?? '');
+        $voucher = trim($body['voucher'] ?? '');
+        if ($voucher !== '' && (strpos($voucher, 'data:image') !== 0 || strlen($voucher) > 1500000)) $voucher = '';
+        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts, voucher)
+                       VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)")
+            ->execute([$cat, $cat, $amount, $method, '', trim($body['note'] ?? ''), $vendor, $voucher]);
         $expId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Expense', 'mall', $cat, "$amount via $method");
         /* Smart Ledger: Dr expense account (by category), Cr cash/bank/bKash */
@@ -16561,7 +16663,13 @@ case 'mall': {
         if ($finePart > 0) $lines[] = ['Late Fine Income', 0, $finePart];
         $post_journal(date('Y-m-d'), 'RCT-' . str_pad((string)$payId, 5, '0', STR_PAD_LEFT),
             'Collection ' . $receipt . ' — ' . $bill['shop'] . ' (' . $bill['month'] . ')', $lines, $u['name']);
-        json_out(['ok' => true, 'receipt' => $receipt]);
+        /* V2.4 (spec 3.2): auto SMS receipt confirmation to owner + tenant */
+        $phones = $mall_owner_tenant_phones($bill['shop']);
+        $smsText = ($mcfg('mall_name', 'Mall Manager')) . ': রসিদ ' . $receipt . ' — ৳' . number_format($amount) . ' (' . $bill['kind'] . ', ' . $bill['month'] . ') প্রাপ্ত হয়েছে। ধন্যবাদ।';
+        foreach (['owner' => $phones['owner'], 'tenant' => $phones['tenant']] as $who => $ph) {
+            if ($ph !== '') $sms_send($ph, $smsText, 'receipt-' . $who);
+        }
+        json_out(['ok' => true, 'receipt' => $receipt, 'sms' => ['sent' => (int)$sms_cfg()['enabled']]]);
     }
 
     /* meter — record a sub-meter reading (elec/water); computes units from the previous
@@ -16573,13 +16681,24 @@ case 'mall': {
         $reading = (int)($body['reading'] ?? 0);
         if (!$shop || $reading <= 0) json_out(['ok' => false, 'error' => 'shop and reading required.'], 400);
         $month = trim($body['month'] ?? date('Y-m'));
+        $photo = trim($body['photo'] ?? '');
+        /* V2.4 (spec 3.3): meter photo is MANDATORY */
+        if ($photo === '' || strpos($photo, 'data:image') !== 0 || strlen($photo) > 1500000) {
+            json_out(['ok' => false, 'error' => 'A meter photo is required — take a photo of the meter display (max 1.5 MB).'], 400);
+        }
         $st = $pdo->prepare("SELECT reading FROM mall_meter_readings WHERE shop=? AND type=? AND month=? ORDER BY id DESC LIMIT 1");
         $st->execute([$shop, $type, $month]);
         $prev = (int)$st->fetchColumn();
         $units = $reading - $prev;
         if ($units < 0) json_out(['ok' => false, 'error' => 'Reading cannot be lower than the previous reading (' . $prev . ').'], 400);
-        $pdo->prepare("INSERT INTO mall_meter_readings (shop, type, reading, units, month, note) VALUES (?,?,?,?,?,?)")
-            ->execute([$shop, $type, $reading, $units, $month, trim($body['note'] ?? '')]);
+        /* anomaly flag: current reading > 200% of the previous month's reading */
+        $flag = 0;
+        $st2 = $pdo->prepare("SELECT reading FROM mall_meter_readings WHERE shop=? AND type=? AND month < ? ORDER BY month DESC LIMIT 1");
+        $st2->execute([$shop, $type, $month]);
+        $prevMo = (int)$st2->fetchColumn();
+        if ($prevMo > 0 && $reading > $prevMo * 2) $flag = 1;
+        $pdo->prepare("INSERT INTO mall_meter_readings (shop, type, reading, units, month, note, photo, flag) VALUES (?,?,?,?,?,?,?,?)")
+            ->execute([$shop, $type, $reading, $units, $month, trim($body['note'] ?? ''), $photo, $flag]);
         if ($units > 0) {
             /* if the space's service bill already includes utilities (bill_model
                fixed+util / sqft+util), don't create a separate utility bill */
@@ -16605,8 +16724,8 @@ case 'mall': {
                 }
             }
         }
-        audit($u['name'], 'Meter', 'mall', $shop, "$type $reading ($units units)");
-        json_out(['ok' => true, 'units' => $units]);
+        audit($u['name'], 'Meter', 'mall', $shop, "$type $reading ($units units)" . ($flag ? ' ⚠️anomaly' : ''));
+        json_out(['ok' => true, 'units' => $units, 'flag' => $flag]);
     }
 
     /* ledger — central: billed vs collected by kind; expenses; per-shop summary */
