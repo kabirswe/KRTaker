@@ -1390,6 +1390,21 @@ const stmtTotals = computed(() => ({
   matched: stmtRows.value.filter(x => x.matched).length,
   unmatched: stmtRows.value.filter(x => !x.matched).length,
 }))
+const alerts = ref(null)
+async function loadAlerts() { const r = await apiCall('mall', { action: 'alerts' }); if (r.ok) alerts.value = r }
+async function sendDuesAlert(shop, kind, months) {
+  if (!window.confirm(`📲 Send the ${kind === 'disconnect' ? 'disconnection-risk' : 'high-dues'} SMS alert for ${shop.no} (৳${Number(shop.due).toLocaleString('en-IN')}) to the owner & tenant?`)) return
+  const r = await apiCall('mall', { action: 'sms', sub: 'send-alert', shop: shop.id, kind, months: months || shop.months || 1 })
+  if (r.ok) window.__krToast?.(`📲 Alert SMS sent to ${r.sent}/${r.total} recipient(s)`, 'ok')
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function billRiskMonths(b) {
+  if (!b || b.status !== 'Unpaid' || !b.month) return 0
+  const [y, m] = b.month.split('-').map(Number)
+  const now = new Date()
+  return Math.max(0, (now.getFullYear() - y) * 12 + (now.getMonth() + 1) - m)
+}
+function isDisconnectRisk(b) { return billRiskMonths(b) >= (config.disconnect_months || 3) }
 const maxOf = (arr, key) => Math.max(...arr.map(x => Number(x[key]) || 0))
 const maxOfN = (arr) => Math.max(...(arr || []).map(x => Number(x.n) || 0))
 const pctOf = (v, arr) => { const t = (arr || []).reduce((s, x) => s + Number(x.total), 0); return t ? Math.round(Number(v) / t * 100) : 0 }
@@ -1453,7 +1468,7 @@ function switchTab(x) {
   if (x === 'rent') { loadTenants(); loadAgreements() }
   if (x === 'vendors') loadVendors()
   if (x === 'settings') { loadBudget(); loadLicense() }
-  if (x === 'dashboard') { loadDash(); loadBalances() }
+  if (x === 'dashboard') { loadDash(); loadBalances(); loadAlerts() }
 }
 
 onMounted(async () => { await loadConfig(); await loadDash(); loadBalances() })
@@ -1482,6 +1497,27 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
          route watch below switches tabs from /mall?tab=<id> deep links. -->
     <!-- ═══════ DASHBOARD ═══════ -->
     <template v-if="tab === 'dashboard'">
+      <!-- 🚨 high-dues + disconnection-risk alerts (spec 3.9 + 3.11) -->
+      <div v-if="alerts && (alerts.disconnect_risk.length || alerts.high_dues.length)" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        <div v-if="alerts.disconnect_risk.length" style="border:1px solid var(--danger);background:rgba(235,87,87,.07);border-radius:14px;padding:13px 16px">
+          <div style="font-size:12.5px;font-weight:800;color:var(--danger);margin-bottom:8px">⛔ Disconnection risk — {{ alerts.disconnect_risk.length }} space(s) overdue {{ alerts.disconnect_months }}+ months</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span v-for="s in alerts.disconnect_risk" :key="s.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
+              <b>{{ s.no }}</b> <span style="color:var(--text-mute)">{{ s.months }}mo · ৳{{ Number(s.due).toLocaleString('en-IN') }}</span>
+              <button @click="sendDuesAlert(s, 'disconnect')" title="SMS disconnection warning to owner & tenant" style="border:none;background:var(--danger);color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">📲 Alert</button>
+            </span>
+          </div>
+        </div>
+        <div v-if="alerts.high_dues.length" style="border:1px solid #F2994A;background:rgba(242,153,74,.08);border-radius:14px;padding:13px 16px">
+          <div style="font-size:12.5px;font-weight:800;color:#B96B1B;margin-bottom:8px">🚨 High dues — {{ alerts.high_dues.length }} space(s) overdue {{ alerts.high_months }}+ months</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span v-for="s in alerts.high_dues" :key="s.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
+              <b>{{ s.no }}</b> <span style="color:var(--text-mute)">{{ s.months }}mo · ৳{{ Number(s.due).toLocaleString('en-IN') }}</span>
+              <button @click="sendDuesAlert(s, 'high')" title="SMS dues reminder to owner & tenant" style="border:none;background:#F2994A;color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">📲 Remind</button>
+            </span>
+          </div>
+        </div>
+      </div>
       <div class="stats">
         <div v-for="k in dashKpis" :key="k.label" class="stat">
           <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
@@ -1719,7 +1755,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td>{{ b.shop_floor || '—' }}</td>
                 <td>{{ { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }[b.kind] || b.kind }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(b.amount) }}<span v-if="b.fine" style="color:var(--danger);font-size:11px"> +{{ money(b.fine) }} fine</span></td>
-                <td style="font-size:12px;color:var(--text-mute)">{{ b.due_date }}<span v-if="isOverdue(b)" class="badge b-red" style="margin-left:6px">overdue</span></td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ b.due_date }}<span v-if="isDisconnectRisk(b)" class="badge b-red" style="margin-left:6px" title="Overdue {{ billRiskMonths(b) }} months — disconnection risk (spec 3.11)">⛔ disconnect risk</span><span v-else-if="isOverdue(b)" class="badge b-red" style="margin-left:6px">overdue</span></td>
                 <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
                 <td style="text-align:right;white-space:nowrap">
                   <button v-if="b.status === 'Unpaid' && b.owner_mobile" @click="waRemind(b)" title="Send WhatsApp reminder to the shop owner" style="padding:6px 10px;border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">📲 Remind</button>
@@ -3083,6 +3119,12 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Due day of month
               <input type="number" v-model.number="config.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">🚨 High-dues alert after (months)
+              <input type="number" v-model.number="config.high_dues_months" min="1" max="12" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">⛔ Disconnection risk after (months)
+              <input type="number" v-model.number="config.disconnect_months" min="1" max="12" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
         </div>

@@ -15180,7 +15180,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids', 'bank-stmt-list'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids', 'bank-stmt-list', 'alerts'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15342,6 +15342,32 @@ case 'mall': {
             $r = $sms_send($phone, 'Test SMS from ' . ($mcfg('mall_name', 'Mall Manager')) . ' — SMS engine working ✔', 'test');
             json_out($r + ($r['ok'] ? [] : ['error' => $r['reason'] === 'sms-disabled' ? 'SMS is disabled in Settings.' : 'Invalid phone number.']));
         }
+        if ($act === 'send-alert') {
+            /* spec 3.9: high-dues / disconnection-risk SMS to the owner + tenant */
+            if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+            $shop = trim($body['shop'] ?? '');
+            $kind = in_array(trim($body['kind'] ?? ''), ['high', 'disconnect'], true) ? trim($body['kind']) : 'high';
+            if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
+            $st = $pdo->prepare('SELECT * FROM shops WHERE id=?'); $st->execute([$shop]);
+            $s = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$s) json_out(['ok' => false, 'error' => 'Space not found.'], 404);
+            $dst = $pdo->prepare("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'");
+            $dst->execute([$shop]);
+            $due = (int)$dst->fetchColumn();
+            $months = (int)($body['months'] ?? 1);
+            $mallName = $mcfg('mall_name', 'Mall Manager');
+            $text = $kind === 'disconnect'
+                ? "সতর্কবার্তা: $mallName — আপনার দোকান {$s['no']} এর বকেয়া ৳" . number_format($due) . " ($months মাস)। জরুরি ভিত্তিতে পরিশোধ করুন, নতুবা সংযোগ বিচ্ছিন্ন হতে পারে। ধন্যবাদ।"
+                : "জরুরি নোটিশ: $mallName — দোকান {$s['no']} এর বকেয়া ৳" . number_format($due) . " ($months মাস)। অনুগ্রহ করে দ্রুত পরিশোধ করুন। ধন্যবাদ।";
+            $sent = 0; $errs = [];
+            $phones = $mall_owner_tenant_phones($shop);
+            foreach ($phones as $ph) {
+                $r = $sms_send($ph, $text, 'alert-' . $kind);
+                if ($r['ok']) $sent++; else $errs[] = $r['reason'];
+            }
+            audit($u['name'], 'Dues alert SMS', 'mall', $shop, "$kind ৳$due ($months months) — sent $sent");
+            json_out(['ok' => true, 'sent' => $sent, 'total' => count($phones), 'due' => $due, 'errors' => $errs]);
+        }
         json_out(['ok' => false, 'error' => 'Unknown sms action.'], 400);
     }
 
@@ -15376,6 +15402,8 @@ case 'mall': {
             'rate_default'   => (int)$mcfg('rate_default', '0'),
             'rate_sqft_default' => (int)$mcfg('rate_sqft_default', '0'),
             'bill_seq_start' => (int)$mcfg('bill_seq_start', '0'),
+            'high_dues_months' => (int)$mcfg('high_dues_months', '2'),
+            'disconnect_months' => (int)$mcfg('disconnect_months', '3'),
         ]]);
     }
     if ($a === 'config-set') {
@@ -15388,7 +15416,7 @@ case 'mall': {
                   'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note',
                   'rent_advance_default', 'rent_due_day', 'rent_collect_default', 'rent_statement_note',
                   'bill_model_default', 'rate_default', 'rate_sqft_default',
-                  'bill_seq_start'] as $ck) {
+                  'bill_seq_start', 'high_dues_months', 'disconnect_months'] as $ck) {
             if (isset($body[$ck])) $mset($ck, $body[$ck]);
         }
         audit($u['name'], 'Mall config', 'mall', '', json_encode($body));
@@ -17233,6 +17261,35 @@ case 'mall': {
     }
 
     /* dashboard — committee overview: this-month KPIs, top defaulters, expense categories */
+    /* alerts (spec 3.9 + 3.11): high-dues & disconnection-risk watch —
+       per active shop: total outstanding, months behind, flags */
+    if ($a === 'alerts') {
+        $hiMonths = max(1, (int)$mcfg('high_dues_months', '2'));
+        $dcMonths = max(1, (int)$mcfg('disconnect_months', '3'));
+        $now = date('Y-m');
+        $shops = $pdo->query("SELECT id, no, floor, owner_name, owner_mobile, service_rate FROM shops WHERE status='Active'")->fetchAll(PDO::FETCH_ASSOC);
+        $high = []; $dc = [];
+        foreach ($shops as $s) {
+            $st = $pdo->prepare("SELECT month, SUM(amount + COALESCE(fine,0)) due FROM shop_bills WHERE shop=? AND status='Unpaid' GROUP BY month ORDER BY month");
+            $st->execute([$s['id']]);
+            $unpaid = $st->fetchAll(PDO::FETCH_ASSOC);
+            if (!$unpaid) continue;
+            $total = 0; $monthsSet = [];
+            foreach ($unpaid as $u) { $total += (int)$u['due']; $monthsSet[] = $u['month']; }
+            /* months behind = distinct unpaid months (capped 24) */
+            $monthsBehind = count($monthsSet);
+            $latest = end($monthsSet);
+            /* age in months from the LATEST unpaid month to now */
+            $age = $latest ? max(0, (strtotime($now) - strtotime($latest . '-01')) / 2592000) : 0;
+            $row = ['id' => $s['id'], 'no' => $s['no'], 'floor' => $s['floor'], 'owner' => $s['owner_name'], 'mobile' => $s['owner_mobile'], 'due' => $total, 'months' => $monthsBehind, 'latest' => $latest];
+            if ($monthsBehind >= $dcMonths) $dc[] = $row;
+            elseif ($monthsBehind >= $hiMonths) $high[] = $row;
+        }
+        usort($high, fn($a, $b) => $b['due'] - $a['due']);
+        usort($dc, fn($a, $b) => $b['due'] - $a['due']);
+        json_out(['ok' => true, 'high_dues' => $high, 'disconnect_risk' => $dc, 'high_months' => $hiMonths, 'disconnect_months' => $dcMonths]);
+    }
+
     if ($a === 'dashboard') {
         $month = trim($body['month'] ?? date('Y-m'));
         $kpi = $pdo->prepare("SELECT
