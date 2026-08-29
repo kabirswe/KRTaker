@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260931) {
+        if ($__sv < 20260933) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -460,6 +460,23 @@ function db() {
             SELECT ?, ?, ?, 0, 1, '' WHERE NOT EXISTS (SELECT 1 FROM mall_accounts WHERE code=?)");
         foreach ($extraAcc as $x) $ain2->execute([$x[0], $x[1], $x[2], $x[0]]);
         $pdo->prepare("UPDATE mall_accounts SET subsidiary=1 WHERE code IN ('1040','2010','2020','2050')")->execute();
+        /* V2.3: configurable service billing — per-space billing model
+           (fixed / sqft / fixed+util / sqft+util), rate per sqft, utility inclusion */
+        $scols = array_column($pdo->query('PRAGMA table_info(shops)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        foreach (['bill_model' => "TEXT DEFAULT 'fixed'", 'rate_sqft' => "INTEGER DEFAULT 0", 'util_included' => "INTEGER DEFAULT 0"] as $col => $def) {
+            if (!in_array($col, $scols, true)) { try { $pdo->exec("ALTER TABLE shops ADD COLUMN $col $def"); } catch (Exception $e) {} }
+        }
+        $bcols = array_column($pdo->query('PRAGMA table_info(shop_bills)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('note', $bcols, true)) { try { $pdo->exec("ALTER TABLE shop_bills ADD COLUMN note TEXT DEFAULT ''"); } catch (Exception $e) {} }
+        /* seed the default common-utility heads + income heads once */
+        $seedHeads = function ($key, $items) use ($pdo) {
+            $st = $pdo->prepare('SELECT COUNT(*) FROM mall_config WHERE k=?'); $st->execute([$key]);
+            if ((int)$st->fetchColumn() === 0) {
+                $pdo->prepare('INSERT INTO mall_config (k, v) VALUES (?,?)')->execute([$key, json_encode($items)]);
+            }
+        };
+        $seedHeads('util_heads', ['Generator Fuel', 'Common Area Electricity', 'Housing Society Membership', 'Waste Management', 'Lift Service Contract', 'Water Bill', 'Internet Bill', 'Security', 'Satellite / Dish TV']);
+        $seedHeads('income_heads', ['Parking Fee', 'Community Hall Rent', 'Common Space Rent', 'Advertisement / Hoarding', 'Other Income']);
         /* seed the default Chart of Accounts once (COUNT-guarded) */
         if ((int)$pdo->query('SELECT COUNT(*) FROM mall_accounts')->fetchColumn() === 0) {
             $acc = [
@@ -1352,7 +1369,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260931'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260933'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -2162,7 +2179,7 @@ function CRUD_FIELDS() {
     return [
         'properties' => ['name','type','jur','holding','sqft','value','status','sub_email','address','photo','description','featured','created_at','lat','lng'],
         'units'      => ['p','name','floor','sqft','status','rent','sub_email','beds','baths','furnished'],
-        'shops'      => ['no','floor','sqft','owner_name','owner_mobile','owner_nid','status','opening_balance','service_rate','sub_email'],
+        'shops'      => ['no','floor','sqft','owner_name','owner_mobile','owner_nid','status','opening_balance','service_rate','sub_email','bill_model','rate_sqft','util_included'],
         'tenants'    => ['name','phone','email','nid','nrb','kind','sub_email','photo','family','company'],
         'leases'     => ['u','t','start','end','rent','adv','res','reg_office','reg_deed','status'],
         'invoices'   => ['l','m','gross','tds','net','status'],
@@ -15043,7 +15060,7 @@ case 'mall': {
     $mall_write = ['config-set', 'bill-generate', 'fine-calc', 'shop-create', 'shop-update', 'shop-delete',
                    'expense-add', 'expense-del', 'complaint-add', 'complaint-status', 'complaint-del',
                    'asset-add', 'asset-update', 'asset-del', 'notice-add', 'notice-del', 'notice-pin',
-                   'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject', 'acct-map-set'];
+                   'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject', 'acct-map-set', 'income-add'];
     $collector_ok = ['collect', 'meter', 'readings'];
     if ($is_collector) {
         if (in_array($a, $mall_write, true)) {
@@ -15108,7 +15125,7 @@ case 'mall': {
     $ar_acct = function () use ($ACCT_ID) { return 'Accounts Receivable (space dues)'; };
     /* user-configured mapping (⚙️ Settings → Account mapping) overrides the defaults */
     $acctMapArr = null;
-    $acct_name_for = function ($key, $defName) use ($pdo, &$acctMapArr) {
+    $acct_name_for = function ($key, $defName) use ($pdo, $mcfg, &$acctMapArr) {
         if ($acctMapArr === null) { $raw = $mcfg('acct_map', ''); $acctMapArr = $raw !== '' ? (json_decode($raw, true) ?: []) : []; }
         $id = (int)($acctMapArr[$key] ?? 0);
         if ($id) { $st = $pdo->prepare('SELECT name FROM mall_accounts WHERE id=?'); $st->execute([$id]); $n = $st->fetchColumn(); if ($n) return $n; }
@@ -15143,14 +15160,23 @@ case 'mall': {
             'bank_account_title' => $mcfg('bank_account_title', ''),
             'bank_account_no'    => $mcfg('bank_account_no', ''),
             'receipt_note'   => $mcfg('receipt_note', ''),
+            'util_heads'     => (function () use ($mcfg) { $v = $mcfg('util_heads', ''); $a = $v !== '' ? json_decode($v, true) : null; return is_array($a) ? $a : ['Generator Fuel', 'Common Area Electricity', 'Waste Management', 'Lift Service Contract', 'Water Bill', 'Internet Bill', 'Security']; })(),
+            'income_heads'   => (function () use ($mcfg) { $v = $mcfg('income_heads', ''); $a = $v !== '' ? json_decode($v, true) : null; return is_array($a) ? $a : ['Parking Fee', 'Community Hall Rent', 'Common Space Rent', 'Other Income']; })(),
+            'bill_model_default' => $mcfg('bill_model_default', 'fixed'),
+            'rate_default'   => (int)$mcfg('rate_default', '0'),
+            'rate_sqft_default' => (int)$mcfg('rate_sqft_default', '0'),
         ]]);
     }
     if ($a === 'config-set') {
+        /* head lists (JSON) + billing defaults handled here */
+        if (isset($body['util_heads']) && is_array($body['util_heads'])) $mset('util_heads', json_encode(array_values($body['util_heads'])));
+        if (isset($body['income_heads']) && is_array($body['income_heads'])) $mset('income_heads', json_encode(array_values($body['income_heads'])));
         foreach (['mall_name', 'mall_address', 'mall_phone', 'mall_email', 'chairman', 'secretary',
                   'elec_unit_rate', 'water_unit_rate', 'late_fees_enabled', 'late_fee_pct', 'late_fee_grace', 'late_fee_min', 'late_fee_max_pct', 'due_day',
                   'invoice_template', 'invoice_prefix', 'mall_logo', 'mall_logo_dark',
                   'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note',
-                  'rent_advance_default', 'rent_due_day', 'rent_collect_default', 'rent_statement_note'] as $ck) {
+                  'rent_advance_default', 'rent_due_day', 'rent_collect_default', 'rent_statement_note',
+                  'bill_model_default', 'rate_default', 'rate_sqft_default'] as $ck) {
             if (isset($body[$ck])) $mset($ck, $body[$ck]);
         }
         audit($u['name'], 'Mall config', 'mall', '', json_encode($body));
@@ -15248,7 +15274,33 @@ case 'mall': {
         $st->execute([$month]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
         $total = array_sum(array_map(fn($r) => (int)$r['amount'], $rows));
-        json_out(['ok' => true, 'expenses' => $rows, 'total' => $total]);
+        $inc = $pdo->prepare("SELECT id, cat AS category, amount, method, note, ts AS date
+                              FROM company_ledger WHERE kind='income' AND substr(ts,1,7)=? ORDER BY id DESC");
+        $inc->execute([$month]);
+        $incomeRows = $inc->fetchAll(PDO::FETCH_ASSOC);
+        $incomeTotal = array_sum(array_map(fn($r) => (int)$r['amount'], $incomeRows));
+        json_out(['ok' => true, 'expenses' => $rows, 'total' => $total, 'income' => $incomeRows, 'income_total' => $incomeTotal]);
+    }
+
+    /* income-add — record other income (parking fee, community hall rent,
+       common space rent, ads…) → Smart Ledger Dr method / Cr income account */
+    if ($a === 'income-add') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $cat = trim($body['cat'] ?? '');
+        $amount = (int)($body['amount'] ?? 0);
+        $method = trim($body['method'] ?? 'cash');
+        $note = trim($body['note'] ?? '');
+        $month = trim($body['month'] ?? date('Y-m'));
+        if ($cat === '' || $amount <= 0 || !in_array($method, ['cash', 'bank', 'bkash', 'nagad'], true)) json_out(['ok' => false, 'error' => 'Head, amount and a valid method required.'], 400);
+        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts)
+                       VALUES ('income', ?, ?, ?, ?, ?, ?, '', ?)")
+            ->execute([$cat, $cat, $amount, $method, 'INC-' . str_pad((string)(mt_rand(1, 99999)), 5, '0', STR_PAD_LEFT), $note, $month . '-01 12:00:00']);
+        $clId = (int)$pdo->lastInsertId();
+        $post_journal($month . '-01', 'INC-' . str_pad((string)$clId, 5, '0', STR_PAD_LEFT),
+            'Income — ' . $cat,
+            [[$method_acct($method), $amount, 0], [$acct_name_for('inc:' . $cat, 'Other Income'), 0, $amount]], $u['name']);
+        audit($u['name'], 'Income', 'mall', (string)$clId, "$cat ৳$amount ($method)");
+        json_out(['ok' => true]);
     }
 
     /* expense-add — record a mall expense (lift/escalator/elec/AC/generator/cleaning/security/salary) */
@@ -16423,32 +16475,58 @@ case 'mall': {
         json_out(['ok' => true, 'bills' => $bills, 'totals' => $sum->fetch(PDO::FETCH_ASSOC)]);
     }
 
-    /* bill-generate — idempotent monthly service-charge bills for Active shops.
-       Rate: shop.service_rate (flat, BDT) if set, else sqft * default-per-sqft (flat fallback). */
+    /* bill-generate — configurable service billing: per-space model
+       fixed (flat rate) · sqft (rate × size) · fixed+util / sqft+util
+       (+ metered electricity/water consolidated into the service bill) */
     if ($a === 'bill-generate') {
         $month = trim($body['month'] ?? date('Y-m'));
         $dueDay = (int)$mcfg('due_day', '10');
         $dueDate = date('Y-m-d', strtotime($month . '-' . sprintf('%02d', $dueDay)));
-        $st = $pdo->prepare("SELECT id, service_rate, sqft FROM shops WHERE status='Active'");
+        $st = $pdo->prepare("SELECT id, service_rate, sqft, bill_model, rate_sqft, util_included FROM shops WHERE status='Active'");
         $st->execute();
         $shops = $st->fetchAll(PDO::FETCH_ASSOC);
         $created = 0; $skipped = 0;
         $exists = $pdo->prepare("SELECT COUNT(*) FROM shop_bills WHERE shop=? AND month=? AND kind='service'");
-        $ins = $pdo->prepare("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status)
-                              VALUES (?,?, 'service', ?, 0, ?, 'Unpaid')");
+        $ins = $pdo->prepare("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status, note)
+                              VALUES (?,?, 'service', ?, 0, ?, 'Unpaid', ?)");
+        $rdg = $pdo->prepare("SELECT units FROM mall_meter_readings WHERE shop=? AND type=? AND month<=? ORDER BY month DESC LIMIT 1");
+        $m2 = $pdo->prepare('SELECT bill_model, util_included FROM shops WHERE id=?');
+        $modelLabel = ['fixed' => 'Fixed', 'sqft' => 'Per sqft', 'fixed+util' => 'Fixed + utilities', 'sqft+util' => 'Per sqft + utilities'];
         foreach ($shops as $s) {
             $exists->execute([$s['id'], $month]);
             if ((int)$exists->fetchColumn() > 0) { $skipped++; continue; }
-            $rate = (int)$s['service_rate'];
-            if ($rate <= 0) $rate = max(0, (int)$s['sqft']) * (int)$mcfg('per_sqft_rate', '0');
-            if ($rate <= 0) $rate = (int)$mcfg('service_default_rate', '500');
-            $ins->execute([$s['id'], $month, $rate]);
+            $model = trim($s['bill_model'] ?? 'fixed');
+            if (!in_array($model, ['fixed', 'sqft', 'fixed+util', 'sqft+util'], true)) $model = 'fixed';
+            $base = (int)$s['service_rate'];
+            if (in_array($model, ['sqft', 'sqft+util'], true)) {
+                $psf = (int)$s['rate_sqft'] ?: (int)$mcfg('rate_sqft_default', '0');
+                $base = max(0, (int)$s['sqft']) * ($psf ?: (int)$mcfg('per_sqft_rate', '0'));
+            }
+            if ($base <= 0 && !in_array($model, ['sqft', 'sqft+util'], true)) $base = (int)$mcfg('service_default_rate', '500');
+            /* metered utilities folded into the service bill when the model includes them */
+            $util = 0; $utilNote = '';
+            if (in_array($model, ['fixed+util', 'sqft+util'], true) && (int)$s['util_included'] === 1) {
+                foreach (['elec', 'water'] as $ut) {
+                    $rdg->execute([$s['id'], $ut, $month]);
+                    $units = (int)$rdg->fetchColumn();
+                    if ($units > 0) {
+                        $ur = (int)$mcfg($ut === 'elec' ? 'elec_unit_rate' : 'water_unit_rate', $ut === 'elec' ? '8' : '30');
+                        $util += $units * $ur;
+                        $utilNote .= ($utilNote ? ', ' : '') . ucfirst($ut) . ' ' . $units . 'u × ' . $ur;
+                    }
+                }
+            }
+            $total = $base + $util;
+            if ($total <= 0) { $skipped++; continue; }
+            $note = $modelLabel[$model] . (in_array($model, ['fixed+util', 'sqft+util'], true) ? ' + utilities' : '')
+                . ($utilNote ? ' (' . $utilNote . ')' : '');
+            $ins->execute([$s['id'], $month, $total, $dueDate, $note]);
             $newId = (int)$pdo->lastInsertId();
             $created++;
             /* Smart Ledger: Dr Accounts Receivable, Cr Service Charge Income */
             $post_journal($month . '-01', 'BIL-' . str_pad((string)$newId, 5, '0', STR_PAD_LEFT),
                 'Service bill — ' . $s['id'] . ' (' . $month . ')',
-                [[$ar_acct(), $rate, 0], ['Service Charge Income', 0, $rate]], $u['name']);
+                [[$ar_acct(), $total, 0], ['Service Charge Income', 0, $total]], $u['name']);
         }
         audit($u['name'], 'Bill generate', 'mall', $month, "$created created, $skipped skipped");
         json_out(['ok' => true, 'created' => $created, 'skipped' => $skipped]);
@@ -16503,20 +16581,28 @@ case 'mall': {
         $pdo->prepare("INSERT INTO mall_meter_readings (shop, type, reading, units, month, note) VALUES (?,?,?,?,?,?)")
             ->execute([$shop, $type, $reading, $units, $month, trim($body['note'] ?? '')]);
         if ($units > 0) {
+            /* if the space's service bill already includes utilities (bill_model
+               fixed+util / sqft+util), don't create a separate utility bill */
+            $m2 = $pdo->prepare('SELECT bill_model, util_included FROM shops WHERE id=?');
+            $m2->execute([$shop]);
+            $sm = $m2->fetch(PDO::FETCH_ASSOC);
+            $bundleUtil = $sm && in_array($sm['bill_model'] ?? '', ['fixed+util', 'sqft+util'], true) && (int)($sm['util_included'] ?? 0) === 1;
             $rate = (int)$mcfg($type === 'elec' ? 'elec_unit_rate' : 'water_unit_rate', $type === 'elec' ? '8' : '30');
             $amount = $units * $rate;
-            $ex = $pdo->prepare("SELECT COUNT(*) FROM shop_bills WHERE shop=? AND month=? AND kind=?");
-            $ex->execute([$shop, $month, $type]);
-            if ((int)$ex->fetchColumn() === 0) {
-                $dueDay = (int)$mcfg('due_day', '10');
-                $pdo->prepare("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status)
-                               VALUES (?,?,?,?,0,?,'Unpaid')")
-                    ->execute([$shop, $month, $type, $amount, date('Y-m-d', strtotime($month . '-' . sprintf('%02d', $dueDay)))]);
-                $billId = (int)$pdo->lastInsertId();
-                /* Smart Ledger: Dr Accounts Receivable, Cr Utility Billing Income */
-                $post_journal($month . '-28', 'BIL-' . str_pad((string)$billId, 5, '0', STR_PAD_LEFT),
-                    'Utility bill — ' . $shop . ' (' . $month . ') ' . $type,
-                    [[$ar_acct(), $amount, 0], ['Utility Billing Income', 0, $amount]], $u['name']);
+            if (!$bundleUtil) {
+                $ex = $pdo->prepare("SELECT COUNT(*) FROM shop_bills WHERE shop=? AND month=? AND kind=?");
+                $ex->execute([$shop, $month, $type]);
+                if ((int)$ex->fetchColumn() === 0) {
+                    $dueDay = (int)$mcfg('due_day', '10');
+                    $pdo->prepare("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status)
+                                   VALUES (?,?,?,?,0,?,'Unpaid')")
+                        ->execute([$shop, $month, $type, $amount, date('Y-m-d', strtotime($month . '-' . sprintf('%02d', $dueDay)))]);
+                    $billId = (int)$pdo->lastInsertId();
+                    /* Smart Ledger: Dr Accounts Receivable, Cr Utility Billing Income */
+                    $post_journal($month . '-28', 'BIL-' . str_pad((string)$billId, 5, '0', STR_PAD_LEFT),
+                        'Utility bill — ' . $shop . ' (' . $month . ') ' . $type,
+                        [[$ar_acct(), $amount, 0], ['Utility Billing Income', 0, $amount]], $u['name']);
+                }
             }
         }
         audit($u['name'], 'Meter', 'mall', $shop, "$type $reading ($units units)");

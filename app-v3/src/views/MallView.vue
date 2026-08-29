@@ -49,7 +49,11 @@ const month = ref(new Date().toISOString().slice(0, 7))
 const shiftMonth = (d) => { const m = new Date(month.value + '-01'); m.setMonth(m.getMonth() + d); month.value = m.toISOString().slice(0, 7); switchTab(tab.value) }
 
 /* ── config ── */
-const config = ref({ mall_name: '', elec_unit_rate: 8, water_unit_rate: 30, late_fee_pct: 5, due_day: 10, rent_advance_default: 2, rent_due_day: 10, rent_statement_note: '' })
+const config = ref({ mall_name: '', elec_unit_rate: 8, water_unit_rate: 30, late_fee_pct: 5, due_day: 10, rent_advance_default: 2, rent_due_day: 10, rent_statement_note: '', bill_model_default: 'fixed', rate_default: 0, rate_sqft_default: 0, util_heads: [], income_heads: [] })
+const utilHeadInput = ref('')
+const incomeHeadInput = ref('')
+function addUtilHead() { const v = utilHeadInput.value.trim(); if (!v) return; if (!config.value.util_heads) config.value.util_heads = []; if (!config.value.util_heads.includes(v)) config.value.util_heads.push(v); utilHeadInput.value = ''; cfgDirty.value = true }
+function addIncomeHead() { const v = incomeHeadInput.value.trim(); if (!v) return; if (!config.value.income_heads) config.value.income_heads = []; if (!config.value.income_heads.includes(v)) config.value.income_heads.push(v); incomeHeadInput.value = ''; cfgDirty.value = true }
 const cfgDirty = ref(false)
 async function loadConfig() {
   const r = await apiCall('mall', { action: 'config-get' })
@@ -111,9 +115,9 @@ const shopKpis = computed(() => {
 })
 const modal = ref(null)
 const form = ref({})
-function openAdd() { form.value = { status: 'Active', sqft: 0, service_rate: 0, opening_balance: 0, owner_id: 0, space_type: 'Shop', occupancy: 'Owner' }; modal.value = { mode: 'add', title: '➕ New Space' } }
+function openAdd() { form.value = { status: 'Active', sqft: 0, service_rate: 0, opening_balance: 0, owner_id: 0, space_type: 'Shop', occupancy: 'Owner', bill_model: 'fixed', rate_sqft: 0, util_included: 0 }; modal.value = { mode: 'add', title: '➕ New Space' } }
 function openEdit(s) {
-  form.value = { no: s.no || '', floor: s.floor || '', sqft: s.sqft || 0, owner_name: s.owner_name || '', owner_mobile: s.owner_mobile || '', owner_nid: s.owner_nid || '', status: s.status || 'Active', service_rate: s.service_rate || 0, opening_balance: s.opening_balance || 0, owner_id: s.owner_id || 0, space_type: s.space_type || 'Shop', occupancy: s.occupancy || 'Owner' }
+  form.value = { no: s.no || '', floor: s.floor || '', sqft: s.sqft || 0, owner_name: s.owner_name || '', owner_mobile: s.owner_mobile || '', owner_nid: s.owner_nid || '', status: s.status || 'Active', service_rate: s.service_rate || 0, opening_balance: s.opening_balance || 0, owner_id: s.owner_id || 0, space_type: s.space_type || 'Shop', occupancy: s.occupancy || 'Owner', bill_model: s.bill_model || 'fixed', rate_sqft: s.rate_sqft || 0, util_included: s.util_included || 0 }
   modal.value = { mode: 'edit', title: '✏️ Edit Space', id: s.id }
 }
 const saving = ref(false)
@@ -138,6 +142,7 @@ async function saveShop() {
       owner_name: (form.value.owner_name || '').trim(), owner_mobile: (form.value.owner_mobile || '').trim(), owner_nid: (form.value.owner_nid || '').trim(),
       status: form.value.status, service_rate: Number(form.value.service_rate) || 0, opening_balance: Number(form.value.opening_balance) || 0,
       owner_id: Number(form.value.owner_id) || 0, space_type: form.value.space_type || 'Shop', occupancy: form.value.occupancy || 'Owner',
+      bill_model: form.value.bill_model || 'fixed', rate_sqft: Number(form.value.rate_sqft) || 0, util_included: form.value.util_included ? 1 : 0,
     }
     const r = await apiCall('app-crud', {
       action: modal.value.mode === 'edit' ? 'update' : 'create', collection: 'shops',
@@ -238,17 +243,32 @@ async function saveMeter() {
 
 /* ══════════ EXPENSES ══════════ */
 const expForm = ref({ category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '' })
+const incForm = ref({ category: 'Parking Fee', amount: 0, method: 'cash', note: '' })
 const expenses = ref([])
 const expTotal = ref(0)
+const incomeList = ref([])
+const incomeTotal = ref(0)
 const EXP_CATEGORIES = ['Lift Maintenance', 'Escalator', 'Common Electricity (DESCO)', 'AC Servicing', 'Generator / Fuel', 'Cleaning', 'Security', 'Staff Salary', 'Repairs', 'Other']
+/* configurable heads from Settings → Service billing config extend the pickers */
+const expCategories = computed(() => {
+  const extra = (config.value.util_heads || []).filter(h => !EXP_CATEGORIES.includes(h))
+  return [...EXP_CATEGORIES, ...extra]
+})
+const incCategories = computed(() => (config.value.income_heads || []).length ? config.value.income_heads : ['Parking Fee', 'Community Hall Rent', 'Common Space Rent', 'Other Income'])
 async function loadExpenses() {
   const r = await apiCall('mall', { action: 'expenses', month: month.value })
-  if (r.ok) { expenses.value = r.expenses; expTotal.value = r.total }
+  if (r.ok) { expenses.value = r.expenses; expTotal.value = r.total; incomeList.value = r.income || []; incomeTotal.value = r.income_total || 0 }
 }
 async function saveExpense() {
   if (Number(expForm.value.amount) <= 0) { window.__krToast?.('Amount required.', 'err'); return }
   const r = await apiCall('mall', { action: 'expense-add', category: expForm.value.category, vendor: expForm.value.vendor, amount: Number(expForm.value.amount), method: expForm.value.method, note: expForm.value.note })
   if (r.ok) { window.__krToast?.('📉 Expense recorded', 'ok'); expForm.value = { category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '' }; await loadExpenses(); await loadDash() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function saveIncome() {
+  if (Number(incForm.value.amount) <= 0 || !incForm.value.category) { window.__krToast?.('Head and amount required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'income-add', cat: incForm.value.category, amount: Number(incForm.value.amount), method: incForm.value.method, note: incForm.value.note, month: month.value })
+  if (r.ok) { window.__krToast?.(`💰 ${incForm.value.category} ৳${incForm.value.amount} recorded`, 'ok'); incForm.value = { category: incCategories.value[0] || 'Parking Fee', amount: 0, method: 'cash', note: '' }; await loadExpenses(); await loadDash() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delExpense(e) {
@@ -841,7 +861,7 @@ function openAccountEdit(x) { accountForm.value = { ...x }; accountModal.value =
 async function saveAccount() {
   const f = accountForm.value
   if (!f.name || !f.name.trim()) { window.__krToast?.('Account name required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, note: f.note })
+  const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, subsidiary: f.subsidiary ? 1 : 0, note: f.note })
   if (r.ok) { window.__krToast?.(accountModal.value.mode === 'edit' ? '✏️ Account updated' : '✅ Account added', 'ok'); accountModal.value = null; await loadAccounts() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
@@ -1863,7 +1883,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Category
             <select v-model="expForm.category" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option v-for="c in EXP_CATEGORIES" :key="c" :value="c">{{ c }}</option>
+              <option v-for="c in expCategories" :key="c" :value="c">{{ c }}</option>
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Vendor / supplier
@@ -1882,6 +1902,50 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </label>
         </div>
         <button @click="saveExpense" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Record expense</button>
+      </div>
+      <div class="panel" style="padding:18px;margin-top:16px">
+        <h3 style="font-size:14px;margin-bottom:4px">💰 Record other income — {{ monthLabel(month) }}</h3>
+        <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Additional income heads like parking fee, community hall / common space rent, advertisement — auto-posts to the Chart of Accounts.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label style="font-size:12px;color:var(--text-mute)">Income head
+            <select v-model="incForm.category" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option v-for="c in incCategories" :key="c" :value="c">{{ c }}</option>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Amount (৳)
+            <input type="number" v-model.number="incForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Received via
+            <select v-model="incForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option><option value="bkash">📱 bKash</option><option value="nagad">📱 Nagad</option>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">Note
+            <input v-model="incForm.note" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+        </div>
+        <button @click="saveIncome" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--ok,#27AE60);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Record income</button>
+      </div>
+      <div class="panel" style="padding:16px;margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="font-size:14px">💰 Other income — {{ monthLabel(month) }}</h3>
+          <span class="badge b-green" style="font-size:12px">Total {{ money(incomeTotal) }}</span>
+        </div>
+        <div class="tbl-wrap" style="max-height:200px">
+          <table class="kr">
+            <thead><tr><th>Date</th><th>Head</th><th>Note</th><th>Method</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody>
+              <tr v-for="e in incomeList" :key="e.id">
+                <td style="font-size:12px;color:var(--text-mute)">{{ (e.date || '').slice(0, 10) }}</td>
+                <td><b>{{ e.category }}</b></td>
+                <td style="color:var(--text-mute)">{{ e.note || '—' }}</td>
+                <td><span class="badge b-blue">{{ e.method }}</span></td>
+                <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(e.amount) }}</td>
+              </tr>
+              <tr v-if="!incomeList.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:20px">No other income recorded for {{ monthLabel(month) }}.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       <div class="panel" style="padding:16px;margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -2561,6 +2625,50 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
         </div>
         <div class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">🧾 Service billing config</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">How occupants are charged: fixed flat rate, per sqft, or with metered utilities folded into the service bill. Per-space overrides live on each space.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Default billing model
+              <select v-model="config.bill_model_default" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @change="cfgDirty = true">
+                <option value="fixed">Fixed (flat monthly)</option>
+                <option value="sqft">Per sqft (rate × size)</option>
+                <option value="fixed+util">Fixed + utilities</option>
+                <option value="sqft+util">Per sqft + utilities</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Default flat rate (৳/mo)
+              <input type="number" v-model.number="config.rate_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Default per-sqft rate (৳/sqft/mo)
+              <input type="number" v-model.number="config.rate_sqft_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔌 Common monthly utilities / expenses</div>
+              <p style="font-size:11px;color:var(--text-mute);margin-bottom:8px">Generator fuel, common-area electricity, society membership, waste management, lift contract, internet, security, TV… — these become expense categories.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span v-for="(h, i) in config.util_heads || []" :key="h" class="badge b-blue" style="font-size:11px">{{ h }} <button @click="config.util_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <input v-model="utilHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addUtilHead" />
+                <button @click="addUtilHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">💰 Additional income heads</div>
+              <p style="font-size:11px;color:var(--text-mute);margin-bottom:8px">Parking fee, community hall / common space rent, advertisement… — these become income categories.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span v-for="(h, i) in config.income_heads || []" :key="h" class="badge b-green" style="font-size:11px">{{ h }} <button @click="config.income_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <input v-model="incomeHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addIncomeHead" />
+                <button @click="addIncomeHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">📊 Account mapping (Smart Ledger)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Choose which COA account each expense category, vendor category and payment method posts to automatically. Leave <i>— default —</i> to keep the built-in rules.</p>
           <div v-for="g in MAP_GROUPS" :key="g.key" style="margin-bottom:12px">
@@ -2741,6 +2849,20 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <label style="font-size:12px;color:var(--text-mute)">Floor<input v-model="form.floor" placeholder="e.g. Ground" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Size (sqft)<input type="number" v-model.number="form.sqft" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Service rate (৳/mo)<input type="number" v-model.number="form.service_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">Billing model
+              <select v-model="form.bill_model" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option value="fixed">Fixed (flat monthly)</option>
+                <option value="sqft">Per sqft (rate × size)</option>
+                <option value="fixed+util">Fixed + utilities (metered)</option>
+                <option value="sqft+util">Per sqft + utilities (metered)</option>
+              </select>
+            </label>
+            <label v-if="form.bill_model === 'sqft' || form.bill_model === 'sqft+util'" style="font-size:12px;color:var(--text-mute)">Rate per sqft (৳/sqft/mo)
+              <input type="number" v-model.number="form.rate_sqft" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label v-if="form.bill_model === 'fixed+util' || form.bill_model === 'sqft+util'" style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;padding-top:18px;cursor:pointer">
+              <input type="checkbox" v-model="form.util_included" style="accent-color:var(--primary)" /> ⚡ Include utilities (elec + water) in the service bill
+            </label>
             <label style="font-size:12px;color:var(--text-mute)">Owner name *<input v-model="form.owner_name" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Owner mobile<input v-model="form.owner_mobile" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">Owner NID<input v-model="form.owner_nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3502,6 +3624,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
               <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rate / month</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(drawer.shop.service_rate) }}</div>
+              <div class="c-sub" style="font-size:10px">{{ { fixed: 'Fixed', sqft: 'Per sqft', 'fixed+util': 'Fixed + utilities', 'sqft+util': 'Per sqft + utilities' }[drawer.shop.bill_model] || 'Fixed' }}<template v-if="drawer.shop.bill_model === 'sqft' || drawer.shop.bill_model === 'sqft+util'"> · {{ money(drawer.shop.rate_sqft) }}/sqft</template><template v-if="(drawer.shop.bill_model === 'fixed+util' || drawer.shop.bill_model === 'sqft+util') && drawer.shop.util_included"> · ⚡ util incl.</template></div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
               <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Opening balance</div>

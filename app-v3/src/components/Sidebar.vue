@@ -75,12 +75,12 @@ const GROUPS = [
         ['trial', '⚖️', 'Trial Balance', 'Balanced debit vs credit summary'],
         ['pnl', '📊', 'P&L Statement', 'Monthly income statement (auto-posted)'],
         ['reconcile', '🔁', 'Reconcile', 'Custodial utility funds & bank/cash balance checks'],
+        ['expenses', '📉', 'Expenses', 'Lift, DESCO/WASA, security, salaries & other spending'],
       ]},
       { sub: 'Operations', ico: '📉', items: [
-        ['expenses', '📉', 'Expenses', 'Lift, DESCO/WASA, security, salaries & other spending'],
-        ['complaints', '🔧', 'Complaints', 'Space owner issues — open → in progress → resolved'],
-        ['assets', '🛠️', 'Assets & AMC', 'Mall assets with AMC & warranty tracking'],
-        ['vendors', '🧰', 'Vendors', 'Vendor profiles, ledgers & payment tracking'],
+        ['complaints', '🔧', 'Complaints', 'Tenant / occupant complaints & maintenance tickets'],
+        ['assets', '🛠️', 'Assets & AMC', 'Common-area assets, AMC contracts & expiry tracking'],
+        ['vendors', '🧰', 'Vendors', 'Vendor directory, contracts & payment history'],
       ]},
       { sub: 'Governance', ico: '🏛️', items: [
         ['committee', '🏛️', 'Committee', 'Bearers, meeting register & resolutions'],
