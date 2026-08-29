@@ -109,6 +109,17 @@ async function sendTestSms() {
   if (r.ok) { window.__krToast?.(`📱 Test SMS ${r.status} (${r.ref})`, 'ok'); await loadSmsCfg() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
+/* ══════════ SETTINGS TABS (redesigned) ══════════ */
+const SETTINGS_TABS = [
+  { id: 'profile', ic: '🏢', label: 'Profile & receipts' },
+  { id: 'billing', ic: '⚡', label: 'Billing & utilities' },
+  { id: 'fines', ic: '⚖️', label: 'Fines & budget' },
+  { id: 'accounts', ic: '📊', label: 'Account mapping' },
+  { id: 'sms', ic: '📱', label: 'SMS & alerts' },
+  { id: 'governance', ic: '🏛️', label: 'Governance & license' },
+  { id: 'account', ic: '👤', label: 'My account' },
+]
+const settingsTab = ref('profile')
 const cfgDirty = ref(false)
 async function loadConfig() {
   const r = await apiCall('mall', { action: 'config-get' })
@@ -2754,8 +2765,13 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 
     <!-- ═══════ SETTINGS ═══════ -->
     <template v-if="tab === 'settings'">
+      <!-- ═══ redesigned: sticky tab bar + save (scrolls horizontally on mobile) ═══ -->
+      <div style="position:sticky;top:0;z-index:40;background:var(--bg);padding:10px 0 12px;display:flex;gap:7px;align-items:center;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch" class="set-tabs">
+        <button v-for="t in SETTINGS_TABS" :key="t.id" @click="settingsTab = t.id" :style="settingsTab === t.id ? 'background:var(--primary);color:#fff;box-shadow:0 4px 14px rgba(47,128,237,.35)' : 'background:var(--bg-alt);color:var(--text-mute);border:1px solid var(--border)'" style="padding:8px 14px;border-radius:99px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s">{{ t.ic }} {{ t.label }}</button>
+        <button v-if="canManage && cfgDirty" @click="saveConfig" style="margin-left:auto;padding:8px 16px;border:none;border-radius:99px;background:var(--ok,#27AE60);color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">💾 Save changes</button>
+      </div>
       <div v-if="canManage" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'profile'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🏬 Mall profile</h3>
           <label style="font-size:12px;color:var(--text-mute)">Mall name
             <input v-model="config.mall_name" placeholder="e.g. Razzak Plaza" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
@@ -2763,7 +2779,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Address
             <input v-model="config.mall_address" placeholder="e.g. 42 Motijheel C/A, Dhaka 1000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
           </label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px">
             <label style="font-size:12px;color:var(--text-mute)">Phone
               <input v-model="config.mall_phone" placeholder="e.g. 02-9551234" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
@@ -2778,10 +2794,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
           </div>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'billing'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">⚡ Utility costing (manual)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Set the utility rates manually — they apply when a sub-meter reading generates the electricity / water bill.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">Elec rate (৳/unit)
               <input type="number" v-model.number="config.elec_unit_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
@@ -2793,10 +2809,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
           </div>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'billing'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">💳 Rent &amp; statements config</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Defaults used when creating tenant agreements and printed statements.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">Advance months (default)
               <input type="number" v-model.number="config.rent_advance_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
@@ -2808,7 +2824,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
           </div>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'fines'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">⚖️ Late fees &amp; fines (manual configuration)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Full control over the late-payment fine rules engine.</p>
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
@@ -2835,7 +2851,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
           <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'sms'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">📱 SMS &amp; notifications (KRTaker engine)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Auto SMS receipt confirmation to shop owners &amp; tenants on every collection, plus reminders and alerts. <b>Log</b> provider just records messages (testing); <b>bulksmsbd</b> sends for real.</p>
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
@@ -2845,7 +2861,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <b :style="smsCfg.enabled ? 'color:var(--ok)' : ''">{{ smsCfg.enabled ? 'SMS enabled' : 'SMS disabled' }}</b>
             <button @click="saveSmsCfg" style="margin-left:auto;padding:8px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">Provider
               <select v-model="smsCfg.provider" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option value="log">Log (testing — no real send)</option>
@@ -2877,10 +2893,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </div>
           </div>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'billing'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🧾 Service billing config</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">How occupants are charged: fixed flat rate, per sqft, or with metered utilities folded into the service bill. Per-space overrides live on each space.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px">
             <label style="font-size:12px;color:var(--text-mute)">Default billing model
               <select v-model="config.bill_model_default" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @change="cfgDirty = true">
                 <option value="fixed">Fixed (flat monthly)</option>
@@ -2921,7 +2937,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </div>
           </div>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'accounts'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">📊 Account mapping (Smart Ledger)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Choose which COA account each expense category, vendor category and payment method posts to automatically. Leave <i>— default —</i> to keep the built-in rules.</p>
           <div v-for="g in MAP_GROUPS" :key="g.key" style="margin-bottom:12px">
@@ -2940,7 +2956,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
           <button @click="saveAcctMap" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save mapping</button>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'governance'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🏛️ Committee roles (dynamic)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Manage the role list used when adding committee members — add, rename or remove roles freely.</p>
           <div v-if="!roleEdit" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
@@ -2963,10 +2979,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </div>
           </div>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'profile'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🖨️ Invoice settings &amp; property logo</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Branding used on printed receipts — logo, template &amp; prefix. The sidebar keeps the product brand; the property name &amp; logo live on the document.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
             <div>
               <div style="font-size:12px;color:var(--text-mute);margin-bottom:6px">Logo (light background)</div>
               <div style="display:flex;align-items:center;gap:10px">
@@ -3008,10 +3024,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <input v-model="config.invoice_prefix" maxlength="8" placeholder="RCT" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;text-transform:uppercase" @input="cfgDirty = true" />
           </label>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'governance'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🔑 License &amp; plan</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">The solution is sold as <b>one-off, yearly subscription/license, or user/monthly</b>. The <b>super admin</b> account is reserved for the vendor (Mall Manager by Deshik Lab) — the owning company, somity/committee or private owner manages day-to-day operations.</p>
-          <div v-if="license" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div v-if="license" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">Plan
               <select v-model="license.plan" :disabled="!isSuperAdmin" @change="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="p in ['One-off', 'Yearly', 'Monthly']" :key="p" :value="p">{{ p }}</option>
@@ -3033,7 +3049,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <span v-if="!isSuperAdmin" style="font-size:11px;color:var(--text-mute)">🔒 Only the super admin (vendor) can change the license.</span>
           </div>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'profile'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🏦 Bank details (shown on receipts)</h3>
           <label style="font-size:12px;color:var(--text-mute)">Bank name
             <input v-model="config.bank_name" placeholder="e.g. Islami Bank Bangladesh PLC" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
@@ -3045,16 +3061,16 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <input v-model="config.bank_account_no" placeholder="e.g. 205-123-4567" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
           </label>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'profile'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🧾 Receipt note</h3>
           <label style="font-size:12px;color:var(--text-mute)">Footer line on printed receipts
             <textarea v-model="config.receipt_note" rows="3" placeholder="e.g. Service charges are payable by the 10th of every month. Thank you for your cooperation." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical" @input="cfgDirty = true"></textarea>
           </label>
         </div>
-        <div class="panel" style="padding:18px">
+        <div v-if="settingsTab === 'fines'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🎯 Monthly budget (spec 3.7)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Set a budget per expense category — the dashboard compares actual vs budget each month. Leave ৳0 to skip a category.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
             <label v-for="c in EXP_CATEGORIES" :key="c" style="font-size:11.5px;color:var(--text-mute)">{{ c }}
               <input type="number" min="0" step="500" :value="budget[c] ?? 0" @input="budget[c] = Number($event.target.value) || 0; budgetDirty = true" style="width:100%;margin-top:3px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
@@ -3065,19 +3081,19 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           </div>
         </div>
       </div>
-      <div v-if="canManage" style="margin-top:14px">
-        <button @click="saveConfig" :disabled="!cfgDirty" style="padding:11px 22px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save mall settings</button>
-        <span v-if="cfgDirty" style="margin-left:10px;font-size:12px;color:var(--text-mute)">Unsaved changes…</span>
+      <div v-if="canManage && cfgDirty" style="margin-top:14px">
+        <button @click="saveConfig" style="padding:11px 22px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save mall settings</button>
+        <span style="margin-left:10px;font-size:12px;color:var(--text-mute)">Unsaved changes…</span>
       </div>
 
-      <!-- 👤 Profile management -->
-      <div class="panel" style="padding:18px;margin-top:16px;max-width:560px">
+      <!-- 👤 Profile management (own tab) -->
+      <div v-if="settingsTab === 'account'" class="panel" style="padding:18px;margin-top:16px;max-width:560px">
         <h3 style="font-size:14px;margin-bottom:4px">👤 My profile</h3>
         <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">Logged in as <b>{{ auth.user?.email }}</b> · role: <span class="badge b-blue">{{ auth.user?.role }}</span> — full profile &amp; preferences also available from the ⚙️ icon (top right)</p>
         <label style="font-size:12px;color:var(--text-mute)">Display name
           <input v-model="profForm.name" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
         </label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px">
           <label style="font-size:12px;color:var(--text-mute)">Current password
             <input type="password" v-model="profForm.old_password" autocomplete="current-password" placeholder="required to change password" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
@@ -4294,4 +4310,11 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
 @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr !important; } }
 @media (max-width: 900px) { .cm-grid { grid-template-columns: 1fr !important; } }
 @media (max-width: 800px) { .pnl-grid { grid-template-columns: 1fr !important; } }
+@media (max-width: 900px) { .an-grid { grid-template-columns: 1fr !important; } }
+@media (max-width: 900px) { .rc-grid { grid-template-columns: 1fr !important; } }
+.set-tabs::-webkit-scrollbar { display: none; }
+@media (max-width: 640px) {
+  .set-tabs { margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
+  .set-tabs button { font-size: 11px !important; padding: 7px 12px !important; }
+}
 </style>
