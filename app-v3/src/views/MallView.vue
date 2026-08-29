@@ -1179,6 +1179,13 @@ const acctKey = (g, r) => g.key + (typeof r === 'string' ? r : r.k)
 const acctLabel = (g, r) => (typeof r === 'string' ? r : r.label)
 /* effective-account resolution for the mapping summary */
 function acctNameById(id) { const a = accounts.value.find(x => x.id == id); return a ? (a.code ? a.code + ' — ' : '') + a.name : '—' }
+/* flat searchable account list (code — name) for the searchable dropdowns */
+const accountOptions = computed(() => (accounts.value || []).map(a => ({ value: a.id, label: (a.code ? a.code + ' — ' : '') + a.name })))
+function acctSelectOptions(g, r) {
+  const k = acctKey(g, r)
+  const def = acctDefaults.value[k]
+  return [{ value: 0, label: '— default —' + (def ? ' (' + def + ')' : '') }, ...accountOptions.value]
+}
 const acctDefaultLabels = computed(() => {
   const o = {}
   for (const g of MAP_GROUPS.value) for (const r of g.rows) o[acctKey(g, r)] = (typeof r === 'string' ? r : r.label)
@@ -2128,9 +2135,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <h3 style="font-size:14px;margin-bottom:14px">📉 Record an expense — {{ monthLabel(month) }}</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Category
-            <select v-model="expForm.category" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option v-for="c in expCategories" :key="c" :value="c">{{ c }}</option>
-            </select>
+            <SearchableSelect v-model="expForm.category" :options="expCategories.map(c => ({ value: c, label: c }))" placeholder="— choose category —" style="margin-top:4px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Vendor / supplier
             <SearchableSelect v-model="expForm.vendor" :options="vendors.map(v => ({ value: v.name, label: v.name + ' (' + v.category + ')' }))" placeholder="— choose vendor —" allow-add add-label="New vendor" @add="setAfterAdd(expForm, 'vendor', () => vendors.find(v => v.name === vendorForm.name?.trim())?.name); openVendorAdd()" style="margin-top:4px" />
@@ -2158,9 +2163,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Additional income heads like parking fee, community hall / common space rent, advertisement — auto-posts to the Chart of Accounts.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Income head
-            <select v-model="incForm.category" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option v-for="c in incCategories" :key="c" :value="c">{{ c }}</option>
-            </select>
+            <SearchableSelect v-model="incForm.category" :options="incCategories.map(c => ({ value: c, label: c }))" placeholder="— choose income head —" style="margin-top:4px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Amount (৳)
             <input type="number" v-model.number="incForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
@@ -2997,12 +3000,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
               <label v-for="r in g.rows" :key="acctKey(g, r)" style="font-size:11.5px;color:var(--text-mute)">
                 {{ acctLabel(g, r) }}
-                <select v-model="acctMap[acctKey(g, r)]" style="width:100%;margin-top:3px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px">
-                  <option :value="0">— default —{{ acctDefaults[acctKey(g, r)] ? ' (' + acctDefaults[acctKey(g, r)] + ')' : '' }}</option>
-                  <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + TYPE_PLURAL[t]">
-                    <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
-                  </optgroup>
-                </select>
+                <SearchableSelect :model-value="acctMap[acctKey(g, r)] ?? 0" :options="acctSelectOptions(g, r)" placeholder="Account…" @update:modelValue="v => acctMap[acctKey(g, r)] = v" />
               </label>
             </div>
           </div>
@@ -3913,12 +3911,9 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Voucher lines <small style="color:var(--text-mute)">— debit total must equal credit total</small></label>
           <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px">
             <div v-for="(l, i) in jForm.lines" :key="i" style="display:flex;gap:8px;align-items:center">
-              <select v-model="l.account" @change="onJLineAccountChange(l)" style="flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
-                <option :value="0" disabled>Account…</option>
-                <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + TYPE_PLURAL[t]">
-                  <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
-                </optgroup>
-              </select>
+              <div style="flex:1;min-width:0">
+                <SearchableSelect :model-value="l.account || 0" :options="accountOptions" placeholder="Account… (search by code or name)" @update:modelValue="v => { l.account = v; onJLineAccountChange(l) }" />
+              </div>
               <select v-model="l.side" style="padding:9px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
                 <option value="debit">Dr</option><option value="credit">Cr</option>
               </select>
