@@ -153,10 +153,10 @@ const dashKpis = computed(() => {
   const k = dash.value.kpi || {}
   const rate = k.billed ? Math.round(k.collected / k.billed * 100) : 0
   return [
-    { label: 'Collected', ico: '💵', value: money(k.collected), trend: `${rate}% of billed` },
-    { label: 'Outstanding', ico: '⏳', value: money(k.outstanding), trend: `${k.unpaid_bills || 0} unpaid bills`, ok: !k.outstanding },
-    { label: 'Expenses', ico: '📉', value: money(dash.value.expense_total), trend: 'this month' },
-    { label: 'Spaces', ico: '🏪', value: `${dash.value.shops.active} / ${dash.value.shops.total}`, trend: `${dash.value.shops.total - dash.value.shops.active} inactive` },
+    { label: 'Collected', ico: '💵', value: money(k.collected), trend: `${rate}% ${t('of billed')}` },
+    { label: 'Outstanding', ico: '⏳', value: money(k.outstanding), trend: `${k.unpaid_bills || 0} ${t('unpaid bills')}`, ok: !k.outstanding },
+    { label: 'Expenses', ico: '📉', value: money(dash.value.expense_total), trend: t('this month') },
+    { label: 'Spaces', ico: '🏪', value: `${dash.value.shops.active} / ${dash.value.shops.total}`, trend: `${dash.value.shops.total - dash.value.shops.active} ${t('inactive')}` },
   ]
 })
 
@@ -492,7 +492,7 @@ async function delAsset(a) {
   const r = await apiCall('mall', { action: 'asset-del', id: a.id })
   if (r.ok) { window.__krToast?.('🗑️ Deleted', 'ok'); await loadAssets() }
 }
-const amcDays = (a) => a.days_left === null ? null : (a.days_left < 0 ? `expired ${Math.abs(a.days_left)}d ago` : `${a.days_left}d left`)
+const amcDays = (a) => a.days_left === null ? null : (a.days_left < 0 ? `${Math.abs(a.days_left)} ${t('d ago')}` : `${a.days_left} ${t('d left')}`)
 const amcBadge = (a) => a.days_left === null ? 'b-gray' : a.days_left <= 0 ? 'b-red' : a.days_left <= 30 ? 'b-orange' : 'b-green'
 
 /* ══════════ NOTICES (spec 3.9) ══════════ */
@@ -1579,7 +1579,7 @@ onBeforeUnmount(() => {
       <!-- 🚨 high-dues + disconnection-risk alerts (spec 3.9 + 3.11) -->
       <div v-if="alerts && (alerts.disconnect_risk.length || alerts.high_dues.length)" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
         <div v-if="alerts.disconnect_risk.length" style="border:1px solid var(--danger);background:rgba(235,87,87,.07);border-radius:14px;padding:13px 16px">
-          <div style="font-size:12.5px;font-weight:800;color:var(--danger);margin-bottom:8px">⛔ Disconnection risk — {{ alerts.disconnect_risk.length }} space(s) overdue {{ alerts.disconnect_months }}+ months</div>
+          <div style="font-size:12.5px;font-weight:800;color:var(--danger);margin-bottom:8px">{{ t('⛔ Disconnection risk') }} — {{ alerts.disconnect_risk.length }} {{ t('space(s)') }} {{ t('overdue') }} {{ alerts.disconnect_months }}+ {{ t('months') }}</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             <span v-for="s in alerts.disconnect_risk" :key="s.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
               <b>{{ s.no }}</b> <span style="color:var(--text-mute)">{{ s.months }}mo · ৳{{ Number(s.due).toLocaleString('en-IN') }}</span>
@@ -1588,7 +1588,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div v-if="alerts.high_dues.length" style="border:1px solid #F2994A;background:rgba(242,153,74,.08);border-radius:14px;padding:13px 16px">
-          <div style="font-size:12.5px;font-weight:800;color:#B96B1B;margin-bottom:8px">🚨 High dues — {{ alerts.high_dues.length }} space(s) overdue {{ alerts.high_months }}+ months</div>
+          <div style="font-size:12.5px;font-weight:800;color:#B96B1B;margin-bottom:8px">{{ t('🚨 High dues') }} — {{ alerts.high_dues.length }} {{ t('space(s)') }} {{ t('overdue') }} {{ alerts.high_months }}+ {{ t('months') }}</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             <span v-for="s in alerts.high_dues" :key="s.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
               <b>{{ s.no }}</b> <span style="color:var(--text-mute)">{{ s.months }}mo · ৳{{ Number(s.due).toLocaleString('en-IN') }}</span>
@@ -1601,31 +1601,31 @@ onBeforeUnmount(() => {
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             <span v-for="a in alerts.amc_due" :key="a.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
               <b>{{ a.name }}</b>
-              <span :style="a.days_left < 0 ? 'color:var(--danger);font-weight:700' : 'color:var(--text-mute)'">{{ a.days_left < 0 ? 'expired ' + Math.abs(a.days_left) + 'd ago' : a.days_left + 'd left' }} · {{ a.contract_until }}</span>
+              <span :style="a.days_left < 0 ? 'color:var(--danger);font-weight:700' : 'color:var(--text-mute)'">{{ a.days_left < 0 ? t('expired') + ' ' + Math.abs(a.days_left) + t('d ago') : a.days_left + t('d left') }} · {{ a.contract_until }}</span>
             </span>
           </div>
         </div>
       </div>
       <div class="stats">
         <div v-for="k in dashKpis" :key="k.label" class="stat">
-          <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
+          <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ bnd(k.label) }}</div>
           <div class="s-value" :style="k.ok !== undefined ? (k.ok ? 'color:var(--ok)' : 'color:var(--danger)') : ''">{{ k.value }}</div>
           <div class="s-trend">{{ k.trend }}</div>
         </div>
       </div>
       <div v-if="balances" class="stats" style="margin-top:0">
         <div v-for="(b, m) in balances" :key="m" v-show="m !== 'total'" class="stat">
-          <div class="s-label"><span class="s-ico">{{ { cash: '💵', bank: '🏦', bkash: '📱', nagad: '📱' }[m] || '💰' }}</span>{{ b.label }}</div>
+          <div class="s-label"><span class="s-ico">{{ { cash: '💵', bank: '🏦', bkash: '📱', nagad: '📱' }[m] || '💰' }}</span>{{ bnd(b.label) }}</div>
           <div class="s-value" :style="b.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(b.balance) }}</div>
-          <div class="s-trend">in {{ money(b.in) }} · out {{ money(b.out) }}</div>
+          <div class="s-trend">{{ t('in') }} {{ money(b.in) }} · {{ t('out') }} {{ money(b.out) }}</div>
         </div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total balance</div><div class="s-value">{{ money(balances.total) }}</div><div class="s-trend">{{ t('across all methods (spec 3.7)') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>{{ t('Total balance') }}</div><div class="s-value">{{ money(balances.total) }}</div><div class="s-trend">{{ t('across all methods (spec 3.7)') }}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px" class="dash-grid">
         <div class="panel" style="padding:16px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <h3 style="font-size:14px">🚨 Top defaulters — {{ monthLabel(month) }}</h3>
-            <span v-if="dash" class="badge b-orange">{{ (dash.kpi || {}).unpaid_bills || 0 }} unpaid</span>
+            <h3 style="font-size:14px">{{ t('🚨 Top defaulters') }} — {{ monthLabel(month) }}</h3>
+            <span v-if="dash" class="badge b-orange">{{ (dash.kpi || {}).unpaid_bills || 0 }} {{ t('unpaid') }}</span>
           </div>
           <div class="tbl-wrap" v-if="dash && dash.defaulters.length" style="max-height:300px">
             <table class="kr">
@@ -1644,7 +1644,7 @@ onBeforeUnmount(() => {
         <div style="display:flex;flex-direction:column;gap:16px">
           <div class="panel" style="padding:16px;flex:1">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <h3 style="font-size:14px">📉 Expenses by category — {{ monthLabel(month) }}</h3>
+              <h3 style="font-size:14px">{{ t('📉 Expenses by category') }} — {{ monthLabel(month) }}</h3>
               <span v-if="dash && dash.budget && dash.budget.total" class="badge" :class="dash.budget.used <= dash.budget.total ? 'b-green' : 'b-red'" style="font-size:11px">budget {{ money(dash.budget.used) }} / {{ money(dash.budget.total) }}</span>
             </div>
             <div v-if="dash && dash.expense_cats.length" style="display:flex;flex-direction:column;gap:9px">
@@ -1683,14 +1683,14 @@ onBeforeUnmount(() => {
         </span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-bottom:16px">
-        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Billed (period)</div><div class="s-value">{{ analytics ? money(analytics.total_billed) : money(0) }}</div><div class="s-trend">{{ analyticsMonths }} months</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Collected</div><div class="s-value" style="color:var(--ok)">{{ analytics ? money(analytics.total_collected) : money(0) }}</div><div class="s-trend">{{ analytics ? analytics.collection_rate : 0 }}% collection rate</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🏦</span>Open balance</div><div class="s-value" style="color:var(--danger)">{{ analytics ? money(analytics.total_billed - analytics.total_collected) : money(0) }}</div><div class="s-trend">outstanding</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Billed (period)') }}</div><div class="s-value">{{ analytics ? money(analytics.total_billed) : money(0) }}</div><div class="s-trend">{{ analyticsMonths }} months</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>{{ t('Collected') }}</div><div class="s-value" style="color:var(--ok)">{{ analytics ? money(analytics.total_collected) : money(0) }}</div><div class="s-trend">{{ analytics ? analytics.collection_rate : 0 }}% collection rate</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏦</span>{{ t('Open balance') }}</div><div class="s-value" style="color:var(--danger)">{{ analytics ? money(analytics.total_billed - analytics.total_collected) : money(0) }}</div><div class="s-trend">{{ t('outstanding') }}</div></div>
       </div>
       <div class="panel" style="padding:16px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <b style="font-size:12.5px">Billed vs collected (per month)</b>
-          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#2F80ED;display:inline-block;margin-right:4px"></i>{{ t('Billed') }}<i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin:0 4px 0 10px"></i>Collected</span>
+          <b style="font-size:12.5px">{{ t('Billed vs collected (per month)') }}</b>
+          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#2F80ED;display:inline-block;margin-right:4px"></i>{{ t('Billed') }}<i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin:0 4px 0 10px"></i>{{ t('Collected') }}</span>
         </div>
         <div v-if="analytics" style="display:flex;align-items:flex-end;gap:6px;height:170px;border-bottom:1px solid var(--border);padding-top:6px">
           <div v-for="s in analytics.months" :key="s.month" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end">
@@ -1708,7 +1708,7 @@ onBeforeUnmount(() => {
               <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px"><span>{{ c.cat }}</span><b>{{ money(c.total) }}</b></div>
               <div style="height:7px;border-radius:99px;background:var(--bg-alt);overflow:hidden"><div style="height:100%;border-radius:99px;background:linear-gradient(90deg,#EB5757,#F2994A);width:{{ pctOf(c.total, analytics.expense_cats) }}%"></div></div>
             </div>
-            <div v-if="!(analytics?.expense_cats || []).length" style="color:var(--text-mute);font-size:12px">No expenses recorded yet.</div>
+            <div v-if="!(analytics?.expense_cats || []).length" style="color:var(--text-mute);font-size:12px">{{ t('No expenses recorded yet.') }}</div>
           </div>
         </div>
         <div class="panel" style="padding:16px">
@@ -1718,7 +1718,7 @@ onBeforeUnmount(() => {
               <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px"><span>{{ o.occupancy }}</span><b>{{ o.n }} space{{ o.n > 1 ? 's' : '' }}</b></div>
               <div style="height:7px;border-radius:99px;background:var(--bg-alt);overflow:hidden"><div style="height:100%;border-radius:99px;background:linear-gradient(90deg,#2F80ED,#9B51E0);width:{{ o.n / Math.max(maxOfN(analytics.occupancy), 1) * 100 }}%"></div></div>
             </div>
-            <div v-if="!(analytics?.occupancy || []).length" style="color:var(--text-mute);font-size:12px">No active spaces.</div>
+            <div v-if="!(analytics?.occupancy || []).length" style="color:var(--text-mute);font-size:12px">{{ t('No active spaces.') }}</div>
           </div>
         </div>
         <div class="panel" style="padding:16px">
@@ -1738,7 +1738,7 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'space'">
       <div class="stats">
         <div v-for="k in shopKpis" :key="k.label" class="stat">
-          <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
+          <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ bnd(k.label) }}</div>
           <div class="s-value" :style="k.ok !== undefined ? (k.ok ? 'color:var(--ok)' : 'color:var(--danger)') : ''">{{ k.value }}</div>
           <div class="s-trend">{{ k.trend || '' }}</div>
         </div>
@@ -1801,7 +1801,7 @@ onBeforeUnmount(() => {
             <b style="margin-left:auto;font-size:13.5px">{{ money(s.service_rate) }}</b>
           </div>
         </div>
-        <div v-if="!filteredShops.length" class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No spaces match the filters.</div>
+        <div v-if="!filteredShops.length" class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">{{ t('No spaces match the filters.') }}</div>
       </div>
       <p style="color:var(--text-mute);font-size:12px;margin-top:10px">💡 Rate/mo = flat service charge per space. Space owners collect their own rent — service charges &amp; utilities are billed here.</p>
     </template>
@@ -1810,10 +1810,10 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'bills'">
       <div class="stats">
         <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Billed') }}</div><div class="s-value">{{ money(billsTotals.billed) }}</div><div class="s-trend">{{ bills.length }} bills</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Collected</div><div class="s-value" style="color:var(--ok)">{{ money(billsTotals.collected) }}</div><div class="s-trend">{{ payments.length }} receipts</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Outstanding</div><div class="s-value" :style="Number(billsTotals.billed) - Number(billsTotals.collected) > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(Number(billsTotals.billed) - Number(billsTotals.collected)) }}</div><div class="s-trend">after collections</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>{{ t('Collected') }}</div><div class="s-value" style="color:var(--ok)">{{ money(billsTotals.collected) }}</div><div class="s-trend">{{ payments.length }} receipts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Outstanding') }}</div><div class="s-value" :style="Number(billsTotals.billed) - Number(billsTotals.collected) > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(Number(billsTotals.billed) - Number(billsTotals.collected)) }}</div><div class="s-trend">{{ t('after collections') }}</div></div>
         <div class="stat">
-          <div class="s-label"><span class="s-ico">💸</span>Late fees</div>
+          <div class="s-label"><span class="s-ico">💸</span>{{ t('Late fees') }}</div>
           <div class="s-value" :style="config.late_fees_enabled ? '' : 'color:var(--text-mute);font-size:16px'">{{ config.late_fees_enabled ? money(billsTotals.fines) : 'OFF' }}</div>
           <div class="s-trend">{{ config.late_fees_enabled ? `${config.late_fee_pct}% · ${config.late_fee_grace}d grace · min ৳${config.late_fee_min} · cap ${config.late_fee_max_pct}%` : 'disabled in ⚙️ Settings' }}</div>
         </div>
@@ -1874,7 +1874,7 @@ onBeforeUnmount(() => {
                 <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(p.amount) }}</td>
                 <td style="text-align:right;white-space:nowrap">
                   <button v-if="!p.voided && canManage" @click="requestVoid(p)" title="Request to void this receipt (admin approval — receipt lock)" style="padding:6px 9px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:11px">{{ t('🔒 Void') }}</button>
-                  <span v-if="p.voided" class="badge b-red" style="font-size:10px">voided</span>
+                  <span v-if="p.voided" class="badge b-red" style="font-size:10px">{{ t('voided') }}</span>
                 </td>
               </tr>
             </tbody>
@@ -1884,7 +1884,7 @@ onBeforeUnmount(() => {
       <!-- ═══ WAIVERS & VOIDS approval panel (spec 3.2 — receipt lock + two-level discount) ═══ -->
       <div v-if="showApprovals" class="panel" style="padding:16px;margin-top:16px">
         <h3 style="font-size:14px;margin-bottom:4px">🛡️ Waivers &amp; payment voids — approval trail</h3>
-        <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:10px">Collection staff / accountant <b>requests</b> — the admin (president / general secretary) <b>decides</b>. Only approved waivers/voids touch the ledger; everything is logged for the committee report.</p>
+        <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:10px">Collection staff / accountant <b>{{ t('requests') }}</b> — the admin (president / general secretary) <b>{{ t('decides') }}</b>. Only approved waivers/voids touch the ledger; everything is logged for the committee report.</p>
         <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">💸 Waiver requests</div>
         <div v-if="waivers.length" style="display:flex;flex-direction:column;gap:6px">
           <div v-for="w in waivers" :key="w.id" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;padding:9px 12px;border-radius:10px;background:var(--bg-alt)">
@@ -1899,7 +1899,7 @@ onBeforeUnmount(() => {
             </template>
           </div>
         </div>
-        <p v-else style="font-size:12px;color:var(--text-mute)">No waiver requests.</p>
+        <p v-else style="font-size:12px;color:var(--text-mute)">{{ t('No waiver requests.') }}</p>
         <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">🔒 Payment void requests</div>
         <div v-if="voids.length" style="display:flex;flex-direction:column;gap:6px">
           <div v-for="v in voids" :key="v.id" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;padding:9px 12px;border-radius:10px;background:var(--bg-alt)">
@@ -1913,19 +1913,19 @@ onBeforeUnmount(() => {
             </template>
           </div>
         </div>
-        <p v-else style="font-size:12px;color:var(--text-mute)">No void requests.</p>
+        <p v-else style="font-size:12px;color:var(--text-mute)">{{ t('No void requests.') }}</p>
       </div>
     </template>
 
     <!-- ═══════ CHART OF ACCOUNTS ═══════ -->
     <template v-if="tab === 'coa'">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
-        <div class="stat"><div class="s-label"><span class="s-ico">📒</span>Accounts</div><div class="s-value">{{ coaStats.total }}</div><div class="s-trend">chart of accounts</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Assets</div><div class="s-value" style="color:var(--ok)">{{ money(coaStats.assets) }}</div><div class="s-trend">{{ coaStats.byType.Asset || 0 }} accounts</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🏦</span>Liabilities</div><div class="s-value" style="color:var(--danger)">{{ money(coaStats.liab) }}</div><div class="s-trend">{{ coaStats.byType.Liability || 0 }} accounts</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>Income</div><div class="s-value">{{ money(coaStats.income) }}</div><div class="s-trend">{{ coaStats.byType.Income || 0 }} accounts</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Expenses</div><div class="s-value">{{ money(coaStats.exp) }}</div><div class="s-trend">{{ coaStats.byType.Expense || 0 }} accounts</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Equity</div><div class="s-value">{{ money(coaStats.equity) }}</div><div class="s-trend">{{ coaStats.byType.Equity || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📒</span>{{ t('Accounts') }}</div><div class="s-value">{{ coaStats.total }}</div><div class="s-trend">{{ t('chart of accounts') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>{{ t('Assets') }}</div><div class="s-value" style="color:var(--ok)">{{ money(coaStats.assets) }}</div><div class="s-trend">{{ coaStats.byType.Asset || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏦</span>{{ t('Liabilities') }}</div><div class="s-value" style="color:var(--danger)">{{ money(coaStats.liab) }}</div><div class="s-trend">{{ coaStats.byType.Liability || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>{{ t('Income') }}</div><div class="s-value">{{ money(coaStats.income) }}</div><div class="s-trend">{{ coaStats.byType.Income || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>{{ t('Expenses') }}</div><div class="s-value">{{ money(coaStats.exp) }}</div><div class="s-trend">{{ coaStats.byType.Expense || 0 }} accounts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Equity') }}</div><div class="s-value">{{ money(coaStats.equity) }}</div><div class="s-trend">{{ coaStats.byType.Equity || 0 }} accounts</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openAccountAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add account') }}</button>
@@ -1938,7 +1938,7 @@ onBeforeUnmount(() => {
           <button @click="printTable('Chart of Accounts — ' + (config.mall_name || 'Mall'), $refs.coaTbl)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
         </span>
       </div>
-      <p style="font-size:11.5px;color:var(--text-mute);margin:-6px 0 12px">Click any account row to open its <b>account ledger</b> — approved entries + sub-ledgers (🧾 = control account with subsidiary tracking: AR, utility payables, AP).</p>
+      <p style="font-size:11.5px;color:var(--text-mute);margin:-6px 0 12px">Click any account row to open its <b>{{ t('account ledger') }}</b> — approved entries + sub-ledgers (🧾 = control account with subsidiary tracking: AR, utility payables, AP).</p>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr" ref="coaTbl">
@@ -1955,7 +1955,7 @@ onBeforeUnmount(() => {
                   <td v-if="r.isGroup" style="font-weight:800">
                     <span style="display:inline-block;width:16px;color:var(--text-mute)">{{ collapsedGroups.has(r.a.code) ? '▸' : '▾' }}</span>
                     {{ r.a.name }}
-                    <span class="badge b-gray" style="font-size:9px;margin-left:4px">GROUP</span>
+                    <span class="badge b-gray" style="font-size:9px;margin-left:4px">{{ t('GROUP') }}</span>
                     <br /><small style="color:var(--text-mute);font-weight:400">{{ r.a.note || '' }}</small>
                   </td>
                   <td v-else>
@@ -1993,10 +1993,10 @@ onBeforeUnmount(() => {
     <!-- ═══════ JOURNAL (double-entry vouchers + approval) ═══════ -->
     <template v-if="tab === 'journal'">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
-        <div class="stat"><div class="s-label"><span class="s-ico">📖</span>Entries</div><div class="s-value">{{ journal ? journal.entries.length : 0 }}</div><div class="s-trend">journal lines</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Pending approval</div><div class="s-value" style="color:var(--danger)">{{ journal ? journal.counts.pending : 0 }}</div><div class="s-trend">awaiting review</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Total debit</div><div class="s-value" style="color:var(--danger)">{{ journal ? money(journal.total_debit) : money(0) }}</div><div class="s-trend">approved only</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total credit</div><div class="s-value" style="color:var(--ok)">{{ journal ? money(journal.total_credit) : money(0) }}</div><div class="s-trend">approved only</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📖</span>{{ t('Entries') }}</div><div class="s-value">{{ journal ? journal.entries.length : 0 }}</div><div class="s-trend">{{ t('journal lines') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Pending approval') }}</div><div class="s-value" style="color:var(--danger)">{{ journal ? journal.counts.pending : 0 }}</div><div class="s-trend">{{ t('awaiting review') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>{{ t('Total debit') }}</div><div class="s-value" style="color:var(--danger)">{{ journal ? money(journal.total_debit) : money(0) }}</div><div class="s-trend">{{ t('approved only') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>{{ t('Total credit') }}</div><div class="s-value" style="color:var(--ok)">{{ journal ? money(journal.total_credit) : money(0) }}</div><div class="s-trend">{{ t('approved only') }}</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ New voucher (double entry)') }}</button>
@@ -2013,7 +2013,7 @@ onBeforeUnmount(() => {
             style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ f }}<template v-if="f === 'Pending' && journal && journal.counts.pending"> ({{ journal.counts.pending }})</template></button>
         </div>
       </div>
-      <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ Every voucher is <b>double-entry</b> (debit total = credit total) and goes through <b>approval</b> — pending entries do not appear in the COA, trial balance or P&amp;L until approved. Smart-Ledger posts are auto-approved.</p>
+      <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ Every voucher is <b>{{ t('double-entry') }}</b> (debit total = credit total) and goes through <b>{{ t('approval') }}</b> — pending entries do not appear in the COA, trial balance or P&amp;L until approved. Smart-Ledger posts are auto-approved.</p>
       <div style="display:flex;flex-direction:column;gap:12px" ref="journalArea">
         <div v-for="v in journalVouchers" :key="v.ref" class="panel" style="padding:0;overflow:hidden">
           <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--bg-alt)">
@@ -2044,7 +2044,7 @@ onBeforeUnmount(() => {
                 <tr v-if="v.note" style="background:var(--bg-alt)"><td colspan="4" style="font-size:12px;color:var(--text-mute)">📝 {{ v.note }}</td></tr>
               </tbody>
               <tfoot v-if="v.lines.length > 1" style="border-top:2px solid var(--border)">
-                <tr><td colspan="2" style="font-weight:800">TOTAL</td>
+                <tr><td colspan="2" style="font-weight:800">{{ t('TOTAL') }}</td>
                   <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(v.dr) }}</td>
                   <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(v.cr) }}</td></tr>
               </tfoot>
@@ -2086,12 +2086,12 @@ onBeforeUnmount(() => {
                 </tr>
               </template>
               <tr v-if="trial" style="border-top:2px solid var(--border)">
-                <td colspan="4" style="font-weight:800">TOTAL</td>
+                <td colspan="4" style="font-weight:800">{{ t('TOTAL') }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(trial.reduce((s, a) => s + Number(a.debit), 0)) }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(trial.reduce((s, a) => s + Number(a.credit), 0)) }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(trial.reduce((s, a) => s + Number(a.balance), 0)) }}</td>
               </tr>
-              <tr v-if="trial && !trial.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:28px">No accounts.</td></tr>
+              <tr v-if="trial && !trial.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:28px">{{ t('No accounts.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2102,15 +2102,15 @@ onBeforeUnmount(() => {
     <!-- ═══════ P&L STATEMENT ═══════ -->
     <template v-if="tab === 'pnl'">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
-        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>Income</div><div class="s-value" style="color:var(--ok)">{{ pnl ? money(pnl.total_income) : money(0) }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>Expenses</div><div class="s-value" style="color:var(--danger)">{{ pnl ? money(pnl.total_expense) : money(0) }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Net result</div><div class="s-value" :style="(pnl ? pnl.net : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ pnl ? money(pnl.net) : money(0) }}</div><div class="s-trend">{{ (pnl ? pnl.net : 0) >= 0 ? 'surplus' : 'deficit' }} for the month</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📈</span>{{ t('Income') }}</div><div class="s-value" style="color:var(--ok)">{{ pnl ? money(pnl.total_income) : money(0) }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📉</span>{{ t('Expenses') }}</div><div class="s-value" style="color:var(--danger)">{{ pnl ? money(pnl.total_expense) : money(0) }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Net result') }}</div><div class="s-value" :style="(pnl ? pnl.net : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ pnl ? money(pnl.net) : money(0) }}</div><div class="s-trend">{{ (pnl ? pnl.net : 0) >= 0 ? 'surplus' : 'deficit' }} for the month</div></div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">
         <button @click="exportPnlCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
         <button @click="printTable('P&L Statement — ' + monthLabel(month) + ' — ' + (config.mall_name || 'Mall'), $refs.pnlArea)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
       </div>
-      <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ <b>Smart Ledger</b> — every collection, expense, salary, vendor payment, rent and bill now auto-posts to the Chart of Accounts. This statement is built from those journal entries for {{ monthLabel(month) }}.</p>
+      <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ <b>{{ t('Smart Ledger') }}</b> — every collection, expense, salary, vendor payment, rent and bill now auto-posts to the Chart of Accounts. This statement is built from those journal entries for {{ monthLabel(month) }}.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="pnl-grid" ref="pnlArea">
         <div class="panel" style="overflow:hidden">
           <h3 style="font-size:13px;font-weight:800;padding:12px 16px;background:rgba(39,174,96,.08);color:var(--ok);border-bottom:1px solid var(--border)">📈 INCOME</h3>
@@ -2122,11 +2122,11 @@ onBeforeUnmount(() => {
                   <td><b>{{ i.name }}</b></td>
                   <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(i.amount) }}</td>
                 </tr>
-                <tr v-if="!pnl || !pnl.income.length"><td colspan="2" style="text-align:center;color:var(--text-mute);padding:22px">No income entries for this month yet.</td></tr>
+                <tr v-if="!pnl || !pnl.income.length"><td colspan="2" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No income entries for this month yet.') }}</td></tr>
               </tbody>
             </table>
           </div>
-          <div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 16px;border-top:2px solid var(--border);color:var(--ok)"><span>TOTAL INCOME</span><span>{{ pnl ? money(pnl.total_income) : money(0) }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 16px;border-top:2px solid var(--border);color:var(--ok)"><span>{{ t('TOTAL INCOME') }}</span><span>{{ pnl ? money(pnl.total_income) : money(0) }}</span></div>
         </div>
         <div class="panel" style="overflow:hidden">
           <h3 style="font-size:13px;font-weight:800;padding:12px 16px;background:rgba(235,87,87,.08);color:var(--danger);border-bottom:1px solid var(--border)">📉 EXPENSES</h3>
@@ -2138,11 +2138,11 @@ onBeforeUnmount(() => {
                   <td><b>{{ e.name }}</b></td>
                   <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(e.amount) }}</td>
                 </tr>
-                <tr v-if="!pnl || !pnl.expense.length"><td colspan="2" style="text-align:center;color:var(--text-mute);padding:22px">No expense entries for this month yet.</td></tr>
+                <tr v-if="!pnl || !pnl.expense.length"><td colspan="2" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No expense entries for this month yet.') }}</td></tr>
               </tbody>
             </table>
           </div>
-          <div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 16px;border-top:2px solid var(--border);color:var(--danger)"><span>TOTAL EXPENSES</span><span>{{ pnl ? money(pnl.total_expense) : money(0) }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 16px;border-top:2px solid var(--border);color:var(--danger)"><span>{{ t('TOTAL EXPENSES') }}</span><span>{{ pnl ? money(pnl.total_expense) : money(0) }}</span></div>
         </div>
       </div>
     </template>
@@ -2163,8 +2163,8 @@ onBeforeUnmount(() => {
         <input type="date" v-model="plTo" @change="loadPartyLedger" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
       </div>
       <div v-if="partyLedger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-        <div class="stat"><div class="s-label"><span class="s-ico">👤</span>Party</div><div class="s-value" style="font-size:15px">{{ partyLedger.party.name }}</div><div class="s-trend">{{ partyLedger.label }}<template v-if="partyLedger.party.phone"> · {{ partyLedger.party.phone }}</template></div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📒</span>Transactions</div><div class="s-value">{{ partyLedger.count }}</div><div class="s-trend">ledger lines</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👤</span>{{ t('Party') }}</div><div class="s-value" style="font-size:15px">{{ partyLedger.party.name }}</div><div class="s-trend">{{ partyLedger.label }}<template v-if="partyLedger.party.phone"> · {{ partyLedger.party.phone }}</template></div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📒</span>{{ t('Transactions') }}</div><div class="s-value">{{ partyLedger.count }}</div><div class="s-trend">{{ t('ledger lines') }}</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Balance') }}</div><div class="s-value" :style="partyLedger.closing > 0 ? 'color:var(--danger)' : partyLedger.closing < 0 ? 'color:var(--ok)' : ''">{{ money(partyLedger.closing) }}</div><div class="s-trend">{{ partyLedger.closing > 0 ? 'receivable / paid (Dr)' : partyLedger.closing < 0 ? 'credit side (Cr)' : 'settled' }}</div></div>
       </div>
       <div v-if="partyLedger" class="panel" style="overflow:hidden">
@@ -2187,10 +2187,10 @@ onBeforeUnmount(() => {
                 <td style="text-align:right;font-weight:700;color:var(--ok)">{{ r.credit ? money(r.credit) : '' }}</td>
                 <td style="text-align:right;font-weight:800" :style="r.balance > 0 ? 'color:var(--danger)' : r.balance < 0 ? 'color:var(--ok)' : ''">{{ money(r.balance) }}</td>
               </tr>
-              <tr v-if="!partyLedger.rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:24px">No ledger transactions for this party.</td></tr>
+              <tr v-if="!partyLedger.rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:24px">{{ t('No ledger transactions for this party.') }}</td></tr>
             </tbody>
             <tfoot style="border-top:2px solid var(--border)">
-              <tr><td colspan="3" style="font-weight:800">CLOSING BALANCE</td>
+              <tr><td colspan="3" style="font-weight:800">{{ t('CLOSING BALANCE') }}</td>
                 <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(partyLedger.rows.reduce((s, r) => s + r.debit, 0)) }}</td>
                 <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(partyLedger.rows.reduce((s, r) => s + r.credit, 0)) }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(partyLedger.closing) }}</td></tr>
@@ -2205,9 +2205,9 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'statements'">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
-          <button v-for="t in [{id:'owner',ic:'🏢',label:'Owner'},{id:'tenant',ic:'🧑‍🤝‍🧑',label:'Tenant'},{id:'vendor',ic:'🧰',label:'Vendor'},{id:'staff',ic:'🧑‍💼',label:'Staff'}]" :key="t.id" @click="pickStType(t.id)"
-            :style="stType === t.id ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
-            style="border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">{{ t.ic }} {{ t.label }}</button>
+          <button v-for="t in [{id:'owner',ic:'🏢',label:'Owner'},{id:'tenant',ic:'🧑‍🤝‍🧑',label:'Tenant'},{id:'vendor',ic:'🧰',label:'Vendor'},{id:'staff',ic:'🧑‍💼',label:'Staff'}]" :key="t.id" @click="pickStType(stb.id)"
+            :style="stType === stb.id ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
+            style="border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">{{ t.ic }} {{ t(stb.label) }}</button>
         </div>
         <div style="min-width:240px;flex:1;max-width:360px">
           <SearchableSelect v-model="stId" :options="stOptions" :placeholder="'Select ' + stType + '…'" style="width:100%" @update:modelValue="loadStatement" />
@@ -2228,15 +2228,15 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:12px 16px">
-          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">🚩</span>Opening (before period)</div><div class="s-value">{{ money(stData.opening) }}</div><div class="s-trend">balance brought forward</div></div>
-          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">📒</span>Transactions</div><div class="s-value">{{ stData.count }}</div><div class="s-trend">in period</div></div>
-          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">⚖️</span>Closing</div><div class="s-value" :style="stData.closing < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(stData.closing) }}</div><div class="s-trend">{{ stData.closing < 0 ? 'credit side (Cr)' : 'debit side (Dr)' }}</div></div>
+          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">🚩</span>{{ t('Opening (before period)') }}</div><div class="s-value">{{ money(stData.opening) }}</div><div class="s-trend">{{ t('balance brought forward') }}</div></div>
+          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">📒</span>{{ t('Transactions') }}</div><div class="s-value">{{ stData.count }}</div><div class="s-trend">{{ t('in period') }}</div></div>
+          <div class="stat" style="margin:0"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Closing') }}</div><div class="s-value" :style="stData.closing < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(stData.closing) }}</div><div class="s-trend">{{ stData.closing < 0 ? 'credit side (Cr)' : 'debit side (Dr)' }}</div></div>
         </div>
         <div class="tbl-wrap" style="max-height:440px">
           <table class="kr" ref="stTbl">
             <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Particulars') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Debit') }}</th><th style="text-align:right">{{ t('Credit') }}</th><th style="text-align:right">{{ t('Balance') }}</th></tr></thead>
             <tbody>
-              <tr><td style="font-weight:800">—</td><td style="font-weight:800">OPENING BALANCE</td><td></td><td></td><td></td><td style="text-align:right;font-weight:800">{{ money(stData.opening) }}</td></tr>
+              <tr><td style="font-weight:800">—</td><td style="font-weight:800">{{ t('OPENING BALANCE') }}</td><td></td><td></td><td></td><td style="text-align:right;font-weight:800">{{ money(stData.opening) }}</td></tr>
               <tr v-for="(r, i) in stData.rows" :key="i">
                 <td style="font-size:12px">{{ r.date }}</td>
                 <td style="font-size:12.5px">{{ r.particulars }}</td>
@@ -2245,8 +2245,8 @@ onBeforeUnmount(() => {
                 <td style="text-align:right;font-weight:700;color:var(--ok)">{{ r.credit ? money(r.credit) : '' }}</td>
                 <td style="text-align:right;font-weight:800" :style="r.balance < 0 ? 'color:var(--danger)' : ''">{{ money(r.balance) }}</td>
               </tr>
-              <tr v-if="!stData.rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:20px">No transactions in this period.</td></tr>
-              <tr style="border-top:2px solid var(--border)"><td style="font-weight:800">—</td><td style="font-weight:800">CLOSING BALANCE</td><td></td><td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(stData.rows.reduce((s, r) => s + r.debit, 0)) }}</td><td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(stData.rows.reduce((s, r) => s + r.credit, 0)) }}</td><td style="text-align:right;font-weight:800">{{ money(stData.closing) }}</td></tr>
+              <tr v-if="!stData.rows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:20px">{{ t('No transactions in this period.') }}</td></tr>
+              <tr style="border-top:2px solid var(--border)"><td style="font-weight:800">—</td><td style="font-weight:800">{{ t('CLOSING BALANCE') }}</td><td></td><td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(stData.rows.reduce((s, r) => s + r.debit, 0)) }}</td><td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(stData.rows.reduce((s, r) => s + r.credit, 0)) }}</td><td style="text-align:right;font-weight:800">{{ money(stData.closing) }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2263,21 +2263,21 @@ onBeforeUnmount(() => {
         </span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-bottom:16px">
-        <div class="stat"><div class="s-label"><span class="s-ico">📥</span>Money in (period)</div><div class="s-value" style="color:var(--ok)">{{ cashflow ? money(cashflow.period_in) : money(0) }}</div><div class="s-trend">{{ cashflowMonths }} months</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📤</span>Money out</div><div class="s-value" style="color:var(--danger)">{{ cashflow ? money(cashflow.period_out) : money(0) }}</div><div class="s-trend">expenses + vendor payouts</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Net flow</div><div class="s-value" :style="(cashflow ? cashflow.period_in - cashflow.period_out : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ cashflow ? money(cashflow.period_in - cashflow.period_out) : money(0) }}</div><div class="s-trend">in − out</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📥</span>{{ t('Money in (period)') }}</div><div class="s-value" style="color:var(--ok)">{{ cashflow ? money(cashflow.period_in) : money(0) }}</div><div class="s-trend">{{ cashflowMonths }} months</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📤</span>{{ t('Money out') }}</div><div class="s-value" style="color:var(--danger)">{{ cashflow ? money(cashflow.period_out) : money(0) }}</div><div class="s-trend">expenses + vendor payouts</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Net flow') }}</div><div class="s-value" :style="(cashflow ? cashflow.period_in - cashflow.period_out : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ cashflow ? money(cashflow.period_in - cashflow.period_out) : money(0) }}</div><div class="s-trend">{{ t('in − out') }}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px">
         <div v-for="m in cashflow?.methods || []" :key="m.method" class="panel" style="padding:14px">
-          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">{{ METHOD_ICONS[m.method] || '💳' }}</span><b style="text-transform:capitalize">{{ m.method }}</b><span style="margin-left:auto;font-size:11px;color:var(--text-mute)">all-time</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">{{ METHOD_ICONS[m.method] || '💳' }}</span><b style="text-transform:capitalize">{{ m.method }}</b><span style="margin-left:auto;font-size:11px;color:var(--text-mute)">{{ t('all-time') }}</span></div>
           <div style="display:flex;justify-content:space-between;margin-top:9px;font-size:11.5px"><span style="color:var(--ok)">In {{ money(m.in) }}</span><span style="color:var(--danger)">Out {{ money(m.out) }}</span></div>
           <div style="font-size:15px;font-weight:800;margin-top:5px" :style="m.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">Balance {{ money(m.balance) }}</div>
         </div>
       </div>
       <div class="panel" style="padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <b style="font-size:12.5px">Monthly in vs out</b>
-          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin-right:4px"></i>In<i style="width:10px;height:10px;border-radius:3px;background:#EB5757;display:inline-block;margin:0 4px 0 10px"></i>Out</span>
+          <b style="font-size:12.5px">{{ t('Monthly in vs out') }}</b>
+          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin-right:4px"></i>In<i style="width:10px;height:10px;border-radius:3px;background:#EB5757;display:inline-block;margin:0 4px 0 10px"></i>{{ t('Out') }}</span>
         </div>
         <div v-if="cashflow" style="display:flex;align-items:flex-end;gap:6px;height:170px;border-bottom:1px solid var(--border);padding-top:6px">
           <div v-for="s in cashflow.series" :key="s.month" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end">
@@ -2287,7 +2287,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div style="margin-top:14px">
-          <b style="font-size:12px;color:var(--text-mute)">Running balance by month</b>
+          <b style="font-size:12px;color:var(--text-mute)">{{ t('Running balance by month') }}</b>
           <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
             <div v-for="s in cashflow?.series || []" :key="s.month" style="display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px dashed var(--border)">
               <span>{{ s.month }}</span><b :style="s.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(s.balance) }}</b>
@@ -2302,7 +2302,7 @@ onBeforeUnmount(() => {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px" class="rc-grid">
         <div class="panel" style="padding:18px;overflow:hidden">
           <h3 style="font-size:14px;margin-bottom:4px">⚡ Utility income vs cost <small style="color:var(--text-mute);font-weight:400">(own-income model, spec 3.3)</small></h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Elec/water collections are the society's <b>own income</b>; the main DESCO/WASA bills are expenses in the same ledger — <b>not</b> a custodial pass-through fund. Profit/loss = collected − paid.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Elec/water collections are the society's <b>{{ t('own income') }}</b>; the main DESCO/WASA bills are expenses in the same ledger — <b>not</b> a custodial pass-through fund. Profit/loss = collected − paid.</p>
           <div v-if="bankRecon?.recon">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">{{ bankRecon.recon.month }}</div>
             <div v-for="r in [
@@ -2342,7 +2342,7 @@ onBeforeUnmount(() => {
       <!-- ═══════ BANK STATEMENT IMPORT & RECONCILIATION (spec 3.7) ═══════ -->
       <div class="panel" style="padding:18px;margin-top:16px">
         <h3 style="font-size:14px;margin-bottom:4px">📥 Bank statement import &amp; reconciliation</h3>
-        <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Upload your bank / mobile-banking statement CSV (any bank export — Date, Description, Debit, Credit, Balance). The system parses it, imports it and <b>auto-matches</b> each line against your books (amount + ±3-day window). Unmatched lines need a manual check — they are either missing entries or bank-only items.</p>
+        <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Upload your bank / mobile-banking statement CSV (any bank export — Date, Description, Debit, Credit, Balance). The system parses it, imports it and <b>{{ t('auto-matches') }}</b> each line against your books (amount + ±3-day window). Unmatched lines need a manual check — they are either missing entries or bank-only items.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <select v-model="stmtAcctId" @change="loadStmt" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
             <option :value="0" disabled>{{ t('Bank account…') }}</option>
@@ -2358,10 +2358,10 @@ onBeforeUnmount(() => {
         </div>
         <!-- import result summary -->
         <div v-if="stmtResult" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
-          <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Statement balance</div><div class="s-value">{{ money(stmtResult.statement_balance) }}</div><div class="s-trend">last line's balance</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">📒</span>System balance</div><div class="s-value">{{ money(stmtResult.system_balance) }}</div><div class="s-trend">books for this account</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Difference</div><div class="s-value" :style="stmtResult.difference === 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(stmtResult.difference) }}</div><div class="s-trend">{{ stmtResult.difference === 0 ? '✅ reconciled' : 'unreconciled — see unmatched below' }}</div></div>
-          <div class="stat"><div class="s-label"><span class="s-ico">🔍</span>Matched</div><div class="s-value" style="color:var(--ok)">{{ stmtResult.matched }}<small style="font-size:11px;color:var(--text-mute)"> / {{ stmtResult.imported }}</small></div><div class="s-trend">{{ stmtResult.unmatched }} unmatched lines</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Statement balance') }}</div><div class="s-value">{{ money(stmtResult.statement_balance) }}</div><div class="s-trend">{{ t("last line's balance") }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">📒</span>{{ t('System balance') }}</div><div class="s-value">{{ money(stmtResult.system_balance) }}</div><div class="s-trend">{{ t('books for this account') }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Difference') }}</div><div class="s-value" :style="stmtResult.difference === 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(stmtResult.difference) }}</div><div class="s-trend">{{ stmtResult.difference === 0 ? '✅ reconciled' : 'unreconciled — see unmatched below' }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🔍</span>{{ t('Matched') }}</div><div class="s-value" style="color:var(--ok)">{{ stmtResult.matched }}<small style="font-size:11px;color:var(--text-mute)"> / {{ stmtResult.imported }}</small></div><div class="s-trend">{{ stmtResult.unmatched }} unmatched lines</div></div>
         </div>
         <!-- imported statement -->
         <div v-if="stmtRows.length" style="margin-top:14px">
@@ -2391,7 +2391,7 @@ onBeforeUnmount(() => {
             <button v-for="batch in stmtBatches" :key="batch" @click="delStmtBatch(batch)" class="btn-ghost" style="font-size:11.5px">🗑️ Delete batch {{ batch }}</button>
           </div>
         </div>
-        <p v-else-if="stmtAcctId" style="font-size:12px;color:var(--text-mute);margin-top:12px">No statements imported for this account yet.</p>
+        <p v-else-if="stmtAcctId" style="font-size:12px;color:var(--text-mute);margin-top:12px">{{ t('No statements imported for this account yet.') }}</p>
       </div>
       <!-- ═══════ STATEMENT PREVIEW MODAL ═══════ -->
       <div v-if="stmtPreview" class="overlay" @click.self="stmtPreview = null">
@@ -2604,12 +2604,12 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'meters'">
       <div class="panel" style="padding:18px">
         <h3 style="font-size:14px;margin-bottom:6px">⚡ Sub-meter reading → auto bill</h3>
-        <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Elec/water collections are the society's <b>own income</b> — the main DESCO/WASA bills are expenses in the same ledger (spec 3.3).</p>
+        <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Elec/water collections are the society's <b>{{ t('own income') }}</b> — the main DESCO/WASA bills are expenses in the same ledger (spec 3.3).</p>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">{{ t('Space') }}
             <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" :placeholder="t('Select space…')" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
             <div v-if="meterBilled" style="margin-top:6px;font-size:11.5px;color:var(--text-mute);background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:7px 10px">
-              💡 <b>Already billed</b> this month: <b style="color:var(--primary)">{{ money(meterBilled.total) }}</b>
+              💡 <b>{{ t('Already billed') }}</b> this month: <b style="color:var(--primary)">{{ money(meterBilled.total) }}</b>
               <template v-if="meterBilled.service"> · 🧾 {{ money(meterBilled.service) }}</template>
               <template v-if="meterBilled.elec"> · ⚡ {{ money(meterBilled.elec) }}</template>
               <template v-if="meterBilled.water"> · 💧 {{ money(meterBilled.water) }}</template>
@@ -2649,7 +2649,7 @@ onBeforeUnmount(() => {
                 <td><button v-if="r.photo" @click="meterPhotoView = r.photo" style="border:none;background:none;cursor:pointer;font-size:15px" title="View meter photo">📎</button><span v-else style="color:var(--text-mute);font-size:11px">—</span></td>
                 <td><span v-if="r.flag" class="badge b-red" style="font-size:10px" title="Reading is 200%+ above last month">⚠️ anomaly</span><span v-else style="color:var(--text-mute);font-size:11px">ok</span></td>
               </tr>
-              <tr v-if="!lastReadings.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:24px">No readings yet this month.</td></tr>
+              <tr v-if="!lastReadings.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:24px">{{ t('No readings yet this month.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2782,7 +2782,7 @@ onBeforeUnmount(() => {
           <div class="s-value" :style="st === 'Resolved' ? 'color:var(--ok)' : st === 'Open' ? 'color:var(--danger)' : ''">{{ n }}</div>
           <div class="s-trend">{{ st === 'Open' ? 'need attention' : st === 'In Progress' ? 'being handled' : 'closed' }}</div>
         </div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📋</span>Total logged</div><div class="s-value">{{ compCounts.Open + compCounts['In Progress'] + compCounts.Resolved }}</div><div class="s-trend">all time</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📋</span>{{ t('Total logged') }}</div><div class="s-value">{{ compCounts.Open + compCounts['In Progress'] + compCounts.Resolved }}</div><div class="s-trend">{{ t('all time') }}</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openCompAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Log complaint') }}</button>
@@ -2811,7 +2811,7 @@ onBeforeUnmount(() => {
                   </template>
                 </td>
               </tr>
-              <tr v-if="!complaints.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:28px">No complaints — log the first one with ＋ Log complaint.</td></tr>
+              <tr v-if="!complaints.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:28px">{{ t('No complaints — log the first one with ＋ Log complaint.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2826,7 +2826,7 @@ onBeforeUnmount(() => {
           <b style="font-size:13px">{{ amcReminders.length }} AMC contract{{ amcReminders.length > 1 ? 's' : '' }} expiring within 30 days</b>
           <div style="font-size:12px;color:var(--text-mute);margin-top:2px">{{ amcReminders.map(a => a.name + ' (' + a.contract_until + ')').join(' · ') }}</div>
         </div>
-        <span class="badge b-red">renew soon</span>
+        <span class="badge b-red">{{ t('renew soon') }}</span>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openAssetAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add asset') }}</button>
@@ -2862,7 +2862,7 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'notices'">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openNoticeAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('📢 Post notice') }}</button>
-        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Committee announcements for shop owners — pinned notices stay on top</span>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">{{ t('Committee announcements for shop owners — pinned notices stay on top') }}</span>
       </div>
       <div v-if="notices.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
         <div v-for="n in notices" :key="n.id" class="panel chip" style="padding:16px;border-left:3px solid" :style="n.pinned ? 'border-left-color:var(--primary)' : 'border-left-color:var(--border)'">
@@ -2871,7 +2871,7 @@ onBeforeUnmount(() => {
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <b style="font-size:14px">{{ n.title }}</b>
-                <span v-if="n.pinned" class="badge b-blue" style="font-size:10px">PINNED</span>
+                <span v-if="n.pinned" class="badge b-blue" style="font-size:10px">{{ t('PINNED') }}</span>
               </div>
               <div style="font-size:12.5px;color:var(--text);margin-top:6px;white-space:pre-wrap">{{ n.body || '—' }}</div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--text-mute);flex-wrap:wrap">
@@ -2887,7 +2887,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-      <div v-else class="panel" style="padding:30px;text-align:center;color:var(--text-mute)">No notices yet — post the first announcement with 📢 Post notice.</div>
+      <div v-else class="panel" style="padding:30px;text-align:center;color:var(--text-mute)">{{ t('No notices yet — post the first announcement with 📢 Post notice.') }}</div>
     </template>
 
     <!-- ═══════ AUDIT TRAIL ═══════ -->
@@ -2910,7 +2910,7 @@ onBeforeUnmount(() => {
                 <td style="color:var(--text-mute)">{{ r.entity }}</td>
                 <td style="color:var(--text-mute);max-width:340px;overflow:hidden;text-overflow:ellipsis">{{ r.details || '' }}</td>
               </tr>
-              <tr v-if="!auditRows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:28px">No activity recorded yet.</td></tr>
+              <tr v-if="!auditRows.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:28px">{{ t('No activity recorded yet.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2920,10 +2920,10 @@ onBeforeUnmount(() => {
     <!-- ═══════ STAFF & SALARIES ═══════ -->
     <template v-if="tab === 'staff'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🧑‍💼</span>Total staff</div><div class="s-value">{{ staff.length }}</div><div class="s-trend">{{ staffMeta.active }} active</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🟢</span>Active</div><div class="s-value" style="color:var(--ok)">{{ staffMeta.active }}</div><div class="s-trend">on payroll</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Monthly payroll</div><div class="s-value">{{ money(staffMeta.payroll_monthly) }}</div><div class="s-trend">active staff salaries</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Paid this month</div><div class="s-value">{{ salaryHistory.length }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧑‍💼</span>{{ t('Total staff') }}</div><div class="s-value">{{ staff.length }}</div><div class="s-trend">{{ staffMeta.active }} active</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🟢</span>{{ t('Active') }}</div><div class="s-value" style="color:var(--ok)">{{ staffMeta.active }}</div><div class="s-trend">{{ t('on payroll') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>{{ t('Monthly payroll') }}</div><div class="s-value">{{ money(staffMeta.payroll_monthly) }}</div><div class="s-trend">{{ t('active staff salaries') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>{{ t('Paid this month') }}</div><div class="s-value">{{ salaryHistory.length }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openStaffAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add staff') }}</button>
@@ -2953,7 +2953,7 @@ onBeforeUnmount(() => {
                   <button v-if="canManage" @click="delStaff(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
                 </td>
               </tr>
-              <tr v-if="!staff.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No staff yet — add security guards &amp; office staff.</td></tr>
+              <tr v-if="!staff.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">{{ t('No staff yet — add security guards &amp; office staff.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2975,7 +2975,7 @@ onBeforeUnmount(() => {
             <span style="margin-left:12px;font-size:11px;color:var(--text-mute)">{{ s.salaries_paid || 0 }}× paid</span>
           </div>
         </div>
-        <div v-if="!staff.length" class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">No staff yet.</div>
+        <div v-if="!staff.length" class="panel" style="padding:24px;text-align:center;color:var(--text-mute)">{{ t('No staff yet.') }}</div>
       </div>
       <div class="panel" style="padding:16px;margin-top:16px" v-if="salaryHistory.length">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -3003,7 +3003,7 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'users'">
       <div class="stats">
         <div v-for="k in userKpis" :key="k.label" class="stat">
-          <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ k.label }}</div>
+          <div class="s-label"><span class="s-ico">{{ k.ico }}</span>{{ bnd(k.label) }}</div>
           <div class="s-value">{{ k.value }}</div>
           <div class="s-trend">{{ k.trend || '' }}</div>
         </div>
@@ -3018,7 +3018,7 @@ onBeforeUnmount(() => {
             <thead><tr><th>{{ t('User') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Status') }}</th><th>{{ t('Last login') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="u in users" :key="u.id">
-                <td><b>{{ u.name }}</b><span v-if="u.self" class="badge b-blue" style="margin-left:6px;font-size:10px">you</span></td>
+                <td><b>{{ u.name }}</b><span v-if="u.self" class="badge b-blue" style="margin-left:6px;font-size:10px">{{ t('you') }}</span></td>
                 <td style="color:var(--text-mute)">{{ u.email }}</td>
                 <td><span class="badge" :class="{ superadmin: 'b-red', owner: 'b-green', manager: 'b-blue', accountant: 'b-orange', collector: 'b-gray' }[u.role] || 'b-gray'">{{ u.role }}</span></td>
                 <td><span class="badge" :class="u.active ? 'b-green' : 'b-red'">{{ u.active ? 'Active' : 'Disabled' }}</span></td>
@@ -3032,7 +3032,7 @@ onBeforeUnmount(() => {
                   <small v-else style="color:var(--text-mute)">—</small>
                 </td>
               </tr>
-              <tr v-if="!users.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:28px">No system users yet.</td></tr>
+              <tr v-if="!users.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:28px">{{ t('No system users yet.') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -3059,10 +3059,10 @@ onBeforeUnmount(() => {
     <!-- ═══════ COMMITTEE / SOMITY ═══════ -->
     <template v-if="tab === 'committee'">
       <div v-if="committee" class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🏛️</span>Committee members</div><div class="s-value">{{ committee.counts.members }}</div><div class="s-trend">{{ committee.counts.active }} active</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">👑</span>Office bearers</div><div class="s-value">{{ committee.members.filter(m => m.role !== 'Member' && m.active).length }}</div><div class="s-trend">chairman · secretary · treasurer</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Meetings</div><div class="s-value">{{ committee.counts.meetings }}</div><div class="s-trend">{{ committee.counts.agm }} AGM</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📜</span>Resolutions</div><div class="s-value">{{ committee.counts.resolutions }}</div><div class="s-trend">passed &amp; archived (spec 3.11)</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏛️</span>{{ t('Committee members') }}</div><div class="s-value">{{ committee.counts.members }}</div><div class="s-trend">{{ committee.counts.active }} active</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👑</span>{{ t('Office bearers') }}</div><div class="s-value">{{ committee.members.filter(m => m.role !== 'Member' && m.active).length }}</div><div class="s-trend">{{ t('chairman · secretary · treasurer') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📅</span>{{ t('Meetings') }}</div><div class="s-value">{{ committee.counts.meetings }}</div><div class="s-trend">{{ committee.counts.agm }} AGM</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📜</span>{{ t('Resolutions') }}</div><div class="s-value">{{ committee.counts.resolutions }}</div><div class="s-trend">{{ t('passed &amp; archived (spec 3.11)') }}</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openMemberAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add member') }}</button>
@@ -3078,7 +3078,7 @@ onBeforeUnmount(() => {
             <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</div>
             <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
               <span class="badge" :class="{ Chairman: 'b-red', 'Vice Chairman': 'b-orange', Secretary: 'b-blue', Treasurer: 'b-green', Member: 'b-gray' }[m.role] || 'b-gray'">{{ m.role }}</span>
-              <span v-if="!m.active" class="badge b-red" style="font-size:10px">inactive</span>
+              <span v-if="!m.active" class="badge b-red" style="font-size:10px">{{ t('inactive') }}</span>
             </div>
             <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ m.shop ? 'Space ' + m.shop : 'Independent' }}<span v-if="m.phone"> · {{ m.phone }}</span></div>
           </div>
@@ -3106,8 +3106,8 @@ onBeforeUnmount(() => {
                 <span style="flex:1"></span>
                 <button v-if="canManage" @click="delMeeting(m)" title="Delete meeting" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
               </div>
-              <div v-if="m.agenda" style="font-size:12px;color:var(--text-mute);margin-top:6px"><b>Agenda:</b> {{ m.agenda }}</div>
-              <div v-if="m.decisions" style="font-size:12px;margin-top:4px"><b>Decisions:</b> {{ m.decisions }}</div>
+              <div v-if="m.agenda" style="font-size:12px;color:var(--text-mute);margin-top:6px"><b>{{ t('Agenda:') }}</b> {{ m.agenda }}</div>
+              <div v-if="m.decisions" style="font-size:12px;margin-top:4px"><b>{{ t('Decisions:') }}</b> {{ m.decisions }}</div>
               <div v-if="m.minutes" style="font-size:12px;color:var(--text-mute);margin-top:4px;white-space:pre-wrap">{{ m.minutes }}</div>
               <div style="font-size:10.5px;color:var(--text-mute);margin-top:6px">recorded by {{ m.created_by }}</div>
             </div>
@@ -3141,10 +3141,10 @@ onBeforeUnmount(() => {
     <!-- ═══════ OWNERS / OWNERSHIP ═══════ -->
     <template v-if="tab === 'owners'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>Owners</div><div class="s-value">{{ ownerCounts.total || owners.length }}</div><div class="s-trend">persons + entities</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🏭</span>Companies / entities</div><div class="s-value">{{ ownerCounts.companies || 0 }}</div><div class="s-trend">company, bank, trust…</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🏪</span>Spaces owned</div><div class="s-value">{{ owners.reduce((s, o) => s + o.shops, 0) }}</div><div class="s-trend">one owner can own many</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>Multi-space owners</div><div class="s-value">{{ owners.filter(o => o.shops > 1).length }}</div><div class="s-trend">portfolio owners</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏢</span>{{ t('Owners') }}</div><div class="s-value">{{ ownerCounts.total || owners.length }}</div><div class="s-trend">persons + entities</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏭</span>{{ t('Companies / entities') }}</div><div class="s-value">{{ ownerCounts.companies || 0 }}</div><div class="s-trend">{{ t('company, bank, trust…') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🏪</span>{{ t('Spaces owned') }}</div><div class="s-value">{{ owners.reduce((s, o) => s + o.shops, 0) }}</div><div class="s-trend">{{ t('one owner can own many') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">👥</span>{{ t('Multi-space owners') }}</div><div class="s-value">{{ owners.filter(o => o.shops > 1).length }}</div><div class="s-trend">{{ t('portfolio owners') }}</div></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openOwnerAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add owner') }}</button>
@@ -3174,15 +3174,15 @@ onBeforeUnmount(() => {
     <!-- ═══════ RENT & TENANTS ═══════ -->
     <template v-if="tab === 'rent'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🧑‍🤝‍🧑</span>Tenants</div><div class="s-value">{{ tenants.length }}</div><div class="s-trend">occupants (KRTaker-style profile)</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📄</span>Rental agreements</div><div class="s-value">{{ agreements.length }}</div><div class="s-trend">{{ agreements.filter(a => a.rent_collection).length }} with rent collection</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Rent collected</div><div class="s-value" style="color:var(--ok)">{{ money(rentStats.collected) }}</div><div class="s-trend">optional service for owners</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Rent outstanding</div><div class="s-value" :style="rentStats.outstanding > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(rentStats.outstanding) }}</div><div class="s-trend">due months × rent</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧑‍🤝‍🧑</span>{{ t('Tenants') }}</div><div class="s-value">{{ tenants.length }}</div><div class="s-trend">{{ t('occupants (KRTaker-style profile)') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📄</span>{{ t('Rental agreements') }}</div><div class="s-value">{{ agreements.length }}</div><div class="s-trend">{{ agreements.filter(a => a.rent_collection).length }} with rent collection</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💵</span>{{ t('Rent collected') }}</div><div class="s-value" style="color:var(--ok)">{{ money(rentStats.collected) }}</div><div class="s-trend">{{ t('optional service for owners') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>{{ t('Rent outstanding') }}</div><div class="s-value" :style="rentStats.outstanding > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(rentStats.outstanding) }}</div><div class="s-trend">{{ t('due months × rent') }}</div></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openTenantAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add tenant') }}</button>
         <button v-if="canManage" @click="openAgrAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('📄 New agreement') }}</button>
-        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Rent collection is an <b>optional service</b> — owners may collect rent themselves; the committee can manage it on request.</span>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Rent collection is an <b>{{ t('optional service') }}</b> — owners may collect rent themselves; the committee can manage it on request.</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:16px" class="rt-grid">
         <div class="panel" style="padding:16px">
@@ -3201,7 +3201,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
-          <p v-else style="color:var(--text-mute);font-size:12.5px">No tenants yet.</p>
+          <p v-else style="color:var(--text-mute);font-size:12.5px">{{ t('No tenants yet.') }}</p>
         </div>
         <div class="panel" style="padding:16px">
           <h3 style="font-size:14px;margin-bottom:10px">📄 Rental agreements</h3>
@@ -3211,8 +3211,8 @@ onBeforeUnmount(() => {
                 <b style="font-size:13px">{{ a.shop }}</b>
                 <span class="badge" :class="{ Active: 'b-green', 'Exit-Requested': 'b-orange', Exited: 'b-gray', Expired: 'b-gray', Terminated: 'b-red' }[a.status] || 'b-gray'">{{ bnd(a.status) }}</span>
                 <span v-if="a.noc_no" class="badge b-blue" style="font-size:10px">📄 {{ a.noc_no }}</span>
-                <span v-if="a.rent_collection" class="badge b-blue" style="font-size:10px">committee collects rent</span>
-                <span v-else class="badge b-gray" style="font-size:10px">owner collects</span>
+                <span v-if="a.rent_collection" class="badge b-blue" style="font-size:10px">{{ t('committee collects rent') }}</span>
+                <span v-else class="badge b-gray" style="font-size:10px">{{ t('owner collects') }}</span>
                 <span style="flex:1"></span>
                 <span style="font-weight:800;font-size:13px">{{ money(a.rent) }}/mo</span>
               </div>
@@ -3230,7 +3230,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
-          <p v-else style="color:var(--text-mute);font-size:12.5px">No rental agreements — add one to track the occupant, rent &amp; term.</p>
+          <p v-else style="color:var(--text-mute);font-size:12.5px">{{ t('No rental agreements — add one to track the occupant, rent &amp; term.') }}</p>
         </div>
       </div>
     </template>
@@ -3238,10 +3238,10 @@ onBeforeUnmount(() => {
     <!-- ═══════ VENDORS ═══════ -->
     <template v-if="tab === 'vendors'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🧰</span>Vendors</div><div class="s-value">{{ vendors.length }}</div><div class="s-trend">profiles + ledgers</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>Total paid</div><div class="s-value" style="color:var(--danger)">{{ money(vendorsTotal) }}</div><div class="s-trend">payment tracking</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>Categories</div><div class="s-value">{{ new Set(vendors.map(v => v.category).filter(Boolean)).size }}</div><div class="s-trend">security, lift, AC…</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">📑</span>Payments</div><div class="s-value">{{ vendors.reduce((s, v) => s + v.payments, 0) }}</div><div class="s-trend">every payment tracked</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧰</span>{{ t('Vendors') }}</div><div class="s-value">{{ vendors.length }}</div><div class="s-trend">profiles + ledgers</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💸</span>{{ t('Total paid') }}</div><div class="s-value" style="color:var(--danger)">{{ money(vendorsTotal) }}</div><div class="s-trend">{{ t('payment tracking') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🔧</span>{{ t('Categories') }}</div><div class="s-value">{{ new Set(vendors.map(v => v.category).filter(Boolean)).size }}</div><div class="s-trend">{{ t('security, lift, AC…') }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">📑</span>{{ t('Payments') }}</div><div class="s-value">{{ vendors.reduce((s, v) => s + v.payments, 0) }}</div><div class="s-trend">{{ t('every payment tracked') }}</div></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="openVendorAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add vendor') }}</button>
@@ -3280,9 +3280,9 @@ onBeforeUnmount(() => {
             <div class="s-trend">{{ k.billed ? Math.round(k.collected / k.billed * 100) : 0 }}% collected</div>
           </div>
           <div class="stat">
-            <div class="s-label"><span class="s-ico">📉</span>Expenses</div>
+            <div class="s-label"><span class="s-ico">📉</span>{{ t('Expenses') }}</div>
             <div class="s-value" style="color:var(--danger);font-size:18px">{{ money(ledger.expenses) }}</div>
-            <div class="s-trend">all categories</div>
+            <div class="s-trend">{{ t('all categories') }}</div>
           </div>
         </div>
         <div class="panel" style="padding:16px">
@@ -3307,7 +3307,7 @@ onBeforeUnmount(() => {
                   <td style="text-align:right;font-weight:800" :style="(s.sc_billed - s.sc_paid) + (s.el_billed - s.el_paid) + (s.w_billed - s.w_paid) > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money((s.sc_billed - s.sc_paid) + (s.el_billed - s.el_paid) + (s.w_billed - s.w_paid)) }}</td>
                   <td><span class="badge" :class="(s.sc_billed - s.sc_paid) + (s.el_billed - s.el_paid) + (s.w_billed - s.w_paid) > 0 ? 'b-orange' : 'b-green'">{{ (s.sc_billed - s.sc_paid) + (s.el_billed - s.el_paid) + (s.w_billed - s.w_paid) > 0 ? 'Due' : 'Clear' }}</span></td>
                 </tr>
-                <tr v-if="!ledger.per_shop.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:24px">No shops yet.</td></tr>
+                <tr v-if="!ledger.per_shop.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:24px">{{ t('No shops yet.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -3319,7 +3319,7 @@ onBeforeUnmount(() => {
           <h3 style="font-size:14px">⚡💧 Custodial fund reconciliation — DESCO/WASA (spec 3.3)</h3>
           <span class="badge" :class="recon.current_balance >= 0 ? 'b-green' : 'b-orange'" style="font-size:12px">{{ monthLabel(recon.month) }}: {{ recon.current_balance >= 0 ? 'forward ' : 'shortfall ' }}{{ money(Math.abs(recon.current_balance)) }}</span>
         </div>
-        <p style="font-size:12px;color:var(--text-mute);margin-bottom:12px">Space collections for electricity &amp; water are <b>custodial</b> — collected from space owners, forwarded to the utility. Compare with the DESCO / WASA main bills paid.</p>
+        <p style="font-size:12px;color:var(--text-mute);margin-bottom:12px">Space collections for electricity &amp; water are <b>{{ t('custodial') }}</b> — collected from space owners, forwarded to the utility. Compare with the DESCO / WASA main bills paid.</p>
         <div class="tbl-wrap" style="max-height:300px">
           <table class="kr">
             <thead><tr><th></th><th style="text-align:right">{{ t('Elec collected') }}</th><th style="text-align:right">{{ t('Water collected') }}</th><th style="text-align:right">{{ t('DESCO bill paid') }}</th><th style="text-align:right">{{ t('WASA bill paid') }}</th><th style="text-align:right">{{ t('Balance') }}</th></tr></thead>
@@ -3333,7 +3333,7 @@ onBeforeUnmount(() => {
                 <td style="text-align:right;font-weight:800" :style="recon.current_balance >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(recon.current_balance) }}</td>
               </tr>
               <tr style="background:var(--bg-alt)">
-                <td><b>All time</b></td>
+                <td><b>{{ t('All time') }}</b></td>
                 <td style="text-align:right">{{ money(recon.all_time.elec_collected) }}</td>
                 <td style="text-align:right">{{ money(recon.all_time.water_collected) }}</td>
                 <td style="text-align:right">{{ money(recon.all_time.desco_paid) }}</td>
@@ -3344,7 +3344,7 @@ onBeforeUnmount(() => {
           </table>
         </div>
       </div>
-      <p v-else style="color:var(--text-mute)">Loading ledger…</p>
+      <p v-else style="color:var(--text-mute)">{{ t('Loading ledger…') }}</p>
     </template>
 
     <!-- ═══════ SETTINGS ═══════ -->
@@ -3418,7 +3418,7 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="settingsTab === 'billing'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">💳 Rent &amp; statements config</h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Defaults used when creating tenant agreements and printed statements.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">{{ t('Defaults used when creating tenant agreements and printed statements.') }}</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Advance months (default)') }}
               <input type="number" v-model.number="config.rent_advance_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
@@ -3477,7 +3477,7 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="settingsTab === 'fines'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">⚖️ Late fees &amp; fines (manual configuration)</h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Full control over the late-payment fine rules engine.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">{{ t('Full control over the late-payment fine rules engine.') }}</p>
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
             <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:9px;cursor:pointer">
               <span class="lf-switch" :class="{ on: !!config.late_fees_enabled }" @click="config.late_fees_enabled = config.late_fees_enabled ? 0 : 1; cfgDirty = true" style="width:40px;height:22px;border-radius:99px;background:config.late_fees_enabled ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;flex-shrink:0">
@@ -3504,7 +3504,7 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="settingsTab === 'sms'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">📱 SMS &amp; notifications (KRTaker engine)</h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Auto SMS receipt confirmation to shop owners &amp; tenants on every collection, plus reminders and alerts. <b>Log</b> provider just records messages (testing); <b>bulksmsbd</b> sends for real.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Auto SMS receipt confirmation to shop owners &amp; tenants on every collection, plus reminders and alerts. <b>{{ t('Log') }}</b> provider just records messages (testing); <b>{{ t('bulksmsbd') }}</b> sends for real.</p>
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
             <span class="lf-switch" :class="{ on: !!smsCfg.enabled }" @click="smsCfg.enabled = smsCfg.enabled ? 0 : 1" style="width:44px;height:24px;border-radius:99px;background:smsCfg.enabled ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;cursor:pointer;flex-shrink:0">
               <span style="position:absolute;top:2px;left:smsCfg.enabled ? '22px' : '2px';width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
@@ -3541,7 +3541,7 @@ onBeforeUnmount(() => {
             <button @click="sendTestSms" class="btn-ghost" style="font-size:12px">{{ t('📤 Send test') }}</button>
           </div>
           <div v-if="smsCfg.log && smsCfg.log.length" style="margin-top:14px">
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Recent SMS log</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ t('Recent SMS log') }}</div>
             <div style="display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto">
               <div v-for="l in smsCfg.log" :key="l.id" style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:6px 9px;border-radius:8px;background:var(--bg-alt)">
                 <span style="color:var(--text-mute)">{{ l.ts }} · {{ l.to_phone }}</span>
@@ -3607,7 +3607,7 @@ onBeforeUnmount(() => {
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Branding used on printed receipts — logo, template &amp; prefix. The sidebar keeps the product brand; the property name &amp; logo live on the document.</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
             <div>
-              <div style="font-size:12px;color:var(--text-mute);margin-bottom:6px">Logo (light background)</div>
+              <div style="font-size:12px;color:var(--text-mute);margin-bottom:6px">{{ t('Logo (light background)') }}</div>
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="width:56px;height:56px;border-radius:10px;border:1px dashed var(--border);background:var(--bg-alt);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
                   <img v-if="config.mall_logo" :src="config.mall_logo" alt="logo" style="max-width:100%;max-height:100%;object-fit:contain" />
@@ -3618,10 +3618,10 @@ onBeforeUnmount(() => {
                   <button v-if="config.mall_logo" @click="removeLogo('mall_logo')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">{{ t('🗑 Remove') }}</button>
                 </div>
               </div>
-              <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">White paper (minimal template), light areas</div>
+              <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">{{ t('White paper (minimal template), light areas') }}</div>
             </div>
             <div>
-              <div style="font-size:12px;color:var(--text-mute);margin-bottom:6px">Logo (dark background)</div>
+              <div style="font-size:12px;color:var(--text-mute);margin-bottom:6px">{{ t('Logo (dark background)') }}</div>
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="width:56px;height:56px;border-radius:10px;border:1px dashed var(--border);background:#1e3a5f;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
                   <img v-if="config.mall_logo_dark" :src="config.mall_logo_dark" alt="logo dark" style="max-width:100%;max-height:100%;object-fit:contain" />
@@ -3632,10 +3632,10 @@ onBeforeUnmount(() => {
                   <button v-if="config.mall_logo_dark" @click="removeLogo('mall_logo_dark')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">{{ t('🗑 Remove') }}</button>
                 </div>
               </div>
-              <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">Colored bands (classic/modern). Falls back to the normal logo.</div>
+              <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">{{ t('Colored bands (classic/modern). Falls back to the normal logo.') }}</div>
             </div>
           </div>
-          <div style="font-size:12px;color:var(--text-mute);margin:14px 0 6px">Receipt template</div>
+          <div style="font-size:12px;color:var(--text-mute);margin:14px 0 6px">{{ t('Receipt template') }}</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
             <button v-for="t in INVOICE_TEMPLATES" :key="t.key" @click="config.invoice_template = t.key; cfgDirty = true"
               :title="t.desc" style="padding:10px 8px;border-radius:10px;cursor:pointer;font-size:11.5px;font-weight:800;text-align:center;font-family:inherit"
@@ -3649,7 +3649,7 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="settingsTab === 'governance'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🔑 License &amp; plan</h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">The solution is sold as <b>one-off, yearly subscription/license, or user/monthly</b>. The <b>super admin</b> account is reserved for the vendor (Mall Manager by Deshik Lab) — the owning company, somity/committee or private owner manages day-to-day operations.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">The solution is sold as <b>{{ t('one-off, yearly subscription/license, or user/monthly') }}</b>. The <b>{{ t('super admin') }}</b> account is reserved for the vendor (Mall Manager by Deshik Lab) — the owning company, somity/committee or private owner manages day-to-day operations.</p>
           <div v-if="license" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Plan') }}
               <select v-model="license.plan" :disabled="!isSuperAdmin" @change="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
@@ -3706,7 +3706,7 @@ onBeforeUnmount(() => {
       </div>
       <div v-if="canManage && cfgDirty" style="margin-top:14px">
         <button @click="saveConfig" style="padding:11px 22px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save mall settings') }}</button>
-        <span style="margin-left:10px;font-size:12px;color:var(--text-mute)">Unsaved changes…</span>
+        <span style="margin-left:10px;font-size:12px;color:var(--text-mute)">{{ t('Unsaved changes…') }}</span>
       </div>
 
       <!-- 👤 Profile management (own tab) -->
@@ -3798,7 +3798,7 @@ onBeforeUnmount(() => {
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Reason *') }}
             <textarea v-model="waiverForm.reason" rows="2" :placeholder="t('e.g. shop closed 10 days for renovation — committee case #12')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">🛡️ Two-level approval — this request goes <b>Pending</b>; only the admin (president / general secretary) can approve it into the ledger. Every request is logged for the committee report.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">🛡️ Two-level approval — this request goes <b>{{ t('Pending') }}</b>; only the admin (president / general secretary) can approve it into the ledger. Every request is logged for the committee report.</p>
           <div style="display:flex;gap:10px;margin-top:14px">
             <button @click="requestWaiver" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('📨 Submit request') }}</button>
             <button @click="waiverModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
@@ -4253,7 +4253,7 @@ onBeforeUnmount(() => {
           </div>
           <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
             <input type="checkbox" v-model="agrForm.rent_collection" style="width:16px;height:16px" />
-            <span><b>Committee collects rent</b> <span style="color:var(--text-mute)">— optional service: the owner gets rent collected on their behalf</span></span>
+            <span><b>{{ t('Committee collects rent') }}</b> <span style="color:var(--text-mute)">— optional service: the owner gets rent collected on their behalf</span></span>
           </label>
           <div style="display:flex;gap:10px;margin-top:16px">
             <button @click="saveAgreement" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save agreement') }}</button>
@@ -4268,7 +4268,7 @@ onBeforeUnmount(() => {
       <div class="modal" style="max-width:440px">
         <div class="modal-h"><div class="t">💵 Collect rent — {{ rentModal.shop }}</div><button class="close" @click="rentModal = null">✕</button></div>
         <div class="modal-b">
-          <p style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px">Recording rent for <b>{{ rentModal.tenant_name }}</b> ({{ money(rentModal.rent) }}/mo). Receipt <b>RNT-…</b> auto-generated.</p>
+          <p style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px">Recording rent for <b>{{ rentModal.tenant_name }}</b> ({{ money(rentModal.rent) }}/mo). Receipt <b>{{ t('RNT-…') }}</b> auto-generated.</p>
           <label style="font-size:12px;color:var(--text-mute);display:block">{{ t('Month') }}
             <input type="month" v-model="rentForm.month" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
@@ -4357,7 +4357,7 @@ onBeforeUnmount(() => {
             <button @click="saveVendorPay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('✅ Record payment') }}</button>
           </div>
           <div v-if="vendorPayments.length" style="margin-top:16px">
-            <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Payment ledger</div>
+            <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ t('Payment ledger') }}</div>
             <div v-for="p in vendorPayments" :key="p.id" style="display:flex;align-items:center;gap:8px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
               <b>{{ money(p.amount) }}</b>
               <span class="badge b-gray" style="font-size:10px">{{ bnd(p.method) }}</span>
@@ -4385,9 +4385,9 @@ onBeforeUnmount(() => {
           <h2 style="font-size:19px;font-weight:800;letter-spacing:-.3px">{{ acctDrawer.account.name }}</h2>
           <div class="c-sub" style="margin-top:3px">{{ TYPE_ICONS[acctDrawer.account.type] }} {{ acctDrawer.account.type }}<template v-if="acctDrawer.account.code"> · {{ acctDrawer.account.code }}</template><template v-if="acctDrawer.account.opening"> · opening {{ money(acctDrawer.account.opening) }}</template></div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
-            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Entries</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ acctDrawer.entries.length }}</div></div>
-            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total debit</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--danger)">{{ money(acctDrawer.total_debit) }}</div></div>
-            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total credit</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(acctDrawer.total_credit) }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Entries') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ acctDrawer.entries.length }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Total debit') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--danger)">{{ money(acctDrawer.total_debit) }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Total credit') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(acctDrawer.total_credit) }}</div></div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Balance') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="acctDrawer.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(acctDrawer.balance) }}</div></div>
           </div>
           <!-- SUB-LEDGERS for control accounts -->
@@ -4413,7 +4413,7 @@ onBeforeUnmount(() => {
                   <td style="font-size:11.5px">{{ e.subsidiary || '—' }}</td>
                   <td style="font-size:11px;color:var(--text-mute);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="e.note">{{ e.note }}</td>
                 </tr>
-                <tr v-if="!acctDrawer.entries.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No approved entries for this account yet.</td></tr>
+                <tr v-if="!acctDrawer.entries.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No approved entries for this account yet.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -4514,7 +4514,7 @@ onBeforeUnmount(() => {
             <button @click="addJLine" style="align-self:flex-start;padding:7px 12px;border:1px dashed var(--border);background:none;border-radius:10px;color:var(--primary);font-size:12px;font-weight:800;cursor:pointer">{{ t('＋ Add line') }}</button>
           </div>
           <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
-            <span style="font-size:12px;color:var(--text-mute)">Balance:</span>
+            <span style="font-size:12px;color:var(--text-mute)">{{ t('Balance:') }}</span>
             <b style="font-size:13px;color:var(--danger)">Dr {{ money(jDrTotal) }}</b>
             <span style="color:var(--text-mute)">=</span>
             <b style="font-size:13px;color:var(--ok)">Cr {{ money(jCrTotal) }}</b>
@@ -4560,16 +4560,16 @@ onBeforeUnmount(() => {
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rate / month</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Rate / month') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(drawer.shop.service_rate) }}</div>
               <div class="c-sub" style="font-size:10px">{{ { fixed: 'Fixed', sqft: 'Per sqft', 'fixed+util': 'Fixed + utilities', 'sqft+util': 'Per sqft + utilities' }[drawer.shop.bill_model] || 'Fixed' }}<template v-if="drawer.shop.bill_model === 'sqft' || drawer.shop.bill_model === 'sqft+util'"> · {{ money(drawer.shop.rate_sqft) }}/sqft</template><template v-if="(drawer.shop.bill_model === 'fixed+util' || drawer.shop.bill_model === 'sqft+util') && drawer.shop.util_included"> · ⚡ util incl.</template></div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Opening balance</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Opening balance') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(drawer.shop.opening_balance) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Total paid') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(drawer.total_paid) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
@@ -4617,7 +4617,7 @@ onBeforeUnmount(() => {
                 <span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b>
               </div>
             </div>
-            <p v-else style="color:var(--text-mute);font-size:13px;padding:10px 0">No owner record — add one from 🏢 Owners and link it in the Space form.</p>
+            <p v-else style="color:var(--text-mute);font-size:13px;padding:10px 0">{{ t('No owner record — add one from 🏢 Owners and link it in the Space form.') }}</p>
           </div>
 
           <!-- RENT -->
@@ -4634,11 +4634,11 @@ onBeforeUnmount(() => {
                   <td><span class="badge" :class="a.rent_collection ? 'b-blue' : 'b-gray'" style="font-size:10px">{{ a.rent_collection ? 'committee collects' : 'owner collects' }}</span></td>
                   <td><span class="badge" :class="badge(a.status)">{{ bnd(a.status) }}</span></td>
                 </tr>
-                <tr v-if="!drawer.agreements.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No rental agreement for this space.</td></tr>
+                <tr v-if="!drawer.agreements.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No rental agreement for this space.') }}</td></tr>
               </tbody>
             </table>
             <div v-if="drawer.rent_payments.length" style="margin-top:12px">
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Rent collections</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ t('Rent collections') }}</div>
               <div v-for="p in drawer.rent_payments" :key="p.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
                 <b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ bnd(p.method) }}</span>
                 <span style="color:var(--text-mute);flex:1">{{ p.receipt }} · {{ p.month }}</span>
@@ -4660,11 +4660,11 @@ onBeforeUnmount(() => {
                   <td style="font-size:12px">{{ b.due_date }}</td>
                   <td><span class="badge" :class="badge(b.status)">{{ bnd(b.status) }}</span></td>
                 </tr>
-                <tr v-if="!drawer.bills.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No bills for this space yet.</td></tr>
+                <tr v-if="!drawer.bills.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No bills for this space yet.') }}</td></tr>
               </tbody>
             </table>
             <div v-if="drawer.payments.length" style="margin-top:12px">
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Collection history</div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ t('Collection history') }}</div>
               <table class="kr" style="width:100%">
                 <thead><tr><th>{{ t('Receipt') }}</th><th>{{ t('Month') }}</th><th>{{ t('Kind') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
                 <tbody>
@@ -4688,7 +4688,7 @@ onBeforeUnmount(() => {
                   <td style="text-align:right">{{ Number(r.units).toLocaleString('en-IN') }}</td>
                   <td style="text-align:right;font-weight:700">{{ money(r.billed) }}</td>
                 </tr>
-                <tr v-if="!drawer.readings.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No meter readings for this space.</td></tr>
+                <tr v-if="!drawer.readings.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No meter readings for this space.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -4705,7 +4705,7 @@ onBeforeUnmount(() => {
                   <td style="font-size:12px">{{ (c.created_at || '').slice(0, 10) }}</td>
                   <td><span class="badge" :class="badge(c.status)">{{ bnd(c.status) }}</span></td>
                 </tr>
-                <tr v-if="!drawer.complaints.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No complaints for this space.</td></tr>
+                <tr v-if="!drawer.complaints.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No complaints for this space.') }}</td></tr>
               </tbody>
             </table>
           </div>
@@ -4731,9 +4731,9 @@ onBeforeUnmount(() => {
             <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ vDrawer.vendor.name }}</h2>
             <div class="c-sub" style="margin-top:3px">🧰 Vendor · {{ vDrawer.vendor.category }}<span v-if="vDrawer.vendor.contact_person"> · {{ vDrawer.vendor.contact_person }}</span></div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--danger)">{{ money(vDrawer.total_paid) }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Payments</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ vDrawer.payments.length }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Ledger expenses</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(vDrawer.total_expenses) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Total paid') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--danger)">{{ money(vDrawer.total_paid) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Payments') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ vDrawer.payments.length }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Ledger expenses') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(vDrawer.total_expenses) }}</div></div>
             </div>
             <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
               <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'payments',label:'Payments',ico:'💸'},{id:'expenses',label:'Expenses',ico:'📉'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : t.id === 'payments' ? vDrawer.payments.length : vDrawer.expenses.length }})</span></button>
@@ -4744,13 +4744,13 @@ onBeforeUnmount(() => {
             <div v-else-if="eTab === 'payments'" class="drawer-tbl-wrap">
               <table class="kr" style="width:100%"><thead><tr><th>{{ t('Amount') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Note') }}</th><th>{{ t('Date') }}</th></tr></thead><tbody>
                 <tr v-for="p in vDrawer.payments" :key="p.id"><td style="font-weight:700">{{ money(p.amount) }}</td><td>{{ bnd(p.method) }}</td><td>{{ p.ref || '—' }}</td><td style="font-size:12px">{{ p.note }}</td><td style="font-size:12px;color:var(--text-mute)">{{ (p.ts || '').slice(0, 10) }}</td></tr>
-                <tr v-if="!vDrawer.payments.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No payments recorded.</td></tr>
+                <tr v-if="!vDrawer.payments.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No payments recorded.') }}</td></tr>
               </tbody></table>
             </div>
             <div v-else class="drawer-tbl-wrap">
               <table class="kr" style="width:100%"><thead><tr><th>{{ t('Date') }}</th><th>{{ t('Label') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead><tbody>
                 <tr v-for="e in vDrawer.expenses" :key="e.id"><td style="font-size:12px;color:var(--text-mute)">{{ (e.ts || '').slice(0, 10) }}</td><td style="font-size:12.5px">{{ e.label }}</td><td>{{ bnd(e.method) }}</td><td style="text-align:right;font-weight:700">{{ money(e.amount) }}</td></tr>
-                <tr v-if="!vDrawer.expenses.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">No ledger expenses linked to this vendor.</td></tr>
+                <tr v-if="!vDrawer.expenses.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No ledger expenses linked to this vendor.') }}</td></tr>
               </tbody></table>
             </div>
           </div>
@@ -4765,9 +4765,9 @@ onBeforeUnmount(() => {
             <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ sDrawer.staff.name }}</h2>
             <div class="c-sub" style="margin-top:3px">🧑‍💼 {{ sDrawer.staff.designation }} · joined {{ sDrawer.staff.join_date || '—' }}</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Salary / month</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sDrawer.staff.salary) }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(sDrawer.total_paid) }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Salaries</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ sDrawer.salaries.length }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Salary / month') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ money(sDrawer.staff.salary) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Total paid') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(sDrawer.total_paid) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Salaries') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ sDrawer.salaries.length }}</div></div>
             </div>
             <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
               <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'salaries',label:'Salaries',ico:'💰'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : sDrawer.salaries.length }})</span></button>
@@ -4778,7 +4778,7 @@ onBeforeUnmount(() => {
             <div v-else class="drawer-tbl-wrap">
               <table class="kr" style="width:100%"><thead><tr><th>{{ t('Month') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Method') }}</th><th>{{ t('Paid on') }}</th></tr></thead><tbody>
                 <tr v-for="x in sDrawer.salaries" :key="x.id"><td style="font-weight:700">{{ x.month }}</td><td style="font-weight:700">{{ money(x.amount) }}</td><td>{{ x.method }}</td><td style="font-size:12px;color:var(--text-mute)">{{ (x.ts || '').slice(0, 10) }}</td></tr>
-                <tr v-if="!sDrawer.salaries.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">No salary payments yet.</td></tr>
+                <tr v-if="!sDrawer.salaries.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No salary payments yet.') }}</td></tr>
               </tbody></table>
             </div>
           </div>
@@ -4793,8 +4793,8 @@ onBeforeUnmount(() => {
             <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ tDrawer.tenant.name }}</h2>
             <div class="c-sub" style="margin-top:3px">🧑‍🤝‍🧑 Tenant<template v-if="tDrawer.tenant.employer"> · {{ tDrawer.tenant.employer }}</template></div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Agreements</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ tDrawer.agreements.length }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Rent collected</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(tDrawer.rent_total) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Agreements') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ tDrawer.agreements.length }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Rent collected') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(tDrawer.rent_total) }}</div></div>
             </div>
             <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
               <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'agreements',label:'Agreements',ico:'📄'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : tDrawer.agreements.length }})</span></button>
@@ -4805,10 +4805,10 @@ onBeforeUnmount(() => {
             <div v-else class="drawer-tbl-wrap">
               <table class="kr" style="width:100%"><thead><tr><th>{{ t('Space') }}</th><th>{{ t('Rent/mo') }}</th><th>{{ t('Term') }}</th><th>{{ t('Advance') }}</th><th>{{ t('Status') }}</th></tr></thead><tbody>
                 <tr v-for="a in tDrawer.agreements" :key="a.id"><td style="font-weight:700">{{ a.shop }}</td><td style="font-weight:700">{{ money(a.rent) }}</td><td style="font-size:12px">{{ a.start_date }}<template v-if="a.end_date"> → {{ a.end_date }}</template></td><td>{{ a.advance_months }} mo</td><td><span class="badge" :class="badge(a.status)">{{ bnd(a.status) }}</span></td></tr>
-                <tr v-if="!tDrawer.agreements.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No agreements for this tenant.</td></tr>
+                <tr v-if="!tDrawer.agreements.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No agreements for this tenant.') }}</td></tr>
               </tbody></table>
               <div v-if="tDrawer.rent_payments.length" style="margin-top:12px">
-                <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Rent collections</div>
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ t('Rent collections') }}</div>
                 <div v-for="p in tDrawer.rent_payments" :key="p.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ bnd(p.method) }}</span><span style="color:var(--text-mute);flex:1">{{ p.receipt }} · {{ p.month }}<template v-if="p.shop"> · {{ p.shop }}</template></span></div>
               </div>
             </div>
@@ -4844,8 +4844,8 @@ onBeforeUnmount(() => {
             <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ oDrawer.owner.name }}</h2>
             <div class="c-sub" style="margin-top:3px">🏢 {{ oDrawer.owner.type }}<span v-if="oDrawer.owner.phone"> · {{ oDrawer.owner.phone }}</span></div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Spaces</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ oDrawer.shops.length }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(oDrawer.total_paid) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Spaces') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ oDrawer.shops.length }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Total paid') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(oDrawer.total_paid) }}</div></div>
               <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Due') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="oDrawer.total_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(oDrawer.total_due) }}</div></div>
             </div>
             <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
@@ -4857,7 +4857,7 @@ onBeforeUnmount(() => {
             <div v-else class="drawer-tbl-wrap">
               <table class="kr" style="width:100%"><thead><tr><th>{{ t('Space') }}</th><th>{{ t('Floor') }}</th><th>{{ t('Type') }}</th><th>{{ t('Occupancy') }}</th><th style="text-align:right">{{ t('Paid') }}</th><th style="text-align:right">{{ t('Due') }}</th></tr></thead><tbody>
                 <tr v-for="s in oDrawer.shops" :key="s.id"><td style="font-weight:700">{{ s.no }}</td><td>{{ s.floor }}</td><td>{{ s.space_type }}</td><td><span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px">{{ s.occupancy }}</span></td><td style="text-align:right">{{ money(s.paid) }}</td><td style="text-align:right;font-weight:800" :style="s.due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(s.due) }}</td></tr>
-                <tr v-if="!oDrawer.shops.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No spaces linked to this owner.</td></tr>
+                <tr v-if="!oDrawer.shops.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No spaces linked to this owner.') }}</td></tr>
               </tbody></table>
             </div>
           </div>
@@ -4875,7 +4875,7 @@ onBeforeUnmount(() => {
             <div v-if="(recData.brand.invoice_template || 'classic') === 'classic'" class="rc-head rc-classic">
               <img v-if="recLogo" :src="recLogo" alt="logo" style="max-height:52px;max-width:140px;object-fit:contain;margin:0 auto 8px" />
               <div class="rc-name">{{ recData.brand.mall_name || 'MALL MANAGEMENT' }}</div>
-              <div class="rc-sub">Money Receipt · Service Collection</div>
+              <div class="rc-sub">{{ t('Money Receipt · Service Collection') }}</div>
               <div v-if="recData.brand.mall_address" class="rc-meta">{{ recData.brand.mall_address }}</div>
               <div v-if="recData.brand.mall_phone || recData.brand.mall_email" class="rc-meta">☎ {{ recData.brand.mall_phone }}<span v-if="recData.brand.mall_email"> · ✉ {{ recData.brand.mall_email }}</span></div>
             </div>
@@ -4886,7 +4886,7 @@ onBeforeUnmount(() => {
                 <div v-if="!recLogo" class="rc-name" style="color:#fff">{{ recData.brand.mall_name || 'MALL MANAGEMENT' }}</div>
                 <div class="rc-band-sub">{{ recData.brand.mall_address }}<span v-if="recData.brand.mall_phone"> · ☎ {{ recData.brand.mall_phone }}</span><span v-if="recData.brand.mall_email"> · {{ recData.brand.mall_email }}</span></div>
               </div>
-              <div class="rc-title" style="color:#fff">MONEY<br />RECEIPT</div>
+              <div class="rc-title" style="color:#fff">{{ t('MONEY') }}<br />{{ t('RECEIPT') }}</div>
             </div>
             <!-- ═══ MINIMAL: monochrome — logo/name left, title right, hairline ═══ -->
             <div v-else class="rc-head rc-minimal">
@@ -4895,27 +4895,27 @@ onBeforeUnmount(() => {
                 <div class="rc-name">{{ recData.brand.mall_name || 'MALL MANAGEMENT' }}</div>
                 <div class="rc-meta">{{ recData.brand.mall_address }}<span v-if="recData.brand.mall_phone"> · ☎ {{ recData.brand.mall_phone }}</span><span v-if="recData.brand.mall_email"> · {{ recData.brand.mall_email }}</span></div>
               </div>
-              <div class="rc-title">MONEY RECEIPT</div>
+              <div class="rc-title">{{ t('MONEY RECEIPT') }}</div>
             </div>
             <table style="width:100%;font-size:13.5px;line-height:2">
               <tbody>
-                <tr><td style="color:var(--text-mute)">Receipt No</td><td style="text-align:right;font-weight:800">{{ recData.payment.receipt }}</td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Receipt No') }}</td><td style="text-align:right;font-weight:800">{{ recData.payment.receipt }}</td></tr>
                 <tr><td style="color:var(--text-mute)">{{ t('Date') }}</td><td style="text-align:right">{{ (recData.payment.created_at || '').slice(0, 16) }}</td></tr>
                 <tr><td style="color:var(--text-mute)">{{ t('Space') }}</td><td style="text-align:right;font-weight:800">{{ recData.bill.shop_no }} · {{ recData.bill.shop_floor }} floor</td></tr>
                 <tr><td style="color:var(--text-mute)">{{ t('Owner') }}</td><td style="text-align:right">{{ recData.bill.owner_name || '—' }}</td></tr>
                 <tr><td style="color:var(--text-mute)">{{ t('Month') }}</td><td style="text-align:right">{{ monthLabel(recData.bill.month) }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Charge</td><td style="text-align:right">{{ { service: 'Service charge', elec: 'Electricity (sub-meter)', water: 'Water (sub-meter)' }[recData.bill.kind] }}</td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Charge') }}</td><td style="text-align:right">{{ { service: 'Service charge', elec: 'Electricity (sub-meter)', water: 'Water (sub-meter)' }[recData.bill.kind] }}</td></tr>
                 <tr><td style="color:var(--text-mute)">{{ t('Amount') }}</td><td style="text-align:right;font-weight:800">{{ money(recData.bill.amount) }}</td></tr>
-                <tr v-if="recData.bill.fine"><td style="color:var(--text-mute)">Late fee</td><td style="text-align:right;color:var(--danger)">{{ money(recData.bill.fine) }}</td></tr>
+                <tr v-if="recData.bill.fine"><td style="color:var(--text-mute)">{{ t('Late fee') }}</td><td style="text-align:right;color:var(--danger)">{{ money(recData.bill.fine) }}</td></tr>
                 <tr><td style="color:var(--text-mute)">{{ t('Paid via') }}</td><td style="text-align:right">{{ recData.payment.method }} <span v-if="recData.pay_acct_name" style="font-weight:800">· {{ recData.pay_acct_name }}</span> <span v-if="recData.payment.ref" style="color:var(--text-mute)">({{ recData.payment.ref }})</span></td></tr>
-                <tr v-if="recData.brand.bank_name"><td style="color:var(--text-mute)">Bank</td><td style="text-align:right">{{ recData.brand.bank_name }}<span v-if="recData.brand.bank_account_no"> · A/C {{ recData.brand.bank_account_no }}</span></td></tr>
-                <tr v-if="recData.brand.bank_account_title"><td style="color:var(--text-mute)">A/C title</td><td style="text-align:right">{{ recData.brand.bank_account_title }}</td></tr>
+                <tr v-if="recData.brand.bank_name"><td style="color:var(--text-mute)">{{ t('Bank') }}</td><td style="text-align:right">{{ recData.brand.bank_name }}<span v-if="recData.brand.bank_account_no"> · A/C {{ recData.brand.bank_account_no }}</span></td></tr>
+                <tr v-if="recData.brand.bank_account_title"><td style="color:var(--text-mute)">{{ t('A/C title') }}</td><td style="text-align:right">{{ recData.brand.bank_account_title }}</td></tr>
               </tbody>
             </table>
             <div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-mute)">
-              <span>Prepared by: ________________<br /><small style="font-size:10.5px">{{ recData.user_name || '—' }} — {{ recData.brand.invoice_prefix || 'Bill' }} preparer</small></span>
-              <span>Secretary: ________________<span v-if="recData.brand.secretary"><br /><small style="font-size:10.5px">{{ recData.brand.secretary }} — General Secretary</small></span></span>
-              <span>President: ________________<span v-if="recData.brand.chairman"><br /><small style="font-size:10.5px">{{ recData.brand.chairman }} — Chairman</small></span></span>
+              <span>{{ t('Prepared by: ________________') }}<br /><small style="font-size:10.5px">{{ recData.user_name || '—' }} — {{ recData.brand.invoice_prefix || 'Bill' }} preparer</small></span>
+              <span>{{ t('Secretary: ________________') }}<span v-if="recData.brand.secretary"><br /><small style="font-size:10.5px">{{ recData.brand.secretary }} — General Secretary</small></span></span>
+              <span>{{ t('President: ________________') }}<span v-if="recData.brand.chairman"><br /><small style="font-size:10.5px">{{ recData.brand.chairman }} — Chairman</small></span></span>
             </div>
             <div v-if="recData.brand.receipt_note" style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-mute);text-align:center">{{ recData.brand.receipt_note }}</div>
           </div>
