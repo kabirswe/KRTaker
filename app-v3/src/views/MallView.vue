@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
-import { t } from '../lib/i18n'
+import { t, bnd } from '../lib/i18n'
 import { useRoute } from 'vue-router'
 import { apiCall } from '../api/client'
 import { money, monthLabel, badge } from '../lib/ui'
@@ -1588,7 +1588,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="tbl-wrap" v-if="dash && dash.defaulters.length" style="max-height:300px">
             <table class="kr">
-              <thead><tr><th>Space</th><th>Owner</th><th style="text-align:right">Due</th></tr></thead>
+              <thead><tr><th>{{ t('Space') }}</th><th>{{ t('Owner') }}</th><th style="text-align:right">{{ t('Due') }}</th></tr></thead>
               <tbody>
                 <tr v-for="d in dash.defaulters" :key="d.id">
                   <td><b>{{ d.no }}</b> <small style="color:var(--text-mute)">· {{ d.floor }}</small></td>
@@ -1623,7 +1623,7 @@ onBeforeUnmount(() => {
             <h3 style="font-size:14px;margin-bottom:10px">{{ t('🕘 Recent collections') }}</h3>
             <div v-if="payments.length" style="display:flex;flex-direction:column;gap:8px">
               <div v-for="p in payments.slice(0, 5)" :key="p.id" style="display:flex;justify-content:space-between;font-size:12.5px">
-                <span><b>{{ p.shop_no }}</b> · {{ p.method }} <small style="color:var(--text-mute)">({{ p.receipt }})</small></span>
+                <span><b>{{ p.shop_no }}</b> · {{ bnd(p.method) }} <small style="color:var(--text-mute)">({{ p.receipt }})</small></span>
                 <b style="color:var(--ok)">{{ money(p.amount) }}</b>
               </div>
             </div>
@@ -1649,7 +1649,7 @@ onBeforeUnmount(() => {
       <div class="panel" style="padding:16px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <b style="font-size:12.5px">Billed vs collected (per month)</b>
-          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#2F80ED;display:inline-block;margin-right:4px"></i>Billed<i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin:0 4px 0 10px"></i>Collected</span>
+          <span style="display:flex;gap:12px;font-size:11px;color:var(--text-mute)"><i style="width:10px;height:10px;border-radius:3px;background:#2F80ED;display:inline-block;margin-right:4px"></i>{{ t('Billed') }}<i style="width:10px;height:10px;border-radius:3px;background:#27AE60;display:inline-block;margin:0 4px 0 10px"></i>Collected</span>
         </div>
         <div v-if="analytics" style="display:flex;align-items:flex-end;gap:6px;height:170px;border-bottom:1px solid var(--border);padding-top:6px">
           <div v-for="s in analytics.months" :key="s.month" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end">
@@ -1703,21 +1703,21 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-          <button v-if="canManage" @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add Space</button>
-          <input v-model="shopQuery" placeholder="🔍 Search shop no / owner / mobile…" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:240px;font-family:inherit;font-size:13px;outline:none" />
+          <button v-if="canManage" @click="openAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add Space') }}</button>
+          <input v-model="shopQuery" :placeholder="t('🔍 Search shop no / owner / mobile…')" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:240px;font-family:inherit;font-size:13px;outline:none" />
         <select v-model="shopStatus" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-          <option value="">All statuses</option>
+          <option value="">{{ t('All statuses') }}</option>
           <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ v }}</option>
         </select>
         <span style="margin-left:auto;display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
-          <button @click="spaceView = 'table'" :style="spaceView === 'table' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">☰ List</button>
-          <button @click="spaceView = 'grid'" :style="spaceView === 'grid' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">⊞ Grid</button>
+          <button @click="spaceView = 'table'" :style="spaceView === 'table' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ t('☰ List') }}</button>
+          <button @click="spaceView = 'grid'" :style="spaceView === 'grid' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ t('⊞ Grid') }}</button>
         </span>
       </div>
       <div v-if="spaceView === 'table'" class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>Space</th><th>Floor</th><th>Sqft</th><th>Owner</th><th>Mobile</th><th>Type</th><th>Status</th><th style="text-align:right">Rate/mo</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Space') }}</th><th>{{ t('Floor') }}</th><th>{{ t('Sqft') }}</th><th>{{ t('Owner') }}</th><th>{{ t('Mobile') }}</th><th>{{ t('Type') }}</th><th>{{ t('Status') }}</th><th style="text-align:right">{{ t('Rate/mo') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="s in filteredShops" :key="s.id" style="cursor:pointer" @click="openSpaceDetail(s)">
                 <td><b>{{ s.no }}</b><br /><small style="color:var(--text-mute)">{{ s.id }}</small></td>
@@ -1726,7 +1726,7 @@ onBeforeUnmount(() => {
                 <td>{{ s.owner_name || '—' }}</td>
                 <td>{{ s.owner_mobile || '—' }}</td>
                 <td><span class="badge b-gray" style="font-size:10px">{{ s.space_type || 'Shop' }}</span><br /><span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px;margin-top:2px">{{ s.occupancy || 'Owner' }}</span></td>
-                <td><span class="badge" :class="badge(s.status)">{{ s.status }}</span></td>
+                <td><span class="badge" :class="badge(s.status)">{{ bnd(s.status) }}</span></td>
                 <td style="text-align:right;font-weight:800">{{ money(s.service_rate) }}</td>
                 <td style="text-align:right;white-space:nowrap" @click.stop>
                   <button @click="openSpaceDetail(s)" title="Details" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">👁</button>
@@ -1748,7 +1748,7 @@ onBeforeUnmount(() => {
               <div style="font-weight:800;font-size:14px">{{ s.no }}</div>
               <div style="font-size:11px;color:var(--text-mute)">{{ s.floor }} floor · {{ (s.sqft || 0).toLocaleString('en-IN') }} sqft</div>
             </div>
-            <span class="badge" :class="badge(s.status)">{{ s.status }}</span>
+            <span class="badge" :class="badge(s.status)">{{ bnd(s.status) }}</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
             <span class="badge b-gray" style="font-size:10px">{{ s.space_type || 'Shop' }}</span>
@@ -1756,7 +1756,7 @@ onBeforeUnmount(() => {
           </div>
           <div style="font-size:11.5px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👤 {{ s.owner_name || '—' }}<span v-if="s.owner_mobile"> · {{ s.owner_mobile }}</span></div>
           <div style="display:flex;align-items:center;margin-top:8px;border-top:1px dashed var(--border);padding-top:8px">
-            <span style="font-size:11px;color:var(--text-mute)">Rate/mo</span>
+            <span style="font-size:11px;color:var(--text-mute)">{{ t('Rate/mo') }}</span>
             <b style="margin-left:auto;font-size:13.5px">{{ money(s.service_rate) }}</b>
           </div>
         </div>
@@ -1768,7 +1768,7 @@ onBeforeUnmount(() => {
     <!-- ═══════ BILLS & COLLECTIONS ═══════ -->
     <template v-if="tab === 'bills'">
       <div class="stats">
-        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Billed</div><div class="s-value">{{ money(billsTotals.billed) }}</div><div class="s-trend">{{ bills.length }} bills</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>{{ t('Billed') }}</div><div class="s-value">{{ money(billsTotals.billed) }}</div><div class="s-trend">{{ bills.length }} bills</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">💵</span>Collected</div><div class="s-value" style="color:var(--ok)">{{ money(billsTotals.collected) }}</div><div class="s-trend">{{ payments.length }} receipts</div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Outstanding</div><div class="s-value" :style="Number(billsTotals.billed) - Number(billsTotals.collected) > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(Number(billsTotals.billed) - Number(billsTotals.collected)) }}</div><div class="s-trend">after collections</div></div>
         <div class="stat">
@@ -1778,39 +1778,39 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="generateBills" :disabled="billsBusy" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">⚙️ Generate service-charge bills</button>
-        <button v-if="canManage" @click="calcFines" :disabled="finesBusy || !config.late_fees_enabled" class="btn-ghost" :title="config.late_fees_enabled ? 'Apply late payment fines to overdue bills' : 'Late fees are disabled in ⚙️ Settings → Billing rules'">💸 Compute late fees</button>
-        <button v-if="canManage" @click="sendBlast('remind')" class="btn-ghost" title="Send a dues-reminder SMS to every space with unpaid bills (spec 3.9)">📲 Remind all defaulters</button>
-        <button v-if="canManage" @click="clearFines" class="btn-ghost" title="Remove all computed fines for this month">🧹 Clear fines</button>
-        <button @click="exportBills" class="btn-ghost" title="Download this month's bills as Excel-compatible CSV">⬇ CSV</button>
+        <button v-if="canManage" @click="generateBills" :disabled="billsBusy" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('⚙️ Generate service-charge bills') }}</button>
+        <button v-if="canManage" @click="calcFines" :disabled="finesBusy || !config.late_fees_enabled" class="btn-ghost" :title="config.late_fees_enabled ? 'Apply late payment fines to overdue bills' : 'Late fees are disabled in ⚙️ Settings → Billing rules'">{{ t('💸 Compute late fees') }}</button>
+        <button v-if="canManage" @click="sendBlast('remind')" class="btn-ghost" title="Send a dues-reminder SMS to every space with unpaid bills (spec 3.9)">{{ t('📲 Remind all defaulters') }}</button>
+        <button v-if="canManage" @click="clearFines" class="btn-ghost" title="Remove all computed fines for this month">{{ t('🧹 Clear fines') }}</button>
+        <button @click="exportBills" class="btn-ghost" title="Download this month's bills as Excel-compatible CSV">{{ t('⬇ CSV') }}</button>
         <button @click="loadApprovals(); showApprovals = !showApprovals" class="btn-ghost" style="font-size:12px">🛡️ Waivers &amp; voids <span v-if="pendingApprovals" class="badge b-red" style="font-size:10px">{{ pendingApprovals }}</span></button>
         <select v-model="billKind" @change="loadBills" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-          <option value="">All kinds</option>
+          <option value="">{{ t('All kinds') }}</option>
           <option v-for="(v, k) in { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }" :key="k" :value="k">{{ v }}</option>
         </select>
         <select v-model="billStatus" @change="loadBills" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-          <option value="">All statuses</option><option>Unpaid</option><option>Paid</option>
+          <option value="">{{ t('All statuses') }}</option><option>{{ t('Unpaid') }}</option><option>{{ t('Paid') }}</option>
         </select>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>#</th><th>Space</th><th>Floor</th><th>Kind</th><th style="text-align:right">Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('#') }}</th><th>{{ t('Space') }}</th><th>{{ t('Floor') }}</th><th>{{ t('Kind') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Due') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="b in bills" :key="b.id">
                 <td><small style="color:var(--text-mute)">{{ b.id }}</small></td>
                 <td><b>{{ b.shop_no || b.shop }}</b></td>
                 <td>{{ b.shop_floor || '—' }}</td>
-                <td>{{ { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }[b.kind] || b.kind }}</td>
+                <td>{{ bnd({ service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }[b.kind] || b.kind) }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(b.amount) }}<span v-if="b.fine" style="color:var(--danger);font-size:11px"> +{{ money(b.fine) }} fine</span></td>
-                <td style="font-size:12px;color:var(--text-mute)">{{ b.due_date }}<span v-if="isDisconnectRisk(b)" class="badge b-red" style="margin-left:6px" title="Overdue {{ billRiskMonths(b) }} months — disconnection risk (spec 3.11)">⛔ disconnect risk</span><span v-else-if="isOverdue(b)" class="badge b-red" style="margin-left:6px">overdue</span></td>
-                <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
+                <td style="font-size:12px;color:var(--text-mute)">{{ b.due_date }}<span v-if="isDisconnectRisk(b)" class="badge b-red" style="margin-left:6px" title="Overdue {{ billRiskMonths(b) }} months — disconnection risk (spec 3.11)">{{ t('⛔ disconnect risk') }}</span><span v-else-if="isOverdue(b)" class="badge b-red" style="margin-left:6px">{{ t('overdue') }}</span></td>
+                <td><span class="badge" :class="badge(b.status)">{{ bnd(b.status) }}</span></td>
                 <td style="text-align:right;white-space:nowrap">
                   <button v-if="b.status === 'Unpaid' && b.owner_mobile" @click="waRemind(b)" title="Send WhatsApp reminder to the shop owner" style="padding:6px 10px;border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">{{ t('📲 Remind') }}</button>
-                  <button v-if="b.status === 'Unpaid' && canCollect" @click="openPay(b)" style="padding:6px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer;margin-left:4px">💵 Collect</button>
-                  <button v-if="b.status === 'Unpaid' && canManage" @click="openWaiver(b)" title="Request a discount / waiver (two-level approval)" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">💸 Waiver</button>
-                  <button v-if="b.status === 'Paid'" @click="openReceipt(b)" title="View / print receipt" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">🖨️ Receipt</button>
-                  <button @click="printCombined(b)" title="Combined bill — all charges for this space & month in one print (spec 3.11)" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">📄 Combined</button>
+                  <button v-if="b.status === 'Unpaid' && canCollect" @click="openPay(b)" style="padding:6px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer;margin-left:4px">{{ t('💵 Collect') }}</button>
+                  <button v-if="b.status === 'Unpaid' && canManage" @click="openWaiver(b)" title="Request a discount / waiver (two-level approval)" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">{{ t('💸 Waiver') }}</button>
+                  <button v-if="b.status === 'Paid'" @click="openReceipt(b)" title="View / print receipt" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">{{ t('🖨️ Receipt') }}</button>
+                  <button @click="printCombined(b)" title="Combined bill — all charges for this space & month in one print (spec 3.11)" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">{{ t('📄 Combined') }}</button>
                 </td>
               </tr>
               <tr v-if="!bills.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No bills for {{ monthLabel(month) }} — press ⚙️ Generate to create monthly service-charge bills for all active spaces.</td></tr>
@@ -1822,17 +1822,17 @@ onBeforeUnmount(() => {
         <h3 style="font-size:14px;margin-bottom:10px">🕘 Collection history — {{ monthLabel(month) }}</h3>
         <div class="tbl-wrap" style="max-height:260px">
           <table class="kr">
-            <thead><tr><th>Receipt</th><th>Space</th><th>Kind</th><th>Method</th><th>Ref</th><th style="text-align:right">Amount</th></tr></thead>
+            <thead><tr><th>{{ t('Receipt') }}</th><th>{{ t('Space') }}</th><th>{{ t('Kind') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
             <tbody>
               <tr v-for="p in payments" :key="p.id">
                 <td><b>{{ p.receipt }}</b></td>
                 <td>{{ p.shop_no }} · {{ p.shop_floor }}</td>
                 <td>{{ { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }[p.kind] || p.kind }}</td>
-                <td><span class="badge b-blue">{{ p.method }}</span></td>
+                <td><span class="badge b-blue">{{ bnd(p.method) }}</span></td>
                 <td style="color:var(--text-mute)">{{ p.ref || '—' }}</td>
                 <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(p.amount) }}</td>
                 <td style="text-align:right;white-space:nowrap">
-                  <button v-if="!p.voided && canManage" @click="requestVoid(p)" title="Request to void this receipt (admin approval — receipt lock)" style="padding:6px 9px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:11px">🔒 Void</button>
+                  <button v-if="!p.voided && canManage" @click="requestVoid(p)" title="Request to void this receipt (admin approval — receipt lock)" style="padding:6px 9px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:11px">{{ t('🔒 Void') }}</button>
                   <span v-if="p.voided" class="badge b-red" style="font-size:10px">voided</span>
                 </td>
               </tr>
@@ -1851,10 +1851,10 @@ onBeforeUnmount(() => {
             <span style="font-weight:800;color:var(--danger)">৳{{ Number(w.amount).toLocaleString('en-IN') }}</span>
             <small style="color:var(--text-mute);flex:1;min-width:120px">{{ w.reason }}</small>
             <small style="color:var(--text-mute)">by {{ w.requested_by }}<template v-if="w.decided_by"> · {{ w.decided_by }}</template></small>
-            <span class="badge" :class="badge(w.status)" style="font-size:10px">{{ w.status }}</span>
+            <span class="badge" :class="badge(w.status)" style="font-size:10px">{{ bnd(w.status) }}</span>
             <template v-if="w.status === 'Pending' && canDecideApprovals">
-              <button @click="decideWaiver(w, 1)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve</button>
-              <button @click="decideWaiver(w, 0)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">⛔ Reject</button>
+              <button @click="decideWaiver(w, 1)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('✅ Approve') }}</button>
+              <button @click="decideWaiver(w, 0)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('⛔ Reject') }}</button>
             </template>
           </div>
         </div>
@@ -1865,10 +1865,10 @@ onBeforeUnmount(() => {
             <b>{{ v.receipt || v.payment_receipt }}</b> <span style="font-weight:800;color:var(--danger)">৳{{ Number(v.amount).toLocaleString('en-IN') }}</span>
             <small style="color:var(--text-mute);flex:1;min-width:120px">{{ v.reason }}</small>
             <small style="color:var(--text-mute)">by {{ v.requested_by }}<template v-if="v.decided_by"> · {{ v.decided_by }}</template></small>
-            <span class="badge" :class="badge(v.status)" style="font-size:10px">{{ v.status }}</span>
+            <span class="badge" :class="badge(v.status)" style="font-size:10px">{{ bnd(v.status) }}</span>
             <template v-if="v.status === 'Pending' && canDecideApprovals">
-              <button @click="decideVoid(v, 1)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve</button>
-              <button @click="decideVoid(v, 0)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">⛔ Reject</button>
+              <button @click="decideVoid(v, 1)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('✅ Approve') }}</button>
+              <button @click="decideVoid(v, 0)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('⛔ Reject') }}</button>
             </template>
           </div>
         </div>
@@ -1887,21 +1887,21 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Equity</div><div class="s-value">{{ money(coaStats.equity) }}</div><div class="s-trend">{{ coaStats.byType.Equity || 0 }} accounts</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openAccountAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add account</button>
-        <input v-model="acctQuery" placeholder="🔍 Search account / code / type…" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:220px;font-family:inherit;font-size:13px;outline:none" />
+        <button v-if="canManage" @click="openAccountAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add account') }}</button>
+        <input v-model="acctQuery" :placeholder="t('🔍 Search account / code / type…')" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:220px;font-family:inherit;font-size:13px;outline:none" />
         <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-mute);cursor:pointer">
           <input type="checkbox" v-model="acctActiveOnly" style="accent-color:var(--primary)" /> Active only
         </label>
         <span style="margin-left:auto;display:flex;gap:6px">
-          <button @click="exportAccountsCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-          <button @click="printTable('Chart of Accounts — ' + (config.mall_name || 'Mall'), $refs.coaTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+          <button @click="exportAccountsCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+          <button @click="printTable('Chart of Accounts — ' + (config.mall_name || 'Mall'), $refs.coaTbl)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
         </span>
       </div>
       <p style="font-size:11.5px;color:var(--text-mute);margin:-6px 0 12px">Click any account row to open its <b>account ledger</b> — approved entries + sub-ledgers (🧾 = control account with subsidiary tracking: AR, utility payables, AP).</p>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr" ref="coaTbl">
-            <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debits</th><th style="text-align:right">Credits</th><th style="text-align:right">Balance</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th style="text-align:right">{{ t('Opening') }}</th><th style="text-align:right">{{ t('Debits') }}</th><th style="text-align:right">{{ t('Credits') }}</th><th style="text-align:right">{{ t('Balance') }}</th><th></th></tr></thead>
             <tbody>
               <template v-for="t in ACCOUNT_TYPES" :key="t">
                 <tr v-if="coaRows.some(r => r.a.type === t)" style="background:var(--bg-alt)">
@@ -1958,13 +1958,13 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total credit</div><div class="s-value" style="color:var(--ok)">{{ journal ? money(journal.total_credit) : money(0) }}</div><div class="s-trend">approved only</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ New voucher (double entry)</button>
+        <button v-if="canManage" @click="openJournalAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ New voucher (double entry)') }}</button>
         <input type="date" v-model="jFrom" @change="loadJournal" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
         <span style="color:var(--text-mute);font-size:12px">→</span>
         <input type="date" v-model="jTo" @change="loadJournal" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" />
         <span style="display:flex;gap:6px;margin-left:auto">
-          <button @click="exportJournalCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-          <button @click="printTable('Journal — ' + (config.mall_name || 'Mall'), $refs.journalArea)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+          <button @click="exportJournalCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+          <button @click="printTable('Journal — ' + (config.mall_name || 'Mall'), $refs.journalArea)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
         </span>
         <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
           <button v-for="f in ['All', 'Pending', 'Approved', 'Rejected']" :key="f" @click="journalFilter = f"
@@ -1978,13 +1978,13 @@ onBeforeUnmount(() => {
           <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--bg-alt)">
             <b style="font-family:monospace;font-size:12.5px">{{ v.ref }}</b>
             <span style="font-size:12px;color:var(--text-mute)">{{ v.date }}</span>
-            <span class="badge" :class="jStatusBadge[v.status] || 'b-gray'" style="font-size:10px">{{ v.status }}</span>
+            <span class="badge" :class="jStatusBadge[v.status] || 'b-gray'" style="font-size:10px">{{ bnd(v.status) }}</span>
             <span v-if="v.voucher" @click="voucherView = v.voucher" title="View attached receipt / voucher" style="cursor:pointer;font-size:13px">📎</span>
             <span style="margin-left:auto;font-size:11.5px;color:var(--text-mute)">by {{ v.created_by }}<template v-if="v.approved_by"> · {{ v.status === 'Approved' ? '✅' : '⛔' }} {{ v.approved_by }} <small>{{ (v.approved_at || '').slice(0, 10) }}</small></template></span>
             <div style="display:flex;gap:6px">
               <template v-if="v.status === 'Pending'">
-                <button v-if="canManage && myName && myName !== v.created_by" @click="journalDecision(v.lines[0].id, true)" title="Approve" style="padding:5px 12px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve</button>
-                <button v-if="canManage && myName && myName !== v.created_by" @click="journalDecision(v.lines[0].id, false)" title="Reject" style="padding:5px 12px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">⛔ Reject</button>
+                <button v-if="canManage && myName && myName !== v.created_by" @click="journalDecision(v.lines[0].id, true)" title="Approve" style="padding:5px 12px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('✅ Approve') }}</button>
+                <button v-if="canManage && myName && myName !== v.created_by" @click="journalDecision(v.lines[0].id, false)" title="Reject" style="padding:5px 12px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('⛔ Reject') }}</button>
                 <span v-if="myName === v.created_by" style="font-size:11px;color:var(--text-mute)">🔒 awaiting review by another manager</span>
               </template>
               <button v-if="canManage && v.status !== 'Approved'" @click="delJournal(v.lines[0])" title="Delete" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px">🗑️</button>
@@ -1992,7 +1992,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="tbl-wrap" style="max-height:none">
             <table class="kr">
-              <thead><tr><th>Account</th><th>Type</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr></thead>
+              <thead><tr><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th style="text-align:right">{{ t('Debit') }}</th><th style="text-align:right">{{ t('Credit') }}</th></tr></thead>
               <tbody>
                 <tr v-for="e in v.lines" :key="e.id">
                   <td><b>{{ e.account_name || '—' }}</b> <span v-if="e.subsidiary" style="font-size:11px;color:var(--text-mute)">🧾 {{ e.subsidiary }}</span></td>
@@ -2022,13 +2022,13 @@ onBeforeUnmount(() => {
     <!-- ═══════ TRIAL BALANCE ═══════ -->
     <template v-if="tab === 'trial'">
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">
-        <button @click="exportTrialCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-        <button @click="printTable('Trial Balance — ' + (config.mall_name || 'Mall'), $refs.trialTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+        <button @click="exportTrialCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+        <button @click="printTable('Trial Balance — ' + (config.mall_name || 'Mall'), $refs.trialTbl)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr" ref="trialTbl">
-            <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+            <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th style="text-align:right">{{ t('Opening') }}</th><th style="text-align:right">{{ t('Debit') }}</th><th style="text-align:right">{{ t('Credit') }}</th><th style="text-align:right">{{ t('Balance') }}</th></tr></thead>
             <tbody>
               <template v-for="t in ACCOUNT_TYPES" :key="t">
                 <tr v-if="trial && trial.some(a => a.type === t)" style="background:var(--bg-alt)">
@@ -2066,8 +2066,8 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Net result</div><div class="s-value" :style="(pnl ? pnl.net : 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ pnl ? money(pnl.net) : money(0) }}</div><div class="s-trend">{{ (pnl ? pnl.net : 0) >= 0 ? 'surplus' : 'deficit' }} for the month</div></div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">
-        <button @click="exportPnlCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-        <button @click="printTable('P&L Statement — ' + monthLabel(month) + ' — ' + (config.mall_name || 'Mall'), $refs.pnlArea)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+        <button @click="exportPnlCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+        <button @click="printTable('P&L Statement — ' + monthLabel(month) + ' — ' + (config.mall_name || 'Mall'), $refs.pnlArea)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
       </div>
       <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">⚡ <b>Smart Ledger</b> — every collection, expense, salary, vendor payment, rent and bill now auto-posts to the Chart of Accounts. This statement is built from those journal entries for {{ monthLabel(month) }}.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="pnl-grid" ref="pnlArea">
@@ -2075,7 +2075,7 @@ onBeforeUnmount(() => {
           <h3 style="font-size:13px;font-weight:800;padding:12px 16px;background:rgba(39,174,96,.08);color:var(--ok);border-bottom:1px solid var(--border)">📈 INCOME</h3>
           <div class="tbl-wrap" style="max-height:340px">
             <table class="kr">
-              <thead><tr><th>Account</th><th style="text-align:right">Amount</th></tr></thead>
+              <thead><tr><th>{{ t('Account') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
               <tbody>
                 <tr v-for="i in (pnl ? pnl.income : [])" :key="i.code + i.name">
                   <td><b>{{ i.name }}</b></td>
@@ -2091,7 +2091,7 @@ onBeforeUnmount(() => {
           <h3 style="font-size:13px;font-weight:800;padding:12px 16px;background:rgba(235,87,87,.08);color:var(--danger);border-bottom:1px solid var(--border)">📉 EXPENSES</h3>
           <div class="tbl-wrap" style="max-height:340px">
             <table class="kr">
-              <thead><tr><th>Account</th><th style="text-align:right">Amount</th></tr></thead>
+              <thead><tr><th>{{ t('Account') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
               <tbody>
                 <tr v-for="e in (pnl ? pnl.expense : [])" :key="e.code + e.name">
                   <td><b>{{ e.name }}</b></td>
@@ -2124,19 +2124,19 @@ onBeforeUnmount(() => {
       <div v-if="partyLedger" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
         <div class="stat"><div class="s-label"><span class="s-ico">👤</span>Party</div><div class="s-value" style="font-size:15px">{{ partyLedger.party.name }}</div><div class="s-trend">{{ partyLedger.label }}<template v-if="partyLedger.party.phone"> · {{ partyLedger.party.phone }}</template></div></div>
         <div class="stat"><div class="s-label"><span class="s-ico">📒</span>Transactions</div><div class="s-value">{{ partyLedger.count }}</div><div class="s-trend">ledger lines</div></div>
-        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Balance</div><div class="s-value" :style="partyLedger.closing > 0 ? 'color:var(--danger)' : partyLedger.closing < 0 ? 'color:var(--ok)' : ''">{{ money(partyLedger.closing) }}</div><div class="s-trend">{{ partyLedger.closing > 0 ? 'receivable / paid (Dr)' : partyLedger.closing < 0 ? 'credit side (Cr)' : 'settled' }}</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>{{ t('Balance') }}</div><div class="s-value" :style="partyLedger.closing > 0 ? 'color:var(--danger)' : partyLedger.closing < 0 ? 'color:var(--ok)' : ''">{{ money(partyLedger.closing) }}</div><div class="s-trend">{{ partyLedger.closing > 0 ? 'receivable / paid (Dr)' : partyLedger.closing < 0 ? 'credit side (Cr)' : 'settled' }}</div></div>
       </div>
       <div v-if="partyLedger" class="panel" style="overflow:hidden">
         <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap">
           <h3 style="font-size:14px">{{ partyLedger.label }} ledger — {{ partyLedger.party.name }}</h3>
           <span style="margin-left:auto;display:flex;gap:6px">
-            <button @click="exportPartyCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-            <button @click="printTable(partyLedger.label + ' ledger — ' + partyLedger.party.name, $refs.partyTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+            <button @click="exportPartyCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+            <button @click="printTable(partyLedger.label + ' ledger — ' + partyLedger.party.name, $refs.partyTbl)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
           </span>
         </div>
         <div class="tbl-wrap" style="max-height:480px">
           <table class="kr" ref="partyTbl">
-            <thead><tr><th>Date</th><th>Particulars</th><th>Method</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+            <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Particulars') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Debit') }}</th><th style="text-align:right">{{ t('Credit') }}</th><th style="text-align:right">{{ t('Balance') }}</th></tr></thead>
             <tbody>
               <tr v-for="(r, i) in partyLedger.rows" :key="i">
                 <td style="font-size:12px">{{ r.date }}</td>
@@ -2182,8 +2182,8 @@ onBeforeUnmount(() => {
             <p style="font-size:11.5px;color:var(--text-mute);margin-top:2px">{{ config.mall_name || 'Mall Manager' }}{{ config.mall_address ? ' · ' + config.mall_address : '' }}<template v-if="stData.from"> · period {{ stData.from }} → {{ stData.to }}</template></p>
           </div>
           <span style="margin-left:auto;display:flex;gap:6px">
-            <button @click="exportStatementCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-            <button @click="printTable('Statement — ' + stData.party.name, $refs.stTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+            <button @click="exportStatementCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+            <button @click="printTable('Statement — ' + stData.party.name, $refs.stTbl)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
           </span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:12px 16px">
@@ -2193,7 +2193,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="tbl-wrap" style="max-height:440px">
           <table class="kr" ref="stTbl">
-            <thead><tr><th>Date</th><th>Particulars</th><th>Method</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+            <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Particulars') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Debit') }}</th><th style="text-align:right">{{ t('Credit') }}</th><th style="text-align:right">{{ t('Balance') }}</th></tr></thead>
             <tbody>
               <tr><td style="font-weight:800">—</td><td style="font-weight:800">OPENING BALANCE</td><td></td><td></td><td></td><td style="text-align:right;font-weight:800">{{ money(stData.opening) }}</td></tr>
               <tr v-for="(r, i) in stData.rows" :key="i">
@@ -2304,15 +2304,15 @@ onBeforeUnmount(() => {
         <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Upload your bank / mobile-banking statement CSV (any bank export — Date, Description, Debit, Credit, Balance). The system parses it, imports it and <b>auto-matches</b> each line against your books (amount + ±3-day window). Unmatched lines need a manual check — they are either missing entries or bank-only items.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <select v-model="stmtAcctId" @change="loadStmt" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-            <option :value="0" disabled>Bank account…</option>
+            <option :value="0" disabled>{{ t('Bank account…') }}</option>
             <option v-for="a in payAccounts.filter(x => x.method === 'bank')" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
           </select>
           <label style="padding:9px 14px;border-radius:10px;border:1px dashed var(--primary);color:var(--primary);font-size:12.5px;font-weight:800;cursor:pointer;background:rgba(47,128,237,.06)">
             📄 {{ stmtFileName || 'Choose CSV file…' }}
             <input type="file" accept=".csv,.txt" style="display:none" @change="onStmtFilePick" />
           </label>
-          <button @click="parseStmt" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🔍 Preview</button>
-          <button v-if="stmtBatches.length" @click="loadStmt" class="btn-ghost" style="font-size:12px">🔄 Refresh</button>
+          <button @click="parseStmt" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('🔍 Preview') }}</button>
+          <button v-if="stmtBatches.length" @click="loadStmt" class="btn-ghost" style="font-size:12px">{{ t('🔄 Refresh') }}</button>
           <span v-if="stmtResult" style="font-size:12px;color:var(--text-mute)">Last import: <b>{{ stmtResult.imported }}</b> lines · <b style="color:var(--ok)">{{ stmtResult.matched }}</b> matched · <b style="color:var(--danger)">{{ stmtResult.unmatched }}</b> unmatched</span>
         </div>
         <!-- import result summary -->
@@ -2327,13 +2327,13 @@ onBeforeUnmount(() => {
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px">Imported statements — {{ stmtTotals.matched }} ✅ matched · {{ stmtTotals.unmatched }} ⚠️ unmatched · in ৳{{ Number(stmtTotals.in).toLocaleString('en-IN') }} · out ৳{{ Number(stmtTotals.out).toLocaleString('en-IN') }}</div>
             <span style="margin-left:auto;display:flex;gap:6px">
-              <button @click="exportStmtCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-              <button @click="printStmt" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+              <button @click="exportStmtCsv" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+              <button @click="printStmt" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
             </span>
           </div>
           <div class="tbl-wrap" style="max-height:340px">
             <table class="kr">
-              <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th><th>Match</th></tr></thead>
+              <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Description') }}</th><th style="text-align:right">{{ t('Debit') }}</th><th style="text-align:right">{{ t('Credit') }}</th><th style="text-align:right">{{ t('Balance') }}</th><th>{{ t('Match') }}</th></tr></thead>
               <tbody>
                 <tr v-for="x in stmtRows" :key="x.id">
                   <td style="font-size:12px">{{ x.stmt_date }}</td>
@@ -2360,7 +2360,7 @@ onBeforeUnmount(() => {
             <p style="font-size:12px;color:var(--text-mute);margin-bottom:10px"><b>{{ stmtPreview.rows.length }}</b> rows detected · in ৳{{ Number(stmtPreview.total_in).toLocaleString('en-IN') }} · out ৳{{ Number(stmtPreview.total_out).toLocaleString('en-IN') }} — check the columns look right, then import.</p>
             <div class="tbl-wrap" style="max-height:300px">
               <table class="kr">
-                <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+                <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Description') }}</th><th style="text-align:right">{{ t('Debit') }}</th><th style="text-align:right">{{ t('Credit') }}</th><th style="text-align:right">{{ t('Balance') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="(r, i) in stmtPreview.rows.slice(0, 40)" :key="i">
                     <td style="font-size:12px">{{ r.date }}</td><td style="font-size:12px">{{ r.descr }}</td>
@@ -2374,7 +2374,7 @@ onBeforeUnmount(() => {
             <p v-if="stmtPreview.rows.length > 40" style="font-size:11.5px;color:var(--text-mute);margin-top:6px">…and {{ stmtPreview.rows.length - 40 }} more rows (imported in full).</p>
             <div style="display:flex;gap:10px;margin-top:14px">
               <button @click="importStmt" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Import &amp; auto-match</button>
-              <button @click="stmtPreview = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+              <button @click="stmtPreview = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
             </div>
           </div>
         </div>
@@ -2387,8 +2387,8 @@ onBeforeUnmount(() => {
         <h3 style="font-size:14px;margin-bottom:6px">⚡ Sub-meter reading → auto bill</h3>
         <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Elec/water collections are the society's <b>own income</b> — the main DESCO/WASA bills are expenses in the same ledger (spec 3.3).</p>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-          <label style="font-size:12px;color:var(--text-mute)">Space
-            <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" placeholder="Select space…" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Space') }}
+            <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" :placeholder="t('Select space…')" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
             <div v-if="meterBilled" style="margin-top:6px;font-size:11.5px;color:var(--text-mute);background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:7px 10px">
               💡 <b>Already billed</b> this month: <b style="color:var(--primary)">{{ money(meterBilled.total) }}</b>
               <template v-if="meterBilled.service"> · 🧾 {{ money(meterBilled.service) }}</template>
@@ -2397,15 +2397,15 @@ onBeforeUnmount(() => {
             </div>
             <div v-else-if="meterForm.shop" style="margin-top:6px;font-size:11.5px;color:var(--text-mute)">No bill for this space in {{ monthLabel(month) }} yet — the reading will create one.</div>
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Type
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
             <select v-model="meterForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="elec">⚡ Electricity</option><option value="water">💧 Water</option>
+              <option value="elec">{{ t('⚡ Electricity') }}</option><option value="water">{{ t('💧 Water') }}</option>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Month
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Month') }}
             <input type="month" v-model="meterForm.month" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Meter reading
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Meter reading') }}
             <input type="number" v-model.number="meterForm.reading" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">
@@ -2419,7 +2419,7 @@ onBeforeUnmount(() => {
         <h3 style="font-size:14px;margin-bottom:10px">📋 Readings — {{ monthLabel(meterForm.month || month) }}</h3>
         <div class="tbl-wrap" style="max-height:280px">
           <table class="kr">
-            <thead><tr><th>Space</th><th>Type</th><th style="text-align:right">Reading</th><th style="text-align:right">Units</th><th>Billed</th><th>Photo</th><th>Flag</th></tr></thead>
+            <thead><tr><th>{{ t('Space') }}</th><th>{{ t('Type') }}</th><th style="text-align:right">{{ t('Reading') }}</th><th style="text-align:right">{{ t('Units') }}</th><th>{{ t('Billed') }}</th><th>{{ t('Photo') }}</th><th>{{ t('Flag') }}</th></tr></thead>
             <tbody>
               <tr v-for="r in lastReadings" :key="r.id">
                 <td><b>{{ r.no || r.shop }}</b></td>
@@ -2440,7 +2440,7 @@ onBeforeUnmount(() => {
     <template v-if="meterPhotoView">
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.7);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px" @click="meterPhotoView = ''">
         <img :src="meterPhotoView" style="max-width:92vw;max-height:78vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)" />
-        <button style="padding:9px 18px;border:none;border-radius:10px;background:#fff;color:#111;font-weight:800;cursor:pointer">✕ Close</button>
+        <button style="padding:9px 18px;border:none;border-radius:10px;background:#fff;color:#111;font-weight:800;cursor:pointer">{{ t('✕ Close') }}</button>
       </div>
     </template>
 
@@ -2449,54 +2449,54 @@ onBeforeUnmount(() => {
       <div class="panel" style="padding:18px">
         <h3 style="font-size:14px;margin-bottom:14px">📉 Record an expense — {{ monthLabel(month) }}</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <label style="font-size:12px;color:var(--text-mute)">Category
-            <SearchableSelect v-model="expForm.category" :options="expCategories.map(c => ({ value: c, label: c }))" placeholder="— choose category —" style="margin-top:4px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Category') }}
+            <SearchableSelect v-model="expForm.category" :options="expCategories.map(c => ({ value: c, label: c }))" :placeholder="t('— choose category —')" style="margin-top:4px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Vendor / supplier
-            <SearchableSelect v-model="expForm.vendor" :options="vendors.map(v => ({ value: v.name, label: v.name + ' (' + v.category + ')' }))" placeholder="— choose vendor —" allow-add add-label="New vendor" @add="setAfterAdd(expForm, 'vendor', () => vendors.find(v => v.name === vendorForm.name?.trim())?.name); openVendorAdd()" style="margin-top:4px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Vendor / supplier') }}
+            <SearchableSelect v-model="expForm.vendor" :options="vendors.map(v => ({ value: v.name, label: v.name + ' (' + v.category + ')' }))" :placeholder="t('— choose vendor —')" allow-add add-label="New vendor" @add="setAfterAdd(expForm, 'vendor', () => vendors.find(v => v.name === vendorForm.name?.trim())?.name); openVendorAdd()" style="margin-top:4px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Amount (৳)
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Amount (৳)') }}
             <input type="number" v-model.number="expForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Paid via
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Paid via') }}
             <select v-model="expForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
                 <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
               </optgroup>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note (voucher / invoice)
-            <input v-model="expForm.note" placeholder="e.g. Monthly lift AMC — invoice #88412" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Note (voucher / invoice)') }}
+            <input v-model="expForm.note" :placeholder="t('e.g. Monthly lift AMC — invoice #88412')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span>📎 Voucher / invoice photo (optional)</span><span v-if="expForm.voucherName" style="color:var(--ok);font-size:11.5px">✅ {{ expForm.voucherName }}</span></div>
             <input type="file" accept="image/*" @change="onExpVoucherPick" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
           </label>
         </div>
-        <button @click="saveExpense" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Record expense</button>
+        <button @click="saveExpense" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Record expense') }}</button>
       </div>
       <div class="panel" style="padding:18px;margin-top:16px">
         <h3 style="font-size:14px;margin-bottom:4px">💰 Record other income — {{ monthLabel(month) }}</h3>
         <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Additional income heads like parking fee, community hall / common space rent, advertisement — auto-posts to the Chart of Accounts.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <label style="font-size:12px;color:var(--text-mute)">Income head
-            <SearchableSelect v-model="incForm.category" :options="incCategories.map(c => ({ value: c, label: c }))" placeholder="— choose income head —" style="margin-top:4px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Income head') }}
+            <SearchableSelect v-model="incForm.category" :options="incCategories.map(c => ({ value: c, label: c }))" :placeholder="t('— choose income head —')" style="margin-top:4px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Amount (৳)
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Amount (৳)') }}
             <input type="number" v-model.number="incForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Received via
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Received via') }}
             <select v-model="incForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
                 <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
               </optgroup>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Note
-            <input v-model="incForm.note" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Note') }}
+            <input v-model="incForm.note" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
         </div>
-        <button @click="saveIncome" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--ok,#27AE60);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Record income</button>
+        <button @click="saveIncome" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--ok,#27AE60);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Record income') }}</button>
       </div>
       <div class="panel" style="padding:16px;margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -2505,13 +2505,13 @@ onBeforeUnmount(() => {
         </div>
         <div class="tbl-wrap" style="max-height:200px">
           <table class="kr">
-            <thead><tr><th>Date</th><th>Head</th><th>Note</th><th>Method</th><th style="text-align:right">Amount</th></tr></thead>
+            <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Head') }}</th><th>{{ t('Note') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
             <tbody>
               <tr v-for="e in incomeList" :key="e.id">
                 <td style="font-size:12px;color:var(--text-mute)">{{ (e.date || '').slice(0, 10) }}</td>
-                <td><b>{{ e.category }}</b></td>
+                <td><b>{{ bnd(e.category) }}</b></td>
                 <td style="color:var(--text-mute)">{{ e.note || '—' }}</td>
-                <td><span class="badge b-blue">{{ e.method }}</span></td>
+                <td><span class="badge b-blue">{{ bnd(e.method) }}</span></td>
                 <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(e.amount) }}</td>
               </tr>
               <tr v-if="!incomeList.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:20px">No other income recorded for {{ monthLabel(month) }}.</td></tr>
@@ -2524,19 +2524,19 @@ onBeforeUnmount(() => {
           <h3 style="font-size:14px">🧾 Expense ledger — {{ monthLabel(month) }}</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <span class="badge b-red" style="font-size:12px">Total {{ money(expTotal) }}</span>
-            <button @click="exportExpenses" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+            <button @click="exportExpenses" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
           </div>
         </div>
         <div class="tbl-wrap" style="max-height:300px">
           <table class="kr">
-            <thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Note</th><th>Method</th><th style="text-align:right">Amount</th><th>Voucher</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Category') }}</th><th>{{ t('Vendor') }}</th><th>{{ t('Note') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Voucher') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="e in expenses" :key="e.id">
                 <td style="font-size:12px;color:var(--text-mute)">{{ (e.date || '').slice(0, 10) }}</td>
-                <td><b>{{ e.category }}</b></td>
+                <td><b>{{ bnd(e.category) }}</b></td>
                 <td>{{ e.vendor || '—' }}</td>
                 <td style="color:var(--text-mute)">{{ e.note || '—' }}</td>
-                <td><span class="badge b-blue">{{ e.method }}</span></td>
+                <td><span class="badge b-blue">{{ bnd(e.method) }}</span></td>
                 <td style="text-align:right;font-weight:800;color:var(--danger)">{{ money(e.amount) }}</td>
                 <td><button v-if="e.voucher" @click="expVoucherView = e.voucher" style="border:none;background:none;cursor:pointer;font-size:15px" title="View voucher">📎</button><span v-else style="color:var(--text-mute);font-size:11px">—</span></td>
                 <td style="text-align:right"><button v-if="canManage" @click="delExpense(e)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">🗑️</button></td>
@@ -2551,7 +2551,7 @@ onBeforeUnmount(() => {
     <template v-if="expVoucherView">
       <div style="position:fixed;inset:0;background:rgba(10,20,40,.7);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px" @click="expVoucherView = ''">
         <img :src="expVoucherView" style="max-width:92vw;max-height:78vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)" />
-        <button style="padding:9px 18px;border:none;border-radius:10px;background:#fff;color:#111;font-weight:800;cursor:pointer">✕ Close</button>
+        <button style="padding:9px 18px;border:none;border-radius:10px;background:#fff;color:#111;font-weight:800;cursor:pointer">{{ t('✕ Close') }}</button>
       </div>
     </template>
 
@@ -2566,16 +2566,16 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">📋</span>Total logged</div><div class="s-value">{{ compCounts.Open + compCounts['In Progress'] + compCounts.Resolved }}</div><div class="s-trend">all time</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openCompAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Log complaint</button>
+        <button v-if="canManage" @click="openCompAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Log complaint') }}</button>
         <select v-model="compStatus" @change="loadComplaints" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
-          <option value="">All statuses</option><option>Open</option><option>In Progress</option><option>Resolved</option>
+          <option value="">{{ t('All statuses') }}</option><option>{{ t('Open') }}</option><option>{{ t('In Progress') }}</option><option>{{ t('Resolved') }}</option>
         </select>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Space owners report issues (lift / AC / light…) — committee tracks Open → In Progress → Resolved</span>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>#</th><th>Space</th><th>Subject</th><th>Priority</th><th>Opened</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('#') }}</th><th>{{ t('Space') }}</th><th>{{ t('Subject') }}</th><th>{{ t('Priority') }}</th><th>{{ t('Opened') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="c in complaints" :key="c.id">
                 <td><small style="color:var(--text-mute)">{{ c.id }}</small></td>
@@ -2583,11 +2583,11 @@ onBeforeUnmount(() => {
                 <td>{{ c.subject }}<br /><small style="color:var(--text-mute)">{{ c.descr }}</small></td>
                 <td><span class="badge" :class="{ Low: 'b-gray', Normal: 'b-blue', High: 'b-orange', Urgent: 'b-red' }[c.priority] || 'b-gray'">{{ c.priority }}</span></td>
                 <td style="font-size:12px;color:var(--text-mute)">{{ (c.opened_at || '').slice(0, 10) }}</td>
-                <td><span class="badge" :class="badge(c.status)">{{ c.status }}</span></td>
+                <td><span class="badge" :class="badge(c.status)">{{ bnd(c.status) }}</span></td>
                 <td style="text-align:right;white-space:nowrap">
                   <template v-if="canManage">
-                    <button v-if="c.status === 'Open'" @click="setCompStatus(c, 'In Progress')" style="padding:5px 9px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">▶ Start</button>
-                    <button v-if="c.status !== 'Resolved'" @click="setCompStatus(c, 'Resolved')" style="padding:5px 9px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;margin-left:4px">✓ Resolve</button>
+                    <button v-if="c.status === 'Open'" @click="setCompStatus(c, 'In Progress')" style="padding:5px 9px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('▶ Start') }}</button>
+                    <button v-if="c.status !== 'Resolved'" @click="setCompStatus(c, 'Resolved')" style="padding:5px 9px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;margin-left:4px">{{ t('✓ Resolve') }}</button>
                     <button @click="delComplaint(c)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:11px;margin-left:4px">🗑️</button>
                   </template>
                 </td>
@@ -2610,13 +2610,13 @@ onBeforeUnmount(() => {
         <span class="badge b-red">renew soon</span>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openAssetAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add asset</button>
+        <button v-if="canManage" @click="openAssetAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add asset') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Lifts, escalators, generators, fire extinguishers — service contracts &amp; warranty with auto reminders</span>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>Asset</th><th>Type</th><th>Location</th><th>Vendor</th><th>Installed</th><th>Warranty until</th><th>AMC until</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Asset') }}</th><th>{{ t('Type') }}</th><th>{{ t('Location') }}</th><th>{{ t('Vendor') }}</th><th>{{ t('Installed') }}</th><th>{{ t('Warranty until') }}</th><th>{{ t('AMC until') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="a in assets" :key="a.id">
                 <td><b>{{ a.name }}</b></td>
@@ -2626,7 +2626,7 @@ onBeforeUnmount(() => {
                 <td style="font-size:12px;color:var(--text-mute)">{{ a.install_date || '—' }}</td>
                 <td style="font-size:12px;color:var(--text-mute)">{{ a.warranty_until || '—' }}</td>
                 <td style="font-size:12px">{{ a.contract_until || '—' }} <span v-if="amcDays(a)" class="badge" :class="amcBadge(a)" style="margin-left:4px">{{ amcDays(a) }}</span></td>
-                <td><span class="badge" :class="badge(a.status)">{{ a.status }}</span></td>
+                <td><span class="badge" :class="badge(a.status)">{{ bnd(a.status) }}</span></td>
                 <td style="text-align:right;white-space:nowrap">
                   <button v-if="canManage" @click="openAssetEdit(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
                   <button v-if="canManage" @click="delAsset(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
@@ -2642,7 +2642,7 @@ onBeforeUnmount(() => {
     <!-- ═══════ NOTICES ═══════ -->
     <template v-if="tab === 'notices'">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openNoticeAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">📢 Post notice</button>
+        <button v-if="canManage" @click="openNoticeAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('📢 Post notice') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Committee announcements for shop owners — pinned notices stay on top</span>
       </div>
       <div v-if="notices.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
@@ -2660,7 +2660,7 @@ onBeforeUnmount(() => {
                 <span style="flex:1"></span>
                 <template v-if="canManage">
                   <button @click="togglePin(n)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px">{{ n.pinned ? 'Unpin' : '📌 Pin' }}</button>
-                  <button @click="sendBlast('notice', (n.title + ' — ' + (n.body || '')).slice(0, 150))" style="border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px" title="SMS this notice to all owners & tenants (spec 3.9)">📲 SMS broadcast</button>
+                  <button @click="sendBlast('notice', (n.title + ' — ' + (n.body || '')).slice(0, 150))" style="border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px" title="SMS this notice to all owners & tenants (spec 3.9)">{{ t('📲 SMS broadcast') }}</button>
                   <button @click="delNotice(n)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11.5px">🗑️</button>
                 </template>
               </div>
@@ -2674,14 +2674,14 @@ onBeforeUnmount(() => {
     <!-- ═══════ AUDIT TRAIL ═══════ -->
     <template v-if="tab === 'audit'">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <input v-model="auditQ" placeholder="🔍 Search user / action / module…" @keyup.enter="loadAudit" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:260px;font-family:inherit;font-size:13px;outline:none" />
-        <button @click="loadAudit" class="btn-ghost">Search</button>
+        <input v-model="auditQ" :placeholder="t('🔍 Search user / action / module…')" @keyup.enter="loadAudit" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:260px;font-family:inherit;font-size:13px;outline:none" />
+        <button @click="loadAudit" class="btn-ghost">{{ t('Search') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Who did what, when — collections, expenses, complaints, assets, notices, logins</span>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>When</th><th>User</th><th>Action</th><th>Module</th><th>Entity</th><th>Details</th></tr></thead>
+            <thead><tr><th>{{ t('When') }}</th><th>{{ t('User') }}</th><th>{{ t('Action') }}</th><th>{{ t('Module') }}</th><th>{{ t('Entity') }}</th><th>{{ t('Details') }}</th></tr></thead>
             <tbody>
               <tr v-for="r in auditRows" :key="r.id">
                 <td style="font-size:12px;color:var(--text-mute)">{{ (r.ts || '').slice(0, 16) }}</td>
@@ -2707,18 +2707,18 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">📅</span>Paid this month</div><div class="s-value">{{ salaryHistory.length }}</div><div class="s-trend">{{ monthLabel(month) }}</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openStaffAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add staff</button>
-        <button @click="exportStaff" class="btn-ghost">⬇ CSV</button>
+        <button v-if="canManage" @click="openStaffAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add staff') }}</button>
+        <button @click="exportStaff" class="btn-ghost">{{ t('⬇ CSV') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Office staff &amp; security guards — monthly salary entry posts to the expense ledger (spec 3.4)</span>
         <span style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
-          <button @click="staffView = 'table'" :style="staffView === 'table' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">☰ List</button>
-          <button @click="staffView = 'grid'" :style="staffView === 'grid' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">⊞ Grid</button>
+          <button @click="staffView = 'table'" :style="staffView === 'table' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ t('☰ List') }}</button>
+          <button @click="staffView = 'grid'" :style="staffView === 'grid' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ t('⊞ Grid') }}</button>
         </span>
       </div>
       <div v-if="staffView === 'table'" class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>Name</th><th>Designation</th><th>Phone</th><th>Joined</th><th style="text-align:right">Salary/mo</th><th>Status</th><th style="text-align:right">Paid</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Designation') }}</th><th>{{ t('Phone') }}</th><th>{{ t('Joined') }}</th><th style="text-align:right">{{ t('Salary/mo') }}</th><th>{{ t('Status') }}</th><th style="text-align:right">{{ t('Paid') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="s in staff" :key="s.id" style="cursor:pointer" @click="openStaffDrawer(s)">
                 <td><b>{{ s.name }}</b><br /><small style="color:var(--text-mute)">{{ s.nid || '' }}</small></td>
@@ -2726,10 +2726,10 @@ onBeforeUnmount(() => {
                 <td>{{ s.phone || '—' }}</td>
                 <td style="font-size:12px;color:var(--text-mute)">{{ s.join_date || '—' }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(s.salary) }}</td>
-                <td><span class="badge" :class="badge(s.status)">{{ s.status }}</span></td>
+                <td><span class="badge" :class="badge(s.status)">{{ bnd(s.status) }}</span></td>
                 <td style="text-align:right;font-size:12px;color:var(--text-mute)">{{ s.salaries_paid || 0 }}× {{ money(s.salaries_total) }}</td>
                 <td style="text-align:right;white-space:nowrap" @click.stop>
-                  <button v-if="canManage && s.status === 'Active'" @click="openSal(s)" title="Pay monthly salary" style="padding:6px 12px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💸 Pay salary</button>
+                  <button v-if="canManage && s.status === 'Active'" @click="openSal(s)" title="Pay monthly salary" style="padding:6px 12px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">{{ t('💸 Pay salary') }}</button>
                   <button v-if="canManage" @click="openStaffEdit(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">✏️</button>
                   <button v-if="canManage" @click="delStaff(s)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
                 </td>
@@ -2748,10 +2748,10 @@ onBeforeUnmount(() => {
               <div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</div>
               <div style="font-size:11px;color:var(--text-mute)">{{ s.designation }}<span v-if="s.phone"> · {{ s.phone }}</span></div>
             </div>
-            <span class="badge" :class="badge(s.status)">{{ s.status }}</span>
+            <span class="badge" :class="badge(s.status)">{{ bnd(s.status) }}</span>
           </div>
           <div style="display:flex;align-items:center;border-top:1px dashed var(--border);padding-top:8px">
-            <span style="font-size:11px;color:var(--text-mute)">Salary/mo</span>
+            <span style="font-size:11px;color:var(--text-mute)">{{ t('Salary/mo') }}</span>
             <b style="margin-left:auto;font-size:13.5px">{{ money(s.salary) }}</b>
             <span style="margin-left:12px;font-size:11px;color:var(--text-mute)">{{ s.salaries_paid || 0 }}× paid</span>
           </div>
@@ -2761,11 +2761,11 @@ onBeforeUnmount(() => {
       <div class="panel" style="padding:16px;margin-top:16px" v-if="salaryHistory.length">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <h3 style="font-size:14px">🧾 Salary payments — {{ monthLabel(month) }}</h3>
-          <button @click="exportSalaries" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+          <button @click="exportSalaries" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
         </div>
         <div class="tbl-wrap" style="max-height:240px">
           <table class="kr">
-            <thead><tr><th>Staff</th><th>Designation</th><th>Method</th><th>Note</th><th style="text-align:right">Amount</th></tr></thead>
+            <thead><tr><th>{{ t('Staff') }}</th><th>{{ t('Designation') }}</th><th>{{ t('Method') }}</th><th>{{ t('Note') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
             <tbody>
               <tr v-for="h in salaryHistory" :key="h.id">
                 <td><b>{{ h.staff_name }}</b></td>
@@ -2790,13 +2790,13 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManageUsers" @click="openUserAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add system user</button>
+        <button v-if="canManageUsers" @click="openUserAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add system user') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Role-based access control (spec 3.8) — users are assigned a role; each role sees only what it may do</span>
       </div>
       <div class="panel" style="overflow:hidden">
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('User') }}</th><th>{{ t('Email') }}</th><th>{{ t('Role') }}</th><th>{{ t('Status') }}</th><th>{{ t('Last login') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="u in users" :key="u.id">
                 <td><b>{{ u.name }}</b><span v-if="u.self" class="badge b-blue" style="margin-left:6px;font-size:10px">you</span></td>
@@ -2823,7 +2823,7 @@ onBeforeUnmount(() => {
         <p style="font-size:12px;color:var(--text-mute);margin-bottom:10px">What each role can do in this system — enforced server-side on every action</p>
         <div class="tbl-wrap" style="max-height:none">
           <table class="kr">
-            <thead><tr><th>Capability</th><th v-for="c in ROLE_COLS" :key="c" style="text-align:center">{{ c }}</th></tr></thead>
+            <thead><tr><th>{{ t('Capability') }}</th><th v-for="c in ROLE_COLS" :key="c" style="text-align:center">{{ c }}</th></tr></thead>
             <tbody>
               <tr v-for="row in ROLE_MATRIX" :key="row.cap">
                 <td>{{ row.cap }}</td>
@@ -2846,9 +2846,9 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">📜</span>Resolutions</div><div class="s-value">{{ committee.counts.resolutions }}</div><div class="s-trend">passed &amp; archived (spec 3.11)</div></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openMemberAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add member</button>
-        <button v-if="canManage" @click="openMeetingAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">📅 Log meeting</button>
-        <button v-if="canManage" @click="openResAdd()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);color:var(--text);font-size:12.5px;font-weight:800;cursor:pointer">📜 Add resolution</button>
+        <button v-if="canManage" @click="openMemberAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add member') }}</button>
+        <button v-if="canManage" @click="openMeetingAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('📅 Log meeting') }}</button>
+        <button v-if="canManage" @click="openResAdd()" style="padding:9px 14px;border:none;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);color:var(--text);font-size:12.5px;font-weight:800;cursor:pointer">{{ t('📜 Add resolution') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">{{ config.mall_name || 'Mall' }} Market Owners' Committee — term 2024–2026</span>
       </div>
       <!-- office bearers grid -->
@@ -2928,7 +2928,7 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">👥</span>Multi-space owners</div><div class="s-value">{{ owners.filter(o => o.shops > 1).length }}</div><div class="s-trend">portfolio owners</div></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openOwnerAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add owner</button>
+        <button v-if="canManage" @click="openOwnerAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add owner') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Flexible ownership — a building can be owned by one person, many persons, or companies/banks. Owner-occupied spaces only bear the service charge.</span>
       </div>
       <div v-if="owners.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px">
@@ -2961,8 +2961,8 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">⏳</span>Rent outstanding</div><div class="s-value" :style="rentStats.outstanding > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(rentStats.outstanding) }}</div><div class="s-trend">due months × rent</div></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openTenantAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add tenant</button>
-        <button v-if="canManage" @click="openAgrAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">📄 New agreement</button>
+        <button v-if="canManage" @click="openTenantAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add tenant') }}</button>
+        <button v-if="canManage" @click="openAgrAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('📄 New agreement') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Rent collection is an <b>optional service</b> — owners may collect rent themselves; the committee can manage it on request.</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:16px" class="rt-grid">
@@ -2990,7 +2990,7 @@ onBeforeUnmount(() => {
             <div v-for="a in agreements" :key="a.id" style="border:1px solid var(--border);border-radius:12px;padding:12px 14px">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <b style="font-size:13px">{{ a.shop }}</b>
-                <span class="badge" :class="{ Active: 'b-green', 'Exit-Requested': 'b-orange', Exited: 'b-gray', Expired: 'b-gray', Terminated: 'b-red' }[a.status] || 'b-gray'">{{ a.status }}</span>
+                <span class="badge" :class="{ Active: 'b-green', 'Exit-Requested': 'b-orange', Exited: 'b-gray', Expired: 'b-gray', Terminated: 'b-red' }[a.status] || 'b-gray'">{{ bnd(a.status) }}</span>
                 <span v-if="a.noc_no" class="badge b-blue" style="font-size:10px">📄 {{ a.noc_no }}</span>
                 <span v-if="a.rent_collection" class="badge b-blue" style="font-size:10px">committee collects rent</span>
                 <span v-else class="badge b-gray" style="font-size:10px">owner collects</span>
@@ -3002,11 +3002,11 @@ onBeforeUnmount(() => {
               <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
                 <span v-if="a.rent_collection" style="font-size:12px;font-weight:700" :style="a.rent_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ a.due_months }} mo due · {{ money(a.rent_due) }}</span>
                 <span v-if="a.rent_collection" style="font-size:11px;color:var(--text-mute)">{{ a.paid_months }} mo paid</span>
-                <button v-if="canManage && a.rent_collection && a.status === 'Active'" @click="openRentCollect(a)" style="padding:7px 13px;border:none;border-radius:9px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💵 Collect rent</button>
+                <button v-if="canManage && a.rent_collection && a.status === 'Active'" @click="openRentCollect(a)" style="padding:7px 13px;border:none;border-radius:9px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">{{ t('💵 Collect rent') }}</button>
                 <span style="flex:1"></span>
-                <button v-if="canManage && a.status === 'Active'" @click="exitRequest(a)" style="padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">🚪 Exit request</button>
-                <button v-if="canManage && a.status === 'Exit-Requested'" @click="exitApprove(a)" style="padding:7px 12px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve exit + NOC</button>
-                <button v-if="a.status === 'Exited' && a.noc_no" @click="printNoc(a)" style="padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">🖨️ NOC</button>
+                <button v-if="canManage && a.status === 'Active'" @click="exitRequest(a)" style="padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">{{ t('🚪 Exit request') }}</button>
+                <button v-if="canManage && a.status === 'Exit-Requested'" @click="exitApprove(a)" style="padding:7px 12px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('✅ Approve exit + NOC') }}</button>
+                <button v-if="a.status === 'Exited' && a.noc_no" @click="printNoc(a)" style="padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">{{ t('🖨️ NOC') }}</button>
                 <button v-if="canManage && a.status === 'Active'" @click="delAgreement(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:11px">🗑️</button>
               </div>
             </div>
@@ -3025,7 +3025,7 @@ onBeforeUnmount(() => {
         <div class="stat"><div class="s-label"><span class="s-ico">📑</span>Payments</div><div class="s-value">{{ vendors.reduce((s, v) => s + v.payments, 0) }}</div><div class="s-trend">every payment tracked</div></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
-        <button v-if="canManage" @click="openVendorAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">＋ Add vendor</button>
+        <button v-if="canManage" @click="openVendorAdd" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add vendor') }}</button>
         <span style="margin-left:auto;font-size:12px;color:var(--text-mute)">Vendor profile · payment ledger · every payout tracked with method &amp; reference.</span>
       </div>
       <div v-if="vendors.length" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
@@ -3040,7 +3040,7 @@ onBeforeUnmount(() => {
             <div style="font-size:11px;color:var(--text-mute);margin-top:4px">{{ v.contact_person ? v.contact_person + ' · ' : '' }}{{ v.phone }}<span v-if="v.payments"> · {{ v.payments }} payments</span></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0" @click.stop>
-            <button v-if="canManage" @click="openVendorPay(v)" style="padding:6px 10px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">💸 Pay</button>
+            <button v-if="canManage" @click="openVendorPay(v)" style="padding:6px 10px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">{{ t('💸 Pay') }}</button>
             <div v-if="canManage" style="display:flex;gap:4px">
               <button @click="openVendorEdit(v)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:3px 7px;cursor:pointer;font-size:11px">✏️</button>
               <button @click="delVendor(v)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:3px 7px;cursor:pointer;font-size:11px">🗑️</button>
@@ -3071,13 +3071,13 @@ onBeforeUnmount(() => {
             <h3 style="font-size:14px">🏪 Per-space ledger — {{ monthLabel(ledger.month) }}</h3>
             <div style="display:flex;gap:8px;align-items:center">
               <span class="badge b-green" style="font-size:12px">Net balance {{ money(Number(ledger.by_kind.reduce((s, k) => s + k.collected, 0)) - Number(ledger.expenses)) }}</span>
-              <button @click="exportLedger" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
-              <button @click="printTable('Ledger — ' + monthLabel(ledger.month) + ' — ' + (config.mall_name || 'Mall'), $refs.ledgerTbl)" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+              <button @click="exportLedger" class="btn-ghost" style="font-size:12px">{{ t('⬇ CSV') }}</button>
+              <button @click="printTable('Ledger — ' + monthLabel(ledger.month) + ' — ' + (config.mall_name || 'Mall'), $refs.ledgerTbl)" class="btn-ghost" style="font-size:12px">{{ t('🖨️ Print') }}</button>
             </div>
           </div>
           <div class="tbl-wrap" style="max-height:420px">
             <table class="kr" ref="ledgerTbl">
-              <thead><tr><th>Space</th><th>Owner</th><th style="text-align:right">Service</th><th style="text-align:right">Elec</th><th style="text-align:right">Water</th><th style="text-align:right">Total due</th><th>Status</th></tr></thead>
+              <thead><tr><th>{{ t('Space') }}</th><th>{{ t('Owner') }}</th><th style="text-align:right">{{ t('Service') }}</th><th style="text-align:right">{{ t('Elec') }}</th><th style="text-align:right">{{ t('Water') }}</th><th style="text-align:right">{{ t('Total due') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="s in ledger.per_shop" :key="s.id">
                   <td><b>{{ s.no }}</b> <small style="color:var(--text-mute)">· {{ s.floor }}</small></td>
@@ -3103,7 +3103,7 @@ onBeforeUnmount(() => {
         <p style="font-size:12px;color:var(--text-mute);margin-bottom:12px">Space collections for electricity &amp; water are <b>custodial</b> — collected from space owners, forwarded to the utility. Compare with the DESCO / WASA main bills paid.</p>
         <div class="tbl-wrap" style="max-height:300px">
           <table class="kr">
-            <thead><tr><th></th><th style="text-align:right">Elec collected</th><th style="text-align:right">Water collected</th><th style="text-align:right">DESCO bill paid</th><th style="text-align:right">WASA bill paid</th><th style="text-align:right">Balance</th></tr></thead>
+            <thead><tr><th></th><th style="text-align:right">{{ t('Elec collected') }}</th><th style="text-align:right">{{ t('Water collected') }}</th><th style="text-align:right">{{ t('DESCO bill paid') }}</th><th style="text-align:right">{{ t('WASA bill paid') }}</th><th style="text-align:right">{{ t('Balance') }}</th></tr></thead>
             <tbody>
               <tr>
                 <td><b>{{ monthLabel(recon.month) }}</b></td>
@@ -3133,29 +3133,29 @@ onBeforeUnmount(() => {
       <!-- ═══ redesigned: sticky tab bar + save (scrolls horizontally on mobile) ═══ -->
       <div style="position:sticky;top:0;z-index:40;background:var(--bg);padding:10px 0 12px;display:flex;gap:7px;align-items:center;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch" class="set-tabs">
         <button v-for="st in SETTINGS_TABS" :key="st.id" @click="settingsTab = st.id" :style="settingsTab === st.id ? 'background:var(--primary);color:#fff;box-shadow:0 4px 14px rgba(47,128,237,.35)' : 'background:var(--bg-alt);color:var(--text-mute);border:1px solid var(--border)'" style="padding:8px 14px;border-radius:99px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s">{{ st.ic }} {{ t(st.label) }}</button>
-        <button v-if="canManage && cfgDirty" @click="saveConfig" style="margin-left:auto;padding:8px 16px;border:none;border-radius:99px;background:var(--ok,#27AE60);color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">💾 Save changes</button>
+        <button v-if="canManage && cfgDirty" @click="saveConfig" style="margin-left:auto;padding:8px 16px;border:none;border-radius:99px;background:var(--ok,#27AE60);color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">{{ t('💾 Save changes') }}</button>
       </div>
       <div v-if="canManage" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
         <div v-if="settingsTab === 'profile'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🏬 Mall profile</h3>
-          <label style="font-size:12px;color:var(--text-mute)">Mall name
-            <input v-model="config.mall_name" placeholder="e.g. Razzak Plaza" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Mall name') }}
+            <input v-model="config.mall_name" :placeholder="t('e.g. Razzak Plaza')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Address
-            <input v-model="config.mall_address" placeholder="e.g. 42 Motijheel C/A, Dhaka 1000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Address') }}
+            <input v-model="config.mall_address" :placeholder="t('e.g. 42 Motijheel C/A, Dhaka 1000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
           </label>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px">
-            <label style="font-size:12px;color:var(--text-mute)">Phone
-              <input v-model="config.mall_phone" placeholder="e.g. 02-9551234" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
+              <input v-model="config.mall_phone" :placeholder="t('e.g. 02-9551234')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Email
-              <input v-model="config.mall_email" placeholder="office@razzakplaza.com" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Email') }}
+              <input v-model="config.mall_email" :placeholder="t('office@razzakplaza.com')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Chairman
-              <input v-model="config.chairman" placeholder="e.g. Alhaj Md. Abdul Razzak" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Chairman') }}
+              <input v-model="config.chairman" :placeholder="t('e.g. Alhaj Md. Abdul Razzak')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Secretary
-              <input v-model="config.secretary" placeholder="e.g. Md. Shahidullah" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Secretary') }}
+              <input v-model="config.secretary" :placeholder="t('e.g. Md. Shahidullah')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
         </div>
@@ -3163,19 +3163,19 @@ onBeforeUnmount(() => {
           <h3 style="font-size:14px;margin-bottom:4px">⚡ Utility costing (manual)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Set the utility rates manually — they apply when a sub-meter reading generates the electricity / water bill.</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Elec rate (৳/unit)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Elec rate (৳/unit)') }}
               <input type="number" v-model.number="config.elec_unit_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Water rate (৳/unit)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Water rate (৳/unit)') }}
               <input type="number" v-model.number="config.water_unit_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Due day of month
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Due day of month') }}
               <input type="number" v-model.number="config.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">🚨 High-dues alert after (months)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('🚨 High-dues alert after (months)') }}
               <input type="number" v-model.number="config.high_dues_months" min="1" max="12" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">⛔ Disconnection risk after (months)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('⛔ Disconnection risk after (months)') }}
               <input type="number" v-model.number="config.disconnect_months" min="1" max="12" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
@@ -3184,15 +3184,15 @@ onBeforeUnmount(() => {
             <div style="font-size:12.5px;font-weight:800;margin-bottom:6px">⚡ Effective elec rate calculator <small style="color:var(--text-mute);font-weight:400">(spec 3.3 — DESCO main bill ÷ total sub-meter units)</small></div>
             <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:10px">Put this month's DESCO main bill (unit charge + demand + VAT + system loss) in — the system pulls the month's total sub-meter units and suggests a shop rate slightly above the effective cost.</p>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-              <input v-model.number="effCalc.main_bill" type="number" min="0" placeholder="DESCO main bill ৳…" style="flex:1;min-width:160px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+              <input v-model.number="effCalc.main_bill" type="number" min="0" :placeholder="t('DESCO main bill ৳…')" style="flex:1;min-width:160px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
               <input v-model="effCalc.month" type="month" style="padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
-              <button @click="calcEffectiveRate" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">Calculate</button>
+              <button @click="calcEffectiveRate" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('Calculate') }}</button>
             </div>
             <div v-if="effCalc.result" style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
               <span style="font-size:12.5px">Total units: <b>{{ effCalc.result.total_units.toLocaleString('en-IN') }}</b> · Effective cost: <b style="color:var(--primary)">৳{{ effCalc.result.effective_rate }}/unit</b></span>
               <span v-for="s in effCalc.result.suggested" :key="s.margin" style="display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:4px 6px 4px 12px;font-size:12px">
                 <b>{{ s.margin }}% margin → ৳{{ s.rate }}</b>
-                <button @click="useEffRate(s.rate)" style="border:none;background:var(--primary);color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">Use</button>
+                <button @click="useEffRate(s.rate)" style="border:none;background:var(--primary);color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">{{ t('Use') }}</button>
               </span>
             </div>
           </div>
@@ -3201,13 +3201,13 @@ onBeforeUnmount(() => {
           <h3 style="font-size:14px;margin-bottom:4px">💳 Rent &amp; statements config</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Defaults used when creating tenant agreements and printed statements.</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Advance months (default)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Advance months (default)') }}
               <input type="number" v-model.number="config.rent_advance_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Rent due day of month
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Rent due day of month') }}
               <input type="number" v-model.number="config.rent_due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Statement footer note
+            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Statement footer note') }}
               <input v-model="config.rent_statement_note" placeholder="e.g. Please pay within the due date — 5% late fee applies after the grace period." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
@@ -3216,18 +3216,18 @@ onBeforeUnmount(() => {
           <h3 style="font-size:14px;margin-bottom:4px">🧾 Service billing config</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">How occupants are charged: fixed flat rate, per sqft, or with metered utilities folded into the service bill. Per-space overrides live on each space.</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Default billing model
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Default billing model') }}
               <select v-model="config.bill_model_default" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @change="cfgDirty = true">
-                <option value="fixed">Fixed (flat monthly)</option>
-                <option value="sqft">Per sqft (rate × size)</option>
-                <option value="fixed+util">Fixed + utilities</option>
-                <option value="sqft+util">Per sqft + utilities</option>
+                <option value="fixed">{{ t('Fixed (flat monthly)') }}</option>
+                <option value="sqft">{{ t('Per sqft (rate × size)') }}</option>
+                <option value="fixed+util">{{ t('Fixed + utilities') }}</option>
+                <option value="sqft+util">{{ t('Per sqft + utilities') }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Default flat rate (৳/mo)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Default flat rate (৳/mo)') }}
               <input type="number" v-model.number="config.rate_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Default per-sqft rate (৳/sqft/mo)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Default per-sqft rate (৳/sqft/mo)') }}
               <input type="number" v-model.number="config.rate_sqft_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
@@ -3239,8 +3239,8 @@ onBeforeUnmount(() => {
                 <span v-for="(h, i) in config.util_heads || []" :key="h" class="badge b-blue" style="font-size:11px">{{ h }} <button @click="config.util_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
               </div>
               <div style="display:flex;gap:6px;margin-top:8px">
-                <input v-model="utilHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addUtilHead" />
-                <button @click="addUtilHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
+                <input v-model="utilHeadInput" :placeholder="t('Add head…')" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addUtilHead" />
+                <button @click="addUtilHead" class="btn-ghost" style="font-size:12px">{{ t('＋ Add') }}</button>
               </div>
             </div>
             <div>
@@ -3250,8 +3250,8 @@ onBeforeUnmount(() => {
                 <span v-for="(h, i) in config.income_heads || []" :key="h" class="badge b-green" style="font-size:11px">{{ h }} <button @click="config.income_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
               </div>
               <div style="display:flex;gap:6px;margin-top:8px">
-                <input v-model="incomeHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addIncomeHead" />
-                <button @click="addIncomeHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
+                <input v-model="incomeHeadInput" :placeholder="t('Add head…')" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addIncomeHead" />
+                <button @click="addIncomeHead" class="btn-ghost" style="font-size:12px">{{ t('＋ Add') }}</button>
               </div>
             </div>
           </div>
@@ -3268,20 +3268,20 @@ onBeforeUnmount(() => {
             </label>
           </div>
           <div v-if="config.late_fees_enabled" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Fine rate (% of bill)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Fine rate (% of bill)') }}
               <input type="number" v-model.number="config.late_fee_pct" min="0" max="100" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Grace days (after due date)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Grace days (after due date)') }}
               <input type="number" v-model.number="config.late_fee_grace" min="0" max="60" title="Days after the due date before a fine applies" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Minimum fine (৳)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Minimum fine (৳)') }}
               <input type="number" v-model.number="config.late_fee_min" min="0" title="Even small bills pay at least this fine" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Max cap (% of bill)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Max cap (% of bill)') }}
               <input type="number" v-model.number="config.late_fee_max_pct" min="1" max="100" title="A fine can never exceed this % of the bill" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>💸 Compute late fees</b> on the Bills tab. Rounded to the nearest ৳5.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">💡 Fines auto-apply to unpaid bills past the due date (+ grace) when you press <b>{{ t('💸 Compute late fees') }}</b> on the Bills tab. Rounded to the nearest ৳5.</p>
         </div>
         <div v-if="settingsTab === 'sms'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">📱 SMS &amp; notifications (KRTaker engine)</h3>
@@ -3291,35 +3291,35 @@ onBeforeUnmount(() => {
               <span style="position:absolute;top:2px;left:smsCfg.enabled ? '22px' : '2px';width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
             </span>
             <b :style="smsCfg.enabled ? 'color:var(--ok)' : ''">{{ smsCfg.enabled ? 'SMS enabled' : 'SMS disabled' }}</b>
-            <button @click="saveSmsCfg" style="margin-left:auto;padding:8px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save</button>
+            <button @click="saveSmsCfg" style="margin-left:auto;padding:8px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('💾 Save') }}</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Provider
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Provider') }}
               <select v-model="smsCfg.provider" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option value="log">Log (testing — no real send)</option>
-                <option value="bulksmsbd">bulksmsbd (real gateway)</option>
+                <option value="log">{{ t('Log (testing — no real send)') }}</option>
+                <option value="bulksmsbd">{{ t('bulksmsbd (real gateway)') }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Sender ID
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Sender ID') }}
               <input v-model="smsCfg.sender_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">API URL
-              <input v-model="smsCfg.api_url" placeholder="https://api.bulksmsbd.com/smsapi" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('API URL') }}
+              <input v-model="smsCfg.api_url" :placeholder="t('https://api.bulksmsbd.com/smsapi')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">📨 Recipients <small style="color:var(--text-mute)">(spec 3.1 — who gets SMS receipts &amp; alerts)</small>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('📨 Recipients') }} <small style="color:var(--text-mute)">(spec 3.1 — who gets SMS receipts &amp; alerts)</small>
               <select v-model="smsCfg.recipients" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option value="both">👥 Owner &amp; tenant (both)</option>
-                <option value="owner">👤 Owner only</option>
-                <option value="tenant">🧑‍💼 Tenant only</option>
+                <option value="owner">{{ t('👤 Owner only') }}</option>
+                <option value="tenant">{{ t('🧑‍💼 Tenant only') }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">API key
+            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('API key') }}
               <input v-model="smsCfg.api_key" :placeholder="smsCfg.masked ? '•••• saved — type to replace' : ''" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
-            <input v-model="smsTestPhone" placeholder="Test phone (01XXXXXXXXX)…" style="flex:1;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
-            <button @click="sendTestSms" class="btn-ghost" style="font-size:12px">📤 Send test</button>
+            <input v-model="smsTestPhone" :placeholder="t('Test phone (01XXXXXXXXX)…')" style="flex:1;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+            <button @click="sendTestSms" class="btn-ghost" style="font-size:12px">{{ t('📤 Send test') }}</button>
           </div>
           <div v-if="smsCfg.log && smsCfg.log.length" style="margin-top:14px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Recent SMS log</div>
@@ -3350,13 +3350,13 @@ onBeforeUnmount(() => {
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
               <label v-for="r in g.rows" :key="acctKey(g, r)" style="font-size:11.5px;color:var(--text-mute)">
                 {{ acctLabel(g, r) }}
-                <SearchableSelect :model-value="acctMap[acctKey(g, r)] ?? 0" :options="acctSelectOptions(g, r)" placeholder="Account…" @update:modelValue="v => acctMap[acctKey(g, r)] = v" />
+                <SearchableSelect :model-value="acctMap[acctKey(g, r)] ?? 0" :options="acctSelectOptions(g, r)" :placeholder="t('Account…')" @update:modelValue="v => acctMap[acctKey(g, r)] = v" />
               </label>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-            <button @click="saveAcctMap" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save mapping</button>
-            <button @click="resetAcctMap" class="btn-ghost" style="font-size:12px">♻️ Reset all to defaults</button>
+            <button @click="saveAcctMap" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('💾 Save mapping') }}</button>
+            <button @click="resetAcctMap" class="btn-ghost" style="font-size:12px">{{ t('♻️ Reset all to defaults') }}</button>
             <small style="color:var(--text-mute);font-size:11px">Saved rules: {{ Object.keys(acctMap).filter(k => acctMap[k]).length }}</small>
           </div>
         </div>
@@ -3365,7 +3365,7 @@ onBeforeUnmount(() => {
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Manage the role list used when adding committee members — add, rename or remove roles freely.</p>
           <div v-if="!roleEdit" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
             <span v-for="r in committeeRoles.length ? committeeRoles : COMMITTEE_ROLES" :key="r" class="badge b-blue" style="font-size:11px">{{ r }}</span>
-            <button v-if="canManage" @click="roleEdit = true" class="btn-ghost" style="font-size:12px;margin-left:auto">✏️ Manage roles</button>
+            <button v-if="canManage" @click="roleEdit = true" class="btn-ghost" style="font-size:12px;margin-left:auto">{{ t('✏️ Manage roles') }}</button>
           </div>
           <div v-else>
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
@@ -3374,12 +3374,12 @@ onBeforeUnmount(() => {
               </span>
             </div>
             <div style="display:flex;gap:8px">
-              <input v-model="roleDraft" @keydown.enter="addRole" placeholder="New role, e.g. Auditor" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none" />
-              <button @click="addRole" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary-light);color:var(--primary-dark);font-size:12.5px;font-weight:800;cursor:pointer">＋ Add</button>
+              <input v-model="roleDraft" @keydown.enter="addRole" :placeholder="t('New role, e.g. Auditor')" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none" />
+              <button @click="addRole" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary-light);color:var(--primary-dark);font-size:12.5px;font-weight:800;cursor:pointer">{{ t('＋ Add') }}</button>
             </div>
             <div style="display:flex;gap:8px;margin-top:10px">
-              <button @click="saveRoles" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save roles</button>
-              <button @click="roleEdit = false" class="btn-ghost" style="font-size:12.5px">Cancel</button>
+              <button @click="saveRoles" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('💾 Save roles') }}</button>
+              <button @click="roleEdit = false" class="btn-ghost" style="font-size:12.5px">{{ t('Cancel') }}</button>
             </div>
           </div>
         </div>
@@ -3395,8 +3395,8 @@ onBeforeUnmount(() => {
                   <span v-else style="font-size:18px;opacity:.4">🖼️</span>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px">
-                  <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">⬆ Upload<input type="file" accept="image/*" style="display:none" @change="onLogoPick($event, 'mall_logo')" /></label>
-                  <button v-if="config.mall_logo" @click="removeLogo('mall_logo')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">🗑 Remove</button>
+                  <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">{{ t('⬆ Upload') }}<input type="file" accept="image/*" style="display:none" @change="onLogoPick($event, 'mall_logo')" /></label>
+                  <button v-if="config.mall_logo" @click="removeLogo('mall_logo')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">{{ t('🗑 Remove') }}</button>
                 </div>
               </div>
               <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">White paper (minimal template), light areas</div>
@@ -3409,8 +3409,8 @@ onBeforeUnmount(() => {
                   <span v-else style="font-size:18px;opacity:.4">🖼️</span>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px">
-                  <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">⬆ Upload<input type="file" accept="image/*" style="display:none" @change="onLogoPick($event, 'mall_logo_dark')" /></label>
-                  <button v-if="config.mall_logo_dark" @click="removeLogo('mall_logo_dark')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">🗑 Remove</button>
+                  <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">{{ t('⬆ Upload') }}<input type="file" accept="image/*" style="display:none" @change="onLogoPick($event, 'mall_logo_dark')" /></label>
+                  <button v-if="config.mall_logo_dark" @click="removeLogo('mall_logo_dark')" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer;text-align:left">{{ t('🗑 Remove') }}</button>
                 </div>
               </div>
               <div style="font-size:10.5px;color:var(--text-mute);margin-top:5px">Colored bands (classic/modern). Falls back to the normal logo.</div>
@@ -3424,50 +3424,50 @@ onBeforeUnmount(() => {
               {{ t.name }}
             </button>
           </div>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:14px">Receipt / invoice prefix
-            <input v-model="config.invoice_prefix" maxlength="8" placeholder="RCT" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;text-transform:uppercase" @input="cfgDirty = true" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:14px">{{ t('Receipt / invoice prefix') }}
+            <input v-model="config.invoice_prefix" maxlength="8" :placeholder="t('RCT')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;text-transform:uppercase" @input="cfgDirty = true" />
           </label>
         </div>
         <div v-if="settingsTab === 'governance'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🔑 License &amp; plan</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">The solution is sold as <b>one-off, yearly subscription/license, or user/monthly</b>. The <b>super admin</b> account is reserved for the vendor (Mall Manager by Deshik Lab) — the owning company, somity/committee or private owner manages day-to-day operations.</p>
           <div v-if="license" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Plan
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Plan') }}
               <select v-model="license.plan" :disabled="!isSuperAdmin" @change="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="p in ['One-off', 'Yearly', 'Monthly']" :key="p" :value="p">{{ p }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Expiry
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Expiry') }}
               <input type="date" v-model="license.expiry" :disabled="!isSuperAdmin" @change="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">User seats
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('User seats') }}
               <input type="number" v-model.number="license.seats" min="1" :disabled="!isSuperAdmin" @input="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">License holder
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('License holder') }}
               <input v-model="license.holder" :disabled="!isSuperAdmin" placeholder="e.g. Razzak Plaza Owners' Committee" @input="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
           <div v-if="license" style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
             <span class="badge" :class="license.plan === 'One-off' ? 'b-green' : license.expiry && license.expiry < new Date().toISOString().slice(0, 10) ? 'b-red' : 'b-blue'" style="font-size:11px">{{ licenseBadge }}</span>
-            <button v-if="isSuperAdmin && licenseDirty" @click="saveLicense" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🔑 Save license</button>
+            <button v-if="isSuperAdmin && licenseDirty" @click="saveLicense" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('🔑 Save license') }}</button>
             <span v-if="!isSuperAdmin" style="font-size:11px;color:var(--text-mute)">🔒 Only the super admin (vendor) can change the license.</span>
           </div>
         </div>
         <div v-if="settingsTab === 'profile'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🏦 Bank details (shown on receipts)</h3>
-          <label style="font-size:12px;color:var(--text-mute)">Bank name
-            <input v-model="config.bank_name" placeholder="e.g. Islami Bank Bangladesh PLC" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Bank name') }}
+            <input v-model="config.bank_name" :placeholder="t('e.g. Islami Bank Bangladesh PLC')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Account title
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Account title') }}
             <input v-model="config.bank_account_title" placeholder="e.g. Razzak Plaza Owners' Committee" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Account number
-            <input v-model="config.bank_account_no" placeholder="e.g. 205-123-4567" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Account number') }}
+            <input v-model="config.bank_account_no" :placeholder="t('e.g. 205-123-4567')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
           </label>
         </div>
         <div v-if="settingsTab === 'profile'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:12px">🧾 Receipt note</h3>
-          <label style="font-size:12px;color:var(--text-mute)">Footer line on printed receipts
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Footer line on printed receipts') }}
             <textarea v-model="config.receipt_note" rows="3" placeholder="e.g. Service charges are payable by the 10th of every month. Thank you for your cooperation." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical" @input="cfgDirty = true"></textarea>
           </label>
         </div>
@@ -3480,13 +3480,13 @@ onBeforeUnmount(() => {
             </label>
           </div>
           <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
-            <button @click="saveBudget" :disabled="!budgetDirty" style="padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save budget</button>
+            <button @click="saveBudget" :disabled="!budgetDirty" style="padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('💾 Save budget') }}</button>
             <span style="font-size:12px;color:var(--text-mute)">Total {{ money(budgetTotal) }}/mo</span>
           </div>
         </div>
       </div>
       <div v-if="canManage && cfgDirty" style="margin-top:14px">
-        <button @click="saveConfig" style="padding:11px 22px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save mall settings</button>
+        <button @click="saveConfig" style="padding:11px 22px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save mall settings') }}</button>
         <span style="margin-left:10px;font-size:12px;color:var(--text-mute)">Unsaved changes…</span>
       </div>
 
@@ -3494,15 +3494,15 @@ onBeforeUnmount(() => {
       <div v-if="settingsTab === 'account'" class="panel" style="padding:18px;margin-top:16px;max-width:560px">
         <h3 style="font-size:14px;margin-bottom:4px">👤 My profile</h3>
         <p style="font-size:12px;color:var(--text-mute);margin-bottom:14px">Logged in as <b>{{ auth.user?.email }}</b> · role: <span class="badge b-blue">{{ auth.user?.role }}</span> — full profile &amp; preferences also available from the ⚙️ icon (top right)</p>
-        <label style="font-size:12px;color:var(--text-mute)">Display name
+        <label style="font-size:12px;color:var(--text-mute)">{{ t('Display name') }}
           <input v-model="profForm.name" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
         </label>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px">
-          <label style="font-size:12px;color:var(--text-mute)">Current password
-            <input type="password" v-model="profForm.old_password" autocomplete="current-password" placeholder="required to change password" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Current password') }}
+            <input type="password" v-model="profForm.old_password" autocomplete="current-password" :placeholder="t('required to change password')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">New password
-            <input type="password" v-model="profForm.new_password" autocomplete="new-password" placeholder="min 8 characters" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('New password') }}
+            <input type="password" v-model="profForm.new_password" autocomplete="new-password" :placeholder="t('min 8 characters')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
         </div>
         <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
@@ -3518,50 +3518,50 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">{{ modal.title }}</div><button class="close" @click="modal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Space no *<input v-model="form.no" placeholder="e.g. A-101" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Floor<input v-model="form.floor" placeholder="e.g. Ground" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Size (sqft)<input type="number" v-model.number="form.sqft" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Service rate (৳/mo)<input type="number" v-model.number="form.service_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Billing model
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Space no *') }}<input v-model="form.no" :placeholder="t('e.g. A-101')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Floor') }}<input v-model="form.floor" :placeholder="t('e.g. Ground')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Size (sqft)') }}<input type="number" v-model.number="form.sqft" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Service rate (৳/mo)') }}<input type="number" v-model.number="form.service_rate" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Billing model') }}
               <select v-model="form.bill_model" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option value="fixed">Fixed (flat monthly)</option>
-                <option value="sqft">Per sqft (rate × size)</option>
-                <option value="fixed+util">Fixed + utilities (metered)</option>
-                <option value="sqft+util">Per sqft + utilities (metered)</option>
+                <option value="fixed">{{ t('Fixed (flat monthly)') }}</option>
+                <option value="sqft">{{ t('Per sqft (rate × size)') }}</option>
+                <option value="fixed+util">{{ t('Fixed + utilities (metered)') }}</option>
+                <option value="sqft+util">{{ t('Per sqft + utilities (metered)') }}</option>
               </select>
             </label>
-            <label v-if="form.bill_model === 'sqft' || form.bill_model === 'sqft+util'" style="font-size:12px;color:var(--text-mute)">Rate per sqft (৳/sqft/mo)
+            <label v-if="form.bill_model === 'sqft' || form.bill_model === 'sqft+util'" style="font-size:12px;color:var(--text-mute)">{{ t('Rate per sqft (৳/sqft/mo)') }}
               <input type="number" v-model.number="form.rate_sqft" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
             <label v-if="form.bill_model === 'fixed+util' || form.bill_model === 'sqft+util'" style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;padding-top:18px;cursor:pointer">
               <input type="checkbox" v-model="form.util_included" style="accent-color:var(--primary)" /> ⚡ Include utilities (elec + water) in the service bill
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Owner name *<input v-model="form.owner_name" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Owner mobile<input v-model="form.owner_mobile" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Owner NID<input v-model="form.owner_nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Owner (directory)
-              <SearchableSelect v-model="form.owner_id" :options="owners.map(o => ({ value: o.id, label: o.name + ' (' + o.type + ')' }))" placeholder="— standalone (name above) —" allow-add add-label="New owner" @add="setAfterAdd(form, 'owner_id', () => owners.find(o => o.name === ownerForm.name?.trim())?.id); openOwnerAdd()" style="margin-top:4px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Owner name *') }}<input v-model="form.owner_name" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Owner mobile') }}<input v-model="form.owner_mobile" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Owner NID') }}<input v-model="form.owner_nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Owner (directory)') }}
+              <SearchableSelect v-model="form.owner_id" :options="owners.map(o => ({ value: o.id, label: o.name + ' (' + o.type + ')' }))" :placeholder="t('— standalone (name above) —')" allow-add add-label="New owner" @add="setAfterAdd(form, 'owner_id', () => owners.find(o => o.name === ownerForm.name?.trim())?.id); openOwnerAdd()" style="margin-top:4px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Space type
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Space type') }}
               <select v-model="form.space_type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="t in SPACE_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Occupancy
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Occupancy') }}
               <select v-model="form.occupancy" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="o in OCCUPANCIES" :key="o" :value="o">{{ { Owner: 'Owner-occupied (service charge only)', Rented: 'Rented to a tenant', Vacant: 'Vacant' }[o] }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Status
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="form.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ v }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Opening balance (৳)<input type="number" v-model.number="form.opening_balance" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Opening balance (৳)') }}<input type="number" v-model.number="form.opening_balance" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="saveShop" :disabled="saving" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ saving ? 'Saving…' : '💾 Save shop' }}</button>
-            <button @click="modal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="modal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3573,16 +3573,16 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">💸 Waiver / discount request</div><button class="close" @click="waiverModal = null">✕</button></div>
         <div class="modal-b">
           <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">{{ waiverForm.shop }} · {{ monthLabel(waiverForm.month) }} · bill {{ money(waiverForm.max) }}</p>
-          <label style="font-size:12px;color:var(--text-mute)">Waiver amount (৳)
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Waiver amount (৳)') }}
             <input type="number" v-model.number="waiverForm.amount" min="1" :max="waiverForm.max" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reason *
-            <textarea v-model="waiverForm.reason" rows="2" placeholder="e.g. shop closed 10 days for renovation — committee case #12" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Reason *') }}
+            <textarea v-model="waiverForm.reason" rows="2" :placeholder="t('e.g. shop closed 10 days for renovation — committee case #12')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
           <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">🛡️ Two-level approval — this request goes <b>Pending</b>; only the admin (president / general secretary) can approve it into the ledger. Every request is logged for the committee report.</p>
           <div style="display:flex;gap:10px;margin-top:14px">
-            <button @click="requestWaiver" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">📨 Submit request</button>
-            <button @click="waiverModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="requestWaiver" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('📨 Submit request') }}</button>
+            <button @click="waiverModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3594,19 +3594,19 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">💵 Collect — {{ payModal.shop_no }} ({{ { service: 'Service', elec: 'Electricity', water: 'Water' }[payModal.kind] }})</div><button class="close" @click="payModal = null">✕</button></div>
         <div class="modal-b">
           <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">{{ monthLabel(payModal.month) }} · bill #{{ payModal.id }}</p>
-          <label style="font-size:12px;color:var(--text-mute)">Amount (৳)<input type="number" v-model.number="payForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Amount (৳)') }}<input type="number" v-model.number="payForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           <p v-if="payModal.fine" style="font-size:12px;color:var(--danger);margin-top:8px">⚠️ Includes late fee of {{ money(payModal.fine) }} (bill overdue)</p>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Method
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Method') }}
             <select v-model="payForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
                 <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
               </optgroup>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reference (trx no / note)<input v-model="payForm.ref" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Reference (trx no / note)') }}<input v-model="payForm.ref" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="savePay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save collection</button>
-            <button @click="payModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="savePay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save collection') }}</button>
+            <button @click="payModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3617,19 +3617,19 @@ onBeforeUnmount(() => {
       <div class="modal" style="max-width:480px">
         <div class="modal-h"><div class="t">{{ compModal.title }}</div><button class="close" @click="compModal = null">✕</button></div>
         <div class="modal-b">
-          <label style="font-size:12px;color:var(--text-mute)">Space *
-            <SearchableSelect v-model="compForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" placeholder="Select space…" allow-add add-label="New space" @add="setAfterAdd(compForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Space *') }}
+            <SearchableSelect v-model="compForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" :placeholder="t('Select space…')" allow-add add-label="New space" @add="setAfterAdd(compForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Subject *<input v-model="compForm.subject" placeholder="e.g. Lift not working on 2nd floor" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Details<textarea v-model="compForm.descr" rows="2" placeholder="Describe the issue…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Priority
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Subject *') }}<input v-model="compForm.subject" :placeholder="t('e.g. Lift not working on 2nd floor')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Details') }}<textarea v-model="compForm.descr" rows="2" :placeholder="t('Describe the issue…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Priority') }}
             <select v-model="compForm.priority" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <option v-for="p in ['Low', 'Normal', 'High', 'Urgent']" :key="p" :value="p">{{ p }}</option>
             </select>
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveComplaint" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🔧 Log complaint</button>
-            <button @click="compModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveComplaint" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('🔧 Log complaint') }}</button>
+            <button @click="compModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3641,28 +3641,28 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">{{ assetModal.title }}</div><button class="close" @click="assetModal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Asset name *<input v-model="assetForm.name" placeholder="e.g. Passenger Lift 1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Type
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Asset name *') }}<input v-model="assetForm.name" :placeholder="t('e.g. Passenger Lift 1')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
               <select v-model="assetForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="t in ASSET_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Location<input v-model="assetForm.location" placeholder="e.g. Block A, near main entrance" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Vendor / service provider<input v-model="assetForm.vendor" placeholder="e.g. Otis Elevator" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Install date<input type="date" v-model="assetForm.install_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Warranty until<input type="date" v-model="assetForm.warranty_until" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">AMC / contract until<input type="date" v-model="assetForm.contract_until" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Cost (৳)<input type="number" v-model.number="assetForm.cost" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Status
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Location') }}<input v-model="assetForm.location" :placeholder="t('e.g. Block A, near main entrance')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Vendor / service provider') }}<input v-model="assetForm.vendor" :placeholder="t('e.g. Otis Elevator')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Install date') }}<input type="date" v-model="assetForm.install_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Warranty until') }}<input type="date" v-model="assetForm.warranty_until" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('AMC / contract until') }}<input type="date" v-model="assetForm.contract_until" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Cost (৳)') }}<input type="number" v-model.number="assetForm.cost" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="assetForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="st in ['Active', 'Under Service', 'Out of Service']" :key="st" :value="st">{{ st }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note<input v-model="assetForm.note" placeholder="Any notes…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Note') }}<input v-model="assetForm.note" :placeholder="t('Any notes…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveAsset" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save asset</button>
-            <button @click="assetModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveAsset" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save asset') }}</button>
+            <button @click="assetModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3671,17 +3671,17 @@ onBeforeUnmount(() => {
     <!-- ═══════ NOTICE MODAL ═══════ -->
     <div v-if="noticeModal" class="overlay" @click.self="noticeModal = false">
       <div class="modal" style="max-width:480px">
-        <div class="modal-h"><div class="t">📢 Post notice</div><button class="close" @click="noticeModal = false">✕</button></div>
+        <div class="modal-h"><div class="t">{{ t('📢 Post notice') }}</div><button class="close" @click="noticeModal = false">✕</button></div>
         <div class="modal-b">
-          <label style="font-size:12px;color:var(--text-mute)">Title *<input v-model="noticeForm.title" placeholder="e.g. Generator maintenance on Sunday 10am–2pm" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Details<textarea v-model="noticeForm.body" rows="3" placeholder="Full announcement…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Title *') }}<input v-model="noticeForm.title" :placeholder="t('e.g. Generator maintenance on Sunday 10am–2pm')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Details') }}<textarea v-model="noticeForm.body" rows="3" :placeholder="t('Full announcement…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
-            <label style="font-size:12px;color:var(--text-mute)">Date<input type="date" v-model="noticeForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Date') }}<input type="date" v-model="noticeForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:flex-end;gap:8px;padding-bottom:8px"><input type="checkbox" v-model="noticeForm.pinned" style="width:16px;height:16px" /> 📌 Pin to top</label>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveNotice" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">📢 Post</button>
-            <button @click="noticeModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveNotice" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('📢 Post') }}</button>
+            <button @click="noticeModal = false" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3693,26 +3693,26 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">{{ staffModal.title }}</div><button class="close" @click="staffModal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Full name *<input v-model="staffForm.name" placeholder="e.g. Md. Karim" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Designation
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Full name *') }}<input v-model="staffForm.name" :placeholder="t('e.g. Md. Karim')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Designation') }}
               <select v-model="staffForm.designation" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="d in DESIGNATIONS" :key="d" :value="d">{{ d }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Mobile<input v-model="staffForm.phone" placeholder="e.g. 01711-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">NID<input v-model="staffForm.nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Join date<input type="date" v-model="staffForm.join_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Monthly salary (৳)<input type="number" v-model.number="staffForm.salary" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-            <label style="font-size:12px;color:var(--text-mute)">Status
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Mobile') }}<input v-model="staffForm.phone" :placeholder="t('e.g. 01711-000000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('NID') }}<input v-model="staffForm.nid" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Join date') }}<input type="date" v-model="staffForm.join_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Monthly salary (৳)') }}<input type="number" v-model.number="staffForm.salary" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="staffForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="st in ['Active', 'On Leave', 'Resigned']" :key="st" :value="st">{{ st }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Notes<input v-model="staffForm.notes" placeholder="Shift, remarks…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Notes') }}<input v-model="staffForm.notes" :placeholder="t('Shift, remarks…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveStaff" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save staff</button>
-            <button @click="staffModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveStaff" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save staff') }}</button>
+            <button @click="staffModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3724,18 +3724,18 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">💸 Pay salary — {{ salForm.staff_name }}</div><button class="close" @click="salModal = null">✕</button></div>
         <div class="modal-b">
           <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">{{ monthLabel(month) }} · {{ salModal.designation }}</p>
-          <label style="font-size:12px;color:var(--text-mute)">Amount (৳)<input type="number" v-model.number="salForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Paid via
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Amount (৳)') }}<input type="number" v-model.number="salForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Paid via') }}
             <select v-model="salForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
                 <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
               </optgroup>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Note<input v-model="salForm.note" placeholder="Optional — voucher / remark" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Note') }}<input v-model="salForm.note" :placeholder="t('Optional — voucher / remark')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveSalary" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💸 Confirm payment</button>
-            <button @click="salModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveSalary" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💸 Confirm payment') }}</button>
+            <button @click="salModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3746,18 +3746,18 @@ onBeforeUnmount(() => {
       <div class="modal" style="max-width:480px">
         <div class="modal-h"><div class="t">{{ userModal.title }}</div><button class="close" @click="userModal = null">✕</button></div>
         <div class="modal-b">
-          <label style="font-size:12px;color:var(--text-mute)">Full name *
-            <input v-model="userForm.name" placeholder="e.g. Md. Shahidullah" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Full name *') }}
+            <input v-model="userForm.name" :placeholder="t('e.g. Md. Shahidullah')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <template v-if="userModal.mode === 'add'">
-            <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Email *
-              <input v-model="userForm.email" type="email" placeholder="e.g. secretary@razzakplaza.com" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Email *') }}
+              <input v-model="userForm.email" type="email" :placeholder="t('e.g. secretary@razzakplaza.com')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Temporary password *
-              <input v-model="userForm.password" type="text" placeholder="min 8 characters — user changes it on first login" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Temporary password *') }}
+              <input v-model="userForm.password" type="text" :placeholder="t('min 8 characters — user changes it on first login')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </template>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Role
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Role') }}
             <select v-model="userForm.role" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <option v-for="r in USER_ROLES" :key="r" :value="r">{{ { owner: '👑 Owner (committee chairman)', manager: '🧑‍💼 Manager', accountant: '🧮 Accountant', collector: '💵 Collector (field staff)' }[r] || r }}</option>
             </select>
@@ -3766,8 +3766,8 @@ onBeforeUnmount(() => {
             <input type="checkbox" v-model="userForm.active" style="width:16px;height:16px" /> Active (can log in)
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveUser" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save user</button>
-            <button @click="userModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveUser" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save user') }}</button>
+            <button @click="userModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3779,12 +3779,12 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">🔑 Reset password — {{ resetForm.name }}</div><button class="close" @click="resetModal = null">✕</button></div>
         <div class="modal-b">
           <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">Sets a new temporary password. The user's other sessions are signed out.</p>
-          <label style="font-size:12px;color:var(--text-mute)">New password
-            <input v-model="resetForm.password" type="text" placeholder="min 8 characters" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('New password') }}
+            <input v-model="resetForm.password" type="text" :placeholder="t('min 8 characters')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveReset" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🔑 Reset password</button>
-            <button @click="resetModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveReset" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('🔑 Reset password') }}</button>
+            <button @click="resetModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3796,33 +3796,33 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">{{ memberModal.title }}</div><button class="close" @click="memberModal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Full name *
-              <input v-model="memberForm.name" placeholder="e.g. Alhaj Md. Abdul Razzak" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Full name *') }}
+              <input v-model="memberForm.name" :placeholder="t('e.g. Alhaj Md. Abdul Razzak')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Role
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Role') }}
               <select v-model="memberForm.role" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="r in committeeRoles.length ? committeeRoles : COMMITTEE_ROLES" :key="r" :value="r">{{ { Chairman: '👑 Chairman', 'Vice Chairman': '👑 Vice Chairman', Secretary: '📝 Secretary', Treasurer: '💰 Treasurer', Member: '👤 Executive Member' }[r] || r }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Space (owner of)
-              <SearchableSelect v-model="memberForm.shop" :options="shops.map(s => ({ value: s.no, label: s.no + ' — ' + s.owner_name }))" placeholder="Independent / no shop" allow-add add-label="New space" @add="setAfterAdd(memberForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.no); openAdd()" style="margin-top:4px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Space (owner of)') }}
+              <SearchableSelect v-model="memberForm.shop" :options="shops.map(s => ({ value: s.no, label: s.no + ' — ' + s.owner_name }))" :placeholder="t('Independent / no shop')" allow-add add-label="New space" @add="setAfterAdd(memberForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.no); openAdd()" style="margin-top:4px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Phone
-              <input v-model="memberForm.phone" placeholder="e.g. 01711-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
+              <input v-model="memberForm.phone" :placeholder="t('e.g. 01711-000000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Email
-              <input v-model="memberForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Email') }}
+              <input v-model="memberForm.email" type="email" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Term
-              <input v-model="memberForm.term" placeholder="e.g. 2024–2026" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Term') }}
+              <input v-model="memberForm.term" :placeholder="t('e.g. 2024–2026')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;padding-bottom:8px">
               <input type="checkbox" v-model="memberForm.active" style="width:16px;height:16px" /> Active on the committee
             </label>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveMember" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save member</button>
-            <button @click="memberModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveMember" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save member') }}</button>
+            <button @click="memberModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3831,33 +3831,33 @@ onBeforeUnmount(() => {
     <!-- ═══════ MEETING MODAL ═══════ -->
     <div v-if="meetingModal" class="overlay" @click.self="meetingModal = false">
       <div class="modal" style="max-width:560px">
-        <div class="modal-h"><div class="t">📅 Log meeting</div><button class="close" @click="meetingModal = false">✕</button></div>
+        <div class="modal-h"><div class="t">{{ t('📅 Log meeting') }}</div><button class="close" @click="meetingModal = false">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Date
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Date') }}
               <input type="date" v-model="meetingForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Type
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
               <select v-model="meetingForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="t in MEETING_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
             </label>
           </div>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Title *
-            <input v-model="meetingForm.title" placeholder="e.g. Annual General Meeting 2026" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Title *') }}
+            <input v-model="meetingForm.title" :placeholder="t('e.g. Annual General Meeting 2026')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Agenda
-            <textarea v-model="meetingForm.agenda" rows="2" placeholder="Agenda items…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Agenda') }}
+            <textarea v-model="meetingForm.agenda" rows="2" :placeholder="t('Agenda items…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Decisions
-            <textarea v-model="meetingForm.decisions" rows="2" placeholder="What was decided…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Decisions') }}
+            <textarea v-model="meetingForm.decisions" rows="2" :placeholder="t('What was decided…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Minutes / notes
-            <textarea v-model="meetingForm.minutes" rows="3" placeholder="Full minutes or notes (stored as the governance record)…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Minutes / notes') }}
+            <textarea v-model="meetingForm.minutes" rows="3" :placeholder="t('Full minutes or notes (stored as the governance record)…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveMeeting" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save meeting</button>
-            <button @click="meetingModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveMeeting" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save meeting') }}</button>
+            <button @click="meetingModal = false" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3869,28 +3869,28 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">📜 New resolution</div><button class="close" @click="resModal = false">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Number
-              <input v-model="resForm.number" placeholder="RES-2026-01" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Number') }}
+              <input v-model="resForm.number" :placeholder="t('RES-2026-01')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Date
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Date') }}
               <input type="date" v-model="resForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Title *
-            <input v-model="resForm.title" placeholder="e.g. 5% service charge increase from October" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Title *') }}
+            <input v-model="resForm.title" :placeholder="t('e.g. 5% service charge increase from October')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Resolution text
-            <textarea v-model="resForm.body" rows="3" placeholder="The full resolution text — archived as the governance record…" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Resolution text') }}
+            <textarea v-model="resForm.body" rows="3" :placeholder="t('The full resolution text — archived as the governance record…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Linked meeting (optional)
-            <SearchableSelect v-model="resForm.meeting_id" :options="(committee?.meetings || []).map(m => ({ value: m.id, label: '#' + m.id + ' · ' + m.title + ' (' + m.date + ')' }))" placeholder="— none —" allow-add add-label="New meeting" @add="setAfterAdd(resForm, 'meeting_id', () => committee?.meetings?.find(m => m.title === meetingForm.title?.trim())?.id); openMeetingAdd()" style="margin-top:4px" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Linked meeting (optional)') }}
+            <SearchableSelect v-model="resForm.meeting_id" :options="(committee?.meetings || []).map(m => ({ value: m.id, label: '#' + m.id + ' · ' + m.title + ' (' + m.date + ')' }))" :placeholder="t('— none —')" allow-add add-label="New meeting" @add="setAfterAdd(resForm, 'meeting_id', () => committee?.meetings?.find(m => m.title === meetingForm.title?.trim())?.id); openMeetingAdd()" style="margin-top:4px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:center;gap:8px;margin-top:12px;padding-bottom:8px">
             <input type="checkbox" v-model="resForm.passed" style="width:16px;height:16px" /> Passed by the committee
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveResolution" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save resolution</button>
-            <button @click="resModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveResolution" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save resolution') }}</button>
+            <button @click="resModal = false" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3902,39 +3902,39 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">{{ ownerModal.title }}</div><button class="close" @click="ownerModal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Name / entity name *
-              <input v-model="ownerForm.name" placeholder="e.g. Rahim Uddin or Rahim Traders Ltd" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Name / entity name *') }}
+              <input v-model="ownerForm.name" :placeholder="t('e.g. Rahim Uddin or Rahim Traders Ltd')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Type
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
               <select v-model="ownerForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="t in OWNER_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Phone
-              <input v-model="ownerForm.phone" placeholder="e.g. 01711-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
+              <input v-model="ownerForm.phone" :placeholder="t('e.g. 01711-000000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Email
-              <input v-model="ownerForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Email') }}
+              <input v-model="ownerForm.email" type="email" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">NID (person) / TIN
-              <input v-model="ownerForm.nid" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('NID (person) / TIN') }}
+              <input v-model="ownerForm.nid" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Trade license (company)
-              <input v-model="ownerForm.trade_license" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Trade license (company)') }}
+              <input v-model="ownerForm.trade_license" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Contact person
-              <input v-model="ownerForm.contact_person" placeholder="for companies" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Contact person') }}
+              <input v-model="ownerForm.contact_person" :placeholder="t('for companies')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Address
-              <input v-model="ownerForm.address" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Address') }}
+              <input v-model="ownerForm.address" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Notes
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Notes') }}
             <textarea v-model="ownerForm.notes" rows="2" placeholder="e.g. owns A-101 &amp; B-201; self-occupies A-101" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveOwner" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save owner</button>
-            <button @click="ownerModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveOwner" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save owner') }}</button>
+            <button @click="ownerModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -3972,28 +3972,28 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">{{ tenantModal.title }}</div><button class="close" @click="tenantModal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Full name *
-              <input v-model="tenantForm.name" placeholder="e.g. Abdul Kader" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Full name *') }}
+              <input v-model="tenantForm.name" :placeholder="t('e.g. Abdul Kader')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Phone
-              <input v-model="tenantForm.phone" placeholder="e.g. 01800-000000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
+              <input v-model="tenantForm.phone" :placeholder="t('e.g. 01800-000000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">NID
-              <input v-model="tenantForm.nid" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('NID') }}
+              <input v-model="tenantForm.nid" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Email
-              <input v-model="tenantForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Email') }}
+              <input v-model="tenantForm.email" type="email" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Employer / business
-              <input v-model="tenantForm.employer" placeholder="e.g. Mobile accessories shop" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Employer / business') }}
+              <input v-model="tenantForm.employer" :placeholder="t('e.g. Mobile accessories shop')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Address
-              <input v-model="tenantForm.address" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Address') }}
+              <input v-model="tenantForm.address" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveTenant" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save tenant</button>
-            <button @click="tenantModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveTenant" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save tenant') }}</button>
+            <button @click="tenantModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -4005,28 +4005,28 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">📄 New rental agreement</div><button class="close" @click="agrModal = false">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Space *
-              <SearchableSelect v-model="agrForm.shop" :options="shops.map(s => ({ value: s.no, label: s.no + ' · ' + (s.space_type || 'Shop') }))" placeholder="— choose space —" allow-add add-label="New space" @add="setAfterAdd(agrForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.no); openAdd()" style="margin-top:4px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Space *') }}
+              <SearchableSelect v-model="agrForm.shop" :options="shops.map(s => ({ value: s.no, label: s.no + ' · ' + (s.space_type || 'Shop') }))" :placeholder="t('— choose space —')" allow-add add-label="New space" @add="setAfterAdd(agrForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.no); openAdd()" style="margin-top:4px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Tenant
-              <SearchableSelect v-model="agrForm.tenant_id" :options="tenants.map(t => ({ value: t.id, label: t.name }))" placeholder="— choose tenant —" allow-add add-label="New tenant" @add="setAfterAdd(agrForm, 'tenant_id', () => tenants.find(t => t.name === tenantForm.name?.trim())?.id); openTenantAdd()" style="margin-top:4px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Tenant') }}
+              <SearchableSelect v-model="agrForm.tenant_id" :options="tenants.map(t => ({ value: t.id, label: t.name }))" :placeholder="t('— choose tenant —')" allow-add add-label="New tenant" @add="setAfterAdd(agrForm, 'tenant_id', () => tenants.find(t => t.name === tenantForm.name?.trim())?.id); openTenantAdd()" style="margin-top:4px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Monthly rent (৳)
-              <input type="number" v-model.number="agrForm.rent" min="0" placeholder="e.g. 25000" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Monthly rent (৳)') }}
+              <input type="number" v-model.number="agrForm.rent" min="0" :placeholder="t('e.g. 25000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Advance months
-              <input type="number" v-model.number="agrForm.advance_months" min="0" placeholder="e.g. 3" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Advance months') }}
+              <input type="number" v-model.number="agrForm.advance_months" min="0" :placeholder="t('e.g. 3')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Start date
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Start date') }}
               <input type="date" v-model="agrForm.start_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">End date (optional)
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('End date (optional)') }}
               <input type="date" v-model="agrForm.end_date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Rent due day
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Rent due day') }}
               <input type="number" v-model.number="agrForm.due_day" min="1" max="28" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Status
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="agrForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="s in ['Active', 'Expired', 'Terminated']" :key="s" :value="s">{{ s }}</option>
               </select>
@@ -4037,8 +4037,8 @@ onBeforeUnmount(() => {
             <span><b>Committee collects rent</b> <span style="color:var(--text-mute)">— optional service: the owner gets rent collected on their behalf</span></span>
           </label>
           <div style="display:flex;gap:10px;margin-top:16px">
-            <button @click="saveAgreement" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save agreement</button>
-            <button @click="agrModal = false" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveAgreement" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save agreement') }}</button>
+            <button @click="agrModal = false" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -4050,14 +4050,14 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">💵 Collect rent — {{ rentModal.shop }}</div><button class="close" @click="rentModal = null">✕</button></div>
         <div class="modal-b">
           <p style="font-size:12.5px;color:var(--text-mute);margin-bottom:12px">Recording rent for <b>{{ rentModal.tenant_name }}</b> ({{ money(rentModal.rent) }}/mo). Receipt <b>RNT-…</b> auto-generated.</p>
-          <label style="font-size:12px;color:var(--text-mute);display:block">Month
+          <label style="font-size:12px;color:var(--text-mute);display:block">{{ t('Month') }}
             <input type="month" v-model="rentForm.month" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
-            <label style="font-size:12px;color:var(--text-mute)">Amount
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Amount') }}
               <input type="number" v-model.number="rentForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Method
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Method') }}
               <select v-model="rentForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
                   <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
@@ -4065,12 +4065,12 @@ onBeforeUnmount(() => {
               </select>
             </label>
           </div>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reference
-            <input v-model="rentForm.ref" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Reference') }}
+            <input v-model="rentForm.ref" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveRent" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Record rent</button>
-            <button @click="rentModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveRent" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('✅ Record rent') }}</button>
+            <button @click="rentModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -4082,30 +4082,30 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">{{ vendorModal.title }}</div><button class="close" @click="vendorModal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Vendor name *
-              <input v-model="vendorForm.name" placeholder="e.g. Otis Elevator Co." style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Vendor name *') }}
+              <input v-model="vendorForm.name" :placeholder="t('e.g. Otis Elevator Co.')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Category
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Category') }}
               <select v-model="vendorForm.category" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <option v-for="c in VENDOR_CATS" :key="c" :value="c">{{ c }}</option>
               </select>
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Contact person
-              <input v-model="vendorForm.contact_person" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Contact person') }}
+              <input v-model="vendorForm.contact_person" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Phone
-              <input v-model="vendorForm.phone" placeholder="e.g. 02-9551234" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
+              <input v-model="vendorForm.phone" :placeholder="t('e.g. 02-9551234')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Email
-              <input v-model="vendorForm.email" type="email" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Email') }}
+              <input v-model="vendorForm.email" type="email" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Address
-              <input v-model="vendorForm.address" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Address') }}
+              <input v-model="vendorForm.address" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="saveVendor" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save vendor</button>
-            <button @click="vendorModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+            <button @click="saveVendor" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save vendor') }}</button>
+            <button @click="vendorModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
@@ -4117,10 +4117,10 @@ onBeforeUnmount(() => {
         <div class="modal-h"><div class="t">💸 Pay {{ vendorPayModal.name }}</div><button class="close" @click="vendorPayModal = null">✕</button></div>
         <div class="modal-b">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Amount (৳)
-              <input type="number" v-model.number="vendorPayForm.amount" min="0" placeholder="e.g. 8500" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Amount (৳)') }}
+              <input type="number" v-model.number="vendorPayForm.amount" min="0" :placeholder="t('e.g. 8500')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">Method
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Method') }}
               <select v-model="vendorPayForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
                 <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
                   <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
@@ -4128,20 +4128,20 @@ onBeforeUnmount(() => {
               </select>
             </label>
           </div>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reference / cheque no
-            <input v-model="vendorPayForm.ref" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Reference / cheque no') }}
+            <input v-model="vendorPayForm.ref" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Note (what is this for?)
-            <input v-model="vendorPayForm.note" placeholder="e.g. Lift AMC — August" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Note (what is this for?)') }}
+            <input v-model="vendorPayForm.note" :placeholder="t('e.g. Lift AMC — August')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <div style="display:flex;gap:10px;margin-top:16px">
-            <button @click="saveVendorPay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Record payment</button>
+            <button @click="saveVendorPay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('✅ Record payment') }}</button>
           </div>
           <div v-if="vendorPayments.length" style="margin-top:16px">
             <div style="font-size:11.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Payment ledger</div>
             <div v-for="p in vendorPayments" :key="p.id" style="display:flex;align-items:center;gap:8px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
               <b>{{ money(p.amount) }}</b>
-              <span class="badge b-gray" style="font-size:10px">{{ p.method }}</span>
+              <span class="badge b-gray" style="font-size:10px">{{ bnd(p.method) }}</span>
               <span style="color:var(--text-mute);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.note }}</span>
               <span style="color:var(--text-mute);font-size:11px">{{ (p.ts || '').slice(0, 10) }}</span>
             </div>
@@ -4169,7 +4169,7 @@ onBeforeUnmount(() => {
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Entries</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ acctDrawer.entries.length }}</div></div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total debit</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--danger)">{{ money(acctDrawer.total_debit) }}</div></div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total credit</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(acctDrawer.total_credit) }}</div></div>
-            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Balance</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="acctDrawer.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(acctDrawer.balance) }}</div></div>
+            <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Balance') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="acctDrawer.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(acctDrawer.balance) }}</div></div>
           </div>
           <!-- SUB-LEDGERS for control accounts -->
           <template v-if="acctDrawer.subs && acctDrawer.subs.length">
@@ -4184,7 +4184,7 @@ onBeforeUnmount(() => {
           <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px">Approved entries ({{ acctDrawer.entries.length }})</div>
           <div class="tbl-wrap" style="max-height:340px">
             <table class="kr" style="width:100%">
-              <thead><tr><th>Ref</th><th>Date</th><th>Debit</th><th>Credit</th><th>Subsidiary</th><th>Note</th></tr></thead>
+              <thead><tr><th>{{ t('Ref') }}</th><th>{{ t('Date') }}</th><th>{{ t('Debit') }}</th><th>{{ t('Credit') }}</th><th>{{ t('Subsidiary') }}</th><th>{{ t('Note') }}</th></tr></thead>
               <tbody>
                 <tr v-for="e in acctDrawer.entries" :key="e.id">
                   <td style="font-family:monospace;font-size:11px">{{ e.ref }}</td>
@@ -4208,18 +4208,18 @@ onBeforeUnmount(() => {
       <div class="modal" style="max-width:420px">
         <div class="modal-h"><div class="t">{{ accountModal.title }}</div><button @click="accountModal = null" class="x">✕</button></div>
         <div class="modal-b" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <label style="font-size:12px;color:var(--text-mute)">Code
-            <input v-model="accountForm.code" placeholder="e.g. 5080" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Code') }}
+            <input v-model="accountForm.code" :placeholder="t('e.g. 5080')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Type
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
             <select v-model="accountForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <option v-for="t in ACCOUNT_TYPES" :key="t" :value="t">{{ TYPE_ICONS[t] }} {{ t }}</option>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Account name *
-            <input v-model="accountForm.name" placeholder="e.g. Generator Fuel" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Account name *') }}
+            <input v-model="accountForm.name" :placeholder="t('e.g. Generator Fuel')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Opening balance (৳)
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Opening balance (৳)') }}
             <input type="number" v-model.number="accountForm.opening" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:flex-end;gap:9px;cursor:pointer;padding-bottom:8px">
@@ -4242,25 +4242,25 @@ onBeforeUnmount(() => {
           </label>
           <label v-if="!accountForm.is_group" style="font-size:12px;color:var(--text-mute)">
             Parent group
-            <SearchableSelect v-model="accountForm.parent" :options="groupAccountOptions" placeholder="— top level —" style="margin-top:4px" />
+            <SearchableSelect v-model="accountForm.parent" :options="groupAccountOptions" :placeholder="t('— top level —')" style="margin-top:4px" />
           </label>
           <label v-if="accountForm.subsidiary" style="font-size:12px;color:var(--text-mute)">
             🧾 Party type
             <select v-model="accountForm.subs_type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="">Any party</option>
-              <option value="vendor">🧰 Vendors</option>
-              <option value="owner">🏢 Owners</option>
-              <option value="tenant">🧑🤝🧑 Tenants</option>
+              <option value="">{{ t('Any party') }}</option>
+              <option value="vendor">{{ t('🧰 Vendors') }}</option>
+              <option value="owner">{{ t('🏢 Owners') }}</option>
+              <option value="tenant">{{ t('🧑🤝🧑 Tenants') }}</option>
               <option value="staff">🧑💼 Staff</option>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note
-            <input v-model="accountForm.note" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Note') }}
+            <input v-model="accountForm.note" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
         </div>
         <div class="modal-b" style="display:flex;gap:8px;justify-content:flex-end">
-          <button @click="accountModal = null" class="btn-ghost">Cancel</button>
-          <button @click="saveAccount" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save account</button>
+          <button @click="accountModal = null" class="btn-ghost">{{ t('Cancel') }}</button>
+          <button @click="saveAccount" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save account') }}</button>
         </div>
       </div>
     </div>
@@ -4270,29 +4270,29 @@ onBeforeUnmount(() => {
       <div class="modal" style="max-width:560px">
         <div class="modal-h"><div class="t">📖 New journal voucher <small style="color:var(--text-mute);font-weight:600">(double entry)</small></div><button @click="jModal = null" class="x">✕</button></div>
         <div class="modal-b" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <label style="font-size:12px;color:var(--text-mute)">Date
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Date') }}
             <input type="date" v-model="jForm.date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute)">Reference (auto JV-####)
-            <input v-model="jForm.ref" placeholder="JV-00001" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Reference (auto JV-####)') }}
+            <input v-model="jForm.ref" :placeholder="t('JV-00001')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Voucher lines <small style="color:var(--text-mute)">— debit total must equal credit total</small></label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Voucher lines') }} <small style="color:var(--text-mute)">— debit total must equal credit total</small></label>
           <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px">
             <div v-for="(l, i) in jForm.lines" :key="i" style="display:flex;gap:8px;align-items:center">
               <div style="flex:1;min-width:0">
-                <SearchableSelect :model-value="l.account || 0" :options="accountOptions" placeholder="Account… (search by code or name)" @update:modelValue="v => { l.account = v; onJLineAccountChange(l) }" />
+                <SearchableSelect :model-value="l.account || 0" :options="accountOptions" :placeholder="t('Account… (search by code or name)')" @update:modelValue="v => { l.account = v; onJLineAccountChange(l) }" />
               </div>
               <select v-model="l.side" style="padding:9px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
                 <option value="debit">Dr</option><option value="credit">Cr</option>
               </select>
               <input type="number" v-model.number="l.amount" min="0" placeholder="৳" style="width:100px;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
               <div v-if="isSubLedgerAccount(l.account)" style="width:170px;flex-shrink:0">
-                <SearchableSelect :model-value="l.subValue" :options="subOptionsFor(l)" placeholder="🧾 Party…" @update:modelValue="onSubPick($event, l)" />
+                <SearchableSelect :model-value="l.subValue" :options="subOptionsFor(l)" :placeholder="t('🧾 Party…')" @update:modelValue="onSubPick($event, l)" />
               </div>
               <span v-if="l.subName" style="font-size:11px;color:var(--text-mute);white-space:nowrap">🧾 {{ l.subName }}</span>
               <button @click="delJLine(i)" title="Remove line" style="border:none;background:none;color:var(--danger);font-size:15px;cursor:pointer;font-weight:800">✕</button>
             </div>
-            <button @click="addJLine" style="align-self:flex-start;padding:7px 12px;border:1px dashed var(--border);background:none;border-radius:10px;color:var(--primary);font-size:12px;font-weight:800;cursor:pointer">＋ Add line</button>
+            <button @click="addJLine" style="align-self:flex-start;padding:7px 12px;border:1px dashed var(--border);background:none;border-radius:10px;color:var(--primary);font-size:12px;font-weight:800;cursor:pointer">{{ t('＋ Add line') }}</button>
           </div>
           <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
             <span style="font-size:12px;color:var(--text-mute)">Balance:</span>
@@ -4302,22 +4302,22 @@ onBeforeUnmount(() => {
             <b v-if="jBalanced" style="margin-left:auto;color:var(--ok);font-size:12px">✅ Balanced</b>
             <b v-else style="margin-left:auto;color:var(--danger);font-size:12px">⚠️ Not balanced ({{ money(Math.abs(jDrTotal - jCrTotal)) }} off)</b>
           </div>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note / description
-            <input v-model="jForm.note" placeholder="e.g. Generator fuel for August" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Note / description') }}
+            <input v-model="jForm.note" :placeholder="t('e.g. Generator fuel for August')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <div style="grid-column:1/-1;display:flex;align-items:center;gap:12px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px">
             <div style="flex:1;min-width:0">
               <div style="font-size:12px;color:var(--text-mute);font-weight:700">🧾 Receipt / voucher attachment <small>(optional, max 800 KB)</small></div>
-              <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">⬆ Upload image<input type="file" accept="image/*" style="display:none" @change="onJoucherPick($event)" /></label>
+              <label style="font-size:11.5px;color:var(--primary);font-weight:700;cursor:pointer">{{ t('⬆ Upload image') }}<input type="file" accept="image/*" style="display:none" @change="onJoucherPick($event)" /></label>
               <div v-if="jForm.voucherName" style="font-size:11px;color:var(--text-mute)">📎 {{ jForm.voucherName }}</div>
             </div>
             <img v-if="jForm.voucher" :src="jForm.voucher" alt="preview" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--border)" />
-            <button v-if="jForm.voucher" @click="jForm.voucher = ''; jForm.voucherName = ''" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer">🗑 Remove</button>
+            <button v-if="jForm.voucher" @click="jForm.voucher = ''; jForm.voucherName = ''" style="border:none;background:none;color:var(--danger);font-size:11px;cursor:pointer">{{ t('🗑 Remove') }}</button>
           </div>
         </div>
         <div class="modal-b" style="display:flex;gap:8px;justify-content:flex-end">
-          <button @click="jModal = null" class="btn-ghost">Cancel</button>
-          <button @click="saveJournal" :disabled="!jBalanced" :style="jBalanced ? '' : 'opacity:.45;cursor:not-allowed'" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">📤 Submit for approval</button>
+          <button @click="jModal = null" class="btn-ghost">{{ t('Cancel') }}</button>
+          <button @click="saveJournal" :disabled="!jBalanced" :style="jBalanced ? '' : 'opacity:.45;cursor:not-allowed'" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('📤 Submit for approval') }}</button>
         </div>
       </div>
     </div>
@@ -4354,7 +4354,7 @@ onBeforeUnmount(() => {
               <div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(drawer.total_paid) }}</div>
             </div>
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
-              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Due</div>
+              <div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Due') }}</div>
               <div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="drawer.total_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(drawer.total_due) }}</div>
             </div>
           </div>
@@ -4404,7 +4404,7 @@ onBeforeUnmount(() => {
           <!-- RENT -->
           <div v-else-if="drawerTab === 'rent'" class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>Space</th><th>Tenant</th><th>Rent/mo</th><th>Term</th><th>Advance</th><th>Collection</th><th>Status</th></tr></thead>
+              <thead><tr><th>{{ t('Space') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Rent/mo') }}</th><th>{{ t('Term') }}</th><th>{{ t('Advance') }}</th><th>{{ t('Collection') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="a in drawer.agreements" :key="a.id">
                   <td style="font-weight:700">{{ a.shop }}</td>
@@ -4413,7 +4413,7 @@ onBeforeUnmount(() => {
                   <td style="font-size:12px">{{ a.start_date }}<template v-if="a.end_date"> → {{ a.end_date }}</template></td>
                   <td>{{ a.advance_months }} mo</td>
                   <td><span class="badge" :class="a.rent_collection ? 'b-blue' : 'b-gray'" style="font-size:10px">{{ a.rent_collection ? 'committee collects' : 'owner collects' }}</span></td>
-                  <td><span class="badge" :class="badge(a.status)">{{ a.status }}</span></td>
+                  <td><span class="badge" :class="badge(a.status)">{{ bnd(a.status) }}</span></td>
                 </tr>
                 <tr v-if="!drawer.agreements.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No rental agreement for this space.</td></tr>
               </tbody>
@@ -4421,7 +4421,7 @@ onBeforeUnmount(() => {
             <div v-if="drawer.rent_payments.length" style="margin-top:12px">
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Rent collections</div>
               <div v-for="p in drawer.rent_payments" :key="p.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px">
-                <b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ p.method }}</span>
+                <b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ bnd(p.method) }}</span>
                 <span style="color:var(--text-mute);flex:1">{{ p.receipt }} · {{ p.month }}</span>
               </div>
             </div>
@@ -4430,16 +4430,16 @@ onBeforeUnmount(() => {
           <!-- BILLS -->
           <div v-else-if="drawerTab === 'bills'" class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>Bill</th><th>Month</th><th>Kind</th><th>Amount</th><th>Fine</th><th>Due</th><th>Status</th></tr></thead>
+              <thead><tr><th>{{ t('Bill') }}</th><th>{{ t('Month') }}</th><th>{{ t('Kind') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Fine') }}</th><th>{{ t('Due') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="b in drawer.bills" :key="b.id">
                   <td style="font-weight:700">{{ b.id }}</td>
                   <td>{{ b.month }}</td>
-                  <td>{{ { service: 'Service', elec: 'Electricity', water: 'Water' }[b.kind] || b.kind }}</td>
+                  <td>{{ bnd({ service: 'Service', elec: 'Electricity', water: 'Water' }[b.kind] || b.kind) }}</td>
                   <td style="font-weight:700">{{ money(b.amount) }}</td>
                   <td>{{ money(b.fine) }}</td>
                   <td style="font-size:12px">{{ b.due_date }}</td>
-                  <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
+                  <td><span class="badge" :class="badge(b.status)">{{ bnd(b.status) }}</span></td>
                 </tr>
                 <tr v-if="!drawer.bills.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">No bills for this space yet.</td></tr>
               </tbody>
@@ -4447,10 +4447,10 @@ onBeforeUnmount(() => {
             <div v-if="drawer.payments.length" style="margin-top:12px">
               <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Collection history</div>
               <table class="kr" style="width:100%">
-                <thead><tr><th>Receipt</th><th>Month</th><th>Kind</th><th>Method</th><th style="text-align:right">Amount</th></tr></thead>
+                <thead><tr><th>{{ t('Receipt') }}</th><th>{{ t('Month') }}</th><th>{{ t('Kind') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="p in drawer.payments" :key="p.id">
-                    <td style="font-weight:700">{{ p.receipt }}</td><td>{{ p.month }}</td><td>{{ p.kind }}</td><td>{{ p.method }}</td><td style="text-align:right;font-weight:700">{{ money(p.amount) }}</td>
+                    <td style="font-weight:700">{{ p.receipt }}</td><td>{{ p.month }}</td><td>{{ bnd(p.kind) }}</td><td>{{ bnd(p.method) }}</td><td style="text-align:right;font-weight:700">{{ money(p.amount) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -4460,7 +4460,7 @@ onBeforeUnmount(() => {
           <!-- METERS -->
           <div v-else-if="drawerTab === 'meters'" class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>Month</th><th>Type</th><th style="text-align:right">Reading</th><th style="text-align:right">Units</th><th style="text-align:right">Billed</th></tr></thead>
+              <thead><tr><th>{{ t('Month') }}</th><th>{{ t('Type') }}</th><th style="text-align:right">{{ t('Reading') }}</th><th style="text-align:right">{{ t('Units') }}</th><th style="text-align:right">{{ t('Billed') }}</th></tr></thead>
               <tbody>
                 <tr v-for="r in drawer.readings" :key="r.id">
                   <td>{{ r.month }}</td>
@@ -4477,14 +4477,14 @@ onBeforeUnmount(() => {
           <!-- COMPLAINTS -->
           <div v-else class="drawer-tbl-wrap">
             <table class="kr" style="width:100%">
-              <thead><tr><th>#</th><th>Subject</th><th>Priority</th><th>Opened</th><th>Status</th></tr></thead>
+              <thead><tr><th>{{ t('#') }}</th><th>{{ t('Subject') }}</th><th>{{ t('Priority') }}</th><th>{{ t('Opened') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="c in drawer.complaints" :key="c.id">
                   <td style="font-weight:700">{{ c.id }}</td>
                   <td>{{ c.subject }}</td>
                   <td><span class="badge" :class="c.priority === 'High' ? 'b-red' : c.priority === 'Urgent' ? 'b-red' : c.priority === 'Low' ? 'b-gray' : 'b-orange'" style="font-size:10px">{{ c.priority }}</span></td>
                   <td style="font-size:12px">{{ (c.created_at || '').slice(0, 10) }}</td>
-                  <td><span class="badge" :class="badge(c.status)">{{ c.status }}</span></td>
+                  <td><span class="badge" :class="badge(c.status)">{{ bnd(c.status) }}</span></td>
                 </tr>
                 <tr v-if="!drawer.complaints.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No complaints for this space.</td></tr>
               </tbody>
@@ -4523,14 +4523,14 @@ onBeforeUnmount(() => {
               <div v-for="r in [['Category', vDrawer.vendor.category || '—'], ['Contact person', vDrawer.vendor.contact_person || '—'], ['Phone', vDrawer.vendor.phone || '—'], ['Email', vDrawer.vendor.email || '—'], ['Address', vDrawer.vendor.address || '—'], ['Notes', vDrawer.vendor.notes || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
             </div>
             <div v-else-if="eTab === 'payments'" class="drawer-tbl-wrap">
-              <table class="kr" style="width:100%"><thead><tr><th>Amount</th><th>Method</th><th>Ref</th><th>Note</th><th>Date</th></tr></thead><tbody>
-                <tr v-for="p in vDrawer.payments" :key="p.id"><td style="font-weight:700">{{ money(p.amount) }}</td><td>{{ p.method }}</td><td>{{ p.ref || '—' }}</td><td style="font-size:12px">{{ p.note }}</td><td style="font-size:12px;color:var(--text-mute)">{{ (p.ts || '').slice(0, 10) }}</td></tr>
+              <table class="kr" style="width:100%"><thead><tr><th>{{ t('Amount') }}</th><th>{{ t('Method') }}</th><th>{{ t('Ref') }}</th><th>{{ t('Note') }}</th><th>{{ t('Date') }}</th></tr></thead><tbody>
+                <tr v-for="p in vDrawer.payments" :key="p.id"><td style="font-weight:700">{{ money(p.amount) }}</td><td>{{ bnd(p.method) }}</td><td>{{ p.ref || '—' }}</td><td style="font-size:12px">{{ p.note }}</td><td style="font-size:12px;color:var(--text-mute)">{{ (p.ts || '').slice(0, 10) }}</td></tr>
                 <tr v-if="!vDrawer.payments.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No payments recorded.</td></tr>
               </tbody></table>
             </div>
             <div v-else class="drawer-tbl-wrap">
-              <table class="kr" style="width:100%"><thead><tr><th>Date</th><th>Label</th><th>Method</th><th style="text-align:right">Amount</th></tr></thead><tbody>
-                <tr v-for="e in vDrawer.expenses" :key="e.id"><td style="font-size:12px;color:var(--text-mute)">{{ (e.ts || '').slice(0, 10) }}</td><td style="font-size:12.5px">{{ e.label }}</td><td>{{ e.method }}</td><td style="text-align:right;font-weight:700">{{ money(e.amount) }}</td></tr>
+              <table class="kr" style="width:100%"><thead><tr><th>{{ t('Date') }}</th><th>{{ t('Label') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th></tr></thead><tbody>
+                <tr v-for="e in vDrawer.expenses" :key="e.id"><td style="font-size:12px;color:var(--text-mute)">{{ (e.ts || '').slice(0, 10) }}</td><td style="font-size:12.5px">{{ e.label }}</td><td>{{ bnd(e.method) }}</td><td style="text-align:right;font-weight:700">{{ money(e.amount) }}</td></tr>
                 <tr v-if="!vDrawer.expenses.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">No ledger expenses linked to this vendor.</td></tr>
               </tbody></table>
             </div>
@@ -4557,7 +4557,7 @@ onBeforeUnmount(() => {
               <div v-for="r in [['Designation', sDrawer.staff.designation || '—'], ['Phone', sDrawer.staff.phone || '—'], ['NID', sDrawer.staff.nid || '—'], ['Joined', sDrawer.staff.join_date || '—'], ['Status', sDrawer.staff.status], ['Salary/mo', money(sDrawer.staff.salary)]]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
             </div>
             <div v-else class="drawer-tbl-wrap">
-              <table class="kr" style="width:100%"><thead><tr><th>Month</th><th>Amount</th><th>Method</th><th>Paid on</th></tr></thead><tbody>
+              <table class="kr" style="width:100%"><thead><tr><th>{{ t('Month') }}</th><th>{{ t('Amount') }}</th><th>{{ t('Method') }}</th><th>{{ t('Paid on') }}</th></tr></thead><tbody>
                 <tr v-for="x in sDrawer.salaries" :key="x.id"><td style="font-weight:700">{{ x.month }}</td><td style="font-weight:700">{{ money(x.amount) }}</td><td>{{ x.method }}</td><td style="font-size:12px;color:var(--text-mute)">{{ (x.ts || '').slice(0, 10) }}</td></tr>
                 <tr v-if="!sDrawer.salaries.length"><td colspan="4" style="text-align:center;color:var(--text-mute);padding:22px">No salary payments yet.</td></tr>
               </tbody></table>
@@ -4584,13 +4584,13 @@ onBeforeUnmount(() => {
               <div v-for="r in [['Phone', tDrawer.tenant.phone || '—'], ['Email', tDrawer.tenant.email || '—'], ['NID', tDrawer.tenant.nid || '—'], ['Employer / business', tDrawer.tenant.employer || '—'], ['Address', tDrawer.tenant.address || '—'], ['Notes', tDrawer.tenant.notes || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
             </div>
             <div v-else class="drawer-tbl-wrap">
-              <table class="kr" style="width:100%"><thead><tr><th>Space</th><th>Rent/mo</th><th>Term</th><th>Advance</th><th>Status</th></tr></thead><tbody>
-                <tr v-for="a in tDrawer.agreements" :key="a.id"><td style="font-weight:700">{{ a.shop }}</td><td style="font-weight:700">{{ money(a.rent) }}</td><td style="font-size:12px">{{ a.start_date }}<template v-if="a.end_date"> → {{ a.end_date }}</template></td><td>{{ a.advance_months }} mo</td><td><span class="badge" :class="badge(a.status)">{{ a.status }}</span></td></tr>
+              <table class="kr" style="width:100%"><thead><tr><th>{{ t('Space') }}</th><th>{{ t('Rent/mo') }}</th><th>{{ t('Term') }}</th><th>{{ t('Advance') }}</th><th>{{ t('Status') }}</th></tr></thead><tbody>
+                <tr v-for="a in tDrawer.agreements" :key="a.id"><td style="font-weight:700">{{ a.shop }}</td><td style="font-weight:700">{{ money(a.rent) }}</td><td style="font-size:12px">{{ a.start_date }}<template v-if="a.end_date"> → {{ a.end_date }}</template></td><td>{{ a.advance_months }} mo</td><td><span class="badge" :class="badge(a.status)">{{ bnd(a.status) }}</span></td></tr>
                 <tr v-if="!tDrawer.agreements.length"><td colspan="5" style="text-align:center;color:var(--text-mute);padding:22px">No agreements for this tenant.</td></tr>
               </tbody></table>
               <div v-if="tDrawer.rent_payments.length" style="margin-top:12px">
                 <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Rent collections</div>
-                <div v-for="p in tDrawer.rent_payments" :key="p.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ p.method }}</span><span style="color:var(--text-mute);flex:1">{{ p.receipt }} · {{ p.month }}<template v-if="p.shop"> · {{ p.shop }}</template></span></div>
+                <div v-for="p in tDrawer.rent_payments" :key="p.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><b>{{ money(p.amount) }}</b><span class="badge b-gray" style="font-size:10px">{{ bnd(p.method) }}</span><span style="color:var(--text-mute);flex:1">{{ p.receipt }} · {{ p.month }}<template v-if="p.shop"> · {{ p.shop }}</template></span></div>
               </div>
             </div>
           </div>
@@ -4605,9 +4605,9 @@ onBeforeUnmount(() => {
             <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ mDrawer.name }}</h2>
             <div class="c-sub" style="margin-top:3px">🏛️ Committee member · term {{ mDrawer.term || '—' }}</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Role</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ mDrawer.role }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Space</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ mDrawer.shop || 'Independent' }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Status</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="mDrawer.active ? 'color:var(--ok)' : 'color:var(--danger)'">{{ mDrawer.active ? 'Active' : 'Inactive' }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Role') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ mDrawer.role }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Space') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ mDrawer.shop || 'Independent' }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Status') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="mDrawer.active ? 'color:var(--ok)' : 'color:var(--danger)'">{{ mDrawer.active ? 'Active' : 'Inactive' }}</div></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
               <div v-for="r in [['Role', mDrawer.role], ['Phone', mDrawer.phone || '—'], ['Email', mDrawer.email || '—'], ['Space (owner of)', mDrawer.shop || 'Independent'], ['Term', mDrawer.term || '—'], ['Status', mDrawer.active ? 'Active' : 'Inactive']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
@@ -4627,7 +4627,7 @@ onBeforeUnmount(() => {
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
               <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Spaces</div><div style="font-size:14.5px;font-weight:800;margin-top:2px">{{ oDrawer.shops.length }}</div></div>
               <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Total paid</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(oDrawer.total_paid) }}</div></div>
-              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">Due</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="oDrawer.total_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(oDrawer.total_due) }}</div></div>
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Due') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px" :style="oDrawer.total_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(oDrawer.total_due) }}</div></div>
             </div>
             <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
               <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'spaces',label:'Spaces',ico:'🏪'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : oDrawer.shops.length }})</span></button>
@@ -4636,7 +4636,7 @@ onBeforeUnmount(() => {
               <div v-for="r in [['Type', oDrawer.owner.type || '—'], ['Phone', oDrawer.owner.phone || '—'], ['Email', oDrawer.owner.email || '—'], ['NID / TIN', oDrawer.owner.nid || '—'], ['Trade license', oDrawer.owner.trade_license || '—'], ['Contact person', oDrawer.owner.contact_person || '—'], ['Address', oDrawer.owner.address || '—'], ['Notes', oDrawer.owner.notes || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
             </div>
             <div v-else class="drawer-tbl-wrap">
-              <table class="kr" style="width:100%"><thead><tr><th>Space</th><th>Floor</th><th>Type</th><th>Occupancy</th><th style="text-align:right">Paid</th><th style="text-align:right">Due</th></tr></thead><tbody>
+              <table class="kr" style="width:100%"><thead><tr><th>{{ t('Space') }}</th><th>{{ t('Floor') }}</th><th>{{ t('Type') }}</th><th>{{ t('Occupancy') }}</th><th style="text-align:right">{{ t('Paid') }}</th><th style="text-align:right">{{ t('Due') }}</th></tr></thead><tbody>
                 <tr v-for="s in oDrawer.shops" :key="s.id"><td style="font-weight:700">{{ s.no }}</td><td>{{ s.floor }}</td><td>{{ s.space_type }}</td><td><span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px">{{ s.occupancy }}</span></td><td style="text-align:right">{{ money(s.paid) }}</td><td style="text-align:right;font-weight:800" :style="s.due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(s.due) }}</td></tr>
                 <tr v-if="!oDrawer.shops.length"><td colspan="6" style="text-align:center;color:var(--text-mute);padding:22px">No spaces linked to this owner.</td></tr>
               </tbody></table>
@@ -4681,14 +4681,14 @@ onBeforeUnmount(() => {
             <table style="width:100%;font-size:13.5px;line-height:2">
               <tbody>
                 <tr><td style="color:var(--text-mute)">Receipt No</td><td style="text-align:right;font-weight:800">{{ recData.payment.receipt }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Date</td><td style="text-align:right">{{ (recData.payment.created_at || '').slice(0, 16) }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Space</td><td style="text-align:right;font-weight:800">{{ recData.bill.shop_no }} · {{ recData.bill.shop_floor }} floor</td></tr>
-                <tr><td style="color:var(--text-mute)">Owner</td><td style="text-align:right">{{ recData.bill.owner_name || '—' }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Month</td><td style="text-align:right">{{ monthLabel(recData.bill.month) }}</td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Date') }}</td><td style="text-align:right">{{ (recData.payment.created_at || '').slice(0, 16) }}</td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Space') }}</td><td style="text-align:right;font-weight:800">{{ recData.bill.shop_no }} · {{ recData.bill.shop_floor }} floor</td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Owner') }}</td><td style="text-align:right">{{ recData.bill.owner_name || '—' }}</td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Month') }}</td><td style="text-align:right">{{ monthLabel(recData.bill.month) }}</td></tr>
                 <tr><td style="color:var(--text-mute)">Charge</td><td style="text-align:right">{{ { service: 'Service charge', elec: 'Electricity (sub-meter)', water: 'Water (sub-meter)' }[recData.bill.kind] }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Amount</td><td style="text-align:right;font-weight:800">{{ money(recData.bill.amount) }}</td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Amount') }}</td><td style="text-align:right;font-weight:800">{{ money(recData.bill.amount) }}</td></tr>
                 <tr v-if="recData.bill.fine"><td style="color:var(--text-mute)">Late fee</td><td style="text-align:right;color:var(--danger)">{{ money(recData.bill.fine) }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Paid via</td><td style="text-align:right">{{ recData.payment.method }} <span v-if="recData.pay_acct_name" style="font-weight:800">· {{ recData.pay_acct_name }}</span> <span v-if="recData.payment.ref" style="color:var(--text-mute)">({{ recData.payment.ref }})</span></td></tr>
+                <tr><td style="color:var(--text-mute)">{{ t('Paid via') }}</td><td style="text-align:right">{{ recData.payment.method }} <span v-if="recData.pay_acct_name" style="font-weight:800">· {{ recData.pay_acct_name }}</span> <span v-if="recData.payment.ref" style="color:var(--text-mute)">({{ recData.payment.ref }})</span></td></tr>
                 <tr v-if="recData.brand.bank_name"><td style="color:var(--text-mute)">Bank</td><td style="text-align:right">{{ recData.brand.bank_name }}<span v-if="recData.brand.bank_account_no"> · A/C {{ recData.brand.bank_account_no }}</span></td></tr>
                 <tr v-if="recData.brand.bank_account_title"><td style="color:var(--text-mute)">A/C title</td><td style="text-align:right">{{ recData.brand.bank_account_title }}</td></tr>
               </tbody>
@@ -4701,8 +4701,8 @@ onBeforeUnmount(() => {
             <div v-if="recData.brand.receipt_note" style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-mute);text-align:center">{{ recData.brand.receipt_note }}</div>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="printReceipt" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🖨️ Print receipt</button>
-            <button @click="recModal = null" class="btn-ghost" style="padding:11px 18px">Close</button>
+            <button @click="printReceipt" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('🖨️ Print receipt') }}</button>
+            <button @click="recModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Close') }}</button>
           </div>
         </div>
       </div>
