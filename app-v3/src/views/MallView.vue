@@ -354,7 +354,7 @@ async function printCombined(b) {
   const dline = (label, val, bold) => `<div style="flex:1;display:flex;align-items:baseline;gap:6px;min-width:0"><span style="font-size:13px;white-space:nowrap">${label}</span><span style="flex:1;border-bottom:1px dotted #000;min-width:40px"></span><span style="font-size:13px;font-weight:${bold ? 800 : 400};white-space:nowrap">${val || '…'}</span></div>`
   const frow = (num, left, right) => `<div style="display:flex;gap:28px;margin-top:9px">${num ? `<span style="font-size:13px;font-weight:800;width:16px;flex-shrink:0">${num}</span>` : ''}${left}${right}</div>`
   const html = `<div style="font-family:'Noto Serif Bengali',serif;max-width:740px;margin:0 auto;padding:0;border:2px solid #111">
-    <div style="background:#7f1d1d;color:#fff;text-align:center;padding:13px 10px;font-size:18px;font-weight:800;letter-spacing:.4px">বিদ্যুৎ/পার্টিস চার্জ এবং অন্যান্য বিল</div>
+    <div style="background:#7f1d1d;color:#fff;text-align:center;padding:13px 10px;font-size:18px;font-weight:800;letter-spacing:.4px">বিদ্যুৎ/সার্ভিস চার্জ এবং অন্যান্য বিল</div>
     <div style="padding:22px 26px 26px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
         <div style="font-size:12.5px;color:#555">${config.mall_name || 'Mall Manager'}${config.mall_address ? ' — ' + config.mall_address : ''}${config.mall_phone ? ' · ☎ ' + config.mall_phone : ''}</div>
@@ -363,12 +363,12 @@ async function printCombined(b) {
         <span>নং- ${billSvc.id ? 'BILL-' + billSvc.id : d.shop.no}</span>
         <span>মাস: ${monthLabel(d.month)}</span>
       </div>
-      ${frow('১.', dline('ক্রেতার নাম', d.shop.owner_name || '—', true), dline('ডোকান নং', d.shop.no, true))}
+      ${frow('১.', dline('ক্রেতার নাম', d.shop.owner_name || '—', true), dline('দোকান নং', d.shop.no, true))}
       ${frow('২.', dline('বর্তমান রিডিং', curReading || ''), dline('তারিখ', curDate || ''))}
       ${frow('৩.', dline('পূর্ববর্তী রিডিং', prevReading || ''), dline('তারিখ', prevDate || ''))}
-      ${frow('৪.', dline('ব্যবহৃত ইউনিট', units !== '' ? units : ''), dline('ডোকানের আয়তন', d.shop.sqft ? d.shop.sqft + ' বর্গফুট' : ''))}
+      ${frow('৪.', dline('ব্যবহৃত ইউনিট', units !== '' ? units : ''), dline('দোকানের আয়তন', d.shop.sqft ? d.shop.sqft + ' বর্গফুট' : ''))}
       ${frow('৫.', dline('প্রতি ইউনিটের মূল্য', rate ? bn(rate) : ''), dline('হিসাবে মোট টাকা', elecAmt ? bn(elecAmt) : '', true))}
-      ${frow('৬.', dline('রীতমতো ফি সেবা চার্জ', svcAmt ? bn(svcAmt) : ''), dline('হিসাবে মোট সার্ভিস চার্জ', svcAmt ? bn(svcAmt) : '', true))}
+      ${frow('৬.', dline('প্রতি স্কয়ারফিট সার্ভিস চার্জ', svcAmt ? bn(svcAmt) : ''), dline('হিসাবে মোট সার্ভিস চার্জ', svcAmt ? bn(svcAmt) : '', true))}
       ${frow('৭.', dline('বিল ইস্যুর তারিখ', issued || ''), dline('পরিশোধের তারিখ', due || ''))}
       ${frow('৮.', dline('বকেয়া পাওনা মোট', d.due ? bn(d.due) : ''), dline('টাকা', d.due ? bn(d.due) : ''))}
       ${frow('৯.', dline('বিবিধ (পানি/ফাইন)', misc ? bn(misc) : ''), dline('ও বিবিধ টাকা', misc ? bn(misc) : ''))}
