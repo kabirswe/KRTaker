@@ -1005,12 +1005,12 @@ async function loadJournal() { const r = await apiCall('mall', { action: 'journa
 const jFrom = ref('')
 const jTo = ref('')
 async function loadTrial() { const r = await apiCall('mall', { action: 'trial' }); if (r.ok) trial.value = r.accounts }
-function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, subsidiary: 0, subs_type: '', note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
+function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, subsidiary: 0, subs_type: '', is_group: 0, parent: '', note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
 function openAccountEdit(x) { accountForm.value = { ...x }; accountModal.value = { mode: 'edit', title: '✏️ Edit account' } }
 async function saveAccount() {
   const f = accountForm.value
   if (!f.name || !f.name.trim()) { window.__krToast?.('Account name required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, subsidiary: f.subsidiary ? 1 : 0, subs_type: f.subs_type || '', note: f.note })
+  const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, subsidiary: f.subsidiary ? 1 : 0, subs_type: f.subs_type || '', is_group: f.is_group ? 1 : 0, parent: f.parent || '', note: f.note })
   if (r.ok) { window.__krToast?.(accountModal.value.mode === 'edit' ? '✏️ Account updated' : '✅ Account added', 'ok'); accountModal.value = null; await loadAccounts() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
@@ -1179,13 +1179,61 @@ const acctKey = (g, r) => g.key + (typeof r === 'string' ? r : r.k)
 const acctLabel = (g, r) => (typeof r === 'string' ? r : r.label)
 /* effective-account resolution for the mapping summary */
 function acctNameById(id) { const a = accounts.value.find(x => x.id == id); return a ? (a.code ? a.code + ' — ' : '') + a.name : '—' }
-/* flat searchable account list (code — name) for the searchable dropdowns */
-const accountOptions = computed(() => (accounts.value || []).map(a => ({ value: a.id, label: (a.code ? a.code + ' — ' : '') + a.name })))
+/* flat searchable account list (code — name · path) for the searchable
+   dropdowns — GROUP (heading) accounts are excluded: they cannot be posted
+   to, so they never appear as a pickable account */
+const accountOptions = computed(() => {
+  const accs = accounts.value || []
+  const byCode = {}; accs.forEach(a => { byCode[a.code] = a })
+  const path = (code, seen = 0) => {
+    const cur = byCode[code]; if (!cur || !cur.parent || !byCode[cur.parent] || seen > 4) return ''
+    const p = byCode[cur.parent].name + ' › ' + path(cur.parent, seen + 1)
+    return p
+  }
+  return accs.filter(a => !a.is_group).map(a => ({ value: a.id, label: (a.code ? a.code + ' — ' : '') + a.name + (a.parent && byCode[a.parent] ? ' · ' + path(a.code) : '') }))
+})
+/* group (heading) accounts — for the parent picker in the account modal */
+const groupAccountOptions = computed(() => (accounts.value || []).filter(a => a.is_group).map(a => ({ value: a.code, label: a.code + ' — ' + a.name })))
 function acctSelectOptions(g, r) {
   const k = acctKey(g, r)
   const def = acctDefaults.value[k]
   return [{ value: 0, label: '— default —' + (def ? ' (' + def + ')' : '') }, ...accountOptions.value]
 }
+/* ── multi-level COA tree: group totals (all accounts) + expand/collapse ── */
+const collapsedGroups = ref(new Set())
+function toggleGroup(code) { const s = new Set(collapsedGroups.value); s.has(code) ? s.delete(code) : s.add(code); collapsedGroups.value = s }
+const groupTotals = computed(() => {
+  const accs = accounts.value || []
+  const children = {}; accs.forEach(a => { (children[a.parent || ''] = children[a.parent || ''] || []).push(a) })
+  const tot = {}
+  const sum = code => {
+    let d = 0, c = 0, b = 0
+    for (const ch of children[code] || []) {
+      if (ch.is_group) { const s = sum(ch.code); d += s.d; c += s.c; b += s.b }
+      else { d += Number(ch.total_debit) || 0; c += Number(ch.total_credit) || 0; b += Number(ch.balance) || 0 }
+    }
+    tot[code] = { d, c, b }
+    return tot[code]
+  }
+  accs.filter(a => a.is_group).forEach(g => sum(g.code))
+  return tot
+})
+const coaRows = computed(() => {
+  const accs = filteredAccounts.value
+  if (acctQuery.value.trim()) return accs.map(a => ({ a, depth: 0, isGroup: !!a.is_group, sub: null }))
+  const byParent = {}; accs.forEach(a => { (byParent[a.parent || '__root__'] = byParent[a.parent || '__root__'] || []).push(a) })
+  const rows = []
+  const walk = (parent, depth) => {
+    const kids = (byParent[parent] || []).slice().sort((x, y) => (x.code || '').localeCompare(y.code || ''))
+    for (const k of kids) {
+      const isGroup = !!k.is_group
+      rows.push({ a: k, depth, isGroup, sub: isGroup ? groupTotals.value[k.code] || { d: 0, c: 0, b: 0 } : null })
+      if (isGroup && !collapsedGroups.value.has(k.code)) walk(k.code, depth + 1)
+    }
+  }
+  walk('__root__', 0)
+  return rows
+})
 const acctDefaultLabels = computed(() => {
   const o = {}
   for (const g of MAP_GROUPS.value) for (const r of g.rows) o[acctKey(g, r)] = (typeof r === 'string' ? r : r.label)
@@ -1686,20 +1734,33 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <thead><tr><th>Code</th><th>Account</th><th>Type</th><th style="text-align:right">Opening</th><th style="text-align:right">Debits</th><th style="text-align:right">Credits</th><th style="text-align:right">Balance</th><th></th></tr></thead>
             <tbody>
               <template v-for="t in ACCOUNT_TYPES" :key="t">
-                <tr v-if="filteredAccounts.some(a => a.type === t)" style="background:var(--bg-alt)">
+                <tr v-if="coaRows.some(r => r.a.type === t)" style="background:var(--bg-alt)">
                   <td colspan="8" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ TYPE_ICONS[t] }} {{ TYPE_PLURAL[t] || (t + 's') }}</td>
                 </tr>
-                <tr v-for="a in filteredAccounts.filter(x => x.type === t)" :key="a.id" style="cursor:pointer" @click="openAccountLedger(a)">
-                  <td style="font-family:monospace;font-size:11.5px;color:var(--text-mute)">{{ a.code || '—' }}</td>
-                  <td><b>{{ a.name }}</b> <span v-if="a.subsidiary" title="Control account with sub-ledgers" style="cursor:help;font-size:12px">🧾</span><template v-if="a.subsidiary"> <span class="badge b-blue" style="font-size:9.5px;padding:2px 7px">{{ subsTypeLabel(a.subs_type) }}</span></template><br /><small style="color:var(--text-mute)">{{ a.note || '' }}</small></td>
-                  <td><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[a.type] || 'b-gray'" style="font-size:10px">{{ a.type }}</span></td>
-                  <td style="text-align:right;font-size:12px">{{ money(a.opening) }}</td>
-                  <td style="text-align:right;font-size:12px">{{ money(a.total_debit) }}</td>
-                  <td style="text-align:right;font-size:12px">{{ money(a.total_credit) }}</td>
-                  <td style="text-align:right;font-weight:800" :style="a.balance < 0 ? 'color:var(--danger)' : ''">{{ money(a.balance) }}</td>
+                <tr v-for="r in coaRows.filter(x => x.a.type === t)" :key="r.a.id"
+                    :style="r.isGroup ? 'background:color-mix(in srgb, var(--bg-alt) 55%, transparent);cursor:pointer' : 'cursor:pointer'"
+                    @click="r.isGroup ? toggleGroup(r.a.code) : openAccountLedger(r.a)">
+                  <td :style="{ fontFamily: 'monospace', fontSize: '11.5px', color: 'var(--text-mute)', paddingLeft: (12 + r.depth * 20) + 'px' }">{{ r.a.code || '—' }}</td>
+                  <td v-if="r.isGroup" style="font-weight:800">
+                    <span style="display:inline-block;width:16px;color:var(--text-mute)">{{ collapsedGroups.has(r.a.code) ? '▸' : '▾' }}</span>
+                    {{ r.a.name }}
+                    <span class="badge b-gray" style="font-size:9px;margin-left:4px">GROUP</span>
+                    <br /><small style="color:var(--text-mute);font-weight:400">{{ r.a.note || '' }}</small>
+                  </td>
+                  <td v-else>
+                    <span style="display:inline-block;width:16px"></span>
+                    <b>{{ r.a.name }}</b> <span v-if="r.a.subsidiary" title="Control account with sub-ledgers" style="cursor:help;font-size:12px">🧾</span><template v-if="r.a.subsidiary"> <span class="badge b-blue" style="font-size:9.5px;padding:2px 7px">{{ subsTypeLabel(r.a.subs_type) }}</span></template><br /><small style="color:var(--text-mute)">{{ r.a.note || '' }}</small>
+                  </td>
+                  <td v-if="r.isGroup"><span class="badge b-gray" style="font-size:10px">{{ r.a.type }}</span></td>
+                  <td v-else><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[r.a.type] || 'b-gray'" style="font-size:10px">{{ r.a.type }}</span></td>
+                  <td style="text-align:right;font-size:12px" :style="r.isGroup ? 'color:var(--text-mute)' : ''">{{ r.isGroup ? '—' : money(r.a.opening) }}</td>
+                  <td style="text-align:right;font-size:12px" :style="r.isGroup ? 'font-weight:800' : ''">{{ r.isGroup ? money(r.sub.d) : money(r.a.total_debit) }}</td>
+                  <td style="text-align:right;font-size:12px" :style="r.isGroup ? 'font-weight:800' : ''">{{ r.isGroup ? money(r.sub.c) : money(r.a.total_credit) }}</td>
+                  <td style="text-align:right;font-weight:800" :style="r.isGroup ? '' : (r.a.balance < 0 ? 'color:var(--danger)' : '')">{{ r.isGroup ? money(r.sub.b) : money(r.a.balance) }}</td>
                   <td style="text-align:right;white-space:nowrap" @click.stop>
-                    <button v-if="canManage" @click="openAccountEdit(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
-                    <button v-if="canManage" @click="delAccount(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
+                    <button v-if="canManage && !r.isGroup" @click="openAccountEdit(r.a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
+                    <button v-if="canManage && !r.isGroup" @click="delAccount(r.a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;margin-left:4px">🗑️</button>
+                    <button v-if="canManage && r.isGroup" @click.stop="openAccountEdit(r.a)" title="Edit group heading" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px">✏️</button>
                   </td>
                 </tr>
               </template>
@@ -3875,6 +3936,16 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <span style="position:absolute;top:2px;left:accountForm.subsidiary ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
             </span>
             <b :style="accountForm.subsidiary ? '' : ''">🧾 Sub-ledger control</b>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:flex;align-items:flex-end;gap:9px;cursor:pointer;padding-bottom:8px" title="Group headings (e.g. 1000 Assets) cannot be posted to — children roll up into them">
+            <span class="lf-switch" :class="{ on: !!accountForm.is_group }" @click="accountForm.is_group = accountForm.is_group ? 0 : 1" style="width:40px;height:22px;border-radius:99px;background:accountForm.is_group ? 'var(--ok,#27AE60)' : 'var(--border,#cbd5e1)';position:relative;transition:background .15s;flex-shrink:0">
+              <span style="position:absolute;top:2px;left:accountForm.is_group ? '20px' : '2px';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s"></span>
+            </span>
+            <b :style="accountForm.is_group ? 'color:var(--ok)' : ''">🧩 Group account (heading)</b>
+          </label>
+          <label v-if="!accountForm.is_group" style="font-size:12px;color:var(--text-mute)">
+            Parent group
+            <SearchableSelect v-model="accountForm.parent" :options="groupAccountOptions" placeholder="— top level —" style="margin-top:4px" />
           </label>
           <label v-if="accountForm.subsidiary" style="font-size:12px;color:var(--text-mute)">
             🧾 Party type

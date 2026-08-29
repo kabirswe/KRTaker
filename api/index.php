@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260937) {
+        if ($__sv < 20260938) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -514,6 +514,52 @@ function db() {
             decided_by TEXT DEFAULT '', decided_at TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
         $spcols = array_column($pdo->query('PRAGMA table_info(shop_payments)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('voided', $spcols, true)) { try { $pdo->exec("ALTER TABLE shop_payments ADD COLUMN voided INTEGER DEFAULT 0"); } catch (Exception $e) {} }
+        /* V2.8: MULTI-LEVEL CHART OF ACCOUNTS — parent + group columns,
+           group headings (1000 Assets · 1100 Fixed Assets · 2000 Liabilities ·
+           3000 Equity · 4000 Income · 5000 Expenses), parents on every
+           account, and demo entries exercising the hierarchy */
+        $acols3 = array_column($pdo->query('PRAGMA table_info(mall_accounts)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('parent', $acols3, true)) { try { $pdo->exec("ALTER TABLE mall_accounts ADD COLUMN parent TEXT DEFAULT ''"); } catch (Exception $e) {} }
+        if (!in_array('is_group', $acols3, true)) { try { $pdo->exec('ALTER TABLE mall_accounts ADD COLUMN is_group INTEGER DEFAULT 0'); } catch (Exception $e) {} }
+        $insGrp = $pdo->prepare("INSERT OR IGNORE INTO mall_accounts (code, name, type, opening, active, subsidiary, note, parent, is_group)
+                                 VALUES (?,?,?,0,1,0,?, '', 1)");
+        foreach ([['1000', 'Assets', 'Asset', 'Group heading — all asset accounts'], ['1100', 'Fixed Assets', 'Asset', 'Group heading — property & equipment'],
+                  ['2000', 'Liabilities', 'Liability', 'Group heading — all liability accounts'], ['3000', 'Equity', 'Equity', 'Group heading — owner funds'],
+                  ['4000', 'Income', 'Income', 'Group heading — all income accounts'], ['5000', 'Expenses', 'Expense', 'Group heading — all expense accounts']] as $g) $insGrp->execute($g);
+        $parents = [
+            '1000' => ['1010','1020','1030','1040','1050','1100'],
+            '1100' => ['1060','1070','1080','1090'],
+            '2000' => ['2010','2020','2030','2040','2050','2060','2070'],
+            '3000' => ['3010','3020'],
+            '4000' => ['4010','4020','4030','4040','4050','4060','4070','4080'],
+            '5000' => ['5010','5020','5030','5040','5050','5060','5070','5080','5090','5100','5110','5120','5130','5140','5150','5160','5170','5180','5190'],
+        ];
+        foreach ($parents as $p => $kids) {
+            $ph = implode(',', array_fill(0, count($kids), '?'));
+            $st = $pdo->prepare("UPDATE mall_accounts SET parent=? WHERE code IN ($ph)");
+            $st->execute(array_merge([$p], $kids));
+        }
+        /* demo entries exercising the multi-level COA (idempotent — only if
+           no DMO- ref exists yet; approved so they show in COA/trial) */
+        $dmo = (int)$pdo->query("SELECT COUNT(*) FROM mall_journal WHERE ref LIKE 'DMO-%'")->fetchColumn();
+        if ($dmo === 0) {
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, subsidiary, subsidiary_type)
+                           VALUES ('2026-08-01','DMO-00001',(SELECT id FROM mall_accounts WHERE code='1010'),15000,0,'Demo — tenant security deposit received','System Seed','Approved','Demo Tenant','tenant')")->execute();
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, subsidiary, subsidiary_type)
+                           VALUES ('2026-08-01','DMO-00001',(SELECT id FROM mall_accounts WHERE code='2030'),0,15000,'Demo — tenant security deposit received','System Seed','Approved','Demo Tenant','tenant')")->execute();
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, subsidiary, subsidiary_type)
+                           VALUES ('2026-08-02','DMO-00002',(SELECT id FROM mall_accounts WHERE code='1020'),30000,0,'Demo — advance rent received','System Seed','Approved','Demo Tenant','tenant')")->execute();
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, subsidiary, subsidiary_type)
+                           VALUES ('2026-08-02','DMO-00002',(SELECT id FROM mall_accounts WHERE code='2040'),0,30000,'Demo — advance rent received','System Seed','Approved','Demo Tenant','tenant')")->execute();
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status)
+                           VALUES ('2026-08-05','DMO-00003',(SELECT id FROM mall_accounts WHERE code='1080'),95000,0,'Demo — escalator machinery purchase','System Seed','Approved')")->execute();
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status)
+                           VALUES ('2026-08-05','DMO-00003',(SELECT id FROM mall_accounts WHERE code='1020'),0,95000,'Demo — escalator machinery purchase','System Seed','Approved')")->execute();
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status)
+                           VALUES ('2026-08-31','DMO-00004',(SELECT id FROM mall_accounts WHERE code='5150'),3000,0,'Demo — monthly depreciation','System Seed','Approved')")->execute();
+            $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status)
+                           VALUES ('2026-08-31','DMO-00004',(SELECT id FROM mall_accounts WHERE code='1090'),0,3000,'Demo — monthly depreciation','System Seed','Approved')")->execute();
+        }
         /* seed the default common-utility heads + income heads once */
         $seedHeads = function ($key, $items) use ($pdo) {
             $st = $pdo->prepare('SELECT COUNT(*) FROM mall_config WHERE k=?'); $st->execute([$key]);
@@ -1415,7 +1461,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260937'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260938'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15606,13 +15652,21 @@ case 'mall': {
         $subsType = trim($body['subs_type'] ?? '');
         if (!in_array($subsType, ['', 'vendor', 'owner', 'tenant', 'staff'], true)) $subsType = '';
         if (!$subsidiary) $subsType = '';
+        $isGroup = $body['is_group'] ? 1 : 0;
+        if ($isGroup) { $subsidiary = 0; $subsType = ''; }
+        $parent = trim($body['parent'] ?? '');
+        if ($parent !== '' && $parent !== $code) {
+            $pst = $pdo->prepare('SELECT is_group FROM mall_accounts WHERE code=?'); $pst->execute([$parent]);
+            if (!$pst->fetchColumn()) $parent = '';
+            if ($parent === $code) $parent = '';
+        } else { $parent = ''; }
         $note = trim($body['note'] ?? '');
         if ($id) {
-            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, subsidiary=?, subs_type=?, note=? WHERE id=?')
-                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note, $id]);
+            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, subsidiary=?, subs_type=?, note=?, parent=?, is_group=? WHERE id=?')
+                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note, $parent, $isGroup, $id]);
         } else {
-            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, subsidiary, subs_type, note) VALUES (?,?,?,?,?,?,?,?)')
-                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note]);
+            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, subsidiary, subs_type, note, parent, is_group) VALUES (?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note, $parent, $isGroup]);
             $id = (int)$pdo->lastInsertId();
         }
         audit($u['name'], 'Account ' . ($body['id'] ? 'updated' : 'added'), 'mall', (string)$id, $name);
@@ -15621,6 +15675,10 @@ case 'mall': {
     if ($a === 'account-del') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
+        $kids = (int)$pdo->query("SELECT COUNT(*) FROM mall_accounts WHERE parent=(SELECT code FROM mall_accounts WHERE id=$id) AND id!=$id")->fetchColumn();
+        $grp = (int)$pdo->query("SELECT is_group FROM mall_accounts WHERE id=$id")->fetchColumn();
+        if ($grp) json_out(['ok' => false, 'error' => 'Group headings cannot be deleted — remove its accounts first.'], 400);
+        if ($kids) json_out(['ok' => false, 'error' => "This account has $kids child accounts under it — remove them first."], 400);
         $used = (int)$pdo->query("SELECT COUNT(*) FROM mall_journal WHERE account=$id")->fetchColumn();
         if ($used) json_out(['ok' => false, 'error' => "This account has $used journal entries — deactivate it instead."], 400);
         $pdo->prepare('DELETE FROM mall_accounts WHERE id=?')->execute([$id]);
@@ -15659,6 +15717,8 @@ case 'mall': {
             $c = (int)($ln['credit'] ?? 0);
             if (!$acc || ($d <= 0 && $c <= 0)) continue;
             if ($d > 0 && $c > 0) json_out(['ok' => false, 'error' => 'A line cannot be both debit and credit.'], 400);
+            $gst = $pdo->prepare('SELECT is_group FROM mall_accounts WHERE id=?'); $gst->execute([$acc]);
+            if ((int)$gst->fetchColumn() === 1) json_out(['ok' => false, 'error' => 'Group accounts (headings like 1000 Assets) cannot be posted to — pick a posting (leaf) account.'], 400);
             $subType = trim($ln['subsidiary_type'] ?? '');
             $subName = trim($ln['subsidiary_name'] ?? '');
             if (($subType === '') !== ($subName === '')) json_out(['ok' => false, 'error' => 'Subsidiary needs both a party type and a name.'], 400);
