@@ -2,10 +2,11 @@
 // Space Owner Portal (spec 3.8) — view-only login for space owners.
 // Owners see ONLY their own shop: bills, dues, payment history, notices,
 // and can file complaints. No access to any committee functions.
+import { t, bnd } from '../lib/i18n'
 import { ref, computed, onMounted } from 'vue'
 import { money, monthLabel, badge } from '../lib/ui'
 
-const API = (import.meta.env.DEV ? '../api/' : 'https://krtaker.com/api/').replace(/\/+$/, '') + '/'
+const API = './api/'
 
 const tok = ref(localStorage.getItem('mm_owner_token') || '')
 const loggedIn = computed(() => !!tok.value)
@@ -83,18 +84,18 @@ onMounted(() => { if (tok.value) loadMe() })
     <div style="width:100%;max-width:400px;background:var(--card,#fff);border-radius:20px;padding:30px 28px;box-shadow:0 30px 80px rgba(0,0,0,.35)">
       <div style="text-align:center;margin-bottom:22px">
         <div style="width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#2F80ED,#27AE60);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">🏬</div>
-        <div style="font-size:19px;font-weight:800">Space Owner Portal</div>
-        <div style="font-size:12.5px;color:var(--text-mute,#5b6b83);margin-top:4px">Razzak Plaza — view your bills, dues &amp; payments</div>
+        <div style="font-size:19px;font-weight:800">{{ t('Space Owner Portal') }}</div>
+        <div style="font-size:12.5px;color:var(--text-mute,#5b6b83);margin-top:4px">{{ t('Razzak Plaza — view your bills, dues &amp; payments') }}</div>
       </div>
       <div v-if="err" style="background:rgba(235,87,87,.1);border:1px solid rgba(235,87,87,.35);color:#c0392b;font-size:12.5px;padding:10px 14px;border-radius:10px;margin-bottom:14px">⚠️ {{ err }}</div>
-      <label style="font-size:12px;color:var(--text-mute,#5b6b83);display:block">Email (as registered with the committee)
+      <label style="font-size:12px;color:var(--text-mute,#5b6b83);display:block">{{ t('Email (as registered with the committee)') }}
         <input v-model="loginForm.email" type="email" placeholder="you@example.com" style="width:100%;margin-top:5px;padding:12px;border-radius:12px;border:1px solid var(--border,#e5e7eb);background:var(--bg-alt,#f6f9fe);font-family:inherit;font-size:14px" />
       </label>
-      <label style="font-size:12px;color:var(--text-mute,#5b6b83);display:block;margin-top:12px">Password
+      <label style="font-size:12px;color:var(--text-mute,#5b6b83);display:block;margin-top:12px">{{ t('Password') }}
         <input v-model="loginForm.password" type="password" placeholder="••••••••" @keydown.enter="doLogin" style="width:100%;margin-top:5px;padding:12px;border-radius:12px;border:1px solid var(--border,#e5e7eb);background:var(--bg-alt,#f6f9fe);font-family:inherit;font-size:14px" />
       </label>
-      <button @click="doLogin" :disabled="busy" style="width:100%;margin-top:18px;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#2F80ED,#27AE60);color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">{{ busy ? 'Signing in…' : '🔐 Sign in' }}</button>
-      <div style="text-align:center;font-size:11.5px;color:var(--text-mute,#5b6b83);margin-top:16px">Demo: <b>rahim@razzakplaza.com</b> / owner1234<br />Committee staff? <a href="#/" style="color:#2F80ED;font-weight:700">System login →</a></div>
+      <button @click="doLogin" :disabled="busy" style="width:100%;margin-top:18px;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#2F80ED,#27AE60);color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">{{ busy ? t('Signing in…') : t('🔐 Sign in') }}</button>
+      <div style="text-align:center;font-size:11.5px;color:var(--text-mute,#5b6b83);margin-top:16px">{{ t('Demo:') }} <b>rahim@razzakplaza.com</b> / owner1234<br />{{ t('Committee staff?') }} <a href="#/" style="color:#2F80ED;font-weight:700">{{ t('System login →') }}</a></div>
     </div>
   </div>
 
@@ -106,7 +107,7 @@ onMounted(() => { if (tok.value) loadMe() })
         <div style="font-weight:800;font-size:14.5px">{{ me?.shop?.no || '' }} <span style="color:var(--text-mute)">· {{ me?.shop?.floor || '' }} floor</span></div>
         <div style="font-size:12px;color:var(--text-mute,#5b6b83)">{{ me?.shop?.owner_name || '' }} · {{ me?.owner?.email || '' }}</div>
       </div>
-      <button @click="logout" style="padding:8px 14px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:var(--bg-alt,#f6f9fe);font-weight:700;font-size:12.5px;cursor:pointer;color:var(--text)">🚪 Log out</button>
+      <button @click="logout" style="padding:8px 14px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:var(--bg-alt,#f6f9fe);font-weight:700;font-size:12.5px;cursor:pointer;color:var(--text)">{{ t('🚪 Log out') }}</button>
     </header>
 
     <main style="max-width:760px;margin:0 auto;padding:18px 16px 40px">
@@ -126,7 +127,7 @@ onMounted(() => { if (tok.value) loadMe() })
       <div style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">
         <button v-for="[id, ico, label] in TABS" :key="id" @click="switchTab(id)"
           :style="tab === id ? 'background:#2F80ED;color:#fff' : 'background:var(--card,#fff);color:var(--text-mute,#5b6b83)'"
-          style="padding:9px 15px;border:1px solid var(--border,#e5e7eb);border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap">{{ ico }} {{ label }}</button>
+          style="padding:9px 15px;border:1px solid var(--border,#e5e7eb);border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap">{{ ico }} {{ t(label) }}</button>
       </div>
 
       <!-- ═══ MY BILLS ═══ -->
@@ -145,7 +146,7 @@ onMounted(() => { if (tok.value) loadMe() })
           </div>
           <div style="text-align:right">
             <div style="font-weight:800;font-size:14px">{{ money(b.amount) }}</div>
-            <span class="badge" :class="badge(b.status)" style="margin-top:3px">{{ b.status }}</span>
+            <span class="badge" :class="badge(b.status)" style="margin-top:3px">{{ bnd(b.status) }}</span>
           </div>
         </div>
         <div v-if="!bills.length" style="text-align:center;color:var(--text-mute);padding:30px">No bills for {{ monthLabel(month) }}.</div>
@@ -161,32 +162,32 @@ onMounted(() => { if (tok.value) loadMe() })
           </div>
           <div style="font-weight:800;font-size:14px;color:#1e8449">{{ money(p.amount) }}</div>
         </div>
-        <div v-if="!payments.length" style="text-align:center;color:var(--text-mute);padding:30px">No payments yet.</div>
+        <div v-if="!payments.length" style="text-align:center;color:var(--text-mute);padding:30px">{{ t('No payments yet.') }}</div>
       </template>
 
       <!-- ═══ COMPLAINTS ═══ -->
       <template v-if="tab === 'complaints'">
         <div style="background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:16px;margin-bottom:14px">
-          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">🔧 Report an issue (lift / AC / light / water…)</div>
-          <input v-model="compForm.subject" placeholder="Subject — e.g. AC not cooling" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);font-family:inherit;font-size:13px;margin-bottom:8px" />
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:10px">{{ t('🔧 Report an issue (lift / AC / light / water…)') }}</div>
+          <input v-model="compForm.subject" :placeholder="t('Subject — e.g. AC not cooling')" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);font-family:inherit;font-size:13px;margin-bottom:8px" />
           <textarea v-model="compForm.descr" rows="2" placeholder="Details…" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);font-family:inherit;font-size:13px;resize:vertical;margin-bottom:8px"></textarea>
           <div style="display:flex;gap:10px;align-items:center">
             <select v-model="compForm.priority" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);font-family:inherit;font-size:13px">
               <option v-for="p in ['Low', 'Normal', 'High', 'Urgent']" :key="p" :value="p">{{ p }}</option>
             </select>
-            <button @click="submitComplaint" style="padding:10px 18px;border:none;border-radius:10px;background:#2F80ED;color:#fff;font-size:13px;font-weight:800;cursor:pointer">📨 Submit</button>
+            <button @click="submitComplaint" style="padding:10px 18px;border:none;border-radius:10px;background:#2F80ED;color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('📨 Submit') }}</button>
           </div>
         </div>
         <div v-for="c in complaints" :key="c.id" style="background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:13px 16px;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <b style="font-size:13.5px">{{ c.subject }}</b>
-            <span class="badge" :class="badge(c.status)">{{ c.status }}</span>
+            <span class="badge" :class="badge(c.status)">{{ bnd(c.status) }}</span>
             <span class="badge" :class="{ Low: 'b-gray', Normal: 'b-blue', High: 'b-orange', Urgent: 'b-red' }[c.priority]">{{ c.priority }}</span>
           </div>
           <div v-if="c.descr" style="font-size:12.5px;color:var(--text-mute);margin-top:6px">{{ c.descr }}</div>
           <div style="font-size:11px;color:var(--text-mute);margin-top:8px">#{{ c.id }} · opened {{ (c.opened_at || '').slice(0, 10) }}<span v-if="c.resolved_at"> · resolved {{ (c.resolved_at || '').slice(0, 10) }}</span></div>
         </div>
-        <div v-if="!complaints.length" style="text-align:center;color:var(--text-mute);padding:24px">No complaints filed.</div>
+        <div v-if="!complaints.length" style="text-align:center;color:var(--text-mute);padding:24px">{{ t('No complaints filed.') }}</div>
       </template>
 
       <!-- ═══ NOTICES ═══ -->
@@ -196,7 +197,7 @@ onMounted(() => { if (tok.value) loadMe() })
           <div style="font-size:12.5px;color:var(--text);margin-top:6px;white-space:pre-wrap">{{ n.body }}</div>
           <div style="font-size:11px;color:var(--text-mute);margin-top:8px">{{ n.date }} · by {{ n.author }}</div>
         </div>
-        <div v-if="!notices.length" style="text-align:center;color:var(--text-mute);padding:24px">No notices.</div>
+        <div v-if="!notices.length" style="text-align:center;color:var(--text-mute);padding:24px">{{ t('No notices.') }}</div>
       </template>
 
       <div style="text-align:center;font-size:11px;color:var(--text-mute);margin-top:26px">Mall Manager — Space Owner Portal · payments are collected at the committee office · receipt issued instantly</div>

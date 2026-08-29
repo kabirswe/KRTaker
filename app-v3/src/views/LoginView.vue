@@ -135,11 +135,11 @@ function resendOtp() { twofa.value = ''; doLogin() }
       {{ lang === 'bn' ? 'নতুন?' : 'New here?' }} <a href="#" style="color:var(--primary);font-weight:700">{{ lang === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন →' : 'Create an account →' }}</a>
     </div>
     <div style="margin-top:10px;text-align:center;font-size:12px">
-      🏬 Space owner? <a href="#/owner" style="color:var(--primary);font-weight:800">Open the owner portal →</a>
+      🏬 Space owner? <a href="#/owner" style="color:var(--primary);font-weight:800">{{ t('Open the owner portal →') }}</a>
     </div>
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:16px;font-size:11.5px">
-      <a href="#" style="color:var(--text-mute)">Privacy</a>
-      <a href="#" style="color:var(--text-mute)">Terms</a>
+      <a href="#" style="color:var(--text-mute)">{{ t('Privacy') }}</a>
+      <a href="#" style="color:var(--text-mute)">{{ t('Terms') }}</a>
       <a href="#" style="color:var(--text-mute)">Mall Manager</a>
     </div>
   </div>

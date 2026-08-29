@@ -30,7 +30,7 @@ async function requestWaiver() {
   const f = waiverForm.value
   if (!f.amount || f.amount <= 0 || f.amount > f.max || !f.reason.trim()) { window.__krToast?.('Enter a valid amount (≤ ' + money(f.max) + ') and a reason.', 'err'); return }
   const r = await apiCall('mall', { action: 'waiver-request', bill_id: f.bill_id, amount: Number(f.amount), reason: f.reason.trim() })
-  if (r.ok) { window.__krToast?.('💸 Waiver requested — pending admin approval', 'ok'); waiverModal.value = null; await loadApprovals() }
+  if (r.ok) { window.__krToast?.(t('💸 Waiver requested — pending admin approval'), 'ok'); waiverModal.value = null; await loadApprovals() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function decideWaiver(w, approve) {
@@ -42,9 +42,9 @@ async function decideWaiver(w, approve) {
 async function requestVoid(p) {
   const reason = window.prompt(`Void receipt ${p.receipt} (৳${p.amount})?\nReason (required) — the admin must approve this:`, 'Wrong entry / correction')
   if (reason === null) return
-  if (!reason.trim()) { window.__krToast?.('Reason required.', 'err'); return }
+  if (!reason.trim()) { window.__krToast?.(t('Reason required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'payment-void-request', payment_id: p.id, reason: reason.trim() })
-  if (r.ok) { window.__krToast?.('🔒 Void requested — pending admin approval (receipt lock)', 'ok'); await loadApprovals() }
+  if (r.ok) { window.__krToast?.(t('🔒 Void requested — pending admin approval (receipt lock)'), 'ok'); await loadApprovals() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function decideVoid(v, approve) {
@@ -105,9 +105,9 @@ async function saveSmsCfg() {
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function sendTestSms() {
-  if (!smsTestPhone.value.trim()) { window.__krToast?.('Enter a phone number to test.', 'err'); return }
+  if (!smsTestPhone.value.trim()) { window.__krToast?.(t('Enter a phone number to test.'), 'err'); return }
   const r = await apiCall('mall', { action: 'sms', sub: 'send-test', phone: smsTestPhone.value.trim() })
-  if (r.ok) { window.__krToast?.(`📱 Test SMS ${r.status} (${r.ref})`, 'ok'); await loadSmsCfg() }
+  if (r.ok) { window.__krToast?.(`${t('📱 Test SMS')} ${r.status} (${r.ref})`, 'ok'); await loadSmsCfg() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 /* ══════════ SETTINGS TABS (redesigned) ══════════ */
@@ -128,7 +128,7 @@ async function loadConfig() {
 }
 async function saveConfig() {
   const r = await apiCall('mall', { action: 'config-set', ...config.value })
-  if (r.ok) { cfgDirty.value = false; window.__krToast?.('⚙️ Settings saved', 'ok') }
+  if (r.ok) { cfgDirty.value = false; window.__krToast?.(t('⚙️ Settings saved'), 'ok') }
   else window.__krToast?.(r.error || 'Save failed', 'err')
 }
 
@@ -201,7 +201,7 @@ function applyAfterAdd() {
   afterAdd.value = null
 }
 async function saveShop() {
-  if (!(form.value.no || '').trim() || !(form.value.owner_name || '').trim()) { window.__krToast?.('Space no and owner name required.', 'err'); return }
+  if (!(form.value.no || '').trim() || !(form.value.owner_name || '').trim()) { window.__krToast?.(t('Space no and owner name required.'), 'err'); return }
   saving.value = true
   try {
     const payload = {
@@ -222,7 +222,7 @@ async function saveShop() {
 async function deleteShop(s) {
   if (!window.confirm(`Delete shop ${s.no}?`)) return
   const r = await apiCall('app-crud', { action: 'delete', collection: 'shops', id: s.id, data: {} })
-  if (r.ok) { window.__krToast?.('🗑️ Space deleted', 'ok'); await data.bootstrap() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Space deleted'), 'ok'); await data.bootstrap() }
   else window.__krToast?.(r.error || 'Delete failed.', 'err')
 }
 
@@ -255,7 +255,7 @@ async function generateBills() {
 }
 const finesBusy = ref(false)
 async function calcFines() {
-  if (!config.value.late_fees_enabled) { window.__krToast?.('Late fees are disabled in ⚙️ Settings → Billing rules', 'err'); return }
+  if (!config.value.late_fees_enabled) { window.__krToast?.(t('Late fees are disabled in ⚙️ Settings → Billing rules'), 'err'); return }
   finesBusy.value = true
   try {
     const r = await apiCall('mall', { action: 'fine-calc', month: month.value })
@@ -276,7 +276,7 @@ function openPay(b) { payForm.value = { amount: Number(b.amount) + Number(b.fine
 async function savePay() {
   if (!payModal.value || Number(payForm.value.amount) <= 0) return
   const r = await apiCall('mall', { action: 'collect', bill_id: payModal.value.id, amount: Number(payForm.value.amount), method: payAcctMethod(payForm.value.method_acct), method_acct: payForm.value.method_acct || 0, ref: payForm.value.ref })
-  if (r.ok) { window.__krToast?.(`💵 Collected — receipt ${r.receipt}`, 'ok'); payModal.value = null; await loadBills(); await loadDash() }
+  if (r.ok) { window.__krToast?.(`${t('💵 Collected')} — ${t('receipt')} ${r.receipt}`, 'ok'); payModal.value = null; await loadBills(); await loadDash() }
   else window.__krToast?.(r.error || 'Collection failed.', 'err')
 }
 const recModal = ref(null)
@@ -295,7 +295,7 @@ async function printCombined(b) {
   const rows = d.bills.map(x => `<tr style="border-bottom:1px solid #ddd"><td style="padding:7px 8px;font-size:13px">${x.kind === 'service' ? '🧾 Service charge' : x.kind === 'elec' ? '⚡ Electricity (sub-meter)' : '💧 Water (sub-meter)'}</td><td style="padding:7px 8px;font-size:12px;color:#555">${x.note || ''}</td><td style="padding:7px 8px;text-align:right;font-size:13px">৳${Number(x.amount).toLocaleString('en-IN')}</td><td style="padding:7px 8px;text-align:right;font-size:12px">${x.fine ? '৳' + Number(x.fine).toLocaleString('en-IN') : '—'}</td><td style="padding:7px 8px;text-align:center;font-size:11px"><b>${x.status}</b></td></tr>`).join('')
   const html = `<div style="font-family:serif;max-width:700px;margin:0 auto;padding:26px;border:2px solid #111;border-radius:6px">
     <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px">
-      <div style="font-size:20px;font-weight:800">COMBINED BILL / INVOICE</div>
+      <div style="font-size:20px;font-weight:800">${t('COMBINED BILL / INVOICE')}</div>
       <div style="font-size:12px;margin-top:3px">${d.shop.no} · Floor ${d.shop.floor || '—'} · ${d.shop.sqft || 0} sqft — ${monthLabel(d.month)}</div>
       <div style="font-size:12px;margin-top:2px">${config.mall_name || 'Mall Manager'}${config.mall_address ? ' — ' + config.mall_address : ''}${config.mall_phone ? ' · ☎ ' + config.mall_phone : ''}</div>
     </div>
@@ -310,9 +310,9 @@ async function printCombined(b) {
     </table>
     <p style="font-size:11.5px;color:#555;margin-top:10px">⚠️ ${d.fine_rule}</p>
     <div style="display:flex;justify-content:space-between;margin-top:26px;font-size:12px;color:#333">
-      <span>Prepared by: ________________<br /><small>${(recData.value && recData.value.user_name) || ''} — preparer</small></span>
-      <span>General Secretary: ________________<br /><small>${config.secretary || ''}</small></span>
-      <span>President: ________________<br /><small>${config.chairman || ''}</small></span>
+      <span>${t('Prepared by')}: ________________<br /><small>${(recData.value && recData.value.user_name) || ''} — preparer</small></span>
+      <span>${t('General Secretary')}: ________________<br /><small>${config.secretary || ''}</small></span>
+      <span>${t('President')}: ________________<br /><small>${config.chairman || ''}</small></span>
     </div>
   </div>`
   let area = document.getElementById('printArea')
@@ -338,16 +338,16 @@ async function loadMeters() {
 }
 function onMeterPhotoPick(e) {
   const f = e.target.files[0]; if (!f) return
-  if (f.size > 1500000) { window.__krToast?.('Photo too large — max 1.5 MB.', 'err'); return }
+  if (f.size > 1500000) { window.__krToast?.(t('Photo too large — max 1.5 MB.'), 'err'); return }
   const rd = new FileReader()
   rd.onload = () => { meterForm.value.photo = rd.result; meterForm.value.photoName = f.name }
   rd.readAsDataURL(f)
 }
 async function saveMeter() {
-  if (!meterForm.value.shop || Number(meterForm.value.reading) <= 0) { window.__krToast?.('Space and reading required.', 'err'); return }
-  if (!meterForm.value.photo) { window.__krToast?.('📸 A meter photo is required (spec 3.3).', 'err'); return }
+  if (!meterForm.value.shop || Number(meterForm.value.reading) <= 0) { window.__krToast?.(t('Space and reading required.'), 'err'); return }
+  if (!meterForm.value.photo) { window.__krToast?.(t('📸 A meter photo is required (spec 3.3).'), 'err'); return }
   const r = await apiCall('mall', { action: 'meter', shop: meterForm.value.shop, type: meterForm.value.type, reading: Number(meterForm.value.reading), month: meterForm.value.month || month.value, photo: meterForm.value.photo })
-  if (r.ok) { window.__krToast?.(`✅ Reading saved — ${r.units} units` + (r.flag ? ' ⚠️ anomaly flagged' : ''), 'ok'); meterForm.value.reading = 0; meterForm.value.photo = ''; meterForm.value.photoName = ''; await loadMeters(); await loadBills() }
+  if (r.ok) { window.__krToast?.(`${t('✅ Reading saved')} — ${r.units} ${t('units')}` + (r.flag ? ' ⚠️ anomaly flagged' : ''), 'ok'); meterForm.value.reading = 0; meterForm.value.photo = ''; meterForm.value.photoName = ''; await loadMeters(); await loadBills() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 
@@ -357,7 +357,7 @@ const incForm = ref({ category: 'Parking Fee', amount: 0, method: 'cash', method
 const expVoucherView = ref('')
 function onExpVoucherPick(e) {
   const f = e.target.files[0]; if (!f) return
-  if (f.size > 1500000) { window.__krToast?.('File too large — max 1.5 MB.', 'err'); return }
+  if (f.size > 1500000) { window.__krToast?.(t('File too large — max 1.5 MB.'), 'err'); return }
   const rd = new FileReader()
   rd.onload = () => { expForm.value.voucher = rd.result; expForm.value.voucherName = f.name }
   rd.readAsDataURL(f)
@@ -378,21 +378,21 @@ async function loadExpenses() {
   if (r.ok) { expenses.value = r.expenses; expTotal.value = r.total; incomeList.value = r.income || []; incomeTotal.value = r.income_total || 0 }
 }
 async function saveExpense() {
-  if (Number(expForm.value.amount) <= 0) { window.__krToast?.('Amount required.', 'err'); return }
+  if (Number(expForm.value.amount) <= 0) { window.__krToast?.(t('Amount required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'expense-add', category: expForm.value.category, vendor: expForm.value.vendor, amount: Number(expForm.value.amount), method: payAcctMethod(expForm.value.method_acct), method_acct: expForm.value.method_acct || 0, note: expForm.value.note, voucher: expForm.value.voucher })
-  if (r.ok) { window.__krToast?.('📉 Expense recorded', 'ok'); expForm.value = { category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', method_acct: 1010, note: '', voucher: '', voucherName: '' }; await loadExpenses(); await loadDash() }
+  if (r.ok) { window.__krToast?.(t('📉 Expense recorded'), 'ok'); expForm.value = { category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', method_acct: 1010, note: '', voucher: '', voucherName: '' }; await loadExpenses(); await loadDash() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function saveIncome() {
-  if (Number(incForm.value.amount) <= 0 || !incForm.value.category) { window.__krToast?.('Head and amount required.', 'err'); return }
+  if (Number(incForm.value.amount) <= 0 || !incForm.value.category) { window.__krToast?.(t('Head and amount required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'income-add', cat: incForm.value.category, amount: Number(incForm.value.amount), method: payAcctMethod(incForm.value.method_acct), method_acct: incForm.value.method_acct || 0, note: incForm.value.note, month: month.value })
-  if (r.ok) { window.__krToast?.(`💰 ${incForm.value.category} ৳${incForm.value.amount} recorded`, 'ok'); incForm.value = { category: incCategories.value[0] || 'Parking Fee', amount: 0, method: 'cash', method_acct: 1010, note: '' }; await loadExpenses(); await loadDash() }
+  if (r.ok) { window.__krToast?.(`${incForm.value.category} ৳${incForm.value.amount} ${t('recorded')}`, 'ok'); incForm.value = { category: incCategories.value[0] || 'Parking Fee', amount: 0, method: 'cash', method_acct: 1010, note: '' }; await loadExpenses(); await loadDash() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delExpense(e) {
   if (!window.confirm('Delete this expense?')) return
   const r = await apiCall('mall', { action: 'expense-del', id: e.id })
-  if (r.ok) { window.__krToast?.('🗑️ Expense deleted', 'ok'); await loadExpenses(); await loadDash() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Expense deleted'), 'ok'); await loadExpenses(); await loadDash() }
 }
 
 /* ══════════ COMPLAINTS (spec 3.6) ══════════ */
@@ -407,16 +407,16 @@ async function loadComplaints() {
 }
 function openCompAdd() { compForm.value = { shop: '', subject: '', descr: '', priority: 'Normal' }; compModal.value = { mode: 'add', title: '➕ New complaint' } }
 async function saveComplaint() {
-  if (!compForm.value.shop || !compForm.value.subject.trim()) { window.__krToast?.('Space and subject required.', 'err'); return }
+  if (!compForm.value.shop || !compForm.value.subject.trim()) { window.__krToast?.(t('Space and subject required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'complaint-add', shop: compForm.value.shop, subject: compForm.value.subject, descr: compForm.value.descr, priority: compForm.value.priority })
-  if (r.ok) { window.__krToast?.('🔧 Complaint logged', 'ok'); compModal.value = null; await loadComplaints() }
+  if (r.ok) { window.__krToast?.(t('🔧 Complaint logged'), 'ok'); compModal.value = null; await loadComplaints() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function setCompStatus(c, st) {
   const note = st === 'Resolved' ? window.prompt('Resolution note (optional):', '') : ''
   if (st === 'Resolved' && note === null) return
   const r = await apiCall('mall', { action: 'complaint-status', id: c.id, status: st, note: note || '' })
-  if (r.ok) { window.__krToast?.(`🔧 ${c.id} → ${st}`, 'ok'); await loadComplaints() }
+  if (r.ok) { window.__krToast?.(`${c.id} → ${bnd(st)}`, 'ok'); await loadComplaints() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delComplaint(c) {
@@ -441,7 +441,7 @@ function openAssetEdit(a) {
   assetModal.value = { mode: 'edit', title: '✏️ Edit asset', id: a.id }
 }
 async function saveAsset() {
-  if (!assetForm.value.name.trim()) { window.__krToast?.('Asset name required.', 'err'); return }
+  if (!assetForm.value.name.trim()) { window.__krToast?.(t('Asset name required.'), 'err'); return }
   const action = assetModal.value.mode === 'edit' ? 'asset-update' : 'asset-add'
   const payload = { ...assetForm.value, cost: Number(assetForm.value.cost) || 0, ...(assetModal.value.mode === 'edit' ? { id: assetModal.value.id } : {}) }
   const r = await apiCall('mall', { action, ...payload })
@@ -463,15 +463,15 @@ const noticeForm = ref({})
 async function loadNotices() { const r = await apiCall('mall', { action: 'notices' }); if (r.ok) notices.value = r.notices }
 function openNoticeAdd() { noticeForm.value = { title: '', body: '', date: new Date().toISOString().slice(0, 10), pinned: false }; noticeModal.value = true }
 async function saveNotice() {
-  if (!noticeForm.value.title.trim()) { window.__krToast?.('Title required.', 'err'); return }
+  if (!noticeForm.value.title.trim()) { window.__krToast?.(t('Title required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'notice-add', title: noticeForm.value.title, body: noticeForm.value.body, date: noticeForm.value.date, pinned: noticeForm.value.pinned ? 1 : 0 })
-  if (r.ok) { window.__krToast?.('📢 Notice posted', 'ok'); noticeModal.value = false; await loadNotices() }
+  if (r.ok) { window.__krToast?.(t('📢 Notice posted'), 'ok'); noticeModal.value = false; await loadNotices() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delNotice(n) {
   if (!window.confirm(`Delete notice "${n.title}"?`)) return
   const r = await apiCall('mall', { action: 'notice-del', id: n.id })
-  if (r.ok) { window.__krToast?.('🗑️ Notice deleted', 'ok'); await loadNotices() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Notice deleted'), 'ok'); await loadNotices() }
 }
 async function togglePin(n) {
   const r = await apiCall('mall', { action: 'notice-pin', id: n.id, pinned: n.pinned ? 0 : 1 })
@@ -505,7 +505,7 @@ async function sendBlast(mode, text) {
   const label = mode === 'notice' ? 'broadcast this notice to ALL owners & tenants' : 'send dues-reminder SMS to ALL defaulting spaces'
   if (!window.confirm(`📲 ${label}? (uses the recipient setting from Settings → SMS)`)) return
   const r = await apiCall('mall', { action: 'sms', sub: 'send-blast', mode, text: text || '' })
-  if (r.ok) window.__krToast?.(`📲 Blast done — ${r.sent}/${r.targets} SMS sent${r.failed ? `, ${r.failed} failed` : ''}`, r.failed ? 'err' : 'ok')
+  if (r.ok) window.__krToast?.(`${t('📲 Blast done')} — ${r.sent}/${r.targets} ${t('SMS sent')}` + (r.failed ? `, ${r.failed} ${t('failed')}` : ''), r.failed ? 'err' : 'ok')
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 function waRemind(b) {
@@ -531,7 +531,7 @@ async function saveProfile() {
   const r = await apiCall('app-profile', body)
   profSaving.value = false
   if (r.ok) {
-    window.__krToast?.('👤 Profile updated', 'ok')
+    window.__krToast?.(t('👤 Profile updated'), 'ok')
     profForm.value.old_password = ''; profForm.value.new_password = ''
     profMsg.value = '✓ Saved. Password change signs you out of other devices.'
     if (auth.user) auth.user.name = profForm.value.name.trim()
@@ -561,7 +561,7 @@ function openStaffEdit(s) {
   staffModal.value = { mode: 'edit', title: '✏️ Edit staff', id: s.id }
 }
 async function saveStaff() {
-  if (!staffForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  if (!staffForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
   const action = staffModal.value.mode === 'edit' ? 'staff-update' : 'staff-add'
   const r = await apiCall('mall', { action, ...staffForm.value, salary: Number(staffForm.value.salary) || 0, ...(staffModal.value.mode === 'edit' ? { id: staffModal.value.id } : {}) })
   if (r.ok) { window.__krToast?.(staffModal.value.mode === 'edit' ? '✏️ Staff updated' : '✅ Staff added', 'ok'); staffModal.value = null; await loadStaff() }
@@ -570,18 +570,18 @@ async function saveStaff() {
 async function delStaff(s) {
   if (!window.confirm(`Remove staff "${s.name}"? (salary history is kept)`)) return
   const r = await apiCall('mall', { action: 'staff-del', id: s.id })
-  if (r.ok) { window.__krToast?.('🗑️ Staff removed', 'ok'); await loadStaff() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Staff removed'), 'ok'); await loadStaff() }
 }
 function openSal(s) {
   const paid = salaryHistory.value.some(h => h.staff_id === s.id)
-  if (paid) { window.__krToast?.(`Salary already paid for ${monthLabel(month.value)}`, 'err'); return }
+  if (paid) { window.__krToast?.(`${t('Salary already paid for')} ${monthLabel(month.value)}`, 'err'); return }
   salForm.value = { staff_id: s.id, staff_name: s.name, amount: s.salary, method: 'cash', method_acct: defaultPayAcct(), note: '' }
   salModal.value = s
 }
 async function saveSalary() {
   if (!salModal.value || Number(salForm.value.amount) <= 0) return
   const r = await apiCall('mall', { action: 'salary-pay', staff_id: salForm.value.staff_id, month: month.value, amount: Number(salForm.value.amount), method: payAcctMethod(salForm.value.method_acct), method_acct: salForm.value.method_acct || 0, note: salForm.value.note })
-  if (r.ok) { window.__krToast?.(`💸 ${r.staff} — ${money(r.amount)} paid`, 'ok'); salModal.value = null; await loadStaff(); await loadDash(); await loadLedger() }
+  if (r.ok) { window.__krToast?.(`${r.staff} — ${money(r.amount)} ${t('paid')}`, 'ok'); salModal.value = null; await loadStaff(); await loadDash(); await loadLedger() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 
@@ -599,7 +599,7 @@ function exportCsv(filename, headers, rows) {
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob); a.download = filename; a.click()
   URL.revokeObjectURL(a.href)
-  window.__krToast?.(`⬇ ${filename} exported`, 'ok')
+  window.__krToast?.(`⬇ ${filename} ${t('exported')}`, 'ok')
 }
 function exportStaff() {
   exportCsv('staff-' + month.value + '.csv',
@@ -657,22 +657,22 @@ async function saveUser() {
   const payload = userModal.value.mode === 'edit'
     ? { action: 'user-update', id: userModal.value.id, name: userForm.value.name, role: userForm.value.role, active: userForm.value.active ? 1 : 0 }
     : { action: 'user-add', name: userForm.value.name, email: userForm.value.email, password: userForm.value.password, role: userForm.value.role }
-  if (userModal.value.mode === 'add' && !userForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  if (userModal.value.mode === 'add' && !userForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
   const r = await apiCall('mall', payload)
   if (r.ok) { window.__krToast?.(userModal.value.mode === 'edit' ? '✏️ User updated' : '✅ User created', 'ok'); userModal.value = null; await loadUsers() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 function openReset(u) { resetForm.value = { id: u.id, name: u.name, password: '' }; resetModal.value = u }
 async function saveReset() {
-  if (resetForm.value.password.length < 8) { window.__krToast?.('Password must be at least 8 characters.', 'err'); return }
+  if (resetForm.value.password.length < 8) { window.__krToast?.(t('Password must be at least 8 characters.'), 'err'); return }
   const r = await apiCall('mall', { action: 'user-resetpw', id: resetForm.value.id, password: resetForm.value.password })
-  if (r.ok) { window.__krToast?.(`🔑 Password reset for ${resetForm.value.name}`, 'ok'); resetModal.value = null; resetForm.value = { id: 0, name: '', password: '' } }
+  if (r.ok) { window.__krToast?.(`${t('🔑 Password reset for')} ${resetForm.value.name}`, 'ok'); resetModal.value = null; resetForm.value = { id: 0, name: '', password: '' } }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delUser(u) {
   if (!window.confirm(`Disable user "${u.name}" (${u.email})? Their audit trail stays.`)) return
   const r = await apiCall('mall', { action: 'user-del', id: u.id })
-  if (r.ok) { window.__krToast?.('🗑️ User disabled', 'ok'); await loadUsers() }
+  if (r.ok) { window.__krToast?.(t('🗑️ User disabled'), 'ok'); await loadUsers() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 const userKpis = computed(() => {
@@ -692,7 +692,7 @@ const budgetDirty = ref(false)
 async function loadBudget() { const r = await apiCall('mall', { action: 'budget-get' }); if (r.ok) { budget.value = r.budget || {} } }
 async function saveBudget() {
   const r = await apiCall('mall', { action: 'budget-set', budget: budget.value })
-  if (r.ok) { budgetDirty.value = false; window.__krToast?.('🎯 Budget saved', 'ok') }
+  if (r.ok) { budgetDirty.value = false; window.__krToast?.(t('🎯 Budget saved'), 'ok') }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 const budgetTotal = computed(() => Object.values(budget.value).reduce((s, v) => s + (Number(v) || 0), 0))
@@ -711,7 +711,7 @@ const roleEdit = ref(false)
 const roleDraft = ref('')
 function addRole() { const n = roleDraft.value.trim(); if (!n || committeeRoles.value.includes(n)) return; committeeRoles.value.push(n); roleDraft.value = '' }
 function delRole(r) { committeeRoles.value = committeeRoles.value.filter(x => x !== r) }
-async function saveRoles() { const r = await apiCall('mall', { action: 'committee-roles-set', roles: committeeRoles.value }); if (r.ok) { window.__krToast?.('🏛️ Committee roles updated', 'ok'); roleEdit.value = false } else window.__krToast?.(r.error || 'Failed.', 'err') }
+async function saveRoles() { const r = await apiCall('mall', { action: 'committee-roles-set', roles: committeeRoles.value }); if (r.ok) { window.__krToast?.(t('🏛️ Committee roles updated'), 'ok'); roleEdit.value = false } else window.__krToast?.(r.error || 'Failed.', 'err') }
 const MEETING_TYPES = ['AGM', 'Executive', 'Emergency', 'Budget']
 async function loadCommittee() { const r = await apiCall('mall', { action: 'committee' }); if (r.ok) { committee.value = r; committeeRoles.value = r.roles || [] } }
 function openMemberAdd() { memberForm.value = { role: 'Member', name: '', shop: '', phone: '', email: '', term: '', active: 1 }; memberModal.value = { mode: 'add', title: '➕ New committee member' } }
@@ -720,7 +720,7 @@ function openMemberEdit(m) {
   memberModal.value = { mode: 'edit', title: '✏️ Edit member', id: m.id }
 }
 async function saveMember() {
-  if (!memberForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  if (!memberForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
   const action = memberModal.value.mode === 'edit' ? 'committee-update' : 'committee-add'
   const r = await apiCall('mall', { action, ...memberForm.value, active: memberForm.value.active ? 1 : 0, ...(memberModal.value.mode === 'edit' ? { id: memberModal.value.id } : {}) })
   if (r.ok) { window.__krToast?.(memberModal.value.mode === 'edit' ? '✏️ Member updated' : '✅ Member added', 'ok'); memberModal.value = null; await loadCommittee() }
@@ -733,9 +733,9 @@ async function delMember(m) {
 }
 function openMeetingAdd() { meetingForm.value = { date: new Date().toISOString().slice(0, 10), type: 'Executive', title: '', agenda: '', decisions: '', minutes: '' }; meetingModal.value = true }
 async function saveMeeting() {
-  if (!meetingForm.value.title.trim()) { window.__krToast?.('Title required.', 'err'); return }
+  if (!meetingForm.value.title.trim()) { window.__krToast?.(t('Title required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'meeting-add', ...meetingForm.value })
-  if (r.ok) { window.__krToast?.('✅ Meeting recorded', 'ok'); meetingModal.value = false; await loadCommittee(); applyAfterAdd() }
+  if (r.ok) { window.__krToast?.(t('✅ Meeting recorded'), 'ok'); meetingModal.value = false; await loadCommittee(); applyAfterAdd() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delMeeting(m) {
@@ -750,9 +750,9 @@ function openResAdd(meetingId = 0) {
   resModal.value = true
 }
 async function saveResolution() {
-  if (!resForm.value.title.trim()) { window.__krToast?.('Title required.', 'err'); return }
+  if (!resForm.value.title.trim()) { window.__krToast?.(t('Title required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'resolution-add', ...resForm.value, passed: resForm.value.passed ? 1 : 0 })
-  if (r.ok) { window.__krToast?.('📜 Resolution recorded', 'ok'); resModal.value = false; await loadCommittee() }
+  if (r.ok) { window.__krToast?.(t('📜 Resolution recorded'), 'ok'); resModal.value = false; await loadCommittee() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delResolution(r2) {
@@ -776,7 +776,7 @@ const INVOICE_TEMPLATES = [
 function onLogoPick(e, key) {
   const f = e.target.files?.[0]
   if (!f) return
-  if (f.size > 700 * 1024) { window.__krToast?.('Logo too large — max 700KB.', 'err'); return }
+  if (f.size > 700 * 1024) { window.__krToast?.(t('Logo too large — max 700KB.'), 'err'); return }
   const rd = new FileReader()
   rd.onload = () => { config.value[key] = rd.result; cfgDirty.value = true }
   rd.readAsDataURL(f)
@@ -800,7 +800,7 @@ function openOwnerEdit(o) {
   ownerModal.value = { mode: 'edit', title: '✏️ Edit owner', id: o.id }
 }
 async function saveOwner() {
-  if (!ownerForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  if (!ownerForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
   const action = ownerModal.value.mode === 'edit' ? 'owner-update' : 'owner-add'
   const r = await apiCall('mall', { action, ...ownerForm.value, ...(ownerModal.value.mode === 'edit' ? { id: ownerModal.value.id } : {}) })
   if (r.ok) { window.__krToast?.(ownerModal.value.mode === 'edit' ? '✏️ Owner updated' : '✅ Owner added', 'ok'); ownerModal.value = null; await loadOwners(); if (tab.value === 'shops') loadShops(); applyAfterAdd() }
@@ -838,7 +838,7 @@ async function exitRequest(a) {
 async function exitApprove(a) {
   if (!window.confirm(`Approve exit + generate NOC for ${a.tenant_name || 'tenant'} at ${a.shop}?`)) return
   const r = await apiCall('mall', { action: 'exit-approve', id: a.id })
-  if (r.ok) { window.__krToast?.(`✅ Exited — ${r.noc_no} generated`, 'ok'); await loadAgreements() }
+  if (r.ok) { window.__krToast?.(`${t('✅ Exited')} — ${r.noc_no} ${t('generated')}`, 'ok'); await loadAgreements() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 function printNoc(a) {
@@ -864,7 +864,7 @@ function printNoc(a) {
 function openTenantAdd() { tenantForm.value = { name: '', phone: '', email: '', nid: '', address: '', employer: '', notes: '' }; tenantModal.value = { mode: 'add', title: '➕ New tenant' } }
 function openTenantEdit(t) { tenantForm.value = { ...t }; tenantModal.value = { mode: 'edit', title: '✏️ Edit tenant', id: t.id } }
 async function saveTenant() {
-  if (!tenantForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  if (!tenantForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
   const action = tenantModal.value.mode === 'edit' ? 'tenant-update' : 'tenant-add'
   const r = await apiCall('mall', { action, ...tenantForm.value, ...(tenantModal.value.mode === 'edit' ? { id: tenantModal.value.id } : {}) })
   if (r.ok) { window.__krToast?.(tenantModal.value.mode === 'edit' ? '✏️ Tenant updated' : '✅ Tenant added', 'ok'); tenantModal.value = null; await loadTenants(); applyAfterAdd() }
@@ -873,24 +873,24 @@ async function saveTenant() {
 async function delTenant(t) {
   if (!window.confirm(`Delete tenant "${t.name}"?`)) return
   const r = await apiCall('mall', { action: 'tenant-del', id: t.id })
-  if (r.ok) { window.__krToast?.('🗑️ Tenant deleted', 'ok'); await loadTenants() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Tenant deleted'), 'ok'); await loadTenants() }
 }
 function openAgrAdd() { agrForm.value = { shop: '', tenant_id: 0, rent: 0, start_date: new Date().toISOString().slice(0, 10), end_date: '', advance_months: 0, due_day: 5, rent_collection: 0, status: 'Active', notes: '' }; agrModal.value = true }
 async function saveAgreement() {
-  if (!agrForm.value.shop) { window.__krToast?.('Space required.', 'err'); return }
+  if (!agrForm.value.shop) { window.__krToast?.(t('Space required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'agreement-add', ...agrForm.value, rent_collection: agrForm.value.rent_collection ? 1 : 0 })
-  if (r.ok) { window.__krToast?.('✅ Agreement saved', 'ok'); agrModal.value = false; await loadAgreements() }
+  if (r.ok) { window.__krToast?.(t('✅ Agreement saved'), 'ok'); agrModal.value = false; await loadAgreements() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delAgreement(a) {
   if (!window.confirm(`Delete agreement for ${a.shop}?`)) return
   const r = await apiCall('mall', { action: 'agreement-del', id: a.id })
-  if (r.ok) { window.__krToast?.('🗑️ Agreement deleted', 'ok'); await loadAgreements() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Agreement deleted'), 'ok'); await loadAgreements() }
 }
 function openRentCollect(a) { rentForm.value = { agreement_id: a.id, month: new Date().toISOString().slice(0, 7), amount: a.rent, method: 'cash', method_acct: defaultPayAcct(), ref: '' }; rentModal.value = a }
 async function saveRent() {
   const r = await apiCall('mall', { action: 'rent-collect', ...rentForm.value })
-  if (r.ok) { window.__krToast?.(`✅ Rent collected — ${r.receipt}`, 'ok'); rentModal.value = null; await loadAgreements() }
+  if (r.ok) { window.__krToast?.(`${t('✅ Rent collected')} — ${r.receipt}`, 'ok'); rentModal.value = null; await loadAgreements() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 
@@ -907,7 +907,7 @@ async function loadVendors() { const r = await apiCall('mall', { action: 'vendor
 function openVendorAdd() { vendorForm.value = { category: 'Repair & Maintenance', name: '', contact_person: '', phone: '', email: '', address: '', notes: '' }; vendorModal.value = { mode: 'add', title: '➕ New vendor' } }
 function openVendorEdit(v) { vendorForm.value = { ...v }; vendorModal.value = { mode: 'edit', title: '✏️ Edit vendor', id: v.id } }
 async function saveVendor() {
-  if (!vendorForm.value.name.trim()) { window.__krToast?.('Name required.', 'err'); return }
+  if (!vendorForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
   const action = vendorModal.value.mode === 'edit' ? 'vendor-update' : 'vendor-add'
   const r = await apiCall('mall', { action, ...vendorForm.value, ...(vendorModal.value.mode === 'edit' ? { id: vendorModal.value.id } : {}) })
   if (r.ok) { window.__krToast?.(vendorModal.value.mode === 'edit' ? '✏️ Vendor updated' : '✅ Vendor added', 'ok'); vendorModal.value = null; await loadVendors(); applyAfterAdd() }
@@ -916,7 +916,7 @@ async function saveVendor() {
 async function delVendor(v) {
   if (!window.confirm(`Delete vendor "${v.name}"?`)) return
   const r = await apiCall('mall', { action: 'vendor-del', id: v.id })
-  if (r.ok) { window.__krToast?.('🗑️ Vendor deleted', 'ok'); await loadVendors() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Vendor deleted'), 'ok'); await loadVendors() }
 }
 async function openVendorPay(v) {
   vendorPayForm.value = { vendor_id: v.id, amount: 0, method: 'bank', method_acct: 1020, ref: '', note: '' }
@@ -925,9 +925,9 @@ async function openVendorPay(v) {
   if (r.ok) vendorPayments.value = r.payments
 }
 async function saveVendorPay() {
-  if (!vendorPayForm.value.amount || vendorPayForm.value.amount <= 0) { window.__krToast?.('Amount required.', 'err'); return }
+  if (!vendorPayForm.value.amount || vendorPayForm.value.amount <= 0) { window.__krToast?.(t('Amount required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'vendor-payment-add', vendor_id: vendorPayForm.value.vendor_id, amount: Number(vendorPayForm.value.amount), method: payAcctMethod(vendorPayForm.value.method_acct), method_acct: vendorPayForm.value.method_acct || 0, ref: vendorPayForm.value.ref, note: vendorPayForm.value.note })
-  if (r.ok) { window.__krToast?.('💸 Payment recorded', 'ok'); await openVendorPay(vendorPayModal.value); await loadVendors() }
+  if (r.ok) { window.__krToast?.(t('💸 Payment recorded'), 'ok'); await openVendorPay(vendorPayModal.value); await loadVendors() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 
@@ -938,7 +938,7 @@ const isSuperAdmin = computed(() => ['superadmin'].includes(auth.user?.role || '
 async function loadLicense() { const r = await apiCall('mall', { action: 'license-get' }); if (r.ok) license.value = r.license }
 async function saveLicense() {
   const r = await apiCall('mall', { action: 'license-set', ...license.value })
-  if (r.ok) { licenseDirty.value = false; window.__krToast?.('🔑 License updated', 'ok') }
+  if (r.ok) { licenseDirty.value = false; window.__krToast?.(t('🔑 License updated'), 'ok') }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 const licenseBadge = computed(() => {
@@ -1018,7 +1018,7 @@ function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Ass
 function openAccountEdit(x) { accountForm.value = { ...x }; accountModal.value = { mode: 'edit', title: '✏️ Edit account' } }
 async function saveAccount() {
   const f = accountForm.value
-  if (!f.name || !f.name.trim()) { window.__krToast?.('Account name required.', 'err'); return }
+  if (!f.name || !f.name.trim()) { window.__krToast?.(t('Account name required.'), 'err'); return }
   const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, subsidiary: f.subsidiary ? 1 : 0, subs_type: f.subs_type || '', is_group: f.is_group ? 1 : 0, parent: f.parent || '', note: f.note })
   if (r.ok) { window.__krToast?.(accountModal.value.mode === 'edit' ? '✏️ Account updated' : '✅ Account added', 'ok'); accountModal.value = null; await loadAccounts() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
@@ -1026,7 +1026,7 @@ async function saveAccount() {
 async function delAccount(x) {
   if (!window.confirm(`Delete account "${x.name}"?`)) return
   const r = await apiCall('mall', { action: 'account-del', id: x.id })
-  if (r.ok) { window.__krToast?.('🗑️ Account deleted', 'ok'); await loadAccounts() }
+  if (r.ok) { window.__krToast?.(t('🗑️ Account deleted'), 'ok'); await loadAccounts() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function openJournalAdd() {
@@ -1041,16 +1041,16 @@ const jCrTotal = computed(() => (jForm.value.lines || []).reduce((s, l) => s + (
 const jBalanced = computed(() => jDrTotal.value === jCrTotal.value && jDrTotal.value > 0)
 function onJoucherPick(e) {
   const f = e.target.files[0]; if (!f) return
-  if (f.size > 800000) { window.__krToast?.('Image too large — max 800 KB.', 'err'); return }
+  if (f.size > 800000) { window.__krToast?.(t('Image too large — max 800 KB.'), 'err'); return }
   const rd = new FileReader()
   rd.onload = () => { jForm.value.voucher = rd.result; jForm.value.voucherName = f.name }
   rd.readAsDataURL(f)
 }
 async function saveJournal() {
-  if (!jBalanced.value) { window.__krToast?.('The voucher must balance — debit total = credit total.', 'err'); return }
+  if (!jBalanced.value) { window.__krToast?.(t('The voucher must balance — debit total = credit total.'), 'err'); return }
   const lines = jForm.value.lines.map(l => ({ account: l.account, debit: l.side === 'debit' ? Number(l.amount) || 0 : 0, credit: l.side === 'credit' ? Number(l.amount) || 0 : 0, subsidiary_type: l.subType || '', subsidiary_name: l.subName || '' })).filter(l => l.account && (l.debit > 0 || l.credit > 0))
   const r = await apiCall('mall', { action: 'journal-add', date: jForm.value.date, ref: jForm.value.ref, note: jForm.value.note, voucher: jForm.value.voucher, lines })
-  if (r.ok) { window.__krToast?.(`✅ Voucher ${r.ref} posted — pending approval`, 'ok'); jModal.value = null; await loadJournal() }
+  if (r.ok) { window.__krToast?.(`${t('✅ Voucher')} ${r.ref} ${t('posted — pending approval')}`, 'ok'); jModal.value = null; await loadJournal() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function journalDecision(id, approve) {
@@ -1159,13 +1159,13 @@ async function loadAcctMap() {
 }
 async function saveAcctMap() {
   const r = await apiCall('mall', { action: 'acct-map-set', map: acctMap.value })
-  if (r.ok) window.__krToast?.('📊 Account mapping saved — new Smart Ledger posts use it', 'ok')
+  if (r.ok) window.__krToast?.(t('📊 Account mapping saved — new Smart Ledger posts use it'), 'ok')
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 function resetAcctMap() {
   if (!window.confirm('Reset ALL account mappings back to the built-in defaults?')) return
   acctMap.value = {}
-  window.__krToast?.('All mappings reset to defaults — press 💾 Save mapping to persist', 'ok')
+  window.__krToast?.(t('All mappings reset to defaults — press 💾 Save mapping to persist'), 'ok')
 }
 /* config-driven mapping groups: expense rows follow the editable util/common
    heads (same list as the Expenses tab), income heads + Smart Ledger flows
@@ -1352,8 +1352,8 @@ function onStmtFilePick(e) {
   rd.readAsText(f)
 }
 async function parseStmt() {
-  if (!stmtAcctId.value) { window.__krToast?.('Pick a bank account first.', 'err'); return }
-  if (!stmtCsvText.value.trim()) { window.__krToast?.('Choose a CSV file first.', 'err'); return }
+  if (!stmtAcctId.value) { window.__krToast?.(t('Pick a bank account first.'), 'err'); return }
+  if (!stmtCsvText.value.trim()) { window.__krToast?.(t('Choose a CSV file first.'), 'err'); return }
   const r = await apiCall('mall', { action: 'bank-stmt-parse', csv: stmtCsvText.value })
   if (r.ok) stmtPreview.value = r
   else window.__krToast?.(r.error || 'Parse failed.', 'err')
@@ -1404,7 +1404,7 @@ async function loadAlerts() { const r = await apiCall('mall', { action: 'alerts'
 async function sendDuesAlert(shop, kind, months) {
   if (!window.confirm(`📲 Send the ${kind === 'disconnect' ? 'disconnection-risk' : 'high-dues'} SMS alert for ${shop.no} (৳${Number(shop.due).toLocaleString('en-IN')}) to the owner & tenant?`)) return
   const r = await apiCall('mall', { action: 'sms', sub: 'send-alert', shop: shop.id, kind, months: months || shop.months || 1 })
-  if (r.ok) window.__krToast?.(`📲 Alert SMS sent to ${r.sent}/${r.total} recipient(s)`, 'ok')
+  if (r.ok) window.__krToast?.(`${t('📲 Alert SMS sent to')} ${r.sent}/${r.total} ${t('recipient(s)')}`, 'ok')
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 function billRiskMonths(b) {
@@ -1417,12 +1417,12 @@ function isDisconnectRisk(b) { return billRiskMonths(b) >= (config.disconnect_mo
 /* spec 3.3: effective elec rate calculator (DESCO bill ÷ units) */
 const effCalc = ref({ main_bill: 0, month: '', result: null })
 async function calcEffectiveRate() {
-  if (!effCalc.value.main_bill || Number(effCalc.value.main_bill) <= 0) { window.__krToast?.('Enter the DESCO main bill amount.', 'err'); return }
+  if (!effCalc.value.main_bill || Number(effCalc.value.main_bill) <= 0) { window.__krToast?.(t('Enter the DESCO main bill amount.'), 'err'); return }
   const r = await apiCall('mall', { action: 'effective-rate', main_bill: Number(effCalc.value.main_bill), month: effCalc.value.month || month.value })
   if (r.ok) effCalc.value.result = r
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
-function useEffRate(rate) { config.elec_unit_rate = rate; cfgDirty.value = true; window.__krToast?.(`⚡ Elec rate set to ৳${rate}/unit — hit Save`, 'ok') }
+function useEffRate(rate) { config.elec_unit_rate = rate; cfgDirty.value = true; window.__krToast?.(`${t('⚡ Elec rate set to')} ৳${rate}/unit — ${t('hit Save')}`, 'ok') }
 const maxOf = (arr, key) => Math.max(...arr.map(x => Number(x[key]) || 0))
 const maxOfN = (arr) => Math.max(...(arr || []).map(x => Number(x.n) || 0))
 const pctOf = (v, arr) => { const t = (arr || []).reduce((s, x) => s + Number(x.total), 0); return t ? Math.round(Number(v) / t * 100) : 0 }
@@ -1495,8 +1495,8 @@ function refreshOfflineState() { offlinePending.value = window.__mallOffline?.co
 async function syncNow() {
   const r = await window.__mallOffline?.sync?.()
   refreshOfflineState()
-  if (r > 0) { window.__krToast?.(`📡 Synced ${r} offline entr${r === 1 ? 'y' : 'ies'}`, 'ok'); await switchTab(tab) }
-  else if (r === 0) window.__krToast?.('📡 Nothing to sync', 'ok')
+  if (r > 0) { window.__krToast?.(`${t('📡 Synced')} ${r} ${t('offline entries')}`, 'ok'); await switchTab(tab) }
+  else if (r === 0) window.__krToast?.(t('📡 Nothing to sync'), 'ok')
 }
 onMounted(async () => { await loadConfig(); await loadDash(); loadBalances() })
 
@@ -1779,7 +1779,7 @@ onBeforeUnmount(() => {
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <button v-if="canManage" @click="generateBills" :disabled="billsBusy" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ t('⚙️ Generate service-charge bills') }}</button>
-        <button v-if="canManage" @click="calcFines" :disabled="finesBusy || !config.late_fees_enabled" class="btn-ghost" :title="config.late_fees_enabled ? 'Apply late payment fines to overdue bills' : 'Late fees are disabled in ⚙️ Settings → Billing rules'">{{ t('💸 Compute late fees') }}</button>
+        <button v-if="canManage" @click="calcFines" :disabled="finesBusy || !config.late_fees_enabled" class="btn-ghost" :title="config.late_fees_enabled ? 'Apply late payment fines to overdue bills' : t('Late fees are disabled in ⚙️ Settings → Billing rules')">{{ t('💸 Compute late fees') }}</button>
         <button v-if="canManage" @click="sendBlast('remind')" class="btn-ghost" title="Send a dues-reminder SMS to every space with unpaid bills (spec 3.9)">{{ t('📲 Remind all defaulters') }}</button>
         <button v-if="canManage" @click="clearFines" class="btn-ghost" title="Remove all computed fines for this month">{{ t('🧹 Clear fines') }}</button>
         <button @click="exportBills" class="btn-ghost" title="Download this month's bills as Excel-compatible CSV">{{ t('⬇ CSV') }}</button>
