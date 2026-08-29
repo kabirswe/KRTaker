@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260938) {
+        if ($__sv < 20260939) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -514,7 +514,21 @@ function db() {
             decided_by TEXT DEFAULT '', decided_at TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
         $spcols = array_column($pdo->query('PRAGMA table_info(shop_payments)')->fetchAll(PDO::FETCH_ASSOC), 'name');
         if (!in_array('voided', $spcols, true)) { try { $pdo->exec("ALTER TABLE shop_payments ADD COLUMN voided INTEGER DEFAULT 0"); } catch (Exception $e) {} }
-        /* V2.8: MULTI-LEVEL CHART OF ACCOUNTS — parent + group columns,
+        /* V2.9: MULTIPLE BANKS & MOBILE BANKING — every payment row gains a
+           method_acct (the specific COA account it hit); extra bank / mobile
+           banking accounts are seeded so the admin can collect & pay through
+           whichever account (each has its own ledger, receipt & cashflow) */
+        foreach (['shop_payments', 'company_ledger', 'mall_rent_payments', 'mall_vendor_payments'] as $pt) {
+            $pcols = array_column($pdo->query("PRAGMA table_info($pt)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+            if (!in_array('method_acct', $pcols, true)) { try { $pdo->exec("ALTER TABLE $pt ADD COLUMN method_acct INTEGER DEFAULT 0"); } catch (Exception $e) {} }
+        }
+        $insPay = $pdo->prepare("INSERT OR IGNORE INTO mall_accounts (code, name, type, opening, active, subsidiary, note, parent, is_group)
+                                 VALUES (?,?,?,0,1,0,?,'1000',0)");
+        foreach ([['1021', 'Brac Bank Account', 'Asset', 'Second bank account — receipts & payments can target it'], 
+                  ['1022', 'EBL Account', 'Asset', 'Third bank account'], 
+                  ['1031', 'bKash (Business)', 'Asset', 'Business bKash number — separate from the main bKash'],
+                  ['1032', 'Nagad Account', 'Asset', 'Nagad mobile banking account']] as $a) $insPay->execute($a);
+        /* V2.8 (continued): multi-level COA — parent + group columns,
            group headings (1000 Assets · 1100 Fixed Assets · 2000 Liabilities ·
            3000 Equity · 4000 Income · 5000 Expenses), parents on every
            account, and demo entries exercising the hierarchy */
@@ -1461,7 +1475,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260938'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260939'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15215,6 +15229,13 @@ case 'mall': {
     };
     $exp_acct_for = function ($cat) use ($EXP_ACCT) { return $EXP_ACCT[$cat] ?? 'General Maintenance'; };
     $method_acct = function ($m) use ($METHOD_ACCT) { return $METHOD_ACCT[$m] ?? 'Cash in Hand'; };
+    /* V2.9: a payment can target a SPECIFIC bank / mobile-banking account —
+       resolve its COA name by id, falling back to the method's default */
+    $pay_acct = function ($method, $acctId = 0) use ($pdo, $method_acct) {
+        $acctId = (int)$acctId;
+        if ($acctId) { $st = $pdo->prepare('SELECT name FROM mall_accounts WHERE id=?'); $st->execute([$acctId]); $n = $st->fetchColumn(); if ($n) return $n; }
+        return $method_acct($method);
+    };
     $ar_acct = function () use ($ACCT_ID) { return 'Accounts Receivable (space dues)'; };
     /* user-configured mapping (⚙️ Settings → Account mapping) overrides the defaults */
     $acctMapArr = null;
@@ -15421,7 +15442,12 @@ case 'mall': {
         $ps = $pdo->prepare("SELECT * FROM shop_payments WHERE bill_id=? ORDER BY id DESC LIMIT 1");
         $ps->execute([$billId]);
         $pay = $ps->fetch(PDO::FETCH_ASSOC) ?: null;
-        json_out(['ok' => true, 'bill' => $bill, 'payment' => $pay,
+        $payAcctName = '';
+        if ($pay && (int)($pay['method_acct'] ?? 0)) {
+            $ast = $pdo->prepare('SELECT name FROM mall_accounts WHERE id=?'); $ast->execute([(int)$pay['method_acct']]);
+            $payAcctName = (string)$ast->fetchColumn();
+        }
+        json_out(['ok' => true, 'bill' => $bill, 'payment' => $pay, 'pay_acct_name' => $payAcctName,
                   'brand' => [
                       'mall_name' => $mcfg('mall_name', ''), 'mall_address' => $mcfg('mall_address', ''),
                       'mall_phone' => $mcfg('mall_phone', ''), 'mall_email' => $mcfg('mall_email', ''),
@@ -15476,13 +15502,14 @@ case 'mall': {
         $note = trim($body['note'] ?? '');
         $month = trim($body['month'] ?? date('Y-m'));
         if ($cat === '' || $amount <= 0 || !in_array($method, ['cash', 'bank', 'bkash', 'nagad'], true)) json_out(['ok' => false, 'error' => 'Head, amount and a valid method required.'], 400);
-        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts)
-                       VALUES ('income', ?, ?, ?, ?, ?, ?, '', ?)")
-            ->execute([$cat, $cat, $amount, $method, 'INC-' . str_pad((string)(mt_rand(1, 99999)), 5, '0', STR_PAD_LEFT), $note, $month . '-01 12:00:00']);
+        $mAcct = (int)($body['method_acct'] ?? 0);
+        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts)
+                       VALUES ('income', ?, ?, ?, ?, ?, ?, '', ?, ?)")
+            ->execute([$cat, $cat, $amount, $method, $mAcct, 'INC-' . str_pad((string)(mt_rand(1, 99999)), 5, '0', STR_PAD_LEFT), $note, $month . '-01 12:00:00']);
         $clId = (int)$pdo->lastInsertId();
         $post_journal($month . '-01', 'INC-' . str_pad((string)$clId, 5, '0', STR_PAD_LEFT),
             'Income — ' . $cat,
-            [[$method_acct($method), $amount, 0], [$acct_name_for('inc:' . $cat, 'Other Income'), 0, $amount]], $u['name']);
+            [[$pay_acct($method, $mAcct), $amount, 0], [$acct_name_for('inc:' . $cat, 'Other Income'), 0, $amount]], $u['name']);
         audit($u['name'], 'Income', 'mall', (string)$clId, "$cat ৳$amount ($method)");
         json_out(['ok' => true]);
     }
@@ -15493,18 +15520,19 @@ case 'mall': {
         $amount = (int)($body['amount'] ?? 0);
         if ($cat === '' || $amount <= 0) json_out(['ok' => false, 'error' => 'category and amount required.'], 400);
         $method = in_array(trim($body['method'] ?? ''), ['cash', 'bank', 'bkash', 'nagad'], true) ? trim($body['method']) : 'cash';
+        $mAcct = (int)($body['method_acct'] ?? 0);
         $vendor = trim($body['vendor'] ?? '');
         $voucher = trim($body['voucher'] ?? '');
         if ($voucher !== '' && (strpos($voucher, 'data:image') !== 0 || strlen($voucher) > 1500000)) $voucher = '';
-        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts, voucher)
-                       VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)")
-            ->execute([$cat, $cat, $amount, $method, '', trim($body['note'] ?? ''), $vendor, $voucher]);
+        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts, voucher)
+                       VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)")
+            ->execute([$cat, $cat, $amount, $method, $mAcct, '', trim($body['note'] ?? ''), $vendor, $voucher]);
         $expId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Expense', 'mall', $cat, "$amount via $method");
         /* Smart Ledger: Dr expense account (by category), Cr cash/bank/bKash */
         $post_journal(date('Y-m-d'), 'EXP-' . str_pad((string)$expId, 5, '0', STR_PAD_LEFT),
             $cat . ($body['vendor'] ? ' — ' . trim($body['vendor']) : ''),
-            [[$exp_acct_for($cat), $amount, 0], [$method_acct($method), 0, $amount]], $u['name']);
+            [[$exp_acct_for($cat), $amount, 0], [$pay_acct($method, $mAcct), 0, $amount]], $u['name']);
         json_out(['ok' => true]);
     }
 
@@ -16009,15 +16037,20 @@ case 'mall': {
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM mall_vendor_payments WHERE ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['out'] += (int)$r['a'];
         $methods = [];
         $sc = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
-        foreach (['cash', 'bank', 'bkash', 'nagad'] as $m) {
-            $in = $sc("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=? AND COALESCE(voided,0)=0", [$m])
-                + $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND method=?", [$m])
-                + $sc("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE method=?", [$m]);
-            $out = $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND method=?", [$m])
-                + $sc("SELECT COALESCE(SUM(amount),0) FROM mall_vendor_payments WHERE method=?", [$m]);
-            $methods[$m] = ['method' => $m, 'in' => $in, 'out' => $out, 'balance' => $in - $out];
+        $defCode = ['cash' => '1010', 'bank' => '1020', 'bkash' => '1030', 'nagad' => '1032'];
+        foreach ($pdo->query("SELECT id, code, name,
+                CASE WHEN code='1010' THEN 'cash' WHEN code LIKE '102%' THEN 'bank'
+                     WHEN code IN ('1030','1031') THEN 'bkash' ELSE 'nagad' END m
+                FROM mall_accounts WHERE active=1 AND (code='1010' OR code LIKE '102%' OR code LIKE '103%') ORDER BY code") as $pa) {
+            $fb = ($pa['code'] === $defCode[$pa['m']]) ? " OR (COALESCE(method_acct,0)=0 AND method=?)" : "";
+            $in = $sc("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE COALESCE(voided,0)=0 AND (method_acct=?" . $fb . ")", $fb ? [$pa['id'], $pa['m']] : [$pa['id']])
+                + $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND (method_acct=?" . $fb . ")", $fb ? [$pa['id'], $pa['m']] : [$pa['id']])
+                + $sc("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE (method_acct=?" . $fb . ")", $fb ? [$pa['id'], $pa['m']] : [$pa['id']]);
+            $out = $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND (method_acct=?" . $fb . ")", $fb ? [$pa['id'], $pa['m']] : [$pa['id']])
+                + $sc("SELECT COALESCE(SUM(amount),0) FROM mall_vendor_payments WHERE (method_acct=?" . $fb . ")", $fb ? [$pa['id'], $pa['m']] : [$pa['id']]);
+            $methods[$pa['id']] = ['method' => $pa['code'] . ' — ' . $pa['name'], 'in' => $in, 'out' => $out, 'balance' => $in - $out];
         }
-        $series = array_values($series);
+        $methods = array_values($methods);
         $bal = 0; foreach ($series as &$s) { $bal += $s['in'] - $s['out']; $s['balance'] = $bal; } unset($s);
         json_out(['ok' => true, 'series' => $series, 'methods' => array_values($methods),
                   'period_in' => array_sum(array_column($series, 'in')), 'period_out' => array_sum(array_column($series, 'out'))]);
@@ -16181,8 +16214,9 @@ case 'mall': {
         $dup->execute([$staffId, $month]);
         if ($dup->fetchColumn()) json_out(['ok' => false, 'error' => 'Salary already paid for ' . $month . '.'], 409);
         $method = in_array(trim($body['method'] ?? ''), ['cash', 'bank', 'bkash', 'nagad'], true) ? trim($body['method']) : 'cash';
-        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, ref, note, payee, ts) VALUES ('expense', 'Staff Salary', ?, ?, ?, ?, ?, ?, datetime('now'))")
-            ->execute(['Staff Salary — ' . $s['name'] . ' (' . $month . ')', $amount, $method, '', trim($body['note'] ?? '') . ' Salary ' . $month, $s['name']]);
+        $mAcct = (int)($body['method_acct'] ?? 0);
+        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts) VALUES ('expense', 'Staff Salary', ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+            ->execute(['Staff Salary — ' . $s['name'] . ' (' . $month . ')', $amount, $method, $mAcct, '', trim($body['note'] ?? '') . ' Salary ' . $month, $s['name']]);
         $pdo->prepare('INSERT INTO mall_staff_salaries (staff_id, month, amount, method, note) VALUES (?,?,?,?,?)')
             ->execute([$staffId, $month, $amount, $method, trim($body['note'] ?? '')]);
         $salId = (int)$pdo->lastInsertId();
@@ -16190,7 +16224,7 @@ case 'mall': {
         /* Smart Ledger: Dr Staff Salary, Cr cash/bank/bKash */
         $post_journal(date('Y-m-d'), 'SAL-' . str_pad((string)$salId, 5, '0', STR_PAD_LEFT),
             'Salary — ' . $s['name'] . ' (' . $month . ')',
-            [[$flow_acct('staff'), $amount, 0], [$method_acct($method), 0, $amount]], $u['name']);
+            [[$flow_acct('staff'), $amount, 0], [$pay_acct($method, $mAcct), 0, $amount]], $u['name']);
         json_out(['ok' => true, 'staff' => $s['name'], 'amount' => $amount, 'month' => $month]);
     }
     /* salaries — salary history for a month or a staff member */
@@ -16229,17 +16263,34 @@ case 'mall': {
                   'current_balance' => $sum($cur), 'all_time_balance' => $sum($all)]);
     }
 
-    /* balances — cash in hand / bank / mobile wallet balances (spec 3.7) */
+    /* balances — cash in hand / EACH bank & mobile banking account (spec 3.7);
+       category totals kept for the dashboard + recon, per-account added */
     if ($a === 'balances') {
         $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
+        $payAccts = $pdo->query("SELECT id, code, name,
+            CASE WHEN code='1010' THEN 'cash' WHEN code LIKE '102%' THEN 'bank'
+                 WHEN code IN ('1030','1031') THEN 'bkash' ELSE 'nagad' END m
+            FROM mall_accounts WHERE active=1 AND (code='1010' OR code LIKE '102%' OR code LIKE '103%') ORDER BY code")->fetchAll(PDO::FETCH_ASSOC);
+        $defCode = ['cash' => '1010', 'bank' => '1020', 'bkash' => '1030', 'nagad' => '1032'];
+        $inOut = function ($id, $m, $code) use ($b, $defCode) {
+            $fb = ($code === $defCode[$m]) ? " OR (COALESCE(method_acct,0)=0 AND method=?)" : "";
+            $in = $b("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE COALESCE(voided,0)=0 AND (method_acct=?" . $fb . ")", $fb ? [$id, $m] : [$id])
+                + $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND (method_acct=?" . $fb . ")", $fb ? [$id, $m] : [$id])
+                + $b("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE (method_acct=?" . $fb . ")", $fb ? [$id, $m] : [$id]);
+            $out = $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND (method_acct=?" . $fb . ")", $fb ? [$id, $m] : [$id])
+                + $b("SELECT COALESCE(SUM(amount),0) FROM mall_vendor_payments WHERE (method_acct=?" . $fb . ")", $fb ? [$id, $m] : [$id]);
+            return [$in, $out];
+        };
         $bal = [];
-        foreach (['cash' => '💵 Cash in hand', 'bank' => '🏦 Bank', 'bkash' => '📱 bKash', 'nagad' => '📱 Nagad'] as $m => $label) {
-            $in = $b("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=?", [$m])
-                + $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND method=?", [$m]);
-            $out = $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND method=?", [$m]);
-            $bal[$m] = ['label' => $label, 'in' => $in, 'out' => $out, 'balance' => $in - $out];
+        $catTot = ['cash' => [0, 0], 'bank' => [0, 0], 'bkash' => [0, 0], 'nagad' => [0, 0]];
+        foreach ($payAccts as $pa) {
+            [$in, $out] = $inOut((int)$pa['id'], $pa['m'], $pa['code']);
+            $bal['acct_' . $pa['id']] = ['label' => $pa['code'] . ' — ' . $pa['name'], 'in' => $in, 'out' => $out, 'balance' => $in - $out];
+            $catTot[$pa['m']][0] += $in; $catTot[$pa['m']][1] += $out;
         }
-        $bal['total'] = array_sum(array_column($bal, 'balance'));
+        $labels = ['cash' => '💵 Cash in hand', 'bank' => '🏦 Bank (all accounts)', 'bkash' => '📱 bKash (all)', 'nagad' => '📱 Nagad'];
+        foreach ($catTot as $m => $io) $bal[$m] = ['label' => $labels[$m], 'in' => $io[0], 'out' => $io[1], 'balance' => $io[0] - $io[1]];
+        $bal['total'] = array_sum(array_column(array_intersect_key($bal, array_flip(['cash', 'bank', 'bkash', 'nagad'])), 'balance'));
         json_out(['ok' => true, 'balances' => $bal]);
     }
 
@@ -16617,14 +16668,15 @@ case 'mall': {
         $amount = (int)($body['amount'] ?? 0);
         if ($amount <= 0) $amount = (int)$ag['rent'];
         $receipt = 'RNT-' . str_replace('-', '', $month) . '-' . str_pad((string)$agId, 4, '0', STR_PAD_LEFT);
-        $pdo->prepare("INSERT INTO mall_rent_payments (agreement_id, shop, month, amount, method, ref, receipt) VALUES (?,?,?,?,?,?,?)")
-            ->execute([$agId, $ag['shop'], $month, $amount, trim($body['method'] ?? 'cash'), trim($body['ref'] ?? ''), $receipt]);
+        $mAcct = (int)($body['method_acct'] ?? 0);
+        $pdo->prepare("INSERT INTO mall_rent_payments (agreement_id, shop, month, amount, method, method_acct, ref, receipt) VALUES (?,?,?,?,?,?,?,?)")
+            ->execute([$agId, $ag['shop'], $month, $amount, trim($body['method'] ?? 'cash'), $mAcct, trim($body['ref'] ?? ''), $receipt]);
         $rpId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Rent collect', 'mall', $ag['shop'], "$month $amount");
         /* Smart Ledger: Dr cash/bank/bKash, Cr Rent Income */
         $post_journal(date('Y-m-d'), 'RNT-' . str_pad((string)$rpId, 5, '0', STR_PAD_LEFT),
             'Rent — ' . $ag['shop'] . ' (' . $month . ')',
-            [[$method_acct(trim($body['method'] ?? 'cash')), $amount, 0], [$flow_acct('rent'), 0, $amount]], $u['name']);
+            [[$pay_acct(trim($body['method'] ?? 'cash'), $mAcct), $amount, 0], [$flow_acct('rent'), 0, $amount]], $u['name']);
         json_out(['ok' => true, 'receipt' => $receipt]);
     }
     if ($a === 'rent-payments') {
@@ -16676,8 +16728,9 @@ case 'mall': {
         $vid = (int)($body['vendor_id'] ?? 0);
         $amount = (int)($body['amount'] ?? 0);
         if (!$vid || $amount <= 0) json_out(['ok' => false, 'error' => 'vendor_id and amount required.'], 400);
-        $pdo->prepare('INSERT INTO mall_vendor_payments (vendor_id, amount, method, ref, note) VALUES (?,?,?,?,?)')
-            ->execute([$vid, $amount, trim($body['method'] ?? 'bank'), trim($body['ref'] ?? ''), trim($body['note'] ?? '')]);
+        $mAcct = (int)($body['method_acct'] ?? 0);
+        $pdo->prepare('INSERT INTO mall_vendor_payments (vendor_id, amount, method, method_acct, ref, note) VALUES (?,?,?,?,?,?)')
+            ->execute([$vid, $amount, trim($body['method'] ?? 'bank'), $mAcct, trim($body['ref'] ?? ''), trim($body['note'] ?? '')]);
         $vpId = (int)$pdo->lastInsertId();
         $vn = $pdo->query("SELECT name, category FROM mall_vendors WHERE id=$vid")->fetch(PDO::FETCH_ASSOC);
         audit($u['name'], 'Vendor payment', 'mall', (string)($vn['name'] ?? ''), "$amount via " . trim($body['method'] ?? 'bank'));
@@ -16685,7 +16738,7 @@ case 'mall': {
         $post_journal(date('Y-m-d'), 'VNP-' . str_pad((string)$vpId, 5, '0', STR_PAD_LEFT),
             'Vendor payment — ' . ($vn['name'] ?? ''),
             [[$vendor_acct_for($vn['category'] ?? ''), $amount, 0],
-             [$method_acct(trim($body['method'] ?? 'bank')), 0, $amount]], $u['name']);
+             [$pay_acct(trim($body['method'] ?? 'bank'), $mAcct), 0, $amount]], $u['name']);
         json_out(['ok' => true]);
     }
     if ($a === 'vendor-payments') {
@@ -16825,7 +16878,7 @@ case 'mall': {
                 $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
                 $post_journal(date('Y-m-d'), 'VOID-' . str_pad((string)$id, 5, '0', STR_PAD_LEFT),
                     'Void ' . $v['receipt'] . ' — ' . $v['reason'],
-                    [[$method_acct($pm['method']), (int)$v['amount'], 0],
+                    [[$pay_acct($pm['method'], (int)($pm['method_acct'] ?? 0)), (int)$v['amount'], 0],
                      [$flow_acct($pm['kind'] === 'service' ? 'service' : 'utility'), 0, (int)$v['amount']]], $u['name']);
             }
             audit($u['name'], 'Payment voided', 'mall', (string)$v['payment_id'], $v['receipt'] . " ৳{$v['amount']}");
@@ -16922,6 +16975,7 @@ case 'mall': {
         if ($amount <= 0) json_out(['ok' => false, 'error' => 'amount required.'], 400);
         $method = trim($body['method'] ?? 'cash');
         if (!in_array($method, ['cash', 'bank', 'bkash', 'nagad'], true)) json_out(['ok' => false, 'error' => 'method must be cash/bank/bkash/nagad.'], 400);
+        $mAcct = (int)($body['method_acct'] ?? 0);
         $st = $pdo->prepare("SELECT * FROM shop_bills WHERE id=?"); $st->execute([$billId]);
         $bill = $st->fetch(PDO::FETCH_ASSOC);
         if (!$bill) json_out(['ok' => false, 'error' => 'Bill not found.'], 404);
@@ -16930,9 +16984,9 @@ case 'mall': {
         $receipt = $seqStart > 0
             ? $mcfg('invoice_prefix', 'RCT') . '-' . str_pad((string)($seqStart + $billId), 6, '0', STR_PAD_LEFT)
             : $mcfg('invoice_prefix', 'RCT') . '-' . str_replace('-', '', $bill['month']) . '-' . str_pad((string)$billId, 4, '0', STR_PAD_LEFT);
-        $pdo->prepare("INSERT INTO shop_payments (shop, bill_id, month, kind, amount, method, ref, receipt)
-                       VALUES (?,?,?,?,?,?,?,?)")
-            ->execute([$bill['shop'], $billId, $bill['month'], $bill['kind'], $amount, $method, trim($body['ref'] ?? ''), $receipt]);
+        $pdo->prepare("INSERT INTO shop_payments (shop, bill_id, month, kind, amount, method, method_acct, ref, receipt)
+                       VALUES (?,?,?,?,?,?,?,?,?)")
+            ->execute([$bill['shop'], $billId, $bill['month'], $bill['kind'], $amount, $method, $mAcct, trim($body['ref'] ?? ''), $receipt]);
         $payId = (int)$pdo->lastInsertId();
         $pdo->prepare("UPDATE shop_bills SET status='Paid' WHERE id=?")->execute([$billId]);
         audit($u['name'], 'Collect', 'mall', $bill['shop'], "$receipt $amount via $method");
@@ -16940,7 +16994,7 @@ case 'mall': {
         $billAmt = (int)$bill['amount'];
         $incomePart = min($amount, $billAmt);
         $finePart = max(0, $amount - $billAmt);
-        $lines = [[$method_acct($method), $amount, 0]];
+        $lines = [[$pay_acct($method, $mAcct), $amount, 0]];
         if ($incomePart > 0) $lines[] = [$flow_acct($bill['kind'] === 'service' ? 'service' : 'utility'), 0, $incomePart];
         if ($finePart > 0) $lines[] = [$flow_acct('fine'), 0, $finePart];
         $post_journal(date('Y-m-d'), 'RCT-' . str_pad((string)$payId, 5, '0', STR_PAD_LEFT),

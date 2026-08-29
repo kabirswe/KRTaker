@@ -271,10 +271,10 @@ async function clearFines() {
 const isOverdue = (b) => b.due_date && b.status === 'Unpaid' && new Date(b.due_date) < new Date()
 const payModal = ref(null)
 const payForm = ref({})
-function openPay(b) { payForm.value = { amount: Number(b.amount) + Number(b.fine || 0), method: 'cash', ref: '' }; payModal.value = b }
+function openPay(b) { payForm.value = { amount: Number(b.amount) + Number(b.fine || 0), method: 'cash', method_acct: defaultPayAcct(), ref: '' }; payModal.value = b }
 async function savePay() {
   if (!payModal.value || Number(payForm.value.amount) <= 0) return
-  const r = await apiCall('mall', { action: 'collect', bill_id: payModal.value.id, amount: Number(payForm.value.amount), method: payForm.value.method, ref: payForm.value.ref })
+  const r = await apiCall('mall', { action: 'collect', bill_id: payModal.value.id, amount: Number(payForm.value.amount), method: payAcctMethod(payForm.value.method_acct), method_acct: payForm.value.method_acct || 0, ref: payForm.value.ref })
   if (r.ok) { window.__krToast?.(`💵 Collected — receipt ${r.receipt}`, 'ok'); payModal.value = null; await loadBills(); await loadDash() }
   else window.__krToast?.(r.error || 'Collection failed.', 'err')
 }
@@ -351,8 +351,8 @@ async function saveMeter() {
 }
 
 /* ══════════ EXPENSES ══════════ */
-const expForm = ref({ category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '', voucher: '', voucherName: '' })
-const incForm = ref({ category: 'Parking Fee', amount: 0, method: 'cash', note: '' })
+const expForm = ref({ category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', method_acct: 1010, note: '', voucher: '', voucherName: '' })
+const incForm = ref({ category: 'Parking Fee', amount: 0, method: 'cash', method_acct: 1010, note: '' })
 const expVoucherView = ref('')
 function onExpVoucherPick(e) {
   const f = e.target.files[0]; if (!f) return
@@ -378,14 +378,14 @@ async function loadExpenses() {
 }
 async function saveExpense() {
   if (Number(expForm.value.amount) <= 0) { window.__krToast?.('Amount required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'expense-add', category: expForm.value.category, vendor: expForm.value.vendor, amount: Number(expForm.value.amount), method: expForm.value.method, note: expForm.value.note, voucher: expForm.value.voucher })
-  if (r.ok) { window.__krToast?.('📉 Expense recorded', 'ok'); expForm.value = { category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', note: '', voucher: '', voucherName: '' }; await loadExpenses(); await loadDash() }
+  const r = await apiCall('mall', { action: 'expense-add', category: expForm.value.category, vendor: expForm.value.vendor, amount: Number(expForm.value.amount), method: payAcctMethod(expForm.value.method_acct), method_acct: expForm.value.method_acct || 0, note: expForm.value.note, voucher: expForm.value.voucher })
+  if (r.ok) { window.__krToast?.('📉 Expense recorded', 'ok'); expForm.value = { category: 'Lift Maintenance', vendor: '', amount: 0, method: 'bank', method_acct: 1010, note: '', voucher: '', voucherName: '' }; await loadExpenses(); await loadDash() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function saveIncome() {
   if (Number(incForm.value.amount) <= 0 || !incForm.value.category) { window.__krToast?.('Head and amount required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'income-add', cat: incForm.value.category, amount: Number(incForm.value.amount), method: incForm.value.method, note: incForm.value.note, month: month.value })
-  if (r.ok) { window.__krToast?.(`💰 ${incForm.value.category} ৳${incForm.value.amount} recorded`, 'ok'); incForm.value = { category: incCategories.value[0] || 'Parking Fee', amount: 0, method: 'cash', note: '' }; await loadExpenses(); await loadDash() }
+  const r = await apiCall('mall', { action: 'income-add', cat: incForm.value.category, amount: Number(incForm.value.amount), method: payAcctMethod(incForm.value.method_acct), method_acct: incForm.value.method_acct || 0, note: incForm.value.note, month: month.value })
+  if (r.ok) { window.__krToast?.(`💰 ${incForm.value.category} ৳${incForm.value.amount} recorded`, 'ok'); incForm.value = { category: incCategories.value[0] || 'Parking Fee', amount: 0, method: 'cash', method_acct: 1010, note: '' }; await loadExpenses(); await loadDash() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delExpense(e) {
@@ -566,12 +566,12 @@ async function delStaff(s) {
 function openSal(s) {
   const paid = salaryHistory.value.some(h => h.staff_id === s.id)
   if (paid) { window.__krToast?.(`Salary already paid for ${monthLabel(month.value)}`, 'err'); return }
-  salForm.value = { staff_id: s.id, staff_name: s.name, amount: s.salary, method: 'cash', note: '' }
+  salForm.value = { staff_id: s.id, staff_name: s.name, amount: s.salary, method: 'cash', method_acct: defaultPayAcct(), note: '' }
   salModal.value = s
 }
 async function saveSalary() {
   if (!salModal.value || Number(salForm.value.amount) <= 0) return
-  const r = await apiCall('mall', { action: 'salary-pay', staff_id: salForm.value.staff_id, month: month.value, amount: Number(salForm.value.amount), method: salForm.value.method, note: salForm.value.note })
+  const r = await apiCall('mall', { action: 'salary-pay', staff_id: salForm.value.staff_id, month: month.value, amount: Number(salForm.value.amount), method: payAcctMethod(salForm.value.method_acct), method_acct: salForm.value.method_acct || 0, note: salForm.value.note })
   if (r.ok) { window.__krToast?.(`💸 ${r.staff} — ${money(r.amount)} paid`, 'ok'); salModal.value = null; await loadStaff(); await loadDash(); await loadLedger() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
@@ -878,7 +878,7 @@ async function delAgreement(a) {
   const r = await apiCall('mall', { action: 'agreement-del', id: a.id })
   if (r.ok) { window.__krToast?.('🗑️ Agreement deleted', 'ok'); await loadAgreements() }
 }
-function openRentCollect(a) { rentForm.value = { agreement_id: a.id, month: new Date().toISOString().slice(0, 7), amount: a.rent, method: 'cash', ref: '' }; rentModal.value = a }
+function openRentCollect(a) { rentForm.value = { agreement_id: a.id, month: new Date().toISOString().slice(0, 7), amount: a.rent, method: 'cash', method_acct: defaultPayAcct(), ref: '' }; rentModal.value = a }
 async function saveRent() {
   const r = await apiCall('mall', { action: 'rent-collect', ...rentForm.value })
   if (r.ok) { window.__krToast?.(`✅ Rent collected — ${r.receipt}`, 'ok'); rentModal.value = null; await loadAgreements() }
@@ -910,14 +910,14 @@ async function delVendor(v) {
   if (r.ok) { window.__krToast?.('🗑️ Vendor deleted', 'ok'); await loadVendors() }
 }
 async function openVendorPay(v) {
-  vendorPayForm.value = { vendor_id: v.id, amount: 0, method: 'bank', ref: '', note: '' }
+  vendorPayForm.value = { vendor_id: v.id, amount: 0, method: 'bank', method_acct: 1020, ref: '', note: '' }
   vendorPayModal.value = v
   const r = await apiCall('mall', { action: 'vendor-payments', vendor_id: v.id })
   if (r.ok) vendorPayments.value = r.payments
 }
 async function saveVendorPay() {
   if (!vendorPayForm.value.amount || vendorPayForm.value.amount <= 0) { window.__krToast?.('Amount required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'vendor-payment-add', ...vendorPayForm.value })
+  const r = await apiCall('mall', { action: 'vendor-payment-add', vendor_id: vendorPayForm.value.vendor_id, amount: Number(vendorPayForm.value.amount), method: payAcctMethod(vendorPayForm.value.method_acct), method_acct: vendorPayForm.value.method_acct || 0, ref: vendorPayForm.value.ref, note: vendorPayForm.value.note })
   if (r.ok) { window.__krToast?.('💸 Payment recorded', 'ok'); await openVendorPay(vendorPayModal.value); await loadVendors() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
@@ -1177,6 +1177,30 @@ const MAP_GROUPS = computed(() => [
 ])
 const acctKey = (g, r) => g.key + (typeof r === 'string' ? r : r.k)
 const acctLabel = (g, r) => (typeof r === 'string' ? r : r.label)
+/* ── multiple banks & mobile banking: payment-account picker (COA-driven) ── */
+const PAY_ACCT_FALLBACK = [
+  { id: 1010, code: '1010', name: 'Cash in Hand', method: 'cash' },
+  { id: 1020, code: '1020', name: 'Bank Account', method: 'bank' },
+  { id: 1021, code: '1021', name: 'Brac Bank Account', method: 'bank' },
+  { id: 1022, code: '1022', name: 'EBL Account', method: 'bank' },
+  { id: 1030, code: '1030', name: 'bKash', method: 'bkash' },
+  { id: 1031, code: '1031', name: 'bKash (Business)', method: 'bkash' },
+  { id: 1032, code: '1032', name: 'Nagad Account', method: 'nagad' },
+]
+const payAccounts = computed(() => {
+  const accs = (accounts.value && accounts.value.length) ? accounts.value : PAY_ACCT_FALLBACK
+  return accs
+    .filter(a => a.code === '1010' || /^102\d*$/.test(a.code || '') || /^103\d*$/.test(a.code || ''))
+    .map(a => ({ id: a.id, code: a.code, name: a.name, method: a.code === '1010' ? 'cash' : /^102/.test(a.code || '') ? 'bank' : (a.code === '1030' || a.code === '1031') ? 'bkash' : 'nagad' }))
+})
+const payGroups = computed(() => [
+  { label: '💵 Cash', items: payAccounts.value.filter(a => a.method === 'cash') },
+  { label: '🏦 Banks', items: payAccounts.value.filter(a => a.method === 'bank') },
+  { label: '📱 Mobile banking', items: payAccounts.value.filter(a => a.method === 'bkash' || a.method === 'nagad') },
+].filter(g => g.items.length))
+function payAcctMethod(id) { const a = payAccounts.value.find(x => x.id == id); return a ? a.method : 'cash' }
+function defaultPayAcct() { const c = payAccounts.value.find(a => a.method === 'cash'); return c ? c.id : 1010 }
+function payAcctLabel(id) { const a = payAccounts.value.find(x => x.id == id); return a ? (a.code + ' — ' + a.name) : '' }
 /* effective-account resolution for the mapping summary */
 function acctNameById(id) { const a = accounts.value.find(x => x.id == id); return a ? (a.code ? a.code + ' — ' : '') + a.name : '—' }
 /* flat searchable account list (code — name · path) for the searchable
@@ -2205,8 +2229,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <input type="number" v-model.number="expForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Paid via
-            <select v-model="expForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option><option value="bkash">📱 bKash</option><option value="nagad">📱 Nagad</option>
+            <select v-model="expForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
+                <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
+              </optgroup>
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note (voucher / invoice)
@@ -2230,8 +2256,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <input type="number" v-model.number="incForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Received via
-            <select v-model="incForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option><option value="bkash">📱 bKash</option><option value="nagad">📱 Nagad</option>
+            <select v-model="incForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
+                <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
+              </optgroup>
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-mute)">Note
@@ -3308,8 +3336,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <label style="font-size:12px;color:var(--text-mute)">Amount (৳)<input type="number" v-model.number="payForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           <p v-if="payModal.fine" style="font-size:12px;color:var(--danger);margin-top:8px">⚠️ Includes late fee of {{ money(payModal.fine) }} (bill overdue)</p>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Method
-            <select v-model="payForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option><option value="bkash">📱 bKash</option><option value="nagad">📱 Nagad</option>
+            <select v-model="payForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
+                <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
+              </optgroup>
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reference (trx no / note)<input v-model="payForm.ref" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3435,8 +3465,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">{{ monthLabel(month) }} · {{ salModal.designation }}</p>
           <label style="font-size:12px;color:var(--text-mute)">Amount (৳)<input type="number" v-model.number="salForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Paid via
-            <select v-model="salForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="cash">💵 Cash</option><option value="bank">🏦 Bank</option><option value="bkash">📱 bKash</option><option value="nagad">📱 Nagad</option>
+            <select v-model="salForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
+                <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
+              </optgroup>
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Note<input v-model="salForm.note" placeholder="Optional — voucher / remark" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3765,8 +3797,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <input type="number" v-model.number="rentForm.amount" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Method
-              <select v-model="rentForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="m in ['cash', 'bank', 'bkash', 'nagad']" :key="m" :value="m">{{ m }}</option>
+              <select v-model="rentForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
+                  <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
+                </optgroup>
               </select>
             </label>
           </div>
@@ -3826,8 +3860,10 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <input type="number" v-model.number="vendorPayForm.amount" min="0" placeholder="e.g. 8500" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute)">Method
-              <select v-model="vendorPayForm.method" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="m in ['bank', 'cash', 'bkash', 'nagad', 'cheque']" :key="m" :value="m">{{ m }}</option>
+              <select v-model="vendorPayForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
+                  <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
+                </optgroup>
               </select>
             </label>
           </div>
@@ -4391,7 +4427,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <tr><td style="color:var(--text-mute)">Charge</td><td style="text-align:right">{{ { service: 'Service charge', elec: 'Electricity (sub-meter)', water: 'Water (sub-meter)' }[recData.bill.kind] }}</td></tr>
                 <tr><td style="color:var(--text-mute)">Amount</td><td style="text-align:right;font-weight:800">{{ money(recData.bill.amount) }}</td></tr>
                 <tr v-if="recData.bill.fine"><td style="color:var(--text-mute)">Late fee</td><td style="text-align:right;color:var(--danger)">{{ money(recData.bill.fine) }}</td></tr>
-                <tr><td style="color:var(--text-mute)">Paid via</td><td style="text-align:right">{{ recData.payment.method }} <span v-if="recData.payment.ref" style="color:var(--text-mute)">({{ recData.payment.ref }})</span></td></tr>
+                <tr><td style="color:var(--text-mute)">Paid via</td><td style="text-align:right">{{ recData.payment.method }} <span v-if="recData.pay_acct_name" style="font-weight:800">· {{ recData.pay_acct_name }}</span> <span v-if="recData.payment.ref" style="color:var(--text-mute)">({{ recData.payment.ref }})</span></td></tr>
                 <tr v-if="recData.brand.bank_name"><td style="color:var(--text-mute)">Bank</td><td style="text-align:right">{{ recData.brand.bank_name }}<span v-if="recData.brand.bank_account_no"> · A/C {{ recData.brand.bank_account_no }}</span></td></tr>
                 <tr v-if="recData.brand.bank_account_title"><td style="color:var(--text-mute)">A/C title</td><td style="text-align:right">{{ recData.brand.bank_account_title }}</td></tr>
               </tbody>
