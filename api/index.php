@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260940) {
+        if ($__sv < 20260941) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1481,7 +1481,13 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260940'); } catch (Exception $e) {}
+        /* ── Mall lead capture (mall.krtaker.com demo gate) ── */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_leads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, mobile TEXT NOT NULL,
+            email TEXT DEFAULT '', source TEXT DEFAULT 'mall.krtaker.com',
+            creds_sent INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now','localtime')))");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_mall_leads_mobile ON mall_leads(mobile)");
+        try { $pdo->exec('PRAGMA user_version=20260941'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15160,6 +15166,40 @@ case 'app-ai-chat': {
    Spec: mall_management_software_spec-1.docx — Mall Owners' Committee.
    Phase 1: shops master (generic CRUD), service-charge billing, elec/water
    sub-meter billing (custodial), collections, central ledger, dashboard. ── */
+
+/* ── Mall lead capture — PUBLIC (no auth): demo gate on mall.krtaker.com ── */
+case 'mall-lead': {
+    $pdo = db();
+    $name = trim((string)($body['name'] ?? ''));
+    $mobile = trim((string)($body['mobile'] ?? ''));
+    $email = trim((string)($body['email'] ?? ''));
+    $source = trim((string)($body['source'] ?? 'mall.krtaker.com'));
+    if (mb_strlen($name) < 2) json_out(['ok' => false, 'error' => 'Name is required.'], 400);
+    $m = preg_replace('/[^0-9]/', '', $mobile);
+    if (strlen($m) < 11 || strlen($m) > 14) json_out(['ok' => false, 'error' => 'Valid mobile number required.'], 400);
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) json_out(['ok' => false, 'error' => 'Valid email required.'], 400);
+    /* rate limit: max 5 leads per mobile per day */
+    $st = $pdo->prepare("SELECT COUNT(*) FROM mall_leads WHERE mobile = ? AND date(created_at) = date('now','localtime')");
+    $st->execute([$m]);
+    if ((int)$st->fetchColumn() >= 5) json_out(['ok' => false, 'error' => 'Too many requests. Try again tomorrow.'], 429);
+    $pdo->prepare('INSERT INTO mall_leads (name, mobile, email, source) VALUES (?,?,?,?)')->execute([$name, $m, $email, $source]);
+    $demo_url = 'https://appvaley.com/mall/';
+    $creds = ['email' => 'owner@krtaker.com', 'password' => 'owner123'];
+    $msg = 'আপনার Mall Manager ডেমো অ্যাকাউন্ট প্রস্তুত!' . PHP_EOL
+         . 'লিংক: ' . $demo_url . PHP_EOL
+         . 'লগইন ইমেইল: ' . $creds['email'] . PHP_EOL
+         . 'পাসওয়ার্ড: ' . $creds['password'] . PHP_EOL
+         . '— KRTaker (A concern of BITSCOL) · Marketed by Appvaley';
+    $sms = sms_send($pdo, $m, $msg);
+    $emailed = false;
+    if ($email !== '') {
+        $hdrs = 'From: Mall Manager <no-reply@krtaker.com>' . "\r\n" . 'Content-Type: text/plain; charset=utf-8';
+        $emailed = @mail($email, 'Mall Manager — Demo Account', $msg, $hdrs);
+    }
+    $pdo->prepare('UPDATE mall_leads SET creds_sent = 1 WHERE id = last_insert_rowid()')->execute();
+    json_out(['ok' => true, 'sms' => $sms, 'emailed' => $emailed, 'demo_url' => $demo_url, 'creds' => $creds]);
+}
+
 case 'mall': {
     $u = require_user();
     $pdo = db();

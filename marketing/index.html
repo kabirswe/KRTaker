@@ -116,7 +116,7 @@ section{padding:64px 0}
     <p class="desc">মাসিক সার্ভিস চার্জ বিলিং, সাব-মিটার বিদ্যুৎ/পানি বিল, তাৎক্ষণিক রসিদসহ আদায়, সম্পূর্ণ ডাবল-এন্ট্রি হিসাব, মালিক পোর্টাল ও বাংলা-প্রথম ইন্টারফেস — একটিমাত্র সিস্টেমে। মুদ্রিত বিল দেখতে হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো।</p>
     <div class="cta">
       <a class="btn btn-w" href="#pricing">মূল্য দেখুন</a>
-      <a class="btn btn-g" href="#demo">লাইভ ডেমো চেষ্টা করুন</a>
+      <a class="btn btn-g" href="#" onclick="openLead();return false">লাইভ ডেমো চেষ্টা করুন</a>
     </div>
     <div class="chips">
       <span class="chip">বাংলা ইন্টারফেস</span><span class="chip">বিকাশ/নগদ/ব্যাংক/ক্যাশ</span>
@@ -398,7 +398,7 @@ section{padding:64px 0}
   <div class="container">
     <h2>🖥️ লাইভ ডেমো দেখুন</h2>
     <p>ডেমো মল (রাজ্জাক প্লাজা) — ১৫টি দোকান, ১১১টি বিল, সম্পূর্ণ হিসাবসহ। বাংলায় চালু করা আছে — লগইন করেই সব ফিচার ঘুরে দেখুন।</p>
-    <a class="btn btn-w" href="https://appvaley.com/mall/" target="_blank" style="background:var(--red);color:#fff">লাইভ ডেমো খুলুন →</a>
+    <a class="btn btn-w" href="#" onclick="openLead();return false" style="background:var(--red);color:#fff">লাইভ ডেমো খুলুন →</a>
   </div>
 </section>
 
@@ -421,7 +421,7 @@ section{padding:64px 0}
         <a href="#features">ফিচারসমূহ</a><br>
         <a href="#pricing">মূল্য কাঠামো</a><br>
         <a href="#screens">স্ক্রিনশট</a><br>
-        <a href="https://appvaley.com/mall/" target="_blank">লাইভ ডেমো</a><br>
+        <a href="#" onclick="openLead();return false">লাইভ ডেমো</a><br>
         <a href="https://krtaker.com" target="_blank">KRTaker — Property Management</a>
       </p>
     </div>
@@ -435,6 +435,69 @@ section{padding:64px 0}
     <div class="bottom">© 2026 Mall Manager — KRTaker (A concern of BITSCOL) · Marketed by Appvaley. All rights reserved.</div>
   </div>
 </footer>
+
+
+<!-- ═════ LEAD CAPTURE MODAL (demo gate) ═════ -->
+<div id="leadModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.66);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:18px">
+  <div style="background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px 26px;box-shadow:0 24px 60px rgba(0,0,0,.35);max-height:92vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:20px;font-weight:900;color:var(--red)">🖥️ লাইভ ডেমো</div>
+      <button onclick="closeLead()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--mut)">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--mut);margin-bottom:18px;line-height:1.8">ডেমো অ্যাকাউন্টের লিংক ও লগইন তথ্য পেতে আপনার তথ্য দিন — SMS এর মাধ্যমে পাঠিয়ে দিচ্ছি।</p>
+    <form id="leadForm" onsubmit="submitLead(event)">
+      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px">আপনার নাম *</label>
+      <input id="leadName" type="text" required minlength="2" placeholder="যেমন: মোঃ রহিম" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:12px;font-family:inherit;outline:none">
+      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px">মোবাইল নম্বর *</label>
+      <input id="leadMobile" type="tel" required pattern="[0-9+\- ]{11,16}" placeholder="01XXXXXXXXX" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:12px;font-family:inherit;outline:none">
+      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px">ইমেইল</label>
+      <input id="leadEmail" type="email" placeholder="you@example.com" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:16px;font-family:inherit;outline:none">
+      <button type="submit" id="leadBtn" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer">ডেমো তথ্য পাঠান 📲</button>
+    </form>
+    <div id="leadDone" style="display:none;text-align:center">
+      <div style="font-size:40px;margin-bottom:6px">✅</div>
+      <div style="font-size:17px;font-weight:900;color:var(--ok);margin-bottom:6px">ধন্যবাদ! ডেমো তথ্য প্রস্তুত</div>
+      <p id="leadNote" style="font-size:13px;color:var(--mut);margin-bottom:14px;line-height:1.8">SMS পাঠানো হয়েছে। নিচের বাটনে ক্লিক করে ডেমো খুলুন।</p>
+      <div id="leadCreds" style="background:#f8fafc;border:1px dashed var(--bd);border-radius:12px;padding:12px 14px;font-size:13px;text-align:left;margin-bottom:16px;line-height:2"></div>
+      <a id="leadGo" href="https://appvaley.com/mall/" target="_blank" style="display:inline-block;padding:13px 30px;background:var(--red);color:#fff;border-radius:12px;font-weight:800">ডেমোতে যান →</a>
+      <div style="margin-top:12px"><a href="#" onclick="closeLead();return false" style="font-size:12.5px;color:var(--mut)">পরে দেখব</a></div>
+    </div>
+    <div id="leadErr" style="display:none;margin-top:12px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:10px 13px;font-size:13px"></div>
+  </div>
+</div>
+<script>
+function openLead(){document.getElementById('leadModal').style.display='flex';document.getElementById('leadForm').style.display='block';document.getElementById('leadDone').style.display='none';document.getElementById('leadErr').style.display='none';document.getElementById('leadName').focus();}
+function closeLead(){document.getElementById('leadModal').style.display='none';}
+document.getElementById('leadModal').addEventListener('click',function(e){if(e.target.id==='leadModal')closeLead();});
+async function submitLead(ev){
+  ev.preventDefault();
+  var err=document.getElementById('leadErr'),btn=document.getElementById('leadBtn');
+  err.style.display='none';
+  btn.disabled=true;btn.textContent='পাঠানো হচ্ছে…';
+  var fd=new FormData();
+  fd.append('name',document.getElementById('leadName').value.trim());
+  fd.append('mobile',document.getElementById('leadMobile').value.trim());
+  fd.append('email',document.getElementById('leadEmail').value.trim());
+  fd.append('source','mall.krtaker.com');
+  try{
+    var r=await fetch('lead.php',{method:'POST',body:fd});
+    var j=await r.json();
+    if(!j.ok){err.textContent=j.error||'দুঃখিত, কিছু ভুল হয়েছে। আবার চেষ্টা করুন।';err.style.display='block';btn.disabled=false;btn.textContent='ডেমো তথ্য পাঠান 📲';return;}
+    document.getElementById('leadForm').style.display='none';
+    var c=j.creds||{};
+    var note='আপনার নম্বরে ডেমো তথ্য পাঠানো হয়েছে।';
+    if(j.sms&&!j.sms.ok)note='ডেমো মোডে SMS বন্ধ আছে — লগইন তথ্য নিচে দেখানো হলো।';
+    document.getElementById('leadNote').textContent=note;
+    document.getElementById('leadCreds').innerHTML=
+      '<b>লিংক:</b> <a href="'+(j.demo_url||'https://appvaley.com/mall/')+'" target="_blank">appvaley.com/mall</a><br>'+
+      '<b>লগইন ইমেইল:</b> '+(c.email||'—')+'<br><b>পাসওয়ার্ড:</b> '+(c.password||'—');
+    document.getElementById('leadDone').style.display='block';
+  }catch(e){
+    err.textContent='নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।';err.style.display='block';
+    btn.disabled=false;btn.textContent='ডেমো তথ্য পাঠান 📲';
+  }
+}
+</script>
 
 </body>
 </html>
