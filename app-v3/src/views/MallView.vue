@@ -1005,12 +1005,12 @@ async function loadJournal() { const r = await apiCall('mall', { action: 'journa
 const jFrom = ref('')
 const jTo = ref('')
 async function loadTrial() { const r = await apiCall('mall', { action: 'trial' }); if (r.ok) trial.value = r.accounts }
-function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, subsidiary: 0, note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
+function openAccountAdd() { accountForm.value = { code: '', name: '', type: 'Asset', opening: 0, active: 1, subsidiary: 0, subs_type: '', note: '' }; accountModal.value = { mode: 'add', title: '➕ New account' } }
 function openAccountEdit(x) { accountForm.value = { ...x }; accountModal.value = { mode: 'edit', title: '✏️ Edit account' } }
 async function saveAccount() {
   const f = accountForm.value
   if (!f.name || !f.name.trim()) { window.__krToast?.('Account name required.', 'err'); return }
-  const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, subsidiary: f.subsidiary ? 1 : 0, note: f.note })
+  const r = await apiCall('mall', { action: 'account-save', id: f.id || 0, code: f.code, name: f.name, type: f.type, opening: Number(f.opening) || 0, active: f.active ? 1 : 0, subsidiary: f.subsidiary ? 1 : 0, subs_type: f.subs_type || '', note: f.note })
   if (r.ok) { window.__krToast?.(accountModal.value.mode === 'edit' ? '✏️ Account updated' : '✅ Account added', 'ok'); accountModal.value = null; await loadAccounts() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
@@ -1177,6 +1177,13 @@ const MAP_GROUPS = computed(() => [
 ])
 const acctKey = (g, r) => g.key + (typeof r === 'string' ? r : r.k)
 const acctLabel = (g, r) => (typeof r === 'string' ? r : r.label)
+/* effective-account resolution for the mapping summary */
+function acctNameById(id) { const a = accounts.value.find(x => x.id == id); return a ? (a.code ? a.code + ' — ' : '') + a.name : '—' }
+const acctDefaultLabels = computed(() => {
+  const o = {}
+  for (const g of MAP_GROUPS.value) for (const r of g.rows) o[acctKey(g, r)] = (typeof r === 'string' ? r : r.label)
+  return o
+})
 /* subsidiary (party) picker for voucher lines */
 const subPartyOptions = computed(() => [
   ...(vendors.value || []).map(v => ({ value: 'vendor:' + v.id, label: '🧰 ' + v.name, type: 'vendor', name: v.name })),
@@ -1185,6 +1192,18 @@ const subPartyOptions = computed(() => [
   ...(staff.value || []).map(s => ({ value: 'staff:' + s.id, label: '🧑‍💼 ' + s.name, type: 'staff', name: s.name })),
 ])
 function isSubLedgerAccount(accId) { const a = accounts.value.find(x => x.id == accId); return !!(a && a.subsidiary) }
+/* party options filtered to the account's sub-ledger party type (if set) */
+function subOptionsFor(line) {
+  const a = accounts.value.find(x => x.id == line.account)
+  const t = a?.subs_type || ''
+  return t ? subPartyOptions.value.filter(o => o.type === t) : subPartyOptions.value
+}
+function onJLineAccountChange(line) {
+  const a = accounts.value.find(x => x.id == line.account)
+  const t = a?.subs_type || ''
+  if (line.subValue && t) { const o = subPartyOptions.value.find(x => x.value === line.subValue); if (o && o.type !== t) { line.subValue = ''; line.subName = ''; line.subType = '' } }
+}
+function subsTypeLabel(t) { return { vendor: '🧰 Vendor', owner: '🏢 Owner', tenant: '🧑🤝🧑 Tenant', staff: '🧑💼 Staff' }[t] || 'Any party' }
 function onSubPick(val, line) {
   const opt = subPartyOptions.value.find(o => o.value === val)
   line.subValue = val
@@ -1665,7 +1684,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 </tr>
                 <tr v-for="a in filteredAccounts.filter(x => x.type === t)" :key="a.id" style="cursor:pointer" @click="openAccountLedger(a)">
                   <td style="font-family:monospace;font-size:11.5px;color:var(--text-mute)">{{ a.code || '—' }}</td>
-                  <td><b>{{ a.name }}</b> <span v-if="a.subsidiary" title="Control account with sub-ledgers" style="cursor:help;font-size:12px">🧾</span><br /><small style="color:var(--text-mute)">{{ a.note || '' }}</small></td>
+                  <td><b>{{ a.name }}</b> <span v-if="a.subsidiary" title="Control account with sub-ledgers" style="cursor:help;font-size:12px">🧾</span><template v-if="a.subsidiary"> <span class="badge b-blue" style="font-size:9.5px;padding:2px 7px">{{ subsTypeLabel(a.subs_type) }}</span></template><br /><small style="color:var(--text-mute)">{{ a.note || '' }}</small></td>
                   <td><span class="badge" :class="{ Asset: 'b-green', Liability: 'b-red', Equity: 'b-orange', Income: 'b-blue', Expense: 'b-gray' }[a.type] || 'b-gray'" style="font-size:10px">{{ a.type }}</span></td>
                   <td style="text-align:right;font-size:12px">{{ money(a.opening) }}</td>
                   <td style="text-align:right;font-size:12px">{{ money(a.total_debit) }}</td>
@@ -2963,6 +2982,16 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <div v-if="settingsTab === 'accounts'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">📊 Account mapping (Smart Ledger)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Choose which COA account each expense category, vendor category, payment method, income head and Smart Ledger flow posts to automatically. The <b>— default —</b> option keeps the built-in rule (shown in brackets); overrides apply to every new posting.</p>
+          <!-- default configurations at a glance: effective account per rule (blue = overridden) -->
+          <div v-if="Object.keys(acctDefaultLabels).length" style="margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;background:var(--bg-alt);border-bottom:1px solid var(--border)">🧾 Default configurations — effective account per rule <small style="text-transform:none;font-weight:400">(blue = overridden; change &amp; save below)</small></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;padding:10px 12px">
+              <div v-for="(label, k) in acctDefaultLabels" :key="k" style="display:flex;align-items:center;gap:8px;font-size:11.5px">
+                <span style="color:var(--text-mute);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="label">{{ label }}</span>
+                <span class="badge" :class="acctMap[k] ? 'b-blue' : 'b-gray'" style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="acctMap[k] ? acctNameById(acctMap[k]) : (acctDefaults[k] || '—')">{{ acctMap[k] ? acctNameById(acctMap[k]) : (acctDefaults[k] || '—') }}</span>
+              </div>
+            </div>
+          </div>
           <div v-for="g in MAP_GROUPS" :key="g.key" style="margin-bottom:12px">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ g.label }} <small style="font-weight:400;text-transform:none">({{ g.rows.length }})</small></div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
@@ -3849,6 +3878,16 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </span>
             <b :style="accountForm.subsidiary ? '' : ''">🧾 Sub-ledger control</b>
           </label>
+          <label v-if="accountForm.subsidiary" style="font-size:12px;color:var(--text-mute)">
+            🧾 Party type
+            <select v-model="accountForm.subs_type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option value="">Any party</option>
+              <option value="vendor">🧰 Vendors</option>
+              <option value="owner">🏢 Owners</option>
+              <option value="tenant">🧑🤝🧑 Tenants</option>
+              <option value="staff">🧑💼 Staff</option>
+            </select>
+          </label>
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Note
             <input v-model="accountForm.note" placeholder="optional" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
           </label>
@@ -3874,7 +3913,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">Voucher lines <small style="color:var(--text-mute)">— debit total must equal credit total</small></label>
           <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px">
             <div v-for="(l, i) in jForm.lines" :key="i" style="display:flex;gap:8px;align-items:center">
-              <select v-model="l.account" style="flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
+              <select v-model="l.account" @change="onJLineAccountChange(l)" style="flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
                 <option :value="0" disabled>Account…</option>
                 <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + TYPE_PLURAL[t]">
                   <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
@@ -3885,7 +3924,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               </select>
               <input type="number" v-model.number="l.amount" min="0" placeholder="৳" style="width:100px;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
               <div v-if="isSubLedgerAccount(l.account)" style="width:170px;flex-shrink:0">
-                <SearchableSelect :model-value="l.subValue" :options="subPartyOptions" placeholder="🧾 Party…" @update:modelValue="onSubPick($event, l)" />
+                <SearchableSelect :model-value="l.subValue" :options="subOptionsFor(l)" placeholder="🧾 Party…" @update:modelValue="onSubPick($event, l)" />
               </div>
               <span v-if="l.subName" style="font-size:11px;color:var(--text-mute);white-space:nowrap">🧾 {{ l.subName }}</span>
               <button @click="delJLine(i)" title="Remove line" style="border:none;background:none;color:var(--danger);font-size:15px;cursor:pointer;font-weight:800">✕</button>

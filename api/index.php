@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260936) {
+        if ($__sv < 20260937) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -460,6 +460,16 @@ function db() {
             SELECT ?, ?, ?, 0, 1, '' WHERE NOT EXISTS (SELECT 1 FROM mall_accounts WHERE code=?)");
         foreach ($extraAcc as $x) $ain2->execute([$x[0], $x[1], $x[2], $x[0]]);
         $pdo->prepare("UPDATE mall_accounts SET subsidiary=1 WHERE code IN ('1040','2010','2020','2050')")->execute();
+        /* V2.7: more sub-ledger control accounts (spec 3.2 party ledgers) —
+           tenant security deposits & advance rent, utility-provider deposits,
+           staff salary; each carries a suggested party type for the voucher */
+        $acols2 = array_column($pdo->query('PRAGMA table_info(mall_accounts)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('subs_type', $acols2, true)) { try { $pdo->exec('ALTER TABLE mall_accounts ADD COLUMN subs_type TEXT DEFAULT \'\''); } catch (Exception $e) {} }
+        $pdo->prepare("UPDATE mall_accounts SET subsidiary=1, subs_type='' WHERE code IN ('2030','2040','2070','5010') AND subsidiary=0")->execute();
+        $pdo->prepare("UPDATE mall_accounts SET subs_type='tenant' WHERE code IN ('2030','2040')")->execute();
+        $pdo->prepare("UPDATE mall_accounts SET subs_type='vendor' WHERE code IN ('2010','2020','2050','2070')")->execute();
+        $pdo->prepare("UPDATE mall_accounts SET subs_type='staff' WHERE code='5010'")->execute();
+        $pdo->prepare("UPDATE mall_accounts SET subs_type='' WHERE code='1040'")->execute();
         /* V2.3: configurable service billing — per-space billing model
            (fixed / sqft / fixed+util / sqft+util), rate per sqft, utility inclusion */
         $scols = array_column($pdo->query('PRAGMA table_info(shops)')->fetchAll(PDO::FETCH_ASSOC), 'name');
@@ -1405,7 +1415,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260936'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260937'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15593,13 +15603,16 @@ case 'mall': {
         $opening = (int)($body['opening'] ?? 0);
         $active = $body['active'] ? 1 : 0;
         $subsidiary = $body['subsidiary'] ? 1 : 0;
+        $subsType = trim($body['subs_type'] ?? '');
+        if (!in_array($subsType, ['', 'vendor', 'owner', 'tenant', 'staff'], true)) $subsType = '';
+        if (!$subsidiary) $subsType = '';
         $note = trim($body['note'] ?? '');
         if ($id) {
-            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, subsidiary=?, note=? WHERE id=?')
-                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $note, $id]);
+            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, subsidiary=?, subs_type=?, note=? WHERE id=?')
+                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note, $id]);
         } else {
-            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, subsidiary, note) VALUES (?,?,?,?,?,?,?)')
-                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $note]);
+            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, subsidiary, subs_type, note) VALUES (?,?,?,?,?,?,?,?)')
+                ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note]);
             $id = (int)$pdo->lastInsertId();
         }
         audit($u['name'], 'Account ' . ($body['id'] ? 'updated' : 'added'), 'mall', (string)$id, $name);
