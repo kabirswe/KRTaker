@@ -2824,6 +2824,50 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             </label>
           </div>
         </div>
+        <div v-if="settingsTab === 'billing'" class="panel" style="padding:18px">
+          <h3 style="font-size:14px;margin-bottom:4px">🧾 Service billing config</h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">How occupants are charged: fixed flat rate, per sqft, or with metered utilities folded into the service bill. Per-space overrides live on each space.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px">
+            <label style="font-size:12px;color:var(--text-mute)">Default billing model
+              <select v-model="config.bill_model_default" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @change="cfgDirty = true">
+                <option value="fixed">Fixed (flat monthly)</option>
+                <option value="sqft">Per sqft (rate × size)</option>
+                <option value="fixed+util">Fixed + utilities</option>
+                <option value="sqft+util">Per sqft + utilities</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Default flat rate (৳/mo)
+              <input type="number" v-model.number="config.rate_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">Default per-sqft rate (৳/sqft/mo)
+              <input type="number" v-model.number="config.rate_sqft_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔌 Common monthly utilities / expenses</div>
+              <p style="font-size:11px;color:var(--text-mute);margin-bottom:8px">Generator fuel, common-area electricity, society membership, waste management, lift contract, internet, security, TV… — these become expense categories.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span v-for="(h, i) in config.util_heads || []" :key="h" class="badge b-blue" style="font-size:11px">{{ h }} <button @click="config.util_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <input v-model="utilHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addUtilHead" />
+                <button @click="addUtilHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">💰 Additional income heads</div>
+              <p style="font-size:11px;color:var(--text-mute);margin-bottom:8px">Parking fee, community hall / common space rent, advertisement… — these become income categories.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span v-for="(h, i) in config.income_heads || []" :key="h" class="badge b-green" style="font-size:11px">{{ h }} <button @click="config.income_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <input v-model="incomeHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addIncomeHead" />
+                <button @click="addIncomeHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div v-if="settingsTab === 'fines'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">⚖️ Late fees &amp; fines (manual configuration)</h3>
           <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Full control over the late-payment fine rules engine.</p>
@@ -2889,50 +2933,6 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <span style="color:var(--text-mute)">{{ l.ts }} · {{ l.to_phone }}</span>
                 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="l.message">{{ l.message }}</span>
                 <b :style="l.status === 'sent' ? 'color:var(--ok)' : 'color:var(--danger)'">{{ l.status }}</b>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-if="settingsTab === 'billing'" class="panel" style="padding:18px">
-          <h3 style="font-size:14px;margin-bottom:4px">🧾 Service billing config</h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">How occupants are charged: fixed flat rate, per sqft, or with metered utilities folded into the service bill. Per-space overrides live on each space.</p>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px">
-            <label style="font-size:12px;color:var(--text-mute)">Default billing model
-              <select v-model="config.bill_model_default" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @change="cfgDirty = true">
-                <option value="fixed">Fixed (flat monthly)</option>
-                <option value="sqft">Per sqft (rate × size)</option>
-                <option value="fixed+util">Fixed + utilities</option>
-                <option value="sqft+util">Per sqft + utilities</option>
-              </select>
-            </label>
-            <label style="font-size:12px;color:var(--text-mute)">Default flat rate (৳/mo)
-              <input type="number" v-model.number="config.rate_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
-            </label>
-            <label style="font-size:12px;color:var(--text-mute)">Default per-sqft rate (৳/sqft/mo)
-              <input type="number" v-model.number="config.rate_sqft_default" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
-            </label>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔌 Common monthly utilities / expenses</div>
-              <p style="font-size:11px;color:var(--text-mute);margin-bottom:8px">Generator fuel, common-area electricity, society membership, waste management, lift contract, internet, security, TV… — these become expense categories.</p>
-              <div style="display:flex;flex-wrap:wrap;gap:6px">
-                <span v-for="(h, i) in config.util_heads || []" :key="h" class="badge b-blue" style="font-size:11px">{{ h }} <button @click="config.util_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
-              </div>
-              <div style="display:flex;gap:6px;margin-top:8px">
-                <input v-model="utilHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addUtilHead" />
-                <button @click="addUtilHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
-              </div>
-            </div>
-            <div>
-              <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">💰 Additional income heads</div>
-              <p style="font-size:11px;color:var(--text-mute);margin-bottom:8px">Parking fee, community hall / common space rent, advertisement… — these become income categories.</p>
-              <div style="display:flex;flex-wrap:wrap;gap:6px">
-                <span v-for="(h, i) in config.income_heads || []" :key="h" class="badge b-green" style="font-size:11px">{{ h }} <button @click="config.income_heads.splice(i, 1); cfgDirty = true" style="border:none;background:none;color:inherit;cursor:pointer;font-weight:800">✕</button></span>
-              </div>
-              <div style="display:flex;gap:6px;margin-top:8px">
-                <input v-model="incomeHeadInput" placeholder="Add head…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px" @keydown.enter="addIncomeHead" />
-                <button @click="addIncomeHead" class="btn-ghost" style="font-size:12px">＋ Add</button>
               </div>
             </div>
           </div>
