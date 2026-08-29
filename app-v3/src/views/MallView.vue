@@ -63,6 +63,8 @@ const TABS = [
   ['analytics', '📈', 'Analytics'],
   ['space', '🏪', 'Spaces'],
   ['bills', '🧾', 'Bills & Collections'],
+  ['invoices', '🧾', 'Invoices'],
+  ['payments', '💳', 'Payments'],
   ['meters', '⚡', 'Meters'],
   ['coa', '🏦', 'Chart of Accounts'],
   ['journal', '📖', 'Journal'],
@@ -270,6 +272,43 @@ async function clearFines() {
   if (r.ok) await loadBills()
 }
 const isOverdue = (b) => b.due_date && b.status === 'Unpaid' && new Date(b.due_date) < new Date()
+
+/* ── Invoices & Payments views ── */
+const invList = ref([]); const invSummary = ref(null); const invStatus = ref(''); const invShop = ref(''); const invDetail = ref(null)
+const payList = ref([]); const paySummary = ref(null); const payShop = ref(''); const payMethod = ref(''); const payStatus = ref('')
+const payQuick = ref(null); const payQuickBills = ref([])
+const shopOpts = computed(() => (shops.value || []).map(s => ({ value: s.id, label: `${s.no} — ${s.owner_name || ''}` })))
+async function loadInvoices() {
+  const r = await apiCall('mall', { action: 'invoices', month: month.value, shop: invShop.value, status: invStatus.value })
+  if (r.ok) { invList.value = r.invoices || []; invSummary.value = r.summary || null }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function loadPayments() {
+  const r = await apiCall('mall', { action: 'payments-list', month: month.value, shop: payShop.value, method: payMethod.value, status: payStatus.value })
+  if (r.ok) { payList.value = r.payments || []; paySummary.value = r.summary || null }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function openInvDetail(iv) { invDetail.value = iv }
+async function openPayQuick() {
+  payQuick.value = null; payQuickBills.value = []
+  if (!bills.value.length) await loadBills()
+  payQuick.value = 'SH-001'
+  refreshQuickBills()
+}
+function refreshQuickBills() {
+  payQuickBills.value = payQuick.value ? (bills.value || []).filter(b => b.shop === payQuick.value && b.status !== 'Paid') : []
+}
+function startCollectFromQuick(b) { payQuick.value = null; payQuickBills.value = []; openPay(b) }
+async function voidPayment(p) {
+  const reason = window.prompt(t('Reason for void…'))
+  if (!reason) return
+  const r = await apiCall('mall', { action: 'payment-void-request', payment_id: p.id, reason })
+  if (r.ok) { window.__krToast?.(t('🔒 Void requested — pending admin approval (receipt lock)'), 'ok'); await loadPayments() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+const INV_ST = ['Unpaid', 'Partial', 'Paid']
+const PAY_METHODS = ['cash', 'bank', 'bkash', 'nagad']
+const PAY_ST = ['Approved', 'Pending', 'Voided']
 const payModal = ref(null)
 const payForm = ref({})
 function openPay(b) { payForm.value = { amount: Number(b.amount) + Number(b.fine || 0), method: 'cash', method_acct: defaultPayAcct(), ref: '' }; payModal.value = b }
@@ -1462,6 +1501,8 @@ function switchTab(x) {
   tab.value = x
   if (x === 'dashboard') loadDash()
   if (x === 'bills') { loadBills(); loadApprovals() }
+  if (x === 'invoices') loadInvoices()
+  if (x === 'payments') loadPayments()
   if (x === 'ledger') loadLedger()
   if (x === 'meters') { meterForm.value.month = month.value; loadMeters(); loadBills() }
   if (x === 'expenses') { loadExpenses(); loadVendors() }
@@ -2380,6 +2421,184 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </template>
+
+    <!-- ═══════ INVOICES ═══════ -->
+    <template v-if="tab === 'invoices'">
+      <div class="page-head">
+        <div class="ph-t">
+          <div class="ph-ttl">🧾 {{ t('Invoices') }}</div>
+          <div class="ph-sub">{{ t('Combined bills per space — line items, totals & print') }}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button @click="monthNav(-1)" class="btn-ghost" style="padding:6px 10px;font-size:12px">◀</button>
+          <div style="min-width:108px;text-align:center;font-weight:800;font-size:13px">{{ monthLabel(month) }}</div>
+          <button @click="monthNav(1)" class="btn-ghost" style="padding:6px 10px;font-size:12px">▶</button>
+          <select v-model="invStatus" @change="loadInvoices" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
+            <option value="">{{ t('All statuses') }}</option>
+            <option v-for="s in INV_ST" :key="s" :value="s">{{ t(s) }}</option>
+          </select>
+          <SearchableSelect v-model="invShop" :options="shopOpts" :placeholder="t('All spaces')" @change="loadInvoices" style="width:220px" />
+          <button @click="loadInvoices" class="btn-ghost" style="padding:8px 12px;font-size:12px">🔄 {{ t('Refresh') }}</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Billed') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px">{{ money(invSummary?.billed || 0) }}</div></div>
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Collected') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px;color:var(--ok)">{{ money(invSummary?.collected || 0) }}</div></div>
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Outstanding') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px;color:var(--danger)">{{ money(invSummary?.outstanding || 0) }}</div></div>
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Invoices') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px">{{ invSummary?.count || 0 }}</div></div>
+      </div>
+
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div class="tbl-wrap">
+          <table class="kr">
+            <thead><tr>
+              <th>{{ t('Invoice') }}</th><th>{{ t('Space') }}</th><th>{{ t('Owner') }}</th>
+              <th style="text-align:right">🧾 {{ t('Service') }}</th><th style="text-align:right">⚡</th><th style="text-align:right">💧</th>
+              <th style="text-align:right">⚠️ {{ t('Fine') }}</th><th style="text-align:right">{{ t('Total') }}</th><th style="text-align:right">{{ t('Due') }}</th>
+              <th>{{ t('Status') }}</th><th></th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="iv in invList" :key="iv.shop">
+                <td style="font-weight:800;font-size:12px">{{ iv.ref }}</td>
+                <td style="font-size:12.5px;font-weight:700">{{ iv.shop_no }} <small style="color:var(--text-mute)">· {{ iv.shop_floor || '—' }}</small></td>
+                <td style="font-size:12px">{{ iv.owner_name || '—' }}</td>
+                <td style="text-align:right;font-size:12px">{{ iv.items.service ? money(iv.items.service) : '—' }}</td>
+                <td style="text-align:right;font-size:12px">{{ iv.items.elec ? money(iv.items.elec) : '—' }}</td>
+                <td style="text-align:right;font-size:12px">{{ iv.items.water ? money(iv.items.water) : '—' }}</td>
+                <td style="text-align:right;font-size:12px">{{ iv.fines ? money(iv.fines) : '—' }}</td>
+                <td style="text-align:right;font-weight:800;font-size:12.5px">{{ money(iv.total) }}</td>
+                <td :style="iv.due > 0 ? 'text-align:right;font-size:12.5px;color:var(--danger);font-weight:700' : 'text-align:right;font-size:12.5px;color:var(--ok);font-weight:700'">{{ iv.due ? money(iv.due) : '—' }}</td>
+                <td><span class="badge" :class="badge(iv.status)">{{ bnd(iv.status) }}</span></td>
+                <td style="text-align:right;white-space:nowrap">
+                  <button @click="printCombined(iv)" title="🖨️ Print" style="background:none;border:none;font-size:15px;cursor:pointer">🖨️</button>
+                  <button @click="openInvDetail(iv)" title="👁 {{ t('Details') }}" style="background:none;border:none;font-size:15px;cursor:pointer">👁</button>
+                </td>
+              </tr>
+              <tr v-if="!invList.length"><td colspan="11" style="text-align:center;padding:26px;color:var(--text-mute);font-size:12.5px">{{ t('No invoices for this month.') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div v-if="invDetail" class="overlay" @click.self="invDetail = null">
+        <div class="modal" style="max-width:520px">
+          <div class="modal-h"><div class="t">🧾 {{ t('Invoice') }} — {{ invDetail.ref }}</div><button @click="invDetail = null" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>
+          <div class="modal-b">
+            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12.5px;margin-bottom:12px">
+              <span style="font-weight:800">{{ invDetail.shop_no }} <small style="color:var(--text-mute)">· {{ invDetail.shop_floor || '—' }}</small></span>
+              <span>{{ monthLabel(invDetail.month) }}</span>
+              <span>{{ invDetail.owner_name || '—' }}</span>
+            </div>
+            <table class="kr" style="font-size:12.5px">
+              <thead><tr><th>{{ t('Item') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th style="text-align:right">⚠️ {{ t('Fine') }}</th><th>{{ t('Status') }}</th></tr></thead>
+              <tbody>
+                <template v-for="(k, i) in ['service', 'elec', 'water']" :key="k">
+                  <tr v-if="invDetail.items[k] || invDetail.fines">
+                    <td>{{ k === 'service' ? '🧾 ' + t('Service charge') : k === 'elec' ? '⚡ ' + t('Electricity') : '💧 ' + t('Water') }}</td>
+                    <td style="text-align:right">{{ invDetail.items[k] ? money(invDetail.items[k]) : '—' }}</td>
+                    <td style="text-align:right">{{ k === 'service' && invDetail.fines ? money(invDetail.fines) : '—' }}</td>
+                    <td><span class="badge" :class="badge(invDetail.status)">{{ bnd(invDetail.status) }}</span></td>
+                  </tr>
+                </template>
+                <tr style="border-top:2px solid var(--border)">
+                  <td style="font-weight:800">{{ t('Total') }}</td><td style="text-align:right;font-weight:800">{{ money(invDetail.total) }}</td><td></td><td></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:800;color:var(--ok)">{{ t('Paid') }}</td><td style="text-align:right;color:var(--ok);font-weight:800">{{ money(invDetail.paid) }}</td><td></td><td></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:800;color:var(--danger)">{{ t('Due') }}</td><td style="text-align:right;color:var(--danger);font-weight:800">{{ money(invDetail.due) }}</td><td></td><td></td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="display:flex;gap:10px;margin-top:16px">
+              <button @click="printCombined(invDetail)" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🖨️ {{ t('Print invoice') }}</button>
+              <button @click="invDetail = null" class="btn-ghost" style="padding:11px 18px">{{ t('Close') }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════ PAYMENTS ═══════ -->
+    <template v-if="tab === 'payments'">
+      <div class="page-head">
+        <div class="ph-t">
+          <div class="ph-ttl">💳 {{ t('Payments') }}</div>
+          <div class="ph-sub">{{ t('All receipts — record, view, void & print') }}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button @click="monthNav(-1)" class="btn-ghost" style="padding:6px 10px;font-size:12px">◀</button>
+          <div style="min-width:108px;text-align:center;font-weight:800;font-size:13px">{{ monthLabel(month) }}</div>
+          <button @click="monthNav(1)" class="btn-ghost" style="padding:6px 10px;font-size:12px">▶</button>
+          <SearchableSelect v-model="payShop" :options="shopOpts" :placeholder="t('All spaces')" @change="loadPayments" style="width:200px" />
+          <select v-model="payMethod" @change="loadPayments" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
+            <option value="">{{ t('All methods') }}</option>
+            <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ bnd(m) }}</option>
+          </select>
+          <select v-model="payStatus" @change="loadPayments" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
+            <option value="">{{ t('All statuses') }}</option>
+            <option v-for="s in PAY_ST" :key="s" :value="s">{{ bnd(s) }}</option>
+          </select>
+          <button v-if="canManage" @click="openPayQuick" style="padding:9px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💵 {{ t('Collect') }}</button>
+          <button @click="loadPayments" class="btn-ghost" style="padding:8px 12px;font-size:12px">🔄 {{ t('Refresh') }}</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Total received') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px">{{ money(paySummary?.total || 0) }}</div></div>
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Net (after voids)') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px;color:var(--ok)">{{ money(paySummary?.net || 0) }}</div></div>
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">🔒 {{ t('Voided') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px;color:var(--danger)">{{ money(paySummary?.voided || 0) }}</div></div>
+        <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Receipts') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px">{{ paySummary?.count || 0 }}</div></div>
+      </div>
+
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div class="tbl-wrap">
+          <table class="kr">
+            <thead><tr>
+              <th>{{ t('Receipt') }}</th><th>{{ t('Date') }}</th><th>{{ t('Space') }}</th><th>{{ t('Payer') }}</th>
+              <th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Status') }}</th><th></th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="p in payList" :key="p.ptype + '-' + p.id">
+                <td style="font-weight:800;font-size:12px">{{ p.receipt }}</td>
+                <td style="font-size:12px">{{ (p.stamp || '').slice(0, 10) }}</td>
+                <td style="font-size:12.5px;font-weight:700">{{ p.shop_no }} <small style="color:var(--text-mute)">· {{ p.shop_floor || '—' }}</small></td>
+                <td style="font-size:12px">{{ p.payer || '—' }}</td>
+                <td style="font-size:12px">{{ bnd(p.method) }}<small v-if="p.acct_name" style="color:var(--text-mute)"> · {{ p.acct_name }}</small></td>
+                <td style="text-align:right;font-weight:800;font-size:12.5px">{{ money(p.amount) }}</td>
+                <td><span class="badge" :class="p.status === 'Approved' ? 'b-green' : p.status === 'Pending' ? 'b-amber' : 'b-red'">{{ bnd(p.status) }}</span></td>
+                <td style="text-align:right;white-space:nowrap">
+                  <button v-if="p.ptype === 'service' && p.bill_id" @click="openReceipt({ id: p.bill_id })" title="🖨️ {{ t('Receipt') }}" style="background:none;border:none;font-size:15px;cursor:pointer">🖨️</button>
+                  <button v-if="p.status === 'Approved' && p.ptype === 'service' && canManage" @click="voidPayment(p)" title="🔒 {{ t('Void') }}" style="background:none;border:none;font-size:14px;cursor:pointer">🔒</button>
+                </td>
+              </tr>
+              <tr v-if="!payList.length"><td colspan="8" style="text-align:center;padding:26px;color:var(--text-mute);font-size:12.5px">{{ t('No payments for this month.') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div v-if="payQuick" class="overlay" @click.self="payQuick = null">
+        <div class="modal" style="max-width:440px">
+          <div class="modal-h"><div class="t">💵 {{ t('Collect payment') }}</div><button @click="payQuick = null" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>
+          <div class="modal-b">
+            <label style="font-size:12px;color:var(--text-mute);display:block;margin-bottom:6px">{{ t('Space *') }}</label>
+            <SearchableSelect v-model="payQuick" :options="shopOpts" placeholder="Select space…" @change="refreshQuickBills" />
+            <div v-if="payQuickBills.length" style="margin-top:14px">
+              <div style="font-size:12px;color:var(--text-mute);font-weight:800;margin-bottom:6px">{{ t('Unpaid bills') }}</div>
+              <div v-for="b in payQuickBills" :key="b.id" @click="startCollectFromQuick(b)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;background:var(--bg-alt)">
+                <span style="font-size:12.5px;font-weight:700">{{ b.kind === 'service' ? '🧾 ' + t('Service') : b.kind === 'elec' ? '⚡ ' + t('Electricity') : '💧 ' + t('Water') }}</span>
+                <span style="font-size:12.5px;font-weight:800">{{ money(Number(b.amount) + Number(b.fine || 0)) }}</span>
+              </div>
+            </div>
+            <p v-else style="font-size:12.5px;color:var(--text-mute);text-align:center;padding:16px">{{ t('No unpaid bills for this space this month.') }}</p>
+          </div>
+        </div>
+      </div>
+    </template>
+
 
     <!-- ═══════ METERS ═══════ -->
     <template v-if="tab === 'meters'">

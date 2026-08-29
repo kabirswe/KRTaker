@@ -64,6 +64,8 @@ const GROUPS = [
       ]},
       { sub: 'Billing', ico: '🧾', items: [
         ['bills', '🧾', 'Bills & Collections', 'Monthly service-charge bills, collections, receipts & late fees'],
+        ['invoices', '🧾', 'Invoices', 'Combined invoices per space — line items, totals & print'],
+        ['payments', '💳', 'Payments', 'All receipts — record, view, void & print'],
         ['meters', '⚡', 'Meters', 'Sub-meter readings → automatic electricity / water bills'],
       ]},
       { sub: 'Accounting', ico: '🏦', items: [

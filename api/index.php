@@ -15183,7 +15183,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids', 'bank-stmt-list', 'alerts', 'effective-rate'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'invoices', 'payments-list', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids', 'bank-stmt-list', 'alerts', 'effective-rate'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -17191,6 +17191,88 @@ case 'mall': {
 
     /* combined-bill (spec 3.11) — one shop's month: all charges (service +
        electricity + water + fines) in a single printable breakdown */
+
+    /* invoices — combined per shop+month invoice rows (all kinds, fines, totals) */
+    if ($a === 'invoices') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $shop  = trim($body['shop'] ?? '');
+        $status = trim($body['status'] ?? '');
+        $sql = "SELECT b.*, s.no AS shop_no, s.floor AS shop_floor, s.owner_name, s.owner_mobile
+                FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop WHERE b.month=?";
+        $args = [$month];
+        if ($shop !== '') { $sql .= ' AND b.shop=?'; $args[] = $shop; }
+        $sql .= ' ORDER BY s.floor, s.no';
+        $st = $pdo->prepare($sql); $st->execute($args);
+        $byShop = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $b) {
+            $k = $b['shop'];
+            if (!isset($byShop[$k])) $byShop[$k] = ['shop' => $k, 'shop_no' => $b['shop_no'], 'shop_floor' => $b['shop_floor'],
+                'owner_name' => $b['owner_name'], 'owner_mobile' => $b['owner_mobile'], 'month' => $month,
+                'items' => ['service' => 0, 'elec' => 0, 'water' => 0], 'fines' => 0, 'total' => 0, 'paid' => 0, 'due' => 0, 'bills' => 0];
+            $it = &$byShop[$k];
+            $amt = (int)$b['amount'] + (int)($b['fine'] ?? 0);
+            if (isset($it['items'][$b['kind']])) $it['items'][$b['kind']] += (int)$b['amount'];
+            $it['fines'] += (int)($b['fine'] ?? 0);
+            $it['total'] += $amt; $it['bills']++;
+            if ($b['status'] === 'Paid') $it['paid'] += $amt;
+        }
+        $invoices = [];
+        foreach ($byShop as $k => &$it) {
+            $it['due'] = $it['total'] - $it['paid'];
+            $it['status'] = $it['total'] <= 0 ? 'No bills' : ($it['due'] <= 0 ? 'Paid' : ($it['paid'] > 0 ? 'Partial' : 'Unpaid'));
+            $it['ref'] = 'INV-' . str_replace('-', '', $month) . '-' . $it['shop_no'];
+            $invoices[] = $it;
+        }
+        if ($status !== '') $invoices = array_values(array_filter($invoices, fn($iv) => $iv['status'] === $status));
+        $billed = array_sum(array_column($invoices, 'total'));
+        $collected = array_sum(array_column($invoices, 'paid'));
+        json_out(['ok' => true, 'invoices' => $invoices, 'summary' => [
+            'billed' => $billed, 'collected' => $collected, 'outstanding' => $billed - $collected,
+            'count' => count($invoices)]]);
+    }
+
+    /* payments-list — all receipts (shop collections + rent) with filters & status */
+    if ($a === 'payments-list') {
+        $month = trim($body['month'] ?? date('Y-m'));
+        $shop  = trim($body['shop'] ?? '');
+        $method = trim($body['method'] ?? '');
+        $status = trim($body['status'] ?? '');
+        $st1 = $pdo->prepare("SELECT p.*, 'service' AS ptype, COALESCE(s.no, p.shop) AS shop_no, s.floor AS shop_floor,
+                        COALESCE(s.owner_name, p.shop) AS payer, a.name AS acct_name
+                     FROM shop_payments p LEFT JOIN shops s ON s.id=p.shop
+                     LEFT JOIN mall_accounts a ON a.id=p.method_acct
+                     WHERE p.month=?");
+        $st1->execute([$month]);
+        $st2 = $pdo->prepare("SELECT r.*, 'rent' AS ptype, COALESCE(s.no, r.shop) AS shop_no, s.floor AS shop_floor,
+                        COALESCE(s.owner_name, r.shop) AS payer, a.name AS acct_name
+                     FROM mall_rent_payments r LEFT JOIN shops s ON s.id=r.shop
+                     LEFT JOIN mall_accounts a ON a.id=r.method_acct
+                     WHERE r.month=?");
+        $st2->execute([$month]);
+        $all = array_merge($st1->fetchAll(PDO::FETCH_ASSOC), $st2->fetchAll(PDO::FETCH_ASSOC));
+        $vst = $pdo->prepare("SELECT payment_id FROM mall_payment_voids WHERE status='Pending'");
+        $vst->execute();
+        $pendingVoid = array_flip(array_map('intval', $vst->fetchAll(PDO::FETCH_COLUMN)));
+        $list = [];
+        foreach ($all as $p) {
+            $p['amount'] = (int)$p['amount'];
+            $p['method_acct'] = (int)($p['method_acct'] ?? 0);
+            $p['acct_name'] = $p['acct_name'] ?? '';
+            $p['payer'] = $p['payer'] ?? '—';
+            $p['stamp'] = (string)($p['created_at'] ?? $p['ts'] ?? '');
+            $p['status'] = (int)($p['voided'] ?? 0) ? 'Voided' : (isset($pendingVoid[(int)$p['id']]) ? 'Pending' : 'Approved');
+            $list[] = $p;
+        }
+        usort($list, fn($x, $y) => strcmp($y['stamp'], $x['stamp']));
+        if ($shop !== '')   $list = array_values(array_filter($list, fn($p) => $p['shop'] === $shop));
+        if ($method !== '') $list = array_values(array_filter($list, fn($p) => $p['method'] === $method));
+        if ($status !== '') $list = array_values(array_filter($list, fn($p) => $p['status'] === $status));
+        $sum = array_sum(array_column($list, 'amount'));
+        $voided = array_sum(array_map(fn($p) => $p['status'] === 'Voided' ? $p['amount'] : 0, $list));
+        json_out(['ok' => true, 'payments' => $list, 'summary' => [
+            'total' => $sum, 'voided' => $voided, 'net' => $sum - $voided, 'count' => count($list)]]);
+    }
+
     if ($a === 'combined-bill') {
         $shop = trim($body['shop'] ?? '');
         $month = trim($body['month'] ?? date('Y-m'));
