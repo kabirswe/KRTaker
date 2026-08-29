@@ -251,15 +251,15 @@ onBeforeUnmount(() => {
     <header class="topbar">
       <div class="topbar-in">
         <button class="menu-toggle" @click="emit('toggle-sidebar')">☰</button>
-        <button class="icon-btn tb-search" @click="openSearch" title="Global search (Ctrl+K)" style="font-size:15px">🔍</button>
+        <button class="icon-btn tb-search" @click="openSearch" :title="t('Global search (Ctrl+K)')" style="font-size:15px">🔍</button>
         <div class="tb-actions">
-          <button class="icon-btn" @click="toggleLang()" title="Switch language: English / বাংলা">বাংলা</button>
-          <button class="icon-btn" @click="toggleTheme()" title="Toggle light / dark theme">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
+          <button class="icon-btn" @click="toggleLang()" :title="t('Switch language: English / বাংলা')">বাংলা</button>
+          <button class="icon-btn" @click="toggleTheme()" :title="t('Toggle light / dark theme')">{{ theme === 'dark' ? '☀️' : '🌙' }}<span class="tb-theme-txt">{{ theme === 'dark' ? ' Light' : ' Dark' }}</span></button>
           <div class="tb-bell">
-            <button class="icon-btn" @click.stop="toggleBell()" title="Notifications" style="position:relative">🔔<span v-if="unread" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ unread > 99 ? '99+' : unread }}</span></button>
+            <button class="icon-btn" @click.stop="toggleBell()" :title="t('Notifications')" style="position:relative">🔔<span v-if="unread" style="position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;background:var(--danger,#e74c3c);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ unread > 99 ? '99+' : unread }}</span></button>
           </div>
-          <button class="icon-btn" @click="goSettings()" title="Settings: profile, preferences, security, billing">⚙️</button>
-          <div class="tb-user" id="tbUserChip" @click.stop="toggleMenu()" title="Account menu: switch role, profile, log out">
+          <button class="icon-btn" @click="goSettings()" :title="t('Settings: profile, preferences, security, billing')">⚙️</button>
+          <div class="tb-user" id="tbUserChip" @click.stop="toggleMenu()" :title="t('Account menu: switch role, profile, log out')">
             <div class="role-ava" style="width:34px;height:34px;font-size:12px">{{ initials }}</div>
             <div>
               <div class="u-name">{{ (data.user || auth.user)?.name }}</div>
@@ -278,7 +278,7 @@ onBeforeUnmount(() => {
             <template v-if="auth.isImpersonating">
               <div class="um-item" style="font-weight:700;color:var(--primary)" @click="backToMe()">
                 <span class="um-ic">↩</span>
-                <span class="um-t">Back to my account</span>
+                <span class="um-t">{{ t('Back to my account') }}</span>
               </div>
               <div class="um-div"></div>
             </template>
@@ -296,52 +296,52 @@ onBeforeUnmount(() => {
                 </div>
               </template>
             </template>
-            <div v-else class="um-label" style="color:var(--text-mute);text-transform:none;letter-spacing:0;font-weight:600">No subordinate users</div>
+            <div v-else class="um-label" style="color:var(--text-mute);text-transform:none;letter-spacing:0;font-weight:600">{{ t('No subordinate users') }}</div>
             <div class="um-div"></div>
             <div class="um-item" @click="goProfile()">
               <span class="um-ic">⚙️</span>
               <div>
                 <div class="um-t">Profile &amp; settings</div>
-                <div class="um-s">Profile, preferences, security, billing</div>
+                <div class="um-s">{{ t('Profile, preferences, security, billing') }}</div>
               </div>
             </div>
             <div class="um-item" @click="doLogout()">
               <span class="um-ic">⎋</span>
               <div>
-                <div class="um-t">Log out</div>
+                <div class="um-t">{{ t('Log out') }}</div>
               </div>
             </div>
           </div>
 
           <!-- ⋯ mobile menu (all tb-actions in one menu on small screens) -->
-          <button class="icon-btn tb-more" @click.stop="toggleMore()" title="More actions" style="font-weight:900">⋯</button>
+          <button class="icon-btn tb-more" @click.stop="toggleMore()" :title="t('More actions')" style="font-weight:900">⋯</button>
           <div v-if="moreOpen" class="more-menu" style="position:absolute;top:calc(100% + 10px);right:0;width:264px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16);z-index:90;overflow:hidden">
             <div class="um-item" @click="toggleLang()">
               <span class="um-ic">🌐</span>
               <div>
                 <div class="um-t">{{ lang === 'bn' ? 'English' : 'বাংলা' }}</div>
-                <div class="um-s">Switch language</div>
+                <div class="um-s">{{ t('Switch language') }}</div>
               </div>
             </div>
             <div class="um-item" @click="toggleTheme()">
               <span class="um-ic">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
               <div>
                 <div class="um-t">{{ theme === 'dark' ? 'Light mode' : 'Dark mode' }}</div>
-                <div class="um-s">Toggle theme</div>
+                <div class="um-s">{{ t('Toggle theme') }}</div>
               </div>
             </div>
             <div class="um-item" @click="moreOpen = false; bellOpen = true; loadAlerts()">
               <span class="um-ic">🔔</span>
               <div>
-                <div class="um-t">Notifications</div>
-                <div class="um-s">View and dismiss alerts</div>
+                <div class="um-t">{{ t(t('নোটিফিকেশন')) }}</div>
+                <div class="um-s">{{ t('View and dismiss alerts') }}</div>
               </div>
               <span v-if="unread" style="margin-left:auto;background:var(--danger);color:#fff;border-radius:999px;min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;padding:0 5px">{{ unread > 99 ? '99+' : unread }}</span>
             </div>
             <div class="um-item" @click="goSettings()">
               <span class="um-ic">⚙️</span>
               <div>
-                <div class="um-t">Settings</div>
+                <div class="um-t">{{ t('Settings') }}</div>
                 <div class="um-s">Profile, preferences, billing</div>
               </div>
             </div>
@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
             <div class="um-item" @click="doLogout()">
               <span class="um-ic">⎋</span>
               <div>
-                <div class="um-t">Log out</div>
+                <div class="um-t">{{ t('Log out') }}</div>
               </div>
             </div>
           </div>
@@ -373,11 +373,11 @@ onBeforeUnmount(() => {
               <div style="font-weight:800;font-size:14px">🔔 Notifications <span v-if="unread" style="color:var(--danger);font-size:12px">· {{ unread }} new</span></div>
               <div style="display:flex;gap:8px;align-items:center">
                 <button v-if="unread" @click="readAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--primary);font-weight:800;font-size:11.5px;cursor:pointer">✓ Read all</button>
-                <button v-if="alerts.length" @click="dismissAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--text-mute);font-weight:800;font-size:11.5px;cursor:pointer">Clear all</button>
+                <button v-if="alerts.length" @click="dismissAllAlerts" :disabled="bellBusy" style="border:none;background:transparent;color:var(--text-mute);font-weight:800;font-size:11.5px;cursor:pointer">{{ t('Clear all') }}</button>
               </div>
             </div>
             <div style="max-height:min(420px,60vh);overflow-y:auto">
-              <div v-if="!alerts.length" style="padding:34px 16px;text-align:center;color:var(--text-mute);font-size:13px">No open notifications 🎉</div>
+              <div v-if="!alerts.length" style="padding:34px 16px;text-align:center;color:var(--text-mute);font-size:13px">{{ t('No open notifications 🎉') }}</div>
               <div v-for="a in alerts" :key="a.id" @click="openAlert(a)" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:transparent" :style="!a.read_at ? 'background:var(--bg-alt)' : 'opacity:.6'">
                 <div style="font-size:17px;flex-shrink:0">{{ sevIco(a.severity) }}</div>
                 <div style="flex:1;min-width:0">
@@ -388,11 +388,11 @@ onBeforeUnmount(() => {
                     <span class="c-sub" style="font-size:11px">{{ timeAgoBell(a.ts) }}</span>
                   </div>
                 </div>
-                <button @click.stop="dismissAlert(a.id)" :disabled="bellBusy" title="Dismiss" style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
+                <button @click.stop="dismissAlert(a.id)" :disabled="bellBusy" :title="t('Dismiss')" style="border:none;background:transparent;color:var(--text-mute);font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
               </div>
             </div>
             <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:center">
-              <button @click="bellOpen = false; router.push('/notifications')" style="border:none;background:transparent;color:var(--primary);font-weight:800;font-size:12.5px;cursor:pointer">View all notifications →</button>
+              <button @click="bellOpen = false; router.push('/notifications')" style="border:none;background:transparent;color:var(--primary);font-weight:800;font-size:12.5px;cursor:pointer">{{ t('View all notifications →') }}</button>
             </div>
           </div>
         </div>
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
       </div>
       <div style="max-height:min(520px,58vh);overflow-y:auto">
         <template v-if="searchQ.trim().length >= 2">
-          <div v-if="searchBusy" style="padding:22px;text-align:center;color:var(--text-mute);font-size:13px">Searching…</div>
+          <div v-if="searchBusy" style="padding:22px;text-align:center;color:var(--text-mute);font-size:13px">{{ t('Searching…') }}</div>
           <div v-else-if="!results.length" style="padding:28px 16px;text-align:center;color:var(--text-mute);font-size:13px">No matches for <b>{{ searchQ }}</b></div>
           <div v-else style="padding:6px 0">
             <template v-for="(g, gi) in results" :key="g.group">
@@ -447,7 +447,7 @@ onBeforeUnmount(() => {
       </div>
       <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;gap:10px;font-size:10.5px;color:var(--text-mute)">
         <span><b>↑↓</b> navigate</span><span><b>↵</b> open</span><span><b>Esc</b> close</span>
-        <span style="margin-left:auto">Ctrl+K to open anytime</span>
+        <span style="margin-left:auto">{{ t('Ctrl+K to open anytime') }}</span>
       </div>
     </div>
   </div>

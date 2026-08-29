@@ -11,7 +11,7 @@ export const LANGS = ['en', 'bn']
 const KEY = 'krtaker_dash_lang'
 
 export const lang = ref('en')
-try { lang.value = localStorage.getItem(KEY) || 'en' } catch (e) { /* ssr/headless */ }
+try { lang.value = localStorage.getItem(KEY) || 'bn' } catch (e) { /* ssr/headless */ }
 if (!LANGS.includes(lang.value)) lang.value = 'en'
 
 export function setLang(l) {
@@ -372,7 +372,47 @@ const BN = {
 
   
   "overdue": "মেয়াদোত্তীর্ণ",
-  "⛔ disconnect risk": "⛔ সংযোগ বিচ্ছিন্ন ঝুঁকি",/* ── Mall buttons & forms (sweep) ── */
+  "⛔ disconnect risk": "⛔ সংযোগ বিচ্ছিন্ন ঝুঁকি",
+  "Back to my account": "আমার অ্যাকাউন্টে ফিরুন",
+  "Switch to subordinate user": "অধীনস্থ ব্যবহারকারীতে স্যুইচ",
+  "No subordinate users": "কোনো অধীনস্থ ব্যবহারকারী নেই",
+  "Profile & settings": "প্রোফাইল ও সেটিংস",
+  "Profile, preferences, security, billing": "প্রোফাইল, পছন্দ, নিরাপত্তা, বিলিং",
+  "Log out": "লগ আউট",
+  "Switch language": "ভাষা পরিবর্তন",
+  "Toggle theme": "থিম পরিবর্তন",
+  "Notifications": "নোটিফিকেশন",
+  "View and dismiss alerts": "এলার্ট দেখুন ও বন্ধ করুন",
+  "Settings": "সেটিংস",
+  "Read all": "সব পড়া হয়েছে",
+  "Clear all": "সব মুছুন",
+  "No open notifications 🎉": "কোনো খোলা নোটিফিকেশন নেই 🎉",
+  "View all notifications →": "সব নোটিফিকেশন দেখুন →",
+  "Searching…": "খোঁজা হচ্ছে…",
+  "Recent searches": "সাম্প্রতিক সার্চ",
+  "spaces, bills, staff, assets, complaints & notices": "দোকান, বিল, স্টাফ, সম্পদ, অভিযোগ ও নোটিশ",
+  "— or try a quick action like “generate bills”.": "— অথবা দ্রুত অ্যাকশন চেষ্টা করুন যেমন “বিল তৈরি”।",
+  "navigate": "নেভিগেট",
+  "open": "খুলুন",
+  "close": "বন্ধ করুন",
+  "Ctrl+K to open anytime": "যেকোনো সময় খুলতে Ctrl+K",
+  "No matches": "কোনো মিল নেই",
+  "Add new": "নতুন যোগ করুন",
+  "New space": "নতুন দোকান",
+  "New owner": "নতুন মালিক",
+  "New tenant": "নতুন ভাড়াটিয়া",
+  "New vendor": "নতুন সরবরাহকারী",
+  "New staff": "নতুন স্টাফ",
+  "New member": "নতুন সদস্য",
+  "New account": "নতুন অ্যাকাউন্ট",
+  "Global search (Ctrl+K)": "সার্চ (Ctrl+K)",
+  "Switch language: English / বাংলা": "ভাষা পরিবর্তন: English / বাংলা",
+  "Toggle light / dark theme": "হালকা / ডার্ক থিম",
+  "Notifications": "নোটিফিকেশন",
+  "Settings: profile, preferences, security, billing": "সেটিংস: প্রোফাইল, পছন্দ, নিরাপত্তা, বিলিং",
+  "Account menu: switch role, profile, log out": "অ্যাকাউন্ট মেনু: রোল পরিবর্তন, প্রোফাইল, লগ আউট",
+  "More actions": "আরও অ্যাকশন",
+  "Dismiss": "বন্ধ করুন",/* ── Mall buttons & forms (sweep) ── */
   "Cancel": "বাতিল",
   "Close": "বন্ধ করুন",
   "Search": "সার্চ",
@@ -758,6 +798,17 @@ const BN_VALUES = {
   'cash': 'ক্যাশ', 'bank': 'ব্যাংক', 'bkash': 'বিকাশ', 'nagad': 'নগদ',
   'Service': 'সার্ভিস চার্জ', 'Electricity': 'বিদ্যুৎ', 'Water': 'পানি',
   '🧾 Service': '🧾 সার্ভিস চার্জ', '⚡ Electricity': '⚡ বিদ্যুৎ', '💧 Water': '💧 পানি',
+  "🟢 Active": "🟢 সক্রিয়",
+  "🔴 Closed": "🔴 বন্ধ",
+  "⚪ Vacant": "⚪ খালি",
+  "One-off": "এককালীন",
+  "Yearly": "বার্ষিক",
+  "Monthly": "মাসিক",
+  "Under Service": "সার্ভিসে আছে",
+  "Out of Service": "সার্ভিসের বাইরে",
+  "Sold": "বিক্রিত",
+  "On Leave": "ছুটিতে",
+  "Resigned": "ইস্তফা দিয়েছেন",
 }
 export function bnd(v) { return (typeof v === 'string' && BN_VALUES[v]) || v }
 

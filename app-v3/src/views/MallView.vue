@@ -1707,7 +1707,7 @@ onBeforeUnmount(() => {
           <input v-model="shopQuery" :placeholder="t('🔍 Search shop no / owner / mobile…')" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);min-width:240px;font-family:inherit;font-size:13px;outline:none" />
         <select v-model="shopStatus" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">{{ t('All statuses') }}</option>
-          <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ v }}</option>
+          <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ bnd(v) }}</option>
         </select>
         <span style="margin-left:auto;display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
           <button @click="spaceView = 'table'" :style="spaceView === 'table' ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'" style="border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer">{{ t('☰ List') }}</button>
@@ -1786,7 +1786,7 @@ onBeforeUnmount(() => {
         <button @click="loadApprovals(); showApprovals = !showApprovals" class="btn-ghost" style="font-size:12px">🛡️ Waivers &amp; voids <span v-if="pendingApprovals" class="badge b-red" style="font-size:10px">{{ pendingApprovals }}</span></button>
         <select v-model="billKind" @change="loadBills" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">{{ t('All kinds') }}</option>
-          <option v-for="(v, k) in { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }" :key="k" :value="k">{{ v }}</option>
+          <option v-for="(v, k) in { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }" :key="k" :value="k">{{ bnd(v) }}</option>
         </select>
         <select v-model="billStatus" @change="loadBills" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">{{ t('All statuses') }}</option><option>{{ t('Unpaid') }}</option><option>{{ t('Paid') }}</option>
@@ -3434,7 +3434,7 @@ onBeforeUnmount(() => {
           <div v-if="license" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Plan') }}
               <select v-model="license.plan" :disabled="!isSuperAdmin" @change="licenseDirty = true" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="p in ['One-off', 'Yearly', 'Monthly']" :key="p" :value="p">{{ p }}</option>
+                <option v-for="p in ['One-off', 'Yearly', 'Monthly']" :key="p" :value="p">{{ bnd(p) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Expiry') }}
@@ -3544,7 +3544,7 @@ onBeforeUnmount(() => {
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Space type') }}
               <select v-model="form.space_type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="t in SPACE_TYPES" :key="t" :value="t">{{ t }}</option>
+                <option v-for="t in SPACE_TYPES" :key="t" :value="t">{{ bnd(t) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Occupancy') }}
@@ -3554,7 +3554,7 @@ onBeforeUnmount(() => {
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="form.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ v }}</option>
+                <option v-for="(v, k) in { Active: '🟢 Active', Closed: '🔴 Closed', Vacant: '⚪ Vacant' }" :key="k" :value="k">{{ bnd(v) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Opening balance (৳)') }}<input type="number" v-model.number="form.opening_balance" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3624,7 +3624,7 @@ onBeforeUnmount(() => {
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Details') }}<textarea v-model="compForm.descr" rows="2" :placeholder="t('Describe the issue…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
           <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Priority') }}
             <select v-model="compForm.priority" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option v-for="p in ['Low', 'Normal', 'High', 'Urgent']" :key="p" :value="p">{{ p }}</option>
+              <option v-for="p in ['Low', 'Normal', 'High', 'Urgent']" :key="p" :value="p">{{ bnd(p) }}</option>
             </select>
           </label>
           <div style="display:flex;gap:10px;margin-top:18px">
@@ -3644,7 +3644,7 @@ onBeforeUnmount(() => {
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Asset name *') }}<input v-model="assetForm.name" :placeholder="t('e.g. Passenger Lift 1')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
               <select v-model="assetForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="t in ASSET_TYPES" :key="t" :value="t">{{ t }}</option>
+                <option v-for="t in ASSET_TYPES" :key="t" :value="t">{{ bnd(t) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Location') }}<input v-model="assetForm.location" :placeholder="t('e.g. Block A, near main entrance')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3655,7 +3655,7 @@ onBeforeUnmount(() => {
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Cost (৳)') }}<input type="number" v-model.number="assetForm.cost" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="assetForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="st in ['Active', 'Under Service', 'Out of Service']" :key="st" :value="st">{{ st }}</option>
+                <option v-for="st in ['Active', 'Under Service', 'Out of Service']" :key="st" :value="st">{{ bnd(st) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">{{ t('Note') }}<input v-model="assetForm.note" :placeholder="t('Any notes…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3696,7 +3696,7 @@ onBeforeUnmount(() => {
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Full name *') }}<input v-model="staffForm.name" :placeholder="t('e.g. Md. Karim')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Designation') }}
               <select v-model="staffForm.designation" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="d in DESIGNATIONS" :key="d" :value="d">{{ d }}</option>
+                <option v-for="d in DESIGNATIONS" :key="d" :value="d">{{ bnd(d) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Mobile') }}<input v-model="staffForm.phone" :placeholder="t('e.g. 01711-000000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3705,7 +3705,7 @@ onBeforeUnmount(() => {
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Monthly salary (৳)') }}<input type="number" v-model.number="staffForm.salary" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="staffForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="st in ['Active', 'On Leave', 'Resigned']" :key="st" :value="st">{{ st }}</option>
+                <option v-for="st in ['Active', 'On Leave', 'Resigned']" :key="st" :value="st">{{ bnd(st) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Notes') }}<input v-model="staffForm.notes" :placeholder="t('Shift, remarks…')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
@@ -3839,7 +3839,7 @@ onBeforeUnmount(() => {
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
               <select v-model="meetingForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="t in MEETING_TYPES" :key="t" :value="t">{{ t }}</option>
+                <option v-for="t in MEETING_TYPES" :key="t" :value="t">{{ bnd(t) }}</option>
               </select>
             </label>
           </div>
@@ -3907,7 +3907,7 @@ onBeforeUnmount(() => {
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
               <select v-model="ownerForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="t in OWNER_TYPES" :key="t" :value="t">{{ t }}</option>
+                <option v-for="t in OWNER_TYPES" :key="t" :value="t">{{ bnd(t) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
@@ -4028,7 +4028,7 @@ onBeforeUnmount(() => {
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Status') }}
               <select v-model="agrForm.status" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="s in ['Active', 'Expired', 'Terminated']" :key="s" :value="s">{{ s }}</option>
+                <option v-for="s in ['Active', 'Expired', 'Terminated']" :key="s" :value="s">{{ bnd(s) }}</option>
               </select>
             </label>
           </div>
@@ -4087,7 +4087,7 @@ onBeforeUnmount(() => {
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Category') }}
               <select v-model="vendorForm.category" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-                <option v-for="c in VENDOR_CATS" :key="c" :value="c">{{ c }}</option>
+                <option v-for="c in VENDOR_CATS" :key="c" :value="c">{{ bnd(c) }}</option>
               </select>
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Contact person') }}

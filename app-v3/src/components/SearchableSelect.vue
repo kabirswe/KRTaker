@@ -6,19 +6,20 @@
     </button>
     <div v-if="open" class="ssel-panel" style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:120;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.18);overflow:hidden">
       <div style="padding:8px;border-bottom:1px solid var(--border)">
-        <input v-model="q" class="ssel-q" :placeholder="'Search ' + (placeholder || '').toLowerCase() + '…'" @keydown.esc="open = false" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px;outline:none" />
+        <input v-model="q" class="ssel-q" :placeholder="t('Search') + ' ' + (placeholder || '').toLowerCase() + '…'" @keydown.esc="open = false" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px;outline:none" />
       </div>
       <div style="max-height:220px;overflow-y:auto;padding:4px">
         <div v-for="o in filtered" :key="String(o.value)" class="ssel-item" :class="{ sel: o.value === modelValue }" @click="pick(o)" style="padding:8px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.label }}</div>
-        <div v-if="!filtered.length" style="padding:10px;font-size:12px;color:var(--text-mute);text-align:center">No matches</div>
+        <div v-if="!filtered.length" style="padding:10px;font-size:12px;color:var(--text-mute);text-align:center">{{ t('No matches') }}</div>
       </div>
-      <div v-if="allowAdd" class="ssel-add" @click.stop="onAdd" style="padding:10px;border-top:1px dashed var(--border);font-size:12.5px;font-weight:800;color:var(--primary);cursor:pointer;text-align:center;background:var(--bg-alt)">＋ {{ addLabel || 'Add new' }}</div>
+      <div v-if="allowAdd" class="ssel-add" @click.stop="onAdd" style="padding:10px;border-top:1px dashed var(--border);font-size:12.5px;font-weight:800;color:var(--primary);cursor:pointer;text-align:center;background:var(--bg-alt)">＋ {{ t(addLabel || 'Add new') }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { t } from '../lib/i18n'
 
 const props = defineProps({
   modelValue: { default: '' },
