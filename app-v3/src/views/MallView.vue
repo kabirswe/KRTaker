@@ -354,11 +354,12 @@ async function printCombined(b) {
   const dline = (label, val, bold) => `<div style="flex:1;display:flex;align-items:baseline;gap:6px;min-width:0"><span style="font-size:13px;white-space:nowrap">${label}</span><span style="flex:1;border-bottom:1px dotted #000;min-width:40px"></span><span style="font-size:13px;font-weight:${bold ? 800 : 400};white-space:nowrap">${val || '…'}</span></div>`
   const frow = (num, left, right) => `<div style="display:flex;gap:28px;margin-top:9px">${num ? `<span style="font-size:13px;font-weight:800;width:16px;flex-shrink:0">${num}</span>` : ''}${left}${right}</div>`
   const html = `<div style="font-family:'Noto Serif Bengali',serif;max-width:740px;margin:0 auto;padding:0;border:2px solid #111">
+    <div style="text-align:center;padding:16px 10px 10px">
+      <div style="font-size:22px;font-weight:800">${(config.value.mall_name || 'Mall Manager')}</div>
+      <div style="font-size:12.5px;color:#555;margin-top:5px">${config.value.mall_address || ''}${config.value.mall_phone ? ((config.value.mall_address ? ' · ☎ ' : '☎ ') + config.value.mall_phone) : ''}</div>
+    </div>
     <div style="background:#7f1d1d;color:#fff;text-align:center;padding:13px 10px;font-size:18px;font-weight:800;letter-spacing:.4px">বিদ্যুৎ/সার্ভিস চার্জ এবং অন্যান্য বিল</div>
     <div style="padding:22px 26px 26px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-        <div style="font-size:12.5px;color:#555">${config.mall_name || 'Mall Manager'}${config.mall_address ? ' — ' + config.mall_address : ''}${config.mall_phone ? ' · ☎ ' + config.mall_phone : ''}</div>
-      </div>
       <div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:800;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:4px">
         <span>নং- ${billSvc.id ? 'BILL-' + billSvc.id : d.shop.no}</span>
         <span>মাস: ${monthLabel(d.month)}</span>
@@ -381,7 +382,7 @@ async function printCombined(b) {
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:34px;text-align:center;font-size:13px">
         <div style="flex:1">____________________________<br /><b>বিল প্রস্তুতকারী</b><br /><small style="font-size:11px;color:#555">${(recData.value && recData.value.user_name) || ''}</small></div>
-        <div style="flex:1">____________________________<br /><b>সাধারণ সম্পাদক</b><br /><small style="font-size:11px;color:#555">${config.secretary || ''}</small></div>
+        <div style="flex:1">____________________________<br /><b>সাধারণ সম্পাদক</b><br /><small style="font-size:11px;color:#555">${config.value.secretary || ''}</small></div>
       </div>
     </div>
   </div>`
