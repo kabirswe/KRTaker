@@ -104,6 +104,8 @@ const VIEW_ROUTES = {
   dashboard: { path: '/mall', query: { tab: 'dashboard' } },
   space: { path: '/mall', query: { tab: 'space' } },
   bills: { path: '/mall', query: { tab: 'bills' } },
+  invoices: { path: '/mall', query: { tab: 'invoices' } },
+  payments: { path: '/mall', query: { tab: 'payments' } },
   meters: { path: '/mall', query: { tab: 'meters' } },
   expenses: { path: '/mall', query: { tab: 'expenses' } },
   complaints: { path: '/mall', query: { tab: 'complaints' } },
