@@ -256,7 +256,7 @@ section{padding:64px 0}
       <input id="roiBill" type="number" min="0" value="3000" placeholder="3000">
       <label data-i18n="roi_gain" data-bn="আদায় বৃদ্ধি (%)">আদায় বৃদ্ধি (%)</label>
       <input id="roiGain" type="number" min="0" max="100" value="15" placeholder="15">
-      <button onclick="calcRoi()" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">হিসাব করুন</button>
+      <button onclick="calcRoi()" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit" data-i18n="roi_btn" data-bn="হিসাব করুন">হিসাব করুন</button>
       <div class="roi-out" id="roiOut">
         <div class="big" id="roiMonth">৳0</div>
         <div style="font-size:13px;color:var(--mut);margin-top:2px">মাসিক বাড়তি আদায়</div>
@@ -357,44 +357,44 @@ section{padding:64px 0}
       <p data-i18n="faq_sub" data-bn="সবচেয়ে বেশি জিজ্ঞাসিত প্রশ্নের উত্তর।">সবচেয়ে বেশি জিজ্ঞাসিত প্রশ্নের উত্তর।</p>
     </div>
     <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কোন সার্ভারে সিস্টেম চলে?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">সাধারণ শেয়ার্ড হোস্টিং (cPanel) চলে — আলাদা সার্ভার বা ডাটাবেস লাইসেন্স লাগে না। PHP 8 + SQLite।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q1" data-bn="কোন সার্ভারে সিস্টেম চলে?">কোন সার্ভারে সিস্টেম চলে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q1a" data-bn="সাধারণ শেয়ার্ড হোস্টিং (cPanel) চলে — আলাদা সার্ভার বা ডাটাবেস লাইসেন্স লাগে না। PHP 8 + SQLite।">সাধারণ শেয়ার্ড হোস্টিং (cPanel) চলে — আলাদা সার্ভার বা ডাটাবেস লাইসেন্স লাগে না। PHP 8 + SQLite।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">পুরনো বিল-খাতা থেকে ডেটা স্থানান্তর হয়?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হ্যাঁ — দোকান, মালিক, বর্তমান রিডিং ও চলতি বকেয়া আমদানি করা যায়। ইমপ্লিমেন্টেশন ফির মধ্যে ডেটা সেটআপ অন্তর্ভুক্ত।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q2" data-bn="পুরনো বিল-খাতা থেকে ডেটা স্থানান্তর হয়?">পুরনো বিল-খাতা থেকে ডেটা স্থানান্তর হয়?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q2a" data-bn="হ্যাঁ — দোকান, মালিক, বর্তমান রিডিং ও চলতি বকেয়া আমদানি করা যায়। ইমপ্লিমেন্টেশন ফির মধ্যে ডেটা সেটআপ অন্তর্ভুক্ত।">হ্যাঁ — দোকান, মালিক, বর্তমান রিডিং ও চলতি বকেয়া আমদানি করা যায়। ইমপ্লিমেন্টেশন ফির মধ্যে ডেটা সেটআপ অন্তর্ভুক্ত।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কোন কোন পেমেন্ট পদ্ধতি সাপোর্ট করে?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">ক্যাশ, ব্যাংক ট্রান্সফার, বিকাশ, নগদ — একাধিক ব্যাংক ও মোবাইল অ্যাকাউন্টসহ। প্রতিটি আদায়ে তাৎক্ষণিক রসিদ ও SMS।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q3" data-bn="কোন কোন পেমেন্ট পদ্ধতি সাপোর্ট করে?">কোন কোন পেমেন্ট পদ্ধতি সাপোর্ট করে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q3a" data-bn="ক্যাশ, ব্যাংক ট্রান্সফার, বিকাশ, নগদ — একাধিক ব্যাংক ও মোবাইল অ্যাকাউন্টসহ। প্রতিটি আদায়ে তাৎক্ষণিক রসিদ ও SMS।">ক্যাশ, ব্যাংক ট্রান্সফার, বিকাশ, নগদ — একাধিক ব্যাংক ও মোবাইল অ্যাকাউন্টসহ। প্রতিটি আদায়ে তাৎক্ষণিক রসিদ ও SMS।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কমিটির সদস্যরা কি বাংলায় ব্যবহার করতে পারবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">অবশ্যই — সিস্টেম বাংলায় ডিফল্ট চালু হয়; ইংরেজি টগলও আছে। মুদ্রিত বিল ও রসিদও বাংলায়।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q4" data-bn="কমিটির সদস্যরা কি বাংলায় ব্যবহার করতে পারবে?">কমিটির সদস্যরা কি বাংলায় ব্যবহার করতে পারবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q4a" data-bn="অবশ্যই — সিস্টেম বাংলায় ডিফল্ট চালু হয়; ইংরেজি টগলও আছে। মুদ্রিত বিল ও রসিদও বাংলায়।">অবশ্যই — সিস্টেম বাংলায় ডিফল্ট চালু হয়; ইংরেজি টগলও আছে। মুদ্রিত বিল ও রসিদও বাংলায়।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">বিল প্রিন্ট দেখতে কেমন?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো — বিদ্যুৎ/সার্ভিস চার্জ হেডার, নম্বরযুক্ত ফিল্ড, নিয়মাবলী ও দুই সই। A4/A5/½+½ প্রিন্ট ও PDF।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q5" data-bn="বিল প্রিন্ট দেখতে কেমন?">বিল প্রিন্ট দেখতে কেমন?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q5a" data-bn="হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো — বিদ্যুৎ/সার্ভিস চার্জ হেডার, নম্বরযুক্ত ফিল্ড, নিয়মাবলী ও দুই সই। A4/A5/½+½ প্রিন্ট ও PDF।">হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো — বিদ্যুৎ/সার্ভিস চার্জ হেডার, নম্বরযুক্ত ফিল্ড, নিয়মাবলী ও দুই সই। A4/A5/½+½ প্রিন্ট ও PDF।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">ইন্টারনেট না থাকলে কাজ হবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হ্যাঁ — অফলাইন মোডে রিডিং ও আদায় করা যায়; ইন্টারনেট ফিরলে অটো-সিঙ্ক হয়।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q6" data-bn="ইন্টারনেট না থাকলে কাজ হবে?">ইন্টারনেট না থাকলে কাজ হবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q6a" data-bn="হ্যাঁ — অফলাইন মোডে রিডিং ও আদায় করা যায়; ইন্টারনেট ফিরলে অটো-সিঙ্ক হয়।">হ্যাঁ — অফলাইন মোডে রিডিং ও আদায় করা যায়; ইন্টারনেট ফিরলে অটো-সিঙ্ক হয়।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">SMS পাঠানো হয় কীভাবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">bulksmsbd গেটওয়ে দিয়ে — রসিদ, বকেয়া রিমাইন্ডার, সংযোগ সতর্কতা, নোটিশ। সব বাংলায়।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q7" data-bn="SMS পাঠানো হয় কীভাবে?">SMS পাঠানো হয় কীভাবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q7a" data-bn="bulksmsbd গেটওয়ে দিয়ে — রসিদ, বকেয়া রিমাইন্ডার, সংযোগ সতর্কতা, নোটিশ। সব বাংলায়।">bulksmsbd গেটওয়ে দিয়ে — রসিদ, বকেয়া রিমাইন্ডার, সংযোগ সতর্কতা, নোটিশ। সব বাংলায়।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কয়টি ইউজার একসাথে ব্যবহার করতে পারবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">সুপার অ্যাডমিন, মালিক, ম্যানেজার, হিসাবরক্ষক ও কালেক্টর — ৫টি রোল। SaaS মডেলে প্রতি ইউজার/দোকান ৳১০০।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q8" data-bn="কয়টি ইউজার একসাথে ব্যবহার করতে পারবে?">কয়টি ইউজার একসাথে ব্যবহার করতে পারবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q8a" data-bn="সুপার অ্যাডমিন, মালিক, ম্যানেজার, হিসাবরক্ষক ও কালেক্টর — ৫টি রোল। SaaS মডেলে প্রতি ইউজার/দোকান ৳১০০।">সুপার অ্যাডমিন, মালিক, ম্যানেজার, হিসাবরক্ষক ও কালেক্টর — ৫টি রোল। SaaS মডেলে প্রতি ইউজার/দোকান ৳১০০।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">সাপোর্ট কীভাবে পাব?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">ইমপ্লিমেন্টেশনের পর ৩ মাস ফ্রি বেসিক সাপোর্ট (অন-প্রিমাইস)। সাবস্ক্রিপশন/SaaS-এ অগ্রাধিকার সাপোর্ট, ব্যাকআপ ও আপডেট।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q9" data-bn="সাপোর্ট কীভাবে পাব?">সাপোর্ট কীভাবে পাব?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q9a" data-bn="ইমপ্লিমেন্টেশনের পর ৩ মাস ফ্রি বেসিক সাপোর্ট (অন-প্রিমাইস)। সাবস্ক্রিপশন/SaaS-এ অগ্রাধিকার সাপোর্ট, ব্যাকআপ ও আপডেট।">ইমপ্লিমেন্টেশনের পর ৩ মাস ফ্রি বেসিক সাপোর্ট (অন-প্রিমাইস)। সাবস্ক্রিপশন/SaaS-এ অগ্রাধিকার সাপোর্ট, ব্যাকআপ ও আপডেট।</div>
       </details>
 <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">ডেমো কি পুরোপুরি ফ্রি?<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হ্যাঁ — লাইভ ডেমোতে সব ফিচার ব্যবহার করে দেখতে পারেন, আপনার নাম/মোবাইল দিলেই ডেমো লগইন পেয়ে যাবেন।</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="q10" data-bn="ডেমো কি পুরোপুরি ফ্রি?">ডেমো কি পুরোপুরি ফ্রি?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="q10a" data-bn="হ্যাঁ — লাইভ ডেমোতে সব ফিচার ব্যবহার করে দেখতে পারেন, আপনার নাম/মোবাইল দিলেই ডেমো লগইন পেয়ে যাবেন।">হ্যাঁ — লাইভ ডেমোতে সব ফিচার ব্যবহার করে দেখতে পারেন, আপনার নাম/মোবাইল দিলেই ডেমো লগইন পেয়ে যাবেন।</div>
       </details>
   </div>
 </section>
@@ -403,7 +403,7 @@ section{padding:64px 0}
   <div class="container">
     <h2 data-i18n="demo_title" data-bn="🖥️ লাইভ ডেমো দেখুন">🖥️ লাইভ ডেমো দেখুন</h2>
     <p data-i18n="demo_sub" data-bn="ডেমো মল (রাজ্জাক প্লাজা) — ১৫টি দোকান, ১১১টি বিল, সম্পূর্ণ হিসাবসহ। বাংলায় চালু — লগইন করেই সব ফিচার ঘুরে দেখুন।">ডেমো মল (রাজ্জাক প্লাজা) — ১৫টি দোকান, ১১১টি বিল, সম্পূর্ণ হিসাবসহ। বাংলায় চালু — লগইন করেই সব ফিচার ঘুরে দেখুন।</p>
-    <a class="btn btn-w" href="#" onclick="openLead();return false" style="background:var(--red);color:#fff">লাইভ ডেমো খুলুন →</a>
+    <a class="btn btn-w" href="#" onclick="openLead();return false" style="background:var(--red);color:#fff" data-i18n="demo_btn" data-bn="লাইভ ডেমো খুলুন →">লাইভ ডেমো খুলুন →</a>
   </div>
 </section>
 
@@ -412,7 +412,7 @@ section{padding:64px 0}
     <div>
       <h4 data-i18n="ft_brand" data-bn="🏬 Mall Manager">🏬 Mall Manager</h4>
       <p data-i18n="ft_brand_desc" data-bn="Commercial Building Management System (BMS) — শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটি">Commercial Building Management System (BMS) — শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটি</p>
-      <p style="margin-top:10px;font-size:12.5px;color:#64748b">প্রস্তুতকারী: <b style="color:#cbd5e1">KRTaker</b> (A concern of BITSCOL)<br>বিপণনে: <b style="color:#cbd5e1">Appvaley</b></p>
+      <p style="margin-top:10px;font-size:12.5px;color:#64748b"><span data-i18n="ft_prep" data-bn="প্রস্তুতকারী:">প্রস্তুতকারী:</span> <b style="color:#cbd5e1">KRTaker</b> (A concern of BITSCOL)<br><span data-i18n="ft_market" data-bn="বিপণনে:">বিপণনে:</span> <b style="color:#cbd5e1">Appvaley</b></p>
     </div>
     <div>
       <h4 data-i18n="ft_bro" data-bn="📄 ব্রোশিওর ডাউনলোড">📄 ব্রোশিওর ডাউনলোড</h4>
@@ -425,15 +425,15 @@ section{padding:64px 0}
       <p>
         <a href="#features" data-i18n="nav_features" data-bn="ফিচারসমূহ">ফিচারসমূহ</a><br>
         <a href="#pricing" data-i18n="nav_pricing" data-bn="মূল্য">মূল্য</a><br>
-        <a href="#screens">লাইভ সিস্টেমের স্ক্রিনশট</a><br>
+        <a href="#screens" data-i18n="g_title" data-bn="লাইভ সিস্টেমের স্ক্রিনশট">লাইভ সিস্টেমের স্ক্রিনশট</a><br>
         <a href="#faq" data-i18n="nav_faq" data-bn="সাধারণ প্রশ্ন">সাধারণ প্রশ্ন</a><br>
-        <a href="#" onclick="openLead();return false">লাইভ ডেমো</a><br>
-        <a href="https://krtaker.com" target="_blank">KRTaker — Property Management</a>
+        <a href="#" onclick="openLead();return false" data-i18n="nav_demo" data-bn="লাইভ ডেমো">লাইভ ডেমো</a><br>
+        <a href="https://krtaker.com" target="_blank" data-i18n="ft_krt_link" data-bn="KRTaker — Property Management">KRTaker — Property Management</a>
       </p>
     </div>
     <div>
       <h4 data-i18n="ft_contact" data-bn="যোগাযোগ">যোগাযোগ</h4>
-      <p>KRTaker (A concern of BITSCOL)<br>বিপণনে: Appvaley<br>
+      <p><span data-i18n="ft_line1" data-bn="KRTaker (A concern of BITSCOL)">KRTaker (A concern of BITSCOL)</span><br><span data-i18n="ft_line2" data-bn="বিপণনে:">বিপণনে:</span> Appvaley<br>
       📧 belal000bd@gmail.com<br>
       📱 +880 1711-853769<br>
       🌐 mall.krtaker.com</p>
@@ -495,18 +495,78 @@ var I18N = {
   f_title: {en: "Complete Feature List" },
   f_sub: {en: "13 modules — everything from meter readings to the annual general meeting in one system." },
   f1: {en: "Spaces & Ownership Management" },
+  f1a: {en: "Shops with floor, area (sqft), billing model & service rate" },
+  f1b: {en: "Flexible ownership — persons, companies, banks, trusts" },
+  f1c: {en: "One owner, many shops (portfolio view)" },
+  f1d: {en: "Occupancy tracking: Active / Vacant / Closed" },
   f2: {en: "Service-Charge Billing Engine" },
+  f2a: {en: "4 billing models: fixed, per-sqft, +utilities" },
+  f2b: {en: "One-click monthly billing + late-fee engine" },
+  f2c: {en: "Combined bills: service + elec + water + fines" },
+  f2d: {en: "Print: A4, A5, ½+½ A4 + PDF download" },
   f3: {en: "Sub-Meter Electricity & Water Billing" },
+  f3a: {en: "Monthly readings with mandatory photo" },
+  f3b: {en: "Auto units calculation & ৳/unit bills" },
+  f3c: {en: "200% anomaly flag (error/theft detection)" },
+  f3d: {en: "Effective-rate calculator + utility P/L" },
   f4: {en: "Collections, Receipts & Payments" },
+  f4a: {en: "Bill collections with instant RCT- receipts" },
+  f4b: {en: "Cash, bank, bKash, Nagad — multiple accounts" },
+  f4c: {en: "Money receipt print with account details & signatures" },
+  f4d: {en: "Two-level waivers/voids approval (receipt lock)" },
   f5: {en: "Complete Double-Entry Accounting" },
+  f5a: {en: "Multi-level Chart of Accounts" },
+  f5b: {en: "Journal vouchers with double-entry posting" },
+  f5c: {en: "Trial balance, P&L, party ledgers" },
+  f5d: {en: "Bank statement import + reconciliation" },
   f6: {en: "Financial Views for the Committee" },
+  f6a: {en: "Dashboard: collections, dues, expenses, top defaulters" },
+  f6b: {en: "Invoices view: combined bills + print/PDF" },
+  f6c: {en: "Payments view: receipts, method, account, status" },
+  f6d: {en: "Analytics + party statements" },
   f7: {en: "Alerts, AMC & Risk Management" },
+  f7a: {en: "High-dues auto alerts (2+ months)" },
+  f7b: {en: "Disconnection-risk detection with one-tap SMS" },
+  f7c: {en: "AMC expiry tracking for lifts, generators, fire equipment" },
+  f7d: {en: "Remind-all-defaulters SMS blast" },
   f8: {en: "SMS & Communication" },
+  f8a: {en: "Instant Bangla SMS receipt per collection" },
+  f8b: {en: "Dues reminders, warnings, notice blasts" },
+  f8c: {en: "Recipient control: owner/tenant/both" },
+  f8d: {en: "bulksmsbd gateway ready" },
   f9: {en: "Vendors, Expenses & Assets" },
+  f9a: {en: "Vendor directory + payment history" },
+  f9b: {en: "Expense entries with voucher photo, auto-posted" },
+  f9c: {en: "Assets register: warranty/AMC" },
+  f9d: {en: "Staff & guard payroll" },
   f10: {en: "Complaints & Maintenance" },
+  f10a: {en: "Ticketing: lift/AC/light/water with priority" },
+  f10b: {en: "Status flow: Open → In Progress → Resolved" },
+  f10c: {en: "Full per-shop history" },
   f11: {en: "Governance & Committee" },
+  f11a: {en: "Committee members & office bearers" },
+  f11b: {en: "Meeting register: agenda, decisions" },
+  f11c: {en: "Resolutions archive + notices" },
   f12: {en: "Security, Roles & Audit" },
+  f12a: {en: "5 roles: Super Admin → Collector" },
+  f12b: {en: "Two-level approval workflow" },
+  f12c: {en: "Full audit trail" },
+  f12d: {en: "License keys — vendor controlled" },
   f13: {en: "Owner Portal & Offline" },
+  f13a: {en: "Owner portal: bills, dues, payments, notices" },
+  f13b: {en: "Offline + auto-sync" },
+  f13c: {en: "Responsive on all devices" },
+  wa: {en: "💬 Chat on WhatsApp" },
+  lm_title: {en: "🖥️ Live Demo" },
+  lm_sub: {en: "Enter your details to receive the demo link & login — sent by SMS." },
+  lm_name: {en: "Your name *" },
+  lm_mobile: {en: "Mobile number *" },
+  lm_email: {en: "Email" },
+  lm_btn: {en: "Get Demo Info 📲" },
+  lm_done: {en: "Thank you! Demo details ready" },
+  lm_note: {en: "SMS sent. Click below to open the demo." },
+  lm_go: {en: "Go to Demo →" },
+  lm_later: {en: "Later" },
   st1_b: {en: "100%" },
   st1_l: {en: "Bangla interface" },
   st2_b: {en: "4" },
@@ -586,6 +646,29 @@ var I18N = {
   t2n: {en: "Treasurer — Commercial Complex" },
   t3q: {en: "The print looks exactly like the bill pad — owners accept it without question. The books always balance." },
   t3n: {en: "Manager — Shopping Mall" },
+  q1: {en: "What server does the system need?" },
+  q1a: {en: "Runs on ordinary shared hosting (cPanel) — no dedicated server or database license. PHP 8 + SQLite." },
+  q2: {en: "Can old bill/ledger data be migrated?" },
+  q2a: {en: "Yes — shops, owners, current readings and outstanding balances can be imported. Data setup is included in the implementation fee." },
+  q3: {en: "Which payment methods are supported?" },
+  q3a: {en: "Cash, bank transfer, bKash, Nagad — with multiple bank & mobile accounts. Instant receipt + SMS per collection." },
+  q4: {en: "Can committee staff use it in Bangla?" },
+  q4a: {en: "Yes — the system defaults to Bangla with an English toggle. Printed bills & receipts are Bangla too." },
+  q5: {en: "What do printed bills look like?" },
+  q5a: {en: "Exactly like the traditional committee bill pad — বিদ্যুৎ/সার্ভিস চার্জ header, numbered fields, rules & two signatures. A4/A5/½+½ print + PDF." },
+  q6: {en: "Does it work without internet?" },
+  q6a: {en: "Yes — readings & collections work offline; auto-sync when internet returns." },
+  q7: {en: "How does SMS work?" },
+  q7a: {en: "Via the bulksmsbd gateway — receipts, dues reminders, disconnection warnings, notices. All in Bangla." },
+  q8: {en: "How many users can use it?" },
+  q8a: {en: "Super Admin, Owner, Manager, Accountant & Collector — 5 roles. SaaS: ৳100 per user/shop." },
+  q9: {en: "How do I get support?" },
+  q9a: {en: "3 months free basic support after implementation (on-premise). Subscription/SaaS include priority support, backups & updates." },
+  q10: {en: "Is the demo free?" },
+  q10a: {en: "Yes — explore every feature in the live demo; give your name/mobile to receive the demo login." },
+  ft_krt_link: {en: "KRTaker — Property Management" },
+  ft_line1: {en: "KRTaker (A concern of BITSCOL)" },
+  ft_line2: {en: "Marketed by:" },
   demo_title: {en: "🖥️ See the Live Demo" },
   demo_sub: {en: "Demo mall (Razzak Plaza) — 15 shops, 111 bills, full books. Runs in Bangla — log in and explore everything." },
   demo_btn: {en: "Open Live Demo →" },

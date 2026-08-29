@@ -15200,6 +15200,24 @@ case 'mall-lead': {
     json_out(['ok' => true, 'sms' => $sms, 'emailed' => $emailed, 'demo_url' => $demo_url, 'creds' => $creds]);
 }
 
+
+/* ── Mall leads admin — key-gated (lead dashboard on mall.krtaker.com) ── */
+case 'mall-leads': {
+    $pdo = db();
+    if (trim((string)($body['key'] ?? '')) !== 'df7432135af83ddc') json_out(['ok' => false, 'error' => 'Forbidden.'], 403);
+    $rows = $pdo->query('SELECT id, name, mobile, email, source, creds_sent, created_at FROM mall_leads ORDER BY id DESC LIMIT 500')->fetchAll(PDO::FETCH_ASSOC);
+    json_out(['ok' => true, 'leads' => $rows, 'total' => count($rows)]);
+}
+
+case 'mall-lead-del': {
+    $pdo = db();
+    if (trim((string)($body['key'] ?? '')) !== 'df7432135af83ddc') json_out(['ok' => false, 'error' => 'Forbidden.'], 403);
+    $id = (int)($body['id'] ?? 0);
+    if ($id <= 0) json_out(['ok' => false, 'error' => 'ID required.'], 400);
+    $pdo->prepare('DELETE FROM mall_leads WHERE id = ?')->execute([$id]);
+    json_out(['ok' => true]);
+}
+
 case 'mall': {
     $u = require_user();
     $pdo = db();

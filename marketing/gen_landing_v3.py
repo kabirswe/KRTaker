@@ -112,9 +112,24 @@ FEATS = [
  ]),
 ]
 
-# register feature titles in C
+# register feature titles + item bullets in C
 for _ico, _fid, _bn, _en, _items in FEATS:
     C[_fid] = (_bn, _en)
+    for _ik, _ibn, _ien in _items:
+        C[_ik] = (_ibn, _ien)
+
+K('wa', '💬 WhatsApp-এ কথা বলুন', '💬 Chat on WhatsApp')
+# lead modal keys
+K('lm_title', '🖥️ লাইভ ডেমো', '🖥️ Live Demo')
+K('lm_sub', 'ডেমো অ্যাকাউন্টের লিংক ও লগইন তথ্য পেতে আপনার তথ্য দিন — SMS এর মাধ্যমে পাঠিয়ে দিচ্ছি।', 'Enter your details to receive the demo link & login — sent by SMS.')
+K('lm_name', 'আপনার নাম *', 'Your name *')
+K('lm_mobile', 'মোবাইল নম্বর *', 'Mobile number *')
+K('lm_email', 'ইমেইল', 'Email')
+K('lm_btn', 'ডেমো তথ্য পাঠান 📲', 'Get Demo Info 📲')
+K('lm_done', 'ধন্যবাদ! ডেমো তথ্য প্রস্তুত', 'Thank you! Demo details ready')
+K('lm_note', 'SMS পাঠানো হয়েছে। নিচের বাটনে ক্লিক করে ডেমো খুলুন।', 'SMS sent. Click below to open the demo.')
+K('lm_go', 'ডেমোতে যান →', 'Go to Demo →')
+K('lm_later', 'পরে দেখব', 'Later')
 
 # stats
 K('st1_b','১০০%','100%'); K('st1_l','বাংলা ইন্টারফেস','Bangla interface')
@@ -225,6 +240,16 @@ TESTI = [
 for _tid, _bn, _en in TESTI:
     C[_tid] = (_bn, _en)
 
+# register FAQ entries (question + answer keys) in C
+for _qid, _qbn, _qen, _abn, _aen in FAQ:
+    C[_qid] = (_qbn, _qen)
+    C[_qid + 'a'] = (_abn, _aen)
+
+# footer extra keys
+K('ft_krt_link', 'KRTaker — Property Management', 'KRTaker — Property Management')
+K('ft_line1', 'KRTaker (A concern of BITSCOL)', 'KRTaker (A concern of BITSCOL)')
+K('ft_line2', 'বিপণনে:', 'Marketed by:')
+
 # demo
 K('demo_title','🖥️ লাইভ ডেমো দেখুন','🖥️ See the Live Demo')
 K('demo_sub','ডেমো মল (রাজ্জাক প্লাজা) — ১৫টি দোকান, ১১১টি বিল, সম্পূর্ণ হিসাবসহ। বাংলায় চালু — লগইন করেই সব ফিচার ঘুরে দেখুন।','Demo mall (Razzak Plaza) — 15 shops, 111 bills, full books. Runs in Bangla — log in and explore everything.')
@@ -265,8 +290,8 @@ def faq_html():
     out = []
     for qid, qbn, qen, abn, aen in FAQ:
         out.append(f'''<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
-        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">{esc(qbn)}<span style="color:var(--red);font-size:18px">▾</span></summary>
-        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">{esc(abn)}</div>
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center" data-i18n="{qid}" data-bn="{esc(qbn)}">{esc(qbn)}<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9" data-i18n="{qid}a" data-bn="{esc(abn)}">{esc(abn)}</div>
       </details>''')
     return '\n'.join(out)
 
@@ -477,7 +502,7 @@ section{{padding:64px 0}}
       <input id="roiBill" type="number" min="0" value="3000" placeholder="3000">
       <label {lang_attrs('roi_gain')}>{esc(t('roi_gain'))}</label>
       <input id="roiGain" type="number" min="0" max="100" value="15" placeholder="15">
-      <button onclick="calcRoi()" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">{esc(t('roi_btn'))}</button>
+      <button onclick="calcRoi()" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit" {lang_attrs('roi_btn')}>{esc(t('roi_btn'))}</button>
       <div class="roi-out" id="roiOut">
         <div class="big" id="roiMonth">৳0</div>
         <div style="font-size:13px;color:var(--mut);margin-top:2px">{esc(t('roi_month'))}</div>
@@ -571,7 +596,7 @@ section{{padding:64px 0}}
   <div class="container">
     <h2 {lang_attrs('demo_title')}>{esc(t('demo_title'))}</h2>
     <p {lang_attrs('demo_sub')}>{esc(t('demo_sub'))}</p>
-    <a class="btn btn-w" href="#" onclick="openLead();return false" style="background:var(--red);color:#fff">{esc(t('demo_btn'))}</a>
+    <a class="btn btn-w" href="#" onclick="openLead();return false" style="background:var(--red);color:#fff" {lang_attrs('demo_btn')}>{esc(t('demo_btn'))}</a>
   </div>
 </section>
 
@@ -580,7 +605,7 @@ section{{padding:64px 0}}
     <div>
       <h4 {lang_attrs('ft_brand')}>{esc(t('ft_brand'))}</h4>
       <p {lang_attrs('ft_brand_desc')}>{esc(t('ft_brand_desc'))}</p>
-      <p style="margin-top:10px;font-size:12.5px;color:#64748b">{esc(t('ft_prep'))} <b style="color:#cbd5e1">KRTaker</b> (A concern of BITSCOL)<br>{esc(t('ft_market'))} <b style="color:#cbd5e1">Appvaley</b></p>
+      <p style="margin-top:10px;font-size:12.5px;color:#64748b"><span {lang_attrs('ft_prep')}>{esc(t('ft_prep'))}</span> <b style="color:#cbd5e1">KRTaker</b> (A concern of BITSCOL)<br><span {lang_attrs('ft_market')}>{esc(t('ft_market'))}</span> <b style="color:#cbd5e1">Appvaley</b></p>
     </div>
     <div>
       <h4 {lang_attrs('ft_bro')}>{esc(t('ft_bro'))}</h4>
@@ -593,15 +618,15 @@ section{{padding:64px 0}}
       <p>
         <a href="#features" {lang_attrs('nav_features')}>{esc(t('nav_features'))}</a><br>
         <a href="#pricing" {lang_attrs('nav_pricing')}>{esc(t('nav_pricing'))}</a><br>
-        <a href="#screens">{esc(t('g_title'))}</a><br>
+        <a href="#screens" {lang_attrs('g_title')}>{esc(t('g_title'))}</a><br>
         <a href="#faq" {lang_attrs('nav_faq')}>{esc(t('nav_faq'))}</a><br>
-        <a href="#" onclick="openLead();return false">{esc(t('nav_demo'))}</a><br>
-        <a href="https://krtaker.com" target="_blank">KRTaker — Property Management</a>
+        <a href="#" onclick="openLead();return false" {lang_attrs('nav_demo')}>{esc(t('nav_demo'))}</a><br>
+        <a href="https://krtaker.com" target="_blank" {lang_attrs('ft_krt_link')}>{esc(t('ft_krt_link'))}</a>
       </p>
     </div>
     <div>
       <h4 {lang_attrs('ft_contact')}>{esc(t('ft_contact'))}</h4>
-      <p>KRTaker (A concern of BITSCOL)<br>{esc(t('ft_market'))} Appvaley<br>
+      <p><span {lang_attrs('ft_line1')}>{esc(t('ft_line1'))}</span><br><span {lang_attrs('ft_line2')}>{esc(t('ft_line2'))}</span> Appvaley<br>
       📧 belal000bd@gmail.com<br>
       📱 +880 1711-853769<br>
       🌐 mall.krtaker.com</p>
