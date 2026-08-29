@@ -798,7 +798,12 @@ const BN = {
   "current": "বর্তমান",
   "Orientation": "ওরিয়েন্টেশন",
   "Portrait": "পোর্ট্রেট",
-  "Landscape": "ল্যান্ডস্কেপ",/* ── Mall buttons & forms (sweep) ── */
+  "Landscape": "ল্যান্ডস্কেপ",
+  "Loading preview…": "প্রিভিউ লোড হচ্ছে…",
+  "Itemized breakdown": "খাতভিত্তিক বিবরণ",
+  "PDF": "পিডিএফ",
+  "Rendering PDF…": "পিডিএফ তৈরি হচ্ছে…",
+  "Itemized": "খাতভিত্তিক",/* ── Mall buttons & forms (sweep) ── */
   "Cancel": "বাতিল",
   "Close": "বন্ধ করুন",
   "Search": "সার্চ",

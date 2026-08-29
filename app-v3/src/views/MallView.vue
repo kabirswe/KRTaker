@@ -1,5 +1,7 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 import SearchableSelect from '../components/SearchableSelect.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
@@ -307,7 +309,6 @@ async function loadPayments() {
   if (r.ok) { payList.value = r.payments || []; paySummary.value = r.summary || null }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
-function openInvDetail(iv) { invDetail.value = iv }
 async function openPayQuick() {
   payQuick.value = null; payQuickBills.value = []
   if (!bills.value.length) await loadBills()
@@ -346,33 +347,38 @@ async function openReceipt(b) {
 }
 /* spec 3.11: combined bill — all charges for a space & month on ONE print,
    with breakdown, due date + fine rule, and three signature lines */
-async function printCombined(b) {
+/* ── invoice form data + HTML (shared by print / PDF / preview) ── */
+async function invoiceFormData(b) {
   const r = await apiCall('mall', { action: 'combined-bill', shop: b.shop, month: b.month })
-  if (!r.ok) { window.__krToast?.(r.error || 'Failed.', 'err'); return }
+  if (!r.ok) { window.__krToast?.(r.error || 'Failed.', 'err'); return null }
   const d = r
   if (!lastReadings.value.length) await loadMeters()
   const rds = (lastReadings.value || []).filter(x => x.shop === d.shop.id && x.type === 'elec').sort((a, z) => (z.id || 0) - (a.id || 0))
   const cur = rds[0], prev = rds[1]
-  const curReading = cur ? cur.reading : ''
-  const prevReading = prev ? prev.reading : ''
-  const units = cur && prev ? Math.max(0, Number(cur.reading) - Number(prev.reading)) : (cur ? (cur.units || '') : '')
-  const curDate = cur ? String(cur.date || '').slice(0, 10) : ''
-  const prevDate = prev ? String(prev.date || '').slice(0, 10) : ''
   const billSvc = d.bills.find(x => x.kind === 'service') || {}
-  const billElec = d.bills.find(x => x.kind === 'elec') || {}
   const billWat = d.bills.find(x => x.kind === 'water') || {}
-  const svcAmt = Number(billSvc.amount || 0)
-  const elecAmt = Number(billElec.amount || 0)
-  const watAmt = Number(billWat.amount || 0)
-  const fines = d.bills.reduce((s, x) => s + Number(x.fine || 0), 0)
-  const misc = watAmt + fines
-  const rate = Number(config.value.elec_unit_rate || 0)
-  const issued = (d.bills[0] && d.bills[0].created_at || '').slice(0, 10)
-  const due = (d.bills[0] && d.bills[0].due_date) || ''
+  return {
+    d,
+    curReading: cur ? cur.reading : '',
+    prevReading: prev ? prev.reading : '',
+    units: cur && prev ? Math.max(0, Number(cur.reading) - Number(prev.reading)) : (cur ? (cur.units || '') : ''),
+    curDate: cur ? String(cur.date || '').slice(0, 10) : '',
+    prevDate: prev ? String(prev.date || '').slice(0, 10) : '',
+    billSvc,
+    svcAmt: Number(billSvc.amount || 0),
+    elecAmt: Number((d.bills.find(x => x.kind === 'elec') || {}).amount || 0),
+    misc: Number(billWat.amount || 0) + d.bills.reduce((s, x) => s + Number(x.fine || 0), 0),
+    rate: Number(config.value.elec_unit_rate || 0),
+    issued: (d.bills[0] && d.bills[0].created_at || '').slice(0, 10),
+    due: (d.bills[0] && d.bills[0].due_date) || '',
+  }
+}
+function invoiceFormHTML(x, zoom) {
+  const { d, curReading, prevReading, units, curDate, prevDate, billSvc, svcAmt, elecAmt, misc, rate, issued, due } = x
   const bn = (n) => '৳' + Number(n || 0).toLocaleString('en-IN')
   const dline = (label, val, bold) => `<div style="flex:1;display:flex;align-items:baseline;gap:6px;min-width:0"><span style="font-size:13px;white-space:nowrap">${label}</span><span style="flex:1;border-bottom:1px dotted #000;min-width:40px"></span><span style="font-size:13px;font-weight:${bold ? 800 : 400};white-space:nowrap">${val || '…'}</span></div>`
   const frow = (num, left, right) => `<div style="display:flex;gap:28px;margin-top:9px">${num ? `<span style="font-size:13px;font-weight:800;width:16px;flex-shrink:0">${num}</span>` : ''}${left}${right}</div>`
-  const form = `<div style="width:190mm;zoom:${PRINT_TPL[effTmpl.value].zoom};background:#fff;border:2px solid #111;margin:0 auto;font-family:'Noto Serif Bengali',serif">
+  return `<div style="width:190mm;zoom:${zoom};background:#fff;border:2px solid #111;margin:0 auto;font-family:'Noto Serif Bengali',serif">
     <div style="text-align:center;padding:16px 10px 10px">
       <div style="font-size:22px;font-weight:800">${(config.value.mall_name || 'Mall Manager')}</div>
       <div style="font-size:12.5px;color:#555;margin-top:5px">${config.value.mall_address || ''}${config.value.mall_phone ? ((config.value.mall_address ? ' · ☎ ' : '☎ ') + config.value.mall_phone) : ''}</div>
@@ -405,17 +411,72 @@ async function printCombined(b) {
       </div>
     </div>
   </div>`
-  const t = PRINT_TPL[effTmpl.value]
-  const html = t.two
+}
+function composePrintHTML(form, tmplId) {
+  const t = PRINT_TPL[tmplId]
+  return t.two
     ? `<div style="display:flex;gap:6mm;justify-content:center;align-items:flex-start;width:100%">${form}${form}</div>`
     : `<div style="display:flex;justify-content:center;width:100%">${form}</div>`
+}
+function setPrintPage(tmplId) {
   let s = document.getElementById('printTmplCss')
   if (!s) { s = document.createElement('style'); s.id = 'printTmplCss'; document.head.appendChild(s) }
-  s.textContent = printPageCss[effTmpl.value]
+  s.textContent = printPageCss[tmplId]
+}
+function printAreaEl() {
   let area = document.getElementById('printArea')
   if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area) }
-  area.innerHTML = html
+  return area
+}
+async function printCombined(b) {
+  const x = await invoiceFormData(b)
+  if (!x) return
+  const form = invoiceFormHTML(x, PRINT_TPL[effTmpl.value].zoom)
+  setPrintPage(effTmpl.value)
+  printAreaEl().innerHTML = composePrintHTML(form, effTmpl.value)
   window.print()
+}
+async function downloadInvoice(b) {
+  const x = await invoiceFormData(b)
+  if (!x) return
+  const tpl = PRINT_TPL[effTmpl.value]
+  const form = invoiceFormHTML(x, tpl.zoom)
+  printAreaEl().innerHTML = composePrintHTML(form, effTmpl.value)
+  window.__krToast?.(t('Rendering PDF…'), 'ok')
+  const canvas = await html2canvas(printAreaEl(), { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+  const landscape = tpl.page.includes('landscape')
+  const pw = landscape ? 297 : 210, ph = landscape ? 210 : 297
+  const pdf = new jsPDF({ orientation: landscape ? 'l' : 'p', unit: 'mm', format: [pw, ph] })
+  const img = canvas.toDataURL('image/jpeg', 0.95)
+  const cw = canvas.width, ch = canvas.height
+  const s = Math.min(pw / cw, ph / ch)
+  const dw = cw * s, dh = ch * s
+  pdf.addImage(img, 'JPEG', (pw - dw) / 2, (ph - dh) / 2, dw, dh, undefined, 'FAST')
+  pdf.save(`invoice-${(x.d.shop.no || x.d.shop.id).replace(/[^\w-]/g, '')}-${x.d.month}.pdf`)
+}
+/* invoice preview (detail modal) — renders the form scaled to fit */
+const invPreviewHtml = ref('')
+const invPreviewZoom = ref(1)
+const invPreviewWrap = ref(null)
+const invShowTable = ref(false)
+const invPdfBusy = ref(false)
+function fitPreview() {
+  const w = invPreviewWrap.value?.clientWidth || 720
+  invPreviewZoom.value = Math.min(1, w / 720)
+}
+async function openInvDetail(iv) {
+  invDetail.value = iv
+  invShowTable.value = false
+  invPreviewHtml.value = ''
+  const x = await invoiceFormData(iv)
+  if (!x) return
+  invPreviewHtml.value = invoiceFormHTML(x, 1)
+  await nextTick()
+  fitPreview()
+}
+async function downloadInvDetail() {
+  invPdfBusy.value = true
+  try { await downloadInvoice(invDetail.value) } finally { invPdfBusy.value = false }
 }
 function printReceipt() { window.print() }
 /* receipt logo: modern/classic use the dark variant (colored band), minimal the light one */
@@ -2495,7 +2556,7 @@ onBeforeUnmount(() => {
             <option value="">{{ t('All statuses') }}</option>
             <option v-for="s in INV_ST" :key="s" :value="s">{{ t(s) }}</option>
           </select>
-          <SearchableSelect v-model="invShop" :options="shopOpts" :placeholder="t('All spaces')" @change="loadInvoices" style="width:220px" />
+          <SearchableSelect v-model="invShop" :options="shopOpts" :placeholder="t('All spaces')" @change="loadInvoices" class="inv-ssel" style="width:220px" />
           <button @click="loadInvoices" class="btn-ghost" style="padding:8px 12px;font-size:12px">🔄 {{ t('Refresh') }}</button>
           <select v-model="printTmpl" title="{{ t('Print template') }}" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px;font-weight:800">
             <option value="a4">A4 · {{ t('current') }}</option>
@@ -2520,20 +2581,20 @@ onBeforeUnmount(() => {
         <div class="tbl-wrap">
           <table class="kr">
             <thead><tr>
-              <th>{{ t('Invoice') }}</th><th>{{ t('Space') }}</th><th>{{ t('Owner') }}</th>
-              <th style="text-align:right">🧾 {{ t('Service') }}</th><th style="text-align:right">⚡</th><th style="text-align:right">💧</th>
-              <th style="text-align:right">⚠️ {{ t('Fine') }}</th><th style="text-align:right">{{ t('Total') }}</th><th style="text-align:right">{{ t('Due') }}</th>
+              <th>{{ t('Invoice') }}</th><th>{{ t('Space') }}</th><th class="inv-hide-sm">{{ t('Owner') }}</th>
+              <th class="inv-hide-sm" style="text-align:right">🧾 {{ t('Service') }}</th><th class="inv-hide-sm" style="text-align:right">⚡</th><th class="inv-hide-sm" style="text-align:right">💧</th>
+              <th class="inv-hide-sm" style="text-align:right">⚠️ {{ t('Fine') }}</th><th style="text-align:right">{{ t('Total') }}</th><th style="text-align:right">{{ t('Due') }}</th>
               <th>{{ t('Status') }}</th><th></th>
             </tr></thead>
             <tbody>
               <tr v-for="iv in invList" :key="iv.shop">
                 <td style="font-weight:800;font-size:12px">{{ iv.ref }}</td>
                 <td style="font-size:12.5px;font-weight:700">{{ iv.shop_no }} <small style="color:var(--text-mute)">· {{ iv.shop_floor || '—' }}</small></td>
-                <td style="font-size:12px">{{ iv.owner_name || '—' }}</td>
-                <td style="text-align:right;font-size:12px">{{ iv.items.service ? money(iv.items.service) : '—' }}</td>
-                <td style="text-align:right;font-size:12px">{{ iv.items.elec ? money(iv.items.elec) : '—' }}</td>
-                <td style="text-align:right;font-size:12px">{{ iv.items.water ? money(iv.items.water) : '—' }}</td>
-                <td style="text-align:right;font-size:12px">{{ iv.fines ? money(iv.fines) : '—' }}</td>
+                <td class="inv-hide-sm" style="font-size:12px">{{ iv.owner_name || '—' }}</td>
+                <td class="inv-hide-sm" style="text-align:right;font-size:12px">{{ iv.items.service ? money(iv.items.service) : '—' }}</td>
+                <td class="inv-hide-sm" style="text-align:right;font-size:12px">{{ iv.items.elec ? money(iv.items.elec) : '—' }}</td>
+                <td class="inv-hide-sm" style="text-align:right;font-size:12px">{{ iv.items.water ? money(iv.items.water) : '—' }}</td>
+                <td class="inv-hide-sm" style="text-align:right;font-size:12px">{{ iv.fines ? money(iv.fines) : '—' }}</td>
                 <td style="text-align:right;font-weight:800;font-size:12.5px">{{ money(iv.total) }}</td>
                 <td :style="iv.due > 0 ? 'text-align:right;font-size:12.5px;color:var(--danger);font-weight:700' : 'text-align:right;font-size:12.5px;color:var(--ok);font-weight:700'">{{ iv.due ? money(iv.due) : '—' }}</td>
                 <td><span class="badge" :class="badge(iv.status)">{{ bnd(iv.status) }}</span></td>
@@ -2548,38 +2609,42 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-if="invDetail" class="overlay" @click.self="invDetail = null">
-        <div class="modal" style="max-width:520px">
+            <div v-if="invDetail" class="overlay" @click.self="invDetail = null">
+        <div class="modal" style="max-width:780px">
           <div class="modal-h"><div class="t">🧾 {{ t('Invoice') }} — {{ invDetail.ref }}</div><button @click="invDetail = null" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>
           <div class="modal-b">
-            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12.5px;margin-bottom:12px">
-              <span style="font-weight:800">{{ invDetail.shop_no }} <small style="color:var(--text-mute)">· {{ invDetail.shop_floor || '—' }}</small></span>
-              <span>{{ monthLabel(invDetail.month) }}</span>
-              <span>{{ invDetail.owner_name || '—' }}</span>
+            <div v-if="!invPreviewHtml" style="text-align:center;padding:20px;color:var(--text-mute);font-size:13px">{{ t('Loading preview…') }}</div>
+            <div v-else ref="invPreviewWrap" style="overflow:auto;max-height:54vh;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px">
+              <div :style="{ zoom: invPreviewZoom }" style="margin:0 auto" v-html="invPreviewHtml"></div>
             </div>
-            <table class="kr" style="font-size:12.5px">
-              <thead><tr><th>{{ t('Item') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th style="text-align:right">⚠️ {{ t('Fine') }}</th><th>{{ t('Status') }}</th></tr></thead>
-              <tbody>
-                <template v-for="(k, i) in ['service', 'elec', 'water']" :key="k">
-                  <tr v-if="invDetail.items[k] || invDetail.fines">
-                    <td>{{ k === 'service' ? '🧾 ' + t('Service charge') : k === 'elec' ? '⚡ ' + t('Electricity') : '💧 ' + t('Water') }}</td>
-                    <td style="text-align:right">{{ invDetail.items[k] ? money(invDetail.items[k]) : '—' }}</td>
-                    <td style="text-align:right">{{ k === 'service' && invDetail.fines ? money(invDetail.fines) : '—' }}</td>
-                    <td><span class="badge" :class="badge(invDetail.status)">{{ bnd(invDetail.status) }}</span></td>
-                  </tr>
-                </template>
-                <tr style="border-top:2px solid var(--border)">
-                  <td style="font-weight:800">{{ t('Total') }}</td><td style="text-align:right;font-weight:800">{{ money(invDetail.total) }}</td><td></td><td></td>
-                </tr>
-                <tr>
-                  <td style="font-weight:800;color:var(--ok)">{{ t('Paid') }}</td><td style="text-align:right;color:var(--ok);font-weight:800">{{ money(invDetail.paid) }}</td><td></td><td></td>
-                </tr>
-                <tr>
-                  <td style="font-weight:800;color:var(--danger)">{{ t('Due') }}</td><td style="text-align:right;color:var(--danger);font-weight:800">{{ money(invDetail.due) }}</td><td></td><td></td>
-                </tr>
-              </tbody>
-            </table>
-            <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+            <div v-if="invShowTable" style="margin-top:14px">
+              <div style="font-size:12px;color:var(--text-mute);font-weight:800;margin-bottom:6px">{{ t('Itemized breakdown') }}</div>
+              <div class="tbl-wrap">
+                <table class="kr" style="font-size:12.5px">
+                  <thead><tr><th>{{ t('Item') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th style="text-align:right">⚠️ {{ t('Fine') }}</th><th>{{ t('Status') }}</th></tr></thead>
+                  <tbody>
+                    <template v-for="(k, i) in ['service', 'elec', 'water']" :key="k">
+                      <tr v-if="invDetail.items[k] || invDetail.fines">
+                        <td>{{ k === 'service' ? '🧾 ' + t('Service charge') : k === 'elec' ? '⚡ ' + t('Electricity') : '💧 ' + t('Water') }}</td>
+                        <td style="text-align:right">{{ invDetail.items[k] ? money(invDetail.items[k]) : '—' }}</td>
+                        <td style="text-align:right">{{ k === 'service' && invDetail.fines ? money(invDetail.fines) : '—' }}</td>
+                        <td><span class="badge" :class="badge(invDetail.status)">{{ bnd(invDetail.status) }}</span></td>
+                      </tr>
+                    </template>
+                    <tr style="border-top:2px solid var(--border)">
+                      <td style="font-weight:800">{{ t('Total') }}</td><td style="text-align:right;font-weight:800">{{ money(invDetail.total) }}</td><td></td><td></td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight:800;color:var(--ok)">{{ t('Paid') }}</td><td style="text-align:right;color:var(--ok);font-weight:800">{{ money(invDetail.paid) }}</td><td></td><td></td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight:800;color:var(--danger)">{{ t('Due') }}</td><td style="text-align:right;color:var(--danger);font-weight:800">{{ money(invDetail.due) }}</td><td></td><td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap">
               <select v-model="printTmpl" style="padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px;font-weight:800">
                 <option value="a4">A4 · {{ t('current') }}</option>
                 <option value="a5">A5</option>
@@ -2589,8 +2654,10 @@ onBeforeUnmount(() => {
                 <option value="portrait">{{ t('Portrait') }}</option>
                 <option value="landscape">{{ t('Landscape') }}</option>
               </select>
-              <button @click="printCombined(invDetail)" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🖨️ {{ t('Print invoice') }}</button>
-              <button @click="invDetail = null" class="btn-ghost" style="padding:11px 18px">{{ t('Close') }}</button>
+              <button @click="downloadInvDetail" :disabled="invPdfBusy" style="padding:10px 14px;border:none;border-radius:10px;background:#2F80ED;color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">⬇ {{ invPdfBusy ? t('Rendering PDF…') : t('PDF') }}</button>
+              <button @click="printCombined(invDetail)" style="padding:10px 14px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🖨️ {{ t('Print') }}</button>
+              <button @click="invShowTable = !invShowTable" class="btn-ghost" style="padding:10px 12px;font-size:12px">👁 {{ t('Itemized') }}</button>
+              <button @click="invDetail = null" class="btn-ghost" style="padding:10px 14px">{{ t('Close') }}</button>
             </div>
           </div>
         </div>
@@ -2608,7 +2675,7 @@ onBeforeUnmount(() => {
           <button @click="monthNav(-1)" class="btn-ghost" style="padding:6px 10px;font-size:12px">◀</button>
           <div style="min-width:108px;text-align:center;font-weight:800;font-size:13px">{{ monthLabel(month) }}</div>
           <button @click="monthNav(1)" class="btn-ghost" style="padding:6px 10px;font-size:12px">▶</button>
-          <SearchableSelect v-model="payShop" :options="shopOpts" :placeholder="t('All spaces')" @change="loadPayments" style="width:200px" />
+          <SearchableSelect v-model="payShop" :options="shopOpts" :placeholder="t('All spaces')" @change="loadPayments" class="inv-ssel" style="width:200px" />
           <select v-model="payMethod" @change="loadPayments" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px">
             <option value="">{{ t('All methods') }}</option>
             <option v-for="m in PAY_METHODS" :key="m" :value="m">{{ bnd(m) }}</option>
@@ -5040,5 +5107,12 @@ onBeforeUnmount(() => {
 @media (max-width: 640px) {
   .set-tabs { margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
   .set-tabs button { font-size: 11px !important; padding: 7px 12px !important; }
+}
+
+@media (max-width: 640px) {
+  .inv-hide-sm { display: none !important; }
+  .inv-ssel { width: 100% !important; }
+  .page-head select { max-width: 132px; }
+  .modal { max-width: 96vw !important; }
 }
 </style>
