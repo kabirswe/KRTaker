@@ -1143,17 +1143,40 @@ async function openAccountLedger(a) {
   if (r.ok) acctDrawer.value = r
 }
 const acctMap = ref({})
-async function loadAcctMap() { const r = await apiCall('mall', { action: 'acct-map' }); if (r.ok) acctMap.value = r.map || {} }
+const acctDefaults = ref({})
+async function loadAcctMap() {
+  const r = await apiCall('mall', { action: 'acct-map' })
+  if (r.ok) { acctMap.value = r.map || {}; acctDefaults.value = r.defaults || {} }
+}
 async function saveAcctMap() {
   const r = await apiCall('mall', { action: 'acct-map-set', map: acctMap.value })
   if (r.ok) window.__krToast?.('📊 Account mapping saved — new Smart Ledger posts use it', 'ok')
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
-const MAP_GROUPS = [
-  { key: 'exp:', label: '📉 Expense categories', rows: EXP_CATEGORIES },
+function resetAcctMap() {
+  if (!window.confirm('Reset ALL account mappings back to the built-in defaults?')) return
+  acctMap.value = {}
+  window.__krToast?.('All mappings reset to defaults — press 💾 Save mapping to persist', 'ok')
+}
+/* config-driven mapping groups: expense rows follow the editable util/common
+   heads (same list as the Expenses tab), income heads + Smart Ledger flows
+   are mappable too */
+const MAP_GROUPS = computed(() => [
+  { key: 'exp:', label: '📉 Expense categories', rows: expCategories.value },
   { key: 'ven:', label: '🧰 Vendor categories', rows: ['Lift / Escalator', 'Security', 'AC / HVAC', 'Generator', 'Cleaning', 'Electrical', 'General'] },
   { key: 'met:', label: '💳 Payment methods', rows: ['cash', 'bank', 'bkash', 'nagad'] },
-]
+  { key: 'inc:', label: '💰 Income heads', rows: (config.value.income_heads || []).length ? config.value.income_heads : ['Parking Fee', 'Community Hall Rent', 'Common Space Rent', 'Advertisement / Hoarding', 'Other Income'] },
+  { key: 'flow:', label: '⚡ Smart Ledger flows', rows: [
+    { k: 'service', label: 'Service charge income (bills + collections)' },
+    { k: 'utility', label: 'Utility income (elec / water sub-meter)' },
+    { k: 'rent', label: 'Rent income (tenant collections)' },
+    { k: 'fine', label: 'Late-fee / fine income' },
+    { k: 'ar', label: 'Accounts receivable (space dues)' },
+    { k: 'staff', label: 'Staff salary (expense)' },
+  ] },
+])
+const acctKey = (g, r) => g.key + (typeof r === 'string' ? r : r.k)
+const acctLabel = (g, r) => (typeof r === 'string' ? r : r.label)
 /* subsidiary (party) picker for voucher lines */
 const subPartyOptions = computed(() => [
   ...(vendors.value || []).map(v => ({ value: 'vendor:' + v.id, label: '🧰 ' + v.name, type: 'vendor', name: v.name })),
@@ -1259,7 +1282,7 @@ function switchTab(x) {
   if (x === 'cashflow') loadCashflow()
   if (x === 'statements') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff() }
   if (x === 'reconcile') loadReconcile()
-  if (x === 'settings') loadSmsCfg()
+  if (x === 'settings') { loadSmsCfg(); loadAcctMap(); loadAccounts() }
   if (x === 'pl') { if (!vendors.length) loadVendors(); if (!owners.length) loadOwners(); if (!tenants.length) loadTenants(); if (!staff.length) loadStaff(); loadPartyLedger() }
   if (x === 'notices') loadNotices()
   if (x === 'audit') loadAudit()
@@ -2939,14 +2962,14 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         </div>
         <div v-if="settingsTab === 'accounts'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">📊 Account mapping (Smart Ledger)</h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Choose which COA account each expense category, vendor category and payment method posts to automatically. Leave <i>— default —</i> to keep the built-in rules.</p>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Choose which COA account each expense category, vendor category, payment method, income head and Smart Ledger flow posts to automatically. The <b>— default —</b> option keeps the built-in rule (shown in brackets); overrides apply to every new posting.</p>
           <div v-for="g in MAP_GROUPS" :key="g.key" style="margin-bottom:12px">
-            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ g.label }}</div>
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">{{ g.label }} <small style="font-weight:400;text-transform:none">({{ g.rows.length }})</small></div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
-              <label v-for="r in g.rows" :key="g.key + r" style="font-size:11.5px;color:var(--text-mute)">
-                {{ r }}
-                <select v-model="acctMap[g.key + r]" style="width:100%;margin-top:3px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px">
-                  <option :value="0">— default —</option>
+              <label v-for="r in g.rows" :key="acctKey(g, r)" style="font-size:11.5px;color:var(--text-mute)">
+                {{ acctLabel(g, r) }}
+                <select v-model="acctMap[acctKey(g, r)]" style="width:100%;margin-top:3px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px">
+                  <option :value="0">— default —{{ acctDefaults[acctKey(g, r)] ? ' (' + acctDefaults[acctKey(g, r)] + ')' : '' }}</option>
                   <optgroup v-for="t in ACCOUNT_TYPES" :key="t" :label="TYPE_ICONS[t] + ' ' + TYPE_PLURAL[t]">
                     <option v-for="a in accounts.filter(x => x.type === t)" :key="a.id" :value="a.id">{{ a.code ? a.code + ' — ' : '' }}{{ a.name }}</option>
                   </optgroup>
@@ -2954,7 +2977,11 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               </label>
             </div>
           </div>
-          <button @click="saveAcctMap" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save mapping</button>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <button @click="saveAcctMap" style="padding:9px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">💾 Save mapping</button>
+            <button @click="resetAcctMap" class="btn-ghost" style="font-size:12px">♻️ Reset all to defaults</button>
+            <small style="color:var(--text-mute);font-size:11px">Saved rules: {{ Object.keys(acctMap).filter(k => acctMap[k]).length }}</small>
+          </div>
         </div>
         <div v-if="settingsTab === 'governance'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">🏛️ Committee roles (dynamic)</h3>

@@ -15171,6 +15171,13 @@ case 'mall': {
     $exp_acct_for = function ($cat) use ($acct_name_for, $EXP_ACCT) { return $acct_name_for('exp:' . $cat, $EXP_ACCT[$cat] ?? 'General Maintenance'); };
     $method_acct = function ($m) use ($acct_name_for, $METHOD_ACCT) { return $acct_name_for('met:' . $m, $METHOD_ACCT[$m] ?? 'Cash in Hand'); };
     $vendor_acct_for = function ($cat) use ($acct_name_for, $VENDOR_ACCT) { return $acct_name_for('ven:' . $cat, $VENDOR_ACCT[$cat] ?? 'General Maintenance'); };
+    /* V2.7: flow-level mapping — the income/AR/staff accounts behind each
+       Smart Ledger flow become configurable too (Settings → Account mapping) */
+    $FLOW_ACCT = ['service' => 'Service Charge Income', 'utility' => 'Utility Billing Income',
+                  'rent' => 'Rent Income', 'fine' => 'Late Fine Income',
+                  'ar' => 'Accounts Receivable (space dues)', 'staff' => 'Staff Salary'];
+    $flow_acct = function ($k) use ($acct_name_for, $FLOW_ACCT) { return $acct_name_for('flow:' . $k, $FLOW_ACCT[$k] ?? ''); };
+    $inc_acct = function ($cat) use ($acct_name_for) { return $acct_name_for('inc:' . $cat, 'Other Income'); };
 
     /* ── SMS engine (ported from KRTaker app-sms): log provider by default,
        bulksmsbd gateway when configured — receipts, reminders, alerts ── */
@@ -15850,18 +15857,32 @@ case 'mall': {
                   'subs' => $subRows]);
     }
     /* acct-map — Smart Ledger account mapping (expense category / vendor
-       category / payment method → COA account), configurable in Settings */
+       category / payment method / income head / flow → COA account),
+       configurable in Settings. Returns saved map + built-in defaults. */
     if ($a === 'acct-map') {
         $raw = $mcfg('acct_map', '');
         $map = $raw !== '' ? json_decode($raw, true) : [];
-        json_out(['ok' => true, 'map' => is_array($map) ? $map : []]);
+        $defaults = [];
+        foreach ($EXP_ACCT as $k => $v) $defaults['exp:' . $k] = $v;
+        foreach ($VENDOR_ACCT as $k => $v) $defaults['ven:' . $k] = $v;
+        foreach ($METHOD_ACCT as $k => $v) $defaults['met:' . $k] = $v;
+        foreach ($FLOW_ACCT as $k => $v) $defaults['flow:' . $k] = $v;
+        $incHeads = $mcfg('income_heads', '');
+        $ih = $incHeads !== '' ? (json_decode($incHeads, true) ?: []) : [];
+        foreach ((is_array($ih) ? $ih : []) as $h) $defaults['inc:' . $h] = 'Other Income';
+        json_out(['ok' => true, 'map' => is_array($map) ? $map : [], 'defaults' => $defaults]);
     }
     if ($a === 'acct-map-set') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $map = $body['map'] ?? [];
         if (!is_array($map)) json_out(['ok' => false, 'error' => 'map must be an object.'], 400);
+        $okIds = $pdo->query('SELECT id FROM mall_accounts')->fetchAll(PDO::FETCH_COLUMN);
         $clean = [];
-        foreach ($map as $k => $v) $clean[(string)$k] = (int)$v;
+        foreach ($map as $k => $v) {
+            $k = (string)$k; $v = (int)$v;
+            if ($v && !in_array($v, $okIds, true)) json_out(['ok' => false, 'error' => 'Unknown account id ' . $v . ' — refresh and try again.'], 400);
+            if ($v) $clean[$k] = $v;
+        }
         $mset('acct_map', json_encode($clean));
         audit($u['name'], 'Account mapping', 'mall', '', count($clean) . ' rules');
         json_out(['ok' => true, 'map' => $clean]);
@@ -16096,7 +16117,7 @@ case 'mall': {
         /* Smart Ledger: Dr Staff Salary, Cr cash/bank/bKash */
         $post_journal(date('Y-m-d'), 'SAL-' . str_pad((string)$salId, 5, '0', STR_PAD_LEFT),
             'Salary — ' . $s['name'] . ' (' . $month . ')',
-            [['Staff Salary', $amount, 0], [$method_acct($method), 0, $amount]], $u['name']);
+            [[$flow_acct('staff'), $amount, 0], [$method_acct($method), 0, $amount]], $u['name']);
         json_out(['ok' => true, 'staff' => $s['name'], 'amount' => $amount, 'month' => $month]);
     }
     /* salaries — salary history for a month or a staff member */
@@ -16530,7 +16551,7 @@ case 'mall': {
         /* Smart Ledger: Dr cash/bank/bKash, Cr Rent Income */
         $post_journal(date('Y-m-d'), 'RNT-' . str_pad((string)$rpId, 5, '0', STR_PAD_LEFT),
             'Rent — ' . $ag['shop'] . ' (' . $month . ')',
-            [[$method_acct(trim($body['method'] ?? 'cash')), $amount, 0], ['Rent Income', 0, $amount]], $u['name']);
+            [[$method_acct(trim($body['method'] ?? 'cash')), $amount, 0], [$flow_acct('rent'), 0, $amount]], $u['name']);
         json_out(['ok' => true, 'receipt' => $receipt]);
     }
     if ($a === 'rent-payments') {
@@ -16683,7 +16704,7 @@ case 'mall': {
                 $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
                 $post_journal(date('Y-m-d'), 'WAV-' . str_pad((string)$id, 5, '0', STR_PAD_LEFT),
                     'Waiver ' . $w['reason'] . ' — ' . $w['shop'] . ' (' . $w['month'] . ')',
-                    [[$kindAcct[$bill['kind']] ?? 'Service Charge Income', (int)$w['amount'], 0],
+                    [[$flow_acct($bill['kind'] === 'service' ? 'service' : 'utility'), (int)$w['amount'], 0],
                      [$ar_acct(), 0, (int)$w['amount']]], $u['name']);
             }
             audit($u['name'], 'Waiver approved', 'mall', (string)$w['bill_id'], "৳{$w['amount']} — {$w['reason']}");
@@ -16732,7 +16753,7 @@ case 'mall': {
                 $post_journal(date('Y-m-d'), 'VOID-' . str_pad((string)$id, 5, '0', STR_PAD_LEFT),
                     'Void ' . $v['receipt'] . ' — ' . $v['reason'],
                     [[$method_acct($pm['method']), (int)$v['amount'], 0],
-                     [$kindAcct[$pm['kind']] ?? 'Service Charge Income', 0, (int)$v['amount']]], $u['name']);
+                     [$flow_acct($pm['kind'] === 'service' ? 'service' : 'utility'), 0, (int)$v['amount']]], $u['name']);
             }
             audit($u['name'], 'Payment voided', 'mall', (string)$v['payment_id'], $v['receipt'] . " ৳{$v['amount']}");
         }
@@ -16794,7 +16815,7 @@ case 'mall': {
             /* Smart Ledger: Dr Accounts Receivable, Cr Service Charge Income */
             $post_journal($month . '-01', 'BIL-' . str_pad((string)$newId, 5, '0', STR_PAD_LEFT),
                 'Service bill — ' . $s['id'] . ' (' . $month . ')',
-                [[$ar_acct(), $total, 0], ['Service Charge Income', 0, $total]], $u['name']);
+                [[$ar_acct(), $total, 0], [$flow_acct('service'), 0, $total]], $u['name']);
         }
         audit($u['name'], 'Bill generate', 'mall', $month, "$created created, $skipped skipped");
         json_out(['ok' => true, 'created' => $created, 'skipped' => $skipped]);
@@ -16843,13 +16864,12 @@ case 'mall': {
         $pdo->prepare("UPDATE shop_bills SET status='Paid' WHERE id=?")->execute([$billId]);
         audit($u['name'], 'Collect', 'mall', $bill['shop'], "$receipt $amount via $method");
         /* Smart Ledger: Dr cash/bank/bKash; Cr income by kind (+ fine portion) */
-        $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
         $billAmt = (int)$bill['amount'];
         $incomePart = min($amount, $billAmt);
         $finePart = max(0, $amount - $billAmt);
         $lines = [[$method_acct($method), $amount, 0]];
-        if ($incomePart > 0) $lines[] = [$kindAcct[$bill['kind']] ?? 'Service Charge Income', 0, $incomePart];
-        if ($finePart > 0) $lines[] = ['Late Fine Income', 0, $finePart];
+        if ($incomePart > 0) $lines[] = [$flow_acct($bill['kind'] === 'service' ? 'service' : 'utility'), 0, $incomePart];
+        if ($finePart > 0) $lines[] = [$flow_acct('fine'), 0, $finePart];
         $post_journal(date('Y-m-d'), 'RCT-' . str_pad((string)$payId, 5, '0', STR_PAD_LEFT),
             'Collection ' . $receipt . ' — ' . $bill['shop'] . ' (' . $bill['month'] . ')', $lines, $u['name']);
         /* V2.4 (spec 3.2): auto SMS receipt confirmation to owner + tenant */
@@ -16909,7 +16929,7 @@ case 'mall': {
                     /* Smart Ledger: Dr Accounts Receivable, Cr Utility Billing Income */
                     $post_journal($month . '-28', 'BIL-' . str_pad((string)$billId, 5, '0', STR_PAD_LEFT),
                         'Utility bill — ' . $shop . ' (' . $month . ') ' . $type,
-                        [[$ar_acct(), $amount, 0], ['Utility Billing Income', 0, $amount]], $u['name']);
+                        [[$ar_acct(), $amount, 0], [$flow_acct('utility'), 0, $amount]], $u['name']);
                 }
             }
         }
