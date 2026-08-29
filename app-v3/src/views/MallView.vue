@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDataStore } from '../stores/data'
+import { t } from '../lib/i18n'
 import { useRoute } from 'vue-router'
 import { apiCall } from '../api/client'
 import { money, monthLabel, badge } from '../lib/ui'
@@ -1541,7 +1542,7 @@ onBeforeUnmount(() => {
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             <span v-for="s in alerts.disconnect_risk" :key="s.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
               <b>{{ s.no }}</b> <span style="color:var(--text-mute)">{{ s.months }}mo · ৳{{ Number(s.due).toLocaleString('en-IN') }}</span>
-              <button @click="sendDuesAlert(s, 'disconnect')" title="SMS disconnection warning to owner & tenant" style="border:none;background:var(--danger);color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">📲 Alert</button>
+              <button @click="sendDuesAlert(s, 'disconnect')" title="SMS disconnection warning to owner & tenant" style="border:none;background:var(--danger);color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">📲 {{ t('Alert') }}</button>
             </span>
           </div>
         </div>
@@ -1550,12 +1551,12 @@ onBeforeUnmount(() => {
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             <span v-for="s in alerts.high_dues" :key="s.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
               <b>{{ s.no }}</b> <span style="color:var(--text-mute)">{{ s.months }}mo · ৳{{ Number(s.due).toLocaleString('en-IN') }}</span>
-              <button @click="sendDuesAlert(s, 'high')" title="SMS dues reminder to owner & tenant" style="border:none;background:#F2994A;color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">📲 Remind</button>
+              <button @click="sendDuesAlert(s, 'high')" title="SMS dues reminder to owner & tenant" style="border:none;background:#F2994A;color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">{{ t('📲 Remind') }}</button>
             </span>
           </div>
         </div>
         <div v-if="alerts.amc_due?.length" style="border:1px solid #9B51E0;background:rgba(155,81,224,.08);border-radius:14px;padding:13px 16px">
-          <div style="font-size:12.5px;font-weight:800;color:#7B2CBF;margin-bottom:8px">🛠️ AMC / servicing contract expiring (spec 3.5)</div>
+          <div style="font-size:12.5px;font-weight:800;color:#7B2CBF;margin-bottom:8px">{{ t('🛠️ AMC / servicing contract expiring (spec 3.5)') }}</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             <span v-for="a in alerts.amc_due" :key="a.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
               <b>{{ a.name }}</b>
@@ -1577,7 +1578,7 @@ onBeforeUnmount(() => {
           <div class="s-value" :style="b.balance < 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(b.balance) }}</div>
           <div class="s-trend">in {{ money(b.in) }} · out {{ money(b.out) }}</div>
         </div>
-        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total balance</div><div class="s-value">{{ money(balances.total) }}</div><div class="s-trend">across all methods (spec 3.7)</div></div>
+        <div class="stat"><div class="s-label"><span class="s-ico">💰</span>Total balance</div><div class="s-value">{{ money(balances.total) }}</div><div class="s-trend">{{ t('across all methods (spec 3.7)') }}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px" class="dash-grid">
         <div class="panel" style="padding:16px">
@@ -1597,7 +1598,7 @@ onBeforeUnmount(() => {
               </tbody>
             </table>
           </div>
-          <p v-else style="color:var(--text-mute);font-size:13px">🎉 No outstanding bills this month.</p>
+          <p v-else style="color:var(--text-mute);font-size:13px">{{ t('🎉 No outstanding bills this month.') }}</p>
         </div>
         <div style="display:flex;flex-direction:column;gap:16px">
           <div class="panel" style="padding:16px;flex:1">
@@ -1616,17 +1617,17 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </div>
-            <p v-else style="color:var(--text-mute);font-size:13px">No expenses recorded this month.</p>
+            <p v-else style="color:var(--text-mute);font-size:13px">{{ t('No expenses recorded this month.') }}</p>
           </div>
           <div class="panel" style="padding:16px">
-            <h3 style="font-size:14px;margin-bottom:10px">🕘 Recent collections</h3>
+            <h3 style="font-size:14px;margin-bottom:10px">{{ t('🕘 Recent collections') }}</h3>
             <div v-if="payments.length" style="display:flex;flex-direction:column;gap:8px">
               <div v-for="p in payments.slice(0, 5)" :key="p.id" style="display:flex;justify-content:space-between;font-size:12.5px">
                 <span><b>{{ p.shop_no }}</b> · {{ p.method }} <small style="color:var(--text-mute)">({{ p.receipt }})</small></span>
                 <b style="color:var(--ok)">{{ money(p.amount) }}</b>
               </div>
             </div>
-            <p v-else style="color:var(--text-mute);font-size:13px">No collections yet this month.</p>
+            <p v-else style="color:var(--text-mute);font-size:13px">{{ t('No collections yet this month.') }}</p>
           </div>
         </div>
       </div>
@@ -1805,7 +1806,7 @@ onBeforeUnmount(() => {
                 <td style="font-size:12px;color:var(--text-mute)">{{ b.due_date }}<span v-if="isDisconnectRisk(b)" class="badge b-red" style="margin-left:6px" title="Overdue {{ billRiskMonths(b) }} months — disconnection risk (spec 3.11)">⛔ disconnect risk</span><span v-else-if="isOverdue(b)" class="badge b-red" style="margin-left:6px">overdue</span></td>
                 <td><span class="badge" :class="badge(b.status)">{{ b.status }}</span></td>
                 <td style="text-align:right;white-space:nowrap">
-                  <button v-if="b.status === 'Unpaid' && b.owner_mobile" @click="waRemind(b)" title="Send WhatsApp reminder to the shop owner" style="padding:6px 10px;border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">📲 Remind</button>
+                  <button v-if="b.status === 'Unpaid' && b.owner_mobile" @click="waRemind(b)" title="Send WhatsApp reminder to the shop owner" style="padding:6px 10px;border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">{{ t('📲 Remind') }}</button>
                   <button v-if="b.status === 'Unpaid' && canCollect" @click="openPay(b)" style="padding:6px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer;margin-left:4px">💵 Collect</button>
                   <button v-if="b.status === 'Unpaid' && canManage" @click="openWaiver(b)" title="Request a discount / waiver (two-level approval)" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">💸 Waiver</button>
                   <button v-if="b.status === 'Paid'" @click="openReceipt(b)" title="View / print receipt" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">🖨️ Receipt</button>
@@ -3131,7 +3132,7 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'settings'">
       <!-- ═══ redesigned: sticky tab bar + save (scrolls horizontally on mobile) ═══ -->
       <div style="position:sticky;top:0;z-index:40;background:var(--bg);padding:10px 0 12px;display:flex;gap:7px;align-items:center;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch" class="set-tabs">
-        <button v-for="t in SETTINGS_TABS" :key="t.id" @click="settingsTab = t.id" :style="settingsTab === t.id ? 'background:var(--primary);color:#fff;box-shadow:0 4px 14px rgba(47,128,237,.35)' : 'background:var(--bg-alt);color:var(--text-mute);border:1px solid var(--border)'" style="padding:8px 14px;border-radius:99px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s">{{ t.ic }} {{ t.label }}</button>
+        <button v-for="st in SETTINGS_TABS" :key="st.id" @click="settingsTab = st.id" :style="settingsTab === st.id ? 'background:var(--primary);color:#fff;box-shadow:0 4px 14px rgba(47,128,237,.35)' : 'background:var(--bg-alt);color:var(--text-mute);border:1px solid var(--border)'" style="padding:8px 14px;border-radius:99px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s">{{ st.ic }} {{ t(st.label) }}</button>
         <button v-if="canManage && cfgDirty" @click="saveConfig" style="margin-left:auto;padding:8px 16px;border:none;border-radius:99px;background:var(--ok,#27AE60);color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">💾 Save changes</button>
       </div>
       <div v-if="canManage" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">

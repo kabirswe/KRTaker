@@ -74,7 +74,7 @@ const GROUPS = [
         ['journal', '📖', 'Journal', 'Debit / credit journal entries'],
         ['trial', '⚖️', 'Trial Balance', 'Balanced debit vs credit summary'],
         ['pnl', '📊', 'P&L Statement', 'Monthly income statement (auto-posted)'],
-        ['reconcile', '🔁', 'Reconcile', 'Custodial utility funds & bank/cash balance checks'],
+        ['reconcile', '🔁', 'Reconcile', 'Utility income vs cost & bank/cash balance checks'],
         ['expenses', '📉', 'Expenses', 'Lift, DESCO/WASA, security, salaries & other spending'],
       ]},
       { sub: 'Operations', ico: '📉', items: [
@@ -259,16 +259,16 @@ async function backToMe() {
     </div>
     <div class="sb-scroll">
       <template v-for="g in groups" :key="g.id">
-        <div class="sb-group">{{ g.label }}</div>
+        <div class="sb-group">{{ t(g.label) }}</div>
         <!-- collapsed rail: ALL sub-groups as icons (click → expand + open) -->
         <div v-if="collapsed && g.groups" v-for="(sg, si) in g.groups" :key="si" class="sb-item" :class="{ active: activeSub === si }" @click="railOpen(si)" @mouseenter="tipEnter($event, [sg.ico || sg.items[0][1], sg.ico || sg.items[0][1], sg.sub, sg.items.map(i => i[2]).join(' · ')])" @mouseleave="tipLeave" @focus="tipEnter($event, [sg.ico || sg.items[0][1], sg.ico || sg.items[0][1], sg.sub, sg.items.map(i => i[2]).join(' · ')])" @blur="tipLeave">
-          <span class="ic">{{ sg.ico || sg.items[0][1] }}</span><span class="lbl">{{ sg.sub }}</span>
+          <span class="ic">{{ sg.ico || sg.items[0][1] }}</span><span class="lbl">{{ t(sg.sub) }}</span>
         </div>
         <!-- expanded: collapsible sub-groups + leaf items -->
         <template v-else-if="g.groups">
           <template v-for="(sg, si) in g.groups" :key="si">
-            <div class="sb-sub" :class="{ open: openSub === si, active: activeSub === si }" @click="toggleSub(si)" :title="(openSub === si ? 'Collapse' : 'Expand') + ' ' + sg.sub">
-              <span>{{ sg.sub }}</span><span class="sb-caret">{{ openSub === si ? '▾' : '▸' }}</span>
+            <div class="sb-sub" :class="{ open: openSub === si, active: activeSub === si }" @click="toggleSub(si)" :title="(openSub === si ? t('Collapse') : t('Expand')) + ' ' + sg.sub">
+              <span>{{ t(sg.sub) }}</span><span class="sb-caret">{{ openSub === si ? '▾' : '▸' }}</span>
             </div>
             <template v-if="openSub === si">
               <div v-for="i in sg.items" :key="i[0]" class="sb-item" :class="{ active: activeFor(i[0]) }" @click="go(i[0])"
