@@ -8,23 +8,19 @@
 <title>Mall Manager — Commercial Building Management System (BMS)</title>
 <link rel="canonical" href="https://mall.krtaker.com/">
 <style>
-:root{
-  --red:#7f1d1d; --red2:#a02c2c; --blue:#2F80ED; --ink:#111827; --mut:#6b7280;
-  --bg:#f8fafc; --card:#fff; --bd:#e5e7eb; --ok:#1e7a3c; --gold:#b45309;
-}
+:root{--red:#7f1d1d;--red2:#a02c2c;--blue:#2F80ED;--ink:#111827;--mut:#6b7280;--bg:#f8fafc;--card:#fff;--bd:#e5e7eb;--ok:#1e7a3c;--gold:#b45309}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Noto Serif Bengali','Hind Siliguri',Tahoma,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7}
 .container{max-width:1100px;margin:0 auto;padding:0 20px}
 a{text-decoration:none;color:var(--blue)}
-/* nav */
-.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--bd)}
-.nav .container{display:flex;align-items:center;justify-content:space-between;height:60px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--red)}
+.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--bd)}
+.nav .container{display:flex;align-items:center;justify-content:space-between;height:60px;gap:12px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--red);white-space:nowrap}
 .logo .mark{background:var(--red);color:#fff;border-radius:10px;padding:6px 10px;font-size:14px}
-.nav-links{display:flex;gap:22px;font-size:14px;font-weight:600}
+.nav-links{display:flex;gap:20px;font-size:14px;font-weight:600;align-items:center}
 .nav-links a{color:var(--ink)}
 .nav-links a:hover{color:var(--red)}
-/* hero */
+.lang-btn{background:var(--red);color:#fff;border:none;border-radius:99px;padding:7px 15px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
 .hero{background:linear-gradient(135deg,#7f1d1d 0%,#a02c2c 55%,#b3402f 100%);color:#fff;padding:70px 0 60px;text-align:center}
 .hero .badge{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:99px;padding:5px 16px;font-size:12.5px;margin-bottom:18px}
 .hero h1{font-size:42px;font-weight:900;letter-spacing:.5px}
@@ -36,13 +32,11 @@ a{text-decoration:none;color:var(--blue)}
 .btn-g{background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.6);color:#fff}
 .hero .chips{margin-top:26px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;font-size:12.5px}
 .chip{background:rgba(255,255,255,.12);border-radius:99px;padding:5px 14px}
-/* sections */
 section{padding:64px 0}
 .sec-head{text-align:center;margin-bottom:44px}
 .sec-head .kicker{color:var(--red);font-weight:800;font-size:13px;letter-spacing:1px}
 .sec-head h2{font-size:30px;font-weight:900;margin-top:6px}
 .sec-head p{color:var(--mut);margin-top:8px;font-size:14.5px;max-width:680px;margin-left:auto;margin-right:auto}
-/* features */
 .features{background:#fff}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
 .fcard{background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:22px 22px 18px;transition:box-shadow .2s,transform .2s}
@@ -52,12 +46,21 @@ section{padding:64px 0}
 .fcard ul{list-style:none}
 .fcard li{font-size:13px;color:#374151;padding:4px 0 4px 22px;position:relative}
 .fcard li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:800}
-/* highlight strip */
 .strip{background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff}
 .strip .container{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;text-align:center}
 .strip .st b{display:block;font-size:26px;font-weight:900;color:#fbbf24}
 .strip .st span{font-size:13px;color:#cbd5e1}
-/* pricing */
+.gallery{background:#fff}
+.ggrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+.ggrid figure{margin:0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff}
+.ggrid img{width:100%;display:block}
+.ggrid figcaption{padding:12px 14px;font-size:13px;color:var(--mut)}
+.roi{background:#fff;border-top:1px solid var(--bd)}
+.roi-box{max-width:640px;margin:0 auto;background:var(--bg);border:1px solid var(--bd);border-radius:18px;padding:28px}
+.roi-box label{font-size:13px;font-weight:800;display:block;margin-bottom:6px}
+.roi-box input{width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:15px;font-family:inherit;margin-bottom:14px;outline:none}
+.roi-out{display:none;margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;text-align:center}
+.roi-out .big{font-size:26px;font-weight:900;color:var(--ok)}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:stretch}
 .pcard{background:var(--card);border:1.5px solid var(--bd);border-radius:18px;padding:28px 24px;display:flex;flex-direction:column;position:relative}
 .pcard.featured{border-color:var(--red);box-shadow:0 18px 44px rgba(127,29,29,.14)}
@@ -75,16 +78,19 @@ section{padding:64px 0}
 .pcard .btn{text-align:center;margin-top:16px}
 .pcard .btn-w{background:var(--red);color:#fff}
 .note{text-align:center;font-size:13px;color:var(--mut);margin-top:22px}
-/* demo strip */
+.faq summary::-webkit-details-marker{display:none}
+.testi{background:var(--bg)}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
 .demo{background:#fff;border-top:1px solid var(--bd);text-align:center}
 .demo h2{font-size:26px;font-weight:900}
 .demo p{color:var(--mut);margin:10px auto 22px;max-width:640px;font-size:14.5px}
-/* footer */
 .footer{background:#0f172a;color:#94a3b8;padding:44px 0 34px;font-size:13.5px}
 .footer .container{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:26px}
 .footer h4{color:#fff;font-size:14.5px;margin-bottom:10px}
 .footer a{color:#cbd5e1}
 .footer .bottom{grid-column:1/-1;border-top:1px solid #1e293b;padding-top:18px;text-align:center;font-size:12.5px}
+.wa{position:fixed;bottom:22px;right:22px;z-index:150;background:#25D366;color:#fff;border-radius:99px;padding:14px 20px;font-weight:800;font-size:14.5px;box-shadow:0 10px 26px rgba(0,0,0,.28);display:flex;align-items:center;gap:8px}
+.wa:hover{background:#1fb958;color:#fff}
 @media(max-width:640px){
   .hero h1{font-size:30px}
   .hero .sub{font-size:16px}
@@ -99,28 +105,35 @@ section{padding:64px 0}
 <nav class="nav">
   <div class="container">
     <div class="logo"><span class="mark">🏬</span> Mall Manager</div>
-    <div class="nav-links">
-      <a href="#features">ফিচারসমূহ</a>
-      <a href="#pricing">মূল্য</a>
-      <a href="#demo">লাইভ ডেমো</a>
-      <a href="#contact">যোগাযোগ</a>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="nav-links">
+        <a href="#features" data-i18n="nav_features" data-bn="ফিচারসমূহ">ফিচারসমূহ</a>
+        <a href="#pricing" data-i18n="nav_pricing" data-bn="মূল্য">মূল্য</a>
+        <a href="#faq" data-i18n="nav_faq" data-bn="সাধারণ প্রশ্ন">সাধারণ প্রশ্ন</a>
+        <a href="#demo" data-i18n="nav_demo" data-bn="লাইভ ডেমো">লাইভ ডেমো</a>
+        <a href="#contact" data-i18n="nav_contact" data-bn="যোগাযোগ">যোগাযোগ</a>
+      </div>
+      <button class="lang-btn" id="langBtn" onclick="toggleLang()">English</button>
     </div>
   </div>
 </nav>
 
 <header class="hero">
   <div class="container">
-    <span class="badge">Commercial Building Management System — BMS</span>
-    <h1>MALL MANAGER</h1>
-    <div class="sub">শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটির সম্পূর্ণ ব্যবস্থাপনা</div>
-    <p class="desc">মাসিক সার্ভিস চার্জ বিলিং, সাব-মিটার বিদ্যুৎ/পানি বিল, তাৎক্ষণিক রসিদসহ আদায়, সম্পূর্ণ ডাবল-এন্ট্রি হিসাব, মালিক পোর্টাল ও বাংলা-প্রথম ইন্টারফেস — একটিমাত্র সিস্টেমে। মুদ্রিত বিল দেখতে হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো।</p>
+    <span class="badge" data-i18n="hero_badge" data-bn="Commercial Building Management System — BMS">Commercial Building Management System — BMS</span>
+    <h1 data-i18n="hero_title" data-bn="MALL MANAGER">MALL MANAGER</h1>
+    <div class="sub" data-i18n="hero_sub" data-bn="শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটির সম্পূর্ণ ব্যবস্থাপনা">শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটির সম্পূর্ণ ব্যবস্থাপনা</div>
+    <p class="desc" data-i18n="hero_desc" data-bn="মাসিক সার্ভিস চার্জ বিলিং, সাব-মিটার বিদ্যুৎ/পানি বিল, তাৎক্ষণিক রসিদসহ আদায়, সম্পূর্ণ ডাবল-এন্ট্রি হিসাব, মালিক পোর্টাল ও বাংলা-প্রথম ইন্টারফেস — একটিমাত্র সিস্টেমে। মুদ্রিত বিল দেখতে হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো।">মাসিক সার্ভিস চার্জ বিলিং, সাব-মিটার বিদ্যুৎ/পানি বিল, তাৎক্ষণিক রসিদসহ আদায়, সম্পূর্ণ ডাবল-এন্ট্রি হিসাব, মালিক পোর্টাল ও বাংলা-প্রথম ইন্টারফেস — একটিমাত্র সিস্টেমে। মুদ্রিত বিল দেখতে হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো।</p>
     <div class="cta">
-      <a class="btn btn-w" href="#pricing">মূল্য দেখুন</a>
-      <a class="btn btn-g" href="#" onclick="openLead();return false">লাইভ ডেমো চেষ্টা করুন</a>
+      <a class="btn btn-w" href="#pricing" data-i18n="hero_cta_price" data-bn="মূল্য দেখুন">মূল্য দেখুন</a>
+      <a class="btn btn-g" href="#" onclick="openLead();return false" data-i18n="hero_cta_demo" data-bn="লাইভ ডেমো চেষ্টা করুন">লাইভ ডেমো চেষ্টা করুন</a>
     </div>
     <div class="chips">
-      <span class="chip">বাংলা ইন্টারফেস</span><span class="chip">বিকাশ/নগদ/ব্যাংক/ক্যাশ</span>
-      <span class="chip">DESCO/WASA বিলিং</span><span class="chip">অফলাইন + অটো-সিঙ্ক</span><span class="chip">মালিক পোর্টাল</span>
+      <span class="chip" data-i18n="hero_chip1" data-bn="বাংলা ইন্টারফেস">বাংলা ইন্টারফেস</span>
+      <span class="chip" data-i18n="hero_chip2" data-bn="বিকাশ/নগদ/ব্যাংক/ক্যাশ">বিকাশ/নগদ/ব্যাংক/ক্যাশ</span>
+      <span class="chip" data-i18n="hero_chip3" data-bn="DESCO/WASA বিলিং">DESCO/WASA বিলিং</span>
+      <span class="chip" data-i18n="hero_chip4" data-bn="অফলাইন + অটো-সিঙ্ক">অফলাইন + অটো-সিঙ্ক</span>
+      <span class="chip" data-i18n="hero_chip5" data-bn="মালিক পোর্টাল">মালিক পোর্টাল</span>
     </div>
   </div>
 </header>
@@ -128,276 +141,268 @@ section{padding:64px 0}
 <section class="features" id="features">
   <div class="container">
     <div class="sec-head">
-      <div class="kicker">PRODUCT FEATURES</div>
-      <h2>সম্পূর্ণ ফিচার তালিকা</h2>
-      <p>১৩টি মডিউল — মিটার রিডিং থেকে বার্ষিক সাধারণ সভা পর্যন্ত সবকিছু এক সিস্টেমে।</p>
+      <div class="kicker" data-i18n="f_kicker" data-bn="PRODUCT FEATURES">PRODUCT FEATURES</div>
+      <h2 data-i18n="f_title" data-bn="সম্পূর্ণ ফিচার তালিকা">সম্পূর্ণ ফিচার তালিকা</h2>
+      <p data-i18n="f_sub" data-bn="১৩টি মডিউল — মিটার রিডিং থেকে বার্ষিক সাধারণ সভা পর্যন্ত সবকিছু এক সিস্টেমে।">১৩টি মডিউল — মিটার রিডিং থেকে বার্ষিক সাধারণ সভা পর্যন্ত সবকিছু এক সিস্টেমে।</p>
     </div>
     <div class="fgrid">
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">🏪</div>
-        <h3>দোকান ও মালিক ব্যবস্থাপনা</h3>
-        <ul>
-          <li>দোকান: তলা, আয়তন (বর্গফুট), বিলিং মডেল ও সার্ভিস রেট</li>
-          <li>নমনীয় মালিকানা — ব্যক্তি, কোম্পানি, ব্যাংক, ট্রাস্ট</li>
-          <li>এক মালিকের একাধিক দোকান (পোর্টফোলিও)</li>
-          <li>দখল ট্র্যাকিং: সক্রিয় / খালি / বন্ধ</li>
-          <li>ভাড়াটিয়া প্রোফাইল ও ভাড়া চুক্তি (ঐচ্ছিক)</li>
-        </ul>
+        <h3 data-i18n="f1" data-bn="দোকান ও মালিক ব্যবস্থাপনা">দোকান ও মালিক ব্যবস্থাপনা</h3>
+        <ul><li data-i18n="f1a" data-bn="দোকান: তলা, আয়তন (বর্গফুট), বিলিং মডেল ও সার্ভিস রেট">দোকান: তলা, আয়তন (বর্গফুট), বিলিং মডেল ও সার্ভিস রেট</li><li data-i18n="f1b" data-bn="নমনীয় মালিকানা — ব্যক্তি, কোম্পানি, ব্যাংক, ট্রাস্ট">নমনীয় মালিকানা — ব্যক্তি, কোম্পানি, ব্যাংক, ট্রাস্ট</li><li data-i18n="f1c" data-bn="এক মালিকের একাধিক দোকান (পোর্টফোলিও)">এক মালিকের একাধিক দোকান (পোর্টফোলিও)</li><li data-i18n="f1d" data-bn="দখল ট্র্যাকিং: সক্রিয় / খালি / বন্ধ">দখল ট্র্যাকিং: সক্রিয় / খালি / বন্ধ</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">🧾</div>
-        <h3>সার্ভিস চার্জ বিলিং ইঞ্জিন</h3>
-        <ul>
-          <li>৪টি বিলিং মডেল: ফিক্সড, স্কয়ারফিট, +ইউটিলিটি</li>
-          <li>এক ক্লিকে মাসিক বিল জেনারেশন</li>
-          <li>দেরি ফি ইঞ্জিন: %, গ্রেস দিন, ন্যূনতম, ক্যাপ</li>
-          <li>সম্মিলিত বিল: সার্ভিস + বিদ্যুৎ + পানি + ফাইন একসাথে</li>
-          <li>প্রিন্ট টেমপ্লেট: A4, A5, ½+½ A4 + PDF ডাউনলোড</li>
-        </ul>
+        <h3 data-i18n="f2" data-bn="সার্ভিস চার্জ বিলিং ইঞ্জিন">সার্ভিস চার্জ বিলিং ইঞ্জিন</h3>
+        <ul><li data-i18n="f2a" data-bn="৪টি বিলিং মডেল: ফিক্সড, স্কয়ারফিট, +ইউটিলিটি">৪টি বিলিং মডেল: ফিক্সড, স্কয়ারফিট, +ইউটিলিটি</li><li data-i18n="f2b" data-bn="এক ক্লিকে মাসিক বিল জেনারেশন + দেরি ফি ইঞ্জিন">এক ক্লিকে মাসিক বিল জেনারেশন + দেরি ফি ইঞ্জিন</li><li data-i18n="f2c" data-bn="সম্মিলিত বিল: সার্ভিস + বিদ্যুৎ + পানি + ফাইন">সম্মিলিত বিল: সার্ভিস + বিদ্যুৎ + পানি + ফাইন</li><li data-i18n="f2d" data-bn="প্রিন্ট: A4, A5, ½+½ A4 + PDF ডাউনলোড">প্রিন্ট: A4, A5, ½+½ A4 + PDF ডাউনলোড</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">⚡</div>
-        <h3>সাব-মিটার বিদ্যুৎ ও পানি বিলিং</h3>
-        <ul>
-          <li>ফটোসহ মাসিক রিডিং (ছবি বাধ্যতামূলক)</li>
-          <li>স্বয়ংক্রিয় ইউনিট হিসাব ও ৳/ইউনিট বিল</li>
-          <li>২০০% অস্বাভাবিকতা ফ্ল্যাগ (মিটার ত্রুটি/চুরি)</li>
-          <li>কার্যকর রেট ক্যালকুলেটর: DESCO বিল ÷ মোট ইউনিট</li>
-          <li>ইউটিলিটি আয়-ব্যয় লাভ/ক্ষতি রিপোর্ট</li>
-        </ul>
+        <h3 data-i18n="f3" data-bn="সাব-মিটার বিদ্যুৎ ও পানি বিলিং">সাব-মিটার বিদ্যুৎ ও পানি বিলিং</h3>
+        <ul><li data-i18n="f3a" data-bn="ফটোসহ মাসিক রিডিং (ছবি বাধ্যতামূলক)">ফটোসহ মাসিক রিডিং (ছবি বাধ্যতামূলক)</li><li data-i18n="f3b" data-bn="স্বয়ংক্রিয় ইউনিট হিসাব ও ৳/ইউনিট বিল">স্বয়ংক্রিয় ইউনিট হিসাব ও ৳/ইউনিট বিল</li><li data-i18n="f3c" data-bn="২০০% অস্বাভাবিকতা ফ্ল্যাগ (ত্রুটি/চুরি)">২০০% অস্বাভাবিকতা ফ্ল্যাগ (ত্রুটি/চুরি)</li><li data-i18n="f3d" data-bn="কার্যকর রেট ক্যালকুলেটর + ইউটিলিটি লাভ-ক্ষতি">কার্যকর রেট ক্যালকুলেটর + ইউটিলিটি লাভ-ক্ষতি</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">💵</div>
-        <h3>আদায়, রসিদ ও পেমেন্ট</h3>
-        <ul>
-          <li>বিল অনুযায়ী আদায় (সম্পূর্ণ/আংশিক) — তাৎক্ষণিক RCT- রসিদ</li>
-          <li>ক্যাশ, ব্যাংক, বিকাশ, নগদ — একাধিক ব্যাংক অ্যাকাউন্ট</li>
-          <li>মানি রসিদ প্রিন্ট: ব্যাংক/অ্যাকাউন্ট বিবরণ, সই</li>
-          <li>মওকুফ ও বাতিলের দ্বি-স্তর অনুমোদন (রসিদ লক)</li>
-          <li>ভাড়া আদায় (RNT-) ও ভেন্ডর পেমেন্ট (VNP-)</li>
-        </ul>
+        <h3 data-i18n="f4" data-bn="আদায়, রসিদ ও পেমেন্ট">আদায়, রসিদ ও পেমেন্ট</h3>
+        <ul><li data-i18n="f4a" data-bn="বিল অনুযায়ী আদায় — তাৎক্ষণিক RCT- রসিদ">বিল অনুযায়ী আদায় — তাৎক্ষণিক RCT- রসিদ</li><li data-i18n="f4b" data-bn="ক্যাশ, ব্যাংক, বিকাশ, নগদ — একাধিক অ্যাকাউন্ট">ক্যাশ, ব্যাংক, বিকাশ, নগদ — একাধিক অ্যাকাউন্ট</li><li data-i18n="f4c" data-bn="মানি রসিদ প্রিন্ট: অ্যাকাউন্ট বিবরণ, সই">মানি রসিদ প্রিন্ট: অ্যাকাউন্ট বিবরণ, সই</li><li data-i18n="f4d" data-bn="মওকুফ/বাতিলের দ্বি-স্তর অনুমোদন (রসিদ লক)">মওকুফ/বাতিলের দ্বি-স্তর অনুমোদন (রসিদ লক)</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">📒</div>
-        <h3>সম্পূর্ণ ডাবল-এন্ট্রি হিসাব</h3>
-        <ul>
-          <li>মাল্টি-লেভেল চার্ট অব অ্যাকাউন্টস (গ্রুপ + সাব-লেজার)</li>
-          <li>জার্নাল ভাউচার — ডাবল এন্ট্রি পোস্টিং</li>
-          <li>ট্রায়াল ব্যালেন্স, লাভ-ক্ষতি, পার্টি লেজার</li>
-          <li>মাস ও পদ্ধতি অনুযায়ী ক্যাশফ্লো</li>
-          <li>ব্যাংক স্টেটমেন্ট ইমপোর্ট + স্বয়ংক্রিয় রিকনসিলিয়েশন</li>
-        </ul>
+        <h3 data-i18n="f5" data-bn="সম্পূর্ণ ডাবল-এন্ট্রি হিসাব">সম্পূর্ণ ডাবল-এন্ট্রি হিসাব</h3>
+        <ul><li data-i18n="f5a" data-bn="মাল্টি-লেভেল চার্ট অব অ্যাকাউন্টস">মাল্টি-লেভেল চার্ট অব অ্যাকাউন্টস</li><li data-i18n="f5b" data-bn="জার্নাল ভাউচার — ডাবল এন্ট্রি পোস্টিং">জার্নাল ভাউচার — ডাবল এন্ট্রি পোস্টিং</li><li data-i18n="f5c" data-bn="ট্রায়াল ব্যালেন্স, লাভ-ক্ষতি, পার্টি লেজার">ট্রায়াল ব্যালেন্স, লাভ-ক্ষতি, পার্টি লেজার</li><li data-i18n="f5d" data-bn="ব্যাংক স্টেটমেন্ট ইমপোর্ট + রিকনসিলিয়েশন">ব্যাংক স্টেটমেন্ট ইমপোর্ট + রিকনসিলিয়েশন</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">📊</div>
-        <h3>কমিটির ফাইনান্সিয়াল ভিউ</h3>
-        <ul>
-          <li>ড্যাশবোর্ড: আদায়, বকেয়া, ব্যয়, শীর্ষ খেলাপি</li>
-          <li>ইনভয়েস ভিউ: প্রতি দোকানের সম্মিলিত বিল + প্রিন্ট/PDF</li>
-          <li>পেমেন্ট ভিউ: প্রতিটি রসিদ, পদ্ধতি, অ্যাকাউন্ট, স্ট্যাটাস</li>
-          <li>অ্যানালিটিক্স: বিল বনাম আদায়, দখল, খেলাপি প্রবণতা</li>
-          <li>যেকোনো পক্ষের সময়কালভিত্তিক স্টেটমেন্ট</li>
-        </ul>
+        <h3 data-i18n="f6" data-bn="কমিটির ফাইনান্সিয়াল ভিউ">কমিটির ফাইনান্সিয়াল ভিউ</h3>
+        <ul><li data-i18n="f6a" data-bn="ড্যাশবোর্ড: আদায়, বকেয়া, ব্যয়, শীর্ষ খেলাপি">ড্যাশবোর্ড: আদায়, বকেয়া, ব্যয়, শীর্ষ খেলাপি</li><li data-i18n="f6b" data-bn="ইনভয়েস ভিউ: সম্মিলিত বিল + প্রিন্ট/PDF">ইনভয়েস ভিউ: সম্মিলিত বিল + প্রিন্ট/PDF</li><li data-i18n="f6c" data-bn="পেমেন্ট ভিউ: রসিদ, পদ্ধতি, অ্যাকাউন্ট, স্ট্যাটাস">পেমেন্ট ভিউ: রসিদ, পদ্ধতি, অ্যাকাউন্ট, স্ট্যাটাস</li><li data-i18n="f6d" data-bn="অ্যানালিটিক্স + যেকোনো পক্ষের স্টেটমেন্ট">অ্যানালিটিক্স + যেকোনো পক্ষের স্টেটমেন্ট</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">⚠️</div>
-        <h3>এলার্ট, AMC ও ঝুঁকি ব্যবস্থাপনা</h3>
-        <ul>
-          <li>উচ্চ বকেয়া অটো এলার্ট (২+ মাস)</li>
-          <li>সংযোগ বিচ্ছিন্ন ঝুঁকি (৩+ মাস) — এক ট্যাপে SMS সতর্কতা</li>
-          <li>লিফট, জেনারেটর, এসকেলেটর, ফায়ার ইকুইপমেন্টের AMC মেয়াদ</li>
-          <li>সব খেলাপিকে রিমাইন্ডার SMS ব্লাস্ট</li>
-        </ul>
+        <h3 data-i18n="f7" data-bn="এলার্ট, AMC ও ঝুঁকি ব্যবস্থাপনা">এলার্ট, AMC ও ঝুঁকি ব্যবস্থাপনা</h3>
+        <ul><li data-i18n="f7a" data-bn="উচ্চ বকেয়া অটো এলার্ট (২+ মাস)">উচ্চ বকেয়া অটো এলার্ট (২+ মাস)</li><li data-i18n="f7b" data-bn="সংযোগ বিচ্ছিন্ন ঝুঁকি — এক ট্যাপে SMS">সংযোগ বিচ্ছিন্ন ঝুঁকি — এক ট্যাপে SMS</li><li data-i18n="f7c" data-bn="লিফট/জেনারেটর/ফায়ার ইকুইপমেন্টের AMC মেয়াদ">লিফট/জেনারেটর/ফায়ার ইকুইপমেন্টের AMC মেয়াদ</li><li data-i18n="f7d" data-bn="সব খেলাপিকে রিমাইন্ডার SMS ব্লাস্ট">সব খেলাপিকে রিমাইন্ডার SMS ব্লাস্ট</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">📲</div>
-        <h3>SMS ও যোগাযোগ</h3>
-        <ul>
-          <li>প্রতি আদায়ে তাৎক্ষণিক বাংলা SMS রসিদ</li>
-          <li>বকেয়া রিমাইন্ডার, সংযোগ সতর্কতা, নোটিশ ব্লাস্ট</li>
-          <li>প্রাপক নিয়ন্ত্রণ: মালিক / ভাড়াটিয়া / উভয়</li>
-          <li>bulksmsbd গেটওয়ে রেডি (টেস্ট মোডসহ)</li>
-        </ul>
+        <h3 data-i18n="f8" data-bn="SMS ও যোগাযোগ">SMS ও যোগাযোগ</h3>
+        <ul><li data-i18n="f8a" data-bn="প্রতি আদায়ে তাৎক্ষণিক বাংলা SMS রসিদ">প্রতি আদায়ে তাৎক্ষণিক বাংলা SMS রসিদ</li><li data-i18n="f8b" data-bn="বকেয়া রিমাইন্ডার, সতর্কতা, নোটিশ ব্লাস্ট">বকেয়া রিমাইন্ডার, সতর্কতা, নোটিশ ব্লাস্ট</li><li data-i18n="f8c" data-bn="প্রাপক নিয়ন্ত্রণ: মালিক/ভাড়াটিয়া/উভয়">প্রাপক নিয়ন্ত্রণ: মালিক/ভাড়াটিয়া/উভয়</li><li data-i18n="f8d" data-bn="bulksmsbd গেটওয়ে রেডি">bulksmsbd গেটওয়ে রেডি</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">🧰</div>
-        <h3>ভেন্ডর, ব্যয় ও সম্পদ</h3>
-        <ul>
-          <li>ভেন্ডর ডিরেক্টরি: ক্যাটাগরি, চুক্তি, পেমেন্ট ইতিহাস</li>
-          <li>ভাউচার ছবিসহ ব্যয় এন্ট্রি — অটো লেজার পোস্ট</li>
-          <li>সম্পদ রেজিস্টার: স্থাপন, মূল্য, ওয়ারেন্টি/AMC</li>
-          <li>স্টাফ ও নিরাপত্তা প্রহরীর বেতন (পে-রোল)</li>
-        </ul>
+        <h3 data-i18n="f9" data-bn="ভেন্ডর, ব্যয় ও সম্পদ">ভেন্ডর, ব্যয় ও সম্পদ</h3>
+        <ul><li data-i18n="f9a" data-bn="ভেন্ডর ডিরেক্টরি + পেমেন্ট ইতিহাস">ভেন্ডর ডিরেক্টরি + পেমেন্ট ইতিহাস</li><li data-i18n="f9b" data-bn="ভাউচার ছবিসহ ব্যয় — অটো লেজার পোস্ট">ভাউচার ছবিসহ ব্যয় — অটো লেজার পোস্ট</li><li data-i18n="f9c" data-bn="সম্পদ রেজিস্টার: ওয়ারেন্টি/AMC">সম্পদ রেজিস্টার: ওয়ারেন্টি/AMC</li><li data-i18n="f9d" data-bn="স্টাফ ও নিরাপত্তা প্রহরীর বেতন">স্টাফ ও নিরাপত্তা প্রহরীর বেতন</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">🔧</div>
-        <h3>অভিযোগ ও মেইনটেন্যান্স</h3>
-        <ul>
-          <li>টিকিটিং: লিফট/এসি/লাইট/পানি — প্রায়োরিটি</li>
-          <li>স্ট্যাটাস ফ্লো: খোলা → চলমান → সমাধানকৃত</li>
-          <li>প্রতি দোকানের ইতিহাস: বিল, রিডিং, পেমেন্ট, অভিযোগ</li>
-        </ul>
+        <h3 data-i18n="f10" data-bn="অভিযোগ ও মেইনটেন্যান্স">অভিযোগ ও মেইনটেন্যান্স</h3>
+        <ul><li data-i18n="f10a" data-bn="টিকেটিং: লিফট/এসি/লাইট/পানি — প্রায়োরিটি">টিকেটিং: লিফট/এসি/লাইট/পানি — প্রায়োরিটি</li><li data-i18n="f10b" data-bn="স্ট্যাটাস ফ্লো: খোলা → চলমান → সমাধানকৃত">স্ট্যাটাস ফ্লো: খোলা → চলমান → সমাধানকৃত</li><li data-i18n="f10c" data-bn="প্রতি দোকানের সম্পূর্ণ ইতিহাস">প্রতি দোকানের সম্পূর্ণ ইতিহাস</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">🏛️</div>
-        <h3>গভর্নেন্স ও কমিটি</h3>
-        <ul>
-          <li>কমিটি সদস্য ও পদধারী (সভাপতি · সম্পাদক · কোষাধ্যক্ষ)</li>
-          <li>সভা রেজিস্টার: এজেন্ডা, সিদ্ধান্ত, কার্যবিবরণী</li>
-          <li>রেজুলেশন সংরক্ষণ (স্পেক ৩.১১)</li>
-          <li>নোটিশ ও পিন-টু-টপ ঘোষণা</li>
-        </ul>
+        <h3 data-i18n="f11" data-bn="গভর্নেন্স ও কমিটি">গভর্নেন্স ও কমিটি</h3>
+        <ul><li data-i18n="f11a" data-bn="কমিটি সদস্য ও পদধারী">কমিটি সদস্য ও পদধারী</li><li data-i18n="f11b" data-bn="সভা রেজিস্টার: এজেন্ডা, সিদ্ধান্ত">সভা রেজিস্টার: এজেন্ডা, সিদ্ধান্ত</li><li data-i18n="f11c" data-bn="রেজুলেশন সংরক্ষণ + নোটিশ">রেজুলেশন সংরক্ষণ + নোটিশ</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">🔐</div>
-        <h3>নিরাপত্তা, রোল ও অডিট</h3>
-        <ul>
-          <li>৫টি রোল: সুপার অ্যাডমিন · মালিক · ম্যানেজার · হিসাবরক্ষক · কালেক্টর</li>
-          <li>মওকুফ ও বাতিলের দ্বি-স্তর অনুমোদন</li>
-          <li>সম্পূর্ণ অডিট ট্রেইল: কে, কবে, কী করেছে</li>
-          <li>লাইসেন্স কী সিস্টেম — ভেন্ডর নিয়ন্ত্রিত</li>
-        </ul>
+        <h3 data-i18n="f12" data-bn="নিরাপত্তা, রোল ও অডিট">নিরাপত্তা, রোল ও অডিট</h3>
+        <ul><li data-i18n="f12a" data-bn="৫টি রোল: সুপার অ্যাডমিন থেকে কালেক্টর">৫টি রোল: সুপার অ্যাডমিন থেকে কালেক্টর</li><li data-i18n="f12b" data-bn="দ্বি-স্তর অনুমোদন ওয়ার্কফ্লো">দ্বি-স্তর অনুমোদন ওয়ার্কফ্লো</li><li data-i18n="f12c" data-bn="সম্পূর্ণ অডিট ট্রেইল">সম্পূর্ণ অডিট ট্রেইল</li><li data-i18n="f12d" data-bn="লাইসেন্স কী — ভেন্ডর নিয়ন্ত্রিত">লাইসেন্স কী — ভেন্ডর নিয়ন্ত্রিত</li></ul>
       </div>
-
-      <div class="fcard">
+<div class="fcard">
         <div class="f-ico">🏠</div>
-        <h3>মালিক পোর্টাল ও অফলাইন</h3>
-        <ul>
-          <li>মালিক পোর্টাল: নিজের বিল, বকেয়া, পেমেন্ট, নোটিশ, অভিযোগ</li>
-          <li>অফলাইন + অটো-সিঙ্ক: ইন্টারনেট না থাকলেও কাজ চলে</li>
-          <li>মোবাইল, ট্যাবলেট, ডেস্কটপ — সব ডিভাইসে রেসপনসিভ</li>
-        </ul>
+        <h3 data-i18n="f13" data-bn="মালিক পোর্টাল ও অফলাইন">মালিক পোর্টাল ও অফলাইন</h3>
+        <ul><li data-i18n="f13a" data-bn="মালিক পোর্টাল: বিল, বকেয়া, পেমেন্ট, নোটিশ">মালিক পোর্টাল: বিল, বকেয়া, পেমেন্ট, নোটিশ</li><li data-i18n="f13b" data-bn="অফলাইন + অটো-সিঙ্ক">অফলাইন + অটো-সিঙ্ক</li><li data-i18n="f13c" data-bn="সব ডিভাইসে রেসপনসিভ">সব ডিভাইসে রেসপনসিভ</li></ul>
       </div>
-
-    </div>
-  </div>
-</section>
-
-
-<section class="gallery" id="screens" style="background:#fff">
-  <div class="container">
-    <div class="sec-head">
-      <div class="kicker">PRODUCT IN ACTION</div>
-      <h2>লাইভ সিস্টেমের স্ক্রিনশট</h2>
-      <p>ডেমো মল (রাজ্জাক প্লাজা) থেকে বাস্তব স্ক্রিন — বাংলা ইন্টারফেসে।</p>
-    </div>
-    <div class="ggrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px">
-      <figure style="margin:0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff">
-        <img src="img/01_dashboard.png" alt="Dashboard" style="width:100%;display:block" loading="lazy">
-        <figcaption style="padding:12px 14px;font-size:13px;color:var(--mut)">📊 ড্যাশবোর্ড — আদায়, বকেয়া, ব্যয়, ক্যাশ ব্যালেন্স</figcaption>
-      </figure>
-      <figure style="margin:0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff">
-        <img src="img/02_invoices.png" alt="Invoices" style="width:100%;display:block" loading="lazy">
-        <figcaption style="padding:12px 14px;font-size:13px;color:var(--mut)">🧾 ইনভয়েস ভিউ — প্রতি দোকানের সম্মিলিত বিল + PDF</figcaption>
-      </figure>
-      <figure style="margin:0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff">
-        <img src="img/03_payments.png" alt="Payments" style="width:100%;display:block" loading="lazy">
-        <figcaption style="padding:12px 14px;font-size:13px;color:var(--mut)">💳 পেমেন্ট ভিউ — প্রতিটি রসিদ, পদ্ধতি ও অ্যাকাউন্ট</figcaption>
-      </figure>
-      <figure style="margin:0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff">
-        <img src="img/04_bill_form.png" alt="Printed bill form" style="width:100%;display:block" loading="lazy">
-        <figcaption style="padding:12px 14px;font-size:13px;color:var(--mut)">🖨️ মুদ্রিত বিল — ঐতিহ্যবাহী কমিটি বিল প্যাডের আদলে</figcaption>
-      </figure>
-      <figure style="margin:0;border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff;grid-column:1/-1">
-        <img src="img/05_module_map.png" alt="Module map" style="width:100%;display:block" loading="lazy">
-        <figcaption style="padding:12px 14px;font-size:13px;color:var(--mut)">🧩 মডিউল ম্যাপ — ১৩টি মডিউল এক সিস্টেমে</figcaption>
-      </figure>
     </div>
   </div>
 </section>
 
 <section class="strip">
   <div class="container">
-    <div class="st"><b>১০০%</b><span>বাংলা ইন্টারফেস</span></div>
-    <div class="st"><b>৪</b><span>বিলিং মডেল</span></div>
-    <div class="st"><b>৫</b><span>ব্যবহারকারীর রোল</span></div>
-    <div class="st"><b>২-স্তর</b><span>অনুমোদন ওয়ার্কফ্লো</span></div>
-    <div class="st"><b>অফলাইন</b><span>অটো-সিঙ্কসহ</span></div>
+    <div class="st"><b data-i18n="st1_b" data-bn="১০০%">১০০%</b><span data-i18n="st1_l" data-bn="বাংলা ইন্টারফেস">বাংলা ইন্টারফেস</span></div>
+    <div class="st"><b data-i18n="st2_b" data-bn="৪">৪</b><span data-i18n="st2_l" data-bn="বিলিং মডেল">বিলিং মডেল</span></div>
+    <div class="st"><b data-i18n="st3_b" data-bn="৫">৫</b><span data-i18n="st3_l" data-bn="ব্যবহারকারীর রোল">ব্যবহারকারীর রোল</span></div>
+    <div class="st"><b data-i18n="st4_b" data-bn="২-স্তর">২-স্তর</b><span data-i18n="st4_l" data-bn="অনুমোদন ওয়ার্কফ্লো">অনুমোদন ওয়ার্কফ্লো</span></div>
+    <div class="st"><b data-i18n="st5_b" data-bn="অফলাইন">অফলাইন</b><span data-i18n="st5_l" data-bn="অটো-সিঙ্কসহ">অটো-সিঙ্কসহ</span></div>
+  </div>
+</section>
+
+<section class="gallery" id="screens" style="background:#fff">
+  <div class="container">
+    <div class="sec-head">
+      <div class="kicker" data-i18n="g_kicker" data-bn="PRODUCT IN ACTION">PRODUCT IN ACTION</div>
+      <h2 data-i18n="g_title" data-bn="লাইভ সিস্টেমের স্ক্রিনশট">লাইভ সিস্টেমের স্ক্রিনশট</h2>
+      <p data-i18n="g_sub" data-bn="ডেমো মল (রাজ্জাক প্লাজা) থেকে বাস্তব স্ক্রিন — বাংলা ইন্টারফেসে।">ডেমো মল (রাজ্জাক প্লাজা) থেকে বাস্তব স্ক্রিন — বাংলা ইন্টারফেসে।</p>
+    </div>
+    <div class="ggrid">
+      <figure><img src="img/01_dashboard.png" alt="Dashboard" loading="lazy"><figcaption data-i18n="g_cap1" data-bn="ড্যাশবোর্ড — আদায়, বকেয়া, ব্যয়, ক্যাশ ব্যালেন্স">ড্যাশবোর্ড — আদায়, বকেয়া, ব্যয়, ক্যাশ ব্যালেন্স</figcaption></figure>
+      <figure><img src="img/02_invoices.png" alt="Invoices" loading="lazy"><figcaption data-i18n="g_cap2" data-bn="ইনভয়েস ভিউ — প্রতি দোকানের সম্মিলিত বিল + PDF">ইনভয়েস ভিউ — প্রতি দোকানের সম্মিলিত বিল + PDF</figcaption></figure>
+      <figure><img src="img/03_payments.png" alt="Payments" loading="lazy"><figcaption data-i18n="g_cap3" data-bn="পেমেন্ট ভিউ — প্রতিটি রসিদ, পদ্ধতি ও অ্যাকাউন্ট">পেমেন্ট ভিউ — প্রতিটি রসিদ, পদ্ধতি ও অ্যাকাউন্ট</figcaption></figure>
+      <figure><img src="img/04_bill_form.png" alt="Printed bill" loading="lazy"><figcaption data-i18n="g_cap4" data-bn="মুদ্রিত বিল — ঐতিহ্যবাহী কমিটি বিল প্যাডের আদলে">মুদ্রিত বিল — ঐতিহ্যবাহী কমিটি বিল প্যাডের আদলে</figcaption></figure>
+      <figure style="grid-column:1/-1"><img src="img/05_module_map.png" alt="Module map" loading="lazy"><figcaption data-i18n="g_cap5" data-bn="মডিউল ম্যাপ — ১৩টি মডিউল এক সিস্টেমে">মডিউল ম্যাপ — ১৩টি মডিউল এক সিস্টেমে</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="roi" id="roi">
+  <div class="container">
+    <div class="sec-head">
+      <div class="kicker" data-i18n="roi_kicker" data-bn="ROI CALCULATOR">ROI CALCULATOR</div>
+      <h2 data-i18n="roi_title" data-bn="আপনার মলের সম্ভাব্য আদায় ক্যালকুলেটর">আপনার মলের সম্ভাব্য আদায় ক্যালকুলেটর</h2>
+      <p data-i18n="roi_sub" data-bn="দোকান সংখ্যা, গড় মাসিক বিল ও প্রত্যাশিত আদায় বৃদ্ধি দিন — বার্ষিক সাশ্রয় দেখুন।">দোকান সংখ্যা, গড় মাসিক বিল ও প্রত্যাশিত আদায় বৃদ্ধি দিন — বার্ষিক সাশ্রয় দেখুন।</p>
+    </div>
+    <div class="roi-box">
+      <label data-i18n="roi_shops" data-bn="দোকান সংখ্যা">দোকান সংখ্যা</label>
+      <input id="roiShops" type="number" min="1" value="50" placeholder="50">
+      <label data-i18n="roi_bill" data-bn="গড় মাসিক বিল (৳)">গড় মাসিক বিল (৳)</label>
+      <input id="roiBill" type="number" min="0" value="3000" placeholder="3000">
+      <label data-i18n="roi_gain" data-bn="আদায় বৃদ্ধি (%)">আদায় বৃদ্ধি (%)</label>
+      <input id="roiGain" type="number" min="0" max="100" value="15" placeholder="15">
+      <button onclick="calcRoi()" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">হিসাব করুন</button>
+      <div class="roi-out" id="roiOut">
+        <div class="big" id="roiMonth">৳0</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:2px">মাসিক বাড়তি আদায়</div>
+        <div class="big" id="roiYear" style="margin-top:10px">৳0</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:2px">বার্ষিক বাড়তি আদায়</div>
+      </div>
+      <p style="font-size:12px;color:var(--mut);text-align:center;margin-top:12px">স্বয়ংক্রিয় বিলিং + SMS রিমাইন্ডার + সংযোগ ঝুঁকি এলার্টে সাধারণত আদায় ১০–৩০% বাড়ে।</p>
+    </div>
   </div>
 </section>
 
 <section id="pricing">
   <div class="container">
     <div class="sec-head">
-      <div class="kicker">PRICING</div>
-      <h2>মূল্য কাঠামো — ৩টি মডেল</h2>
-      <p>আপনার প্রয়োজন অনুযায়ী বেছে নিন: সম্পূর্ণ ক্রয়, বার্ষিক সাবস্ক্রিপশন, অথবা ব্যবহারকারীভিত্তিক SaaS।</p>
+      <div class="kicker" data-i18n="p_kicker" data-bn="PRICING">PRICING</div>
+      <h2 data-i18n="p_title" data-bn="মূল্য কাঠামো — ৩টি মডেল">মূল্য কাঠামো — ৩টি মডেল</h2>
+      <p data-i18n="p_sub" data-bn="আপনার প্রয়োজন অনুযায়ী বেছে নিন: সম্পূর্ণ ক্রয়, বার্ষিক সাবস্ক্রিপশন, অথবা ব্যবহারকারীভিত্তিক SaaS।">আপনার প্রয়োজন অনুযায়ী বেছে নিন: সম্পূর্ণ ক্রয়, বার্ষিক সাবস্ক্রিপশন, অথবা ব্যবহারকারীভিত্তিক SaaS।</p>
     </div>
     <div class="pgrid">
-
       <div class="pcard">
-        <div class="p-ico">🖥️</div>
-        <h3>প্রোডাক্ট (On-Premise)</h3>
-        <div class="p-model">আপনার সার্ভারে সম্পূর্ণ ডিপ্লয়মেন্ট</div>
-        <div class="price">৳৫,০০,০০০ <small>এককালীন</small></div>
-        <div class="per">ক্লাউড বা লোকাল সার্ভারে সম্পূর্ণ সিস্টেম</div>
+        <div class="p-ico" data-i18n="p1_ico" data-bn="🖥️">🖥️</div>
+        <h3 data-i18n="p1_name" data-bn="প্রোডাক্ট (On-Premise)">প্রোডাক্ট (On-Premise)</h3>
+        <div class="p-model" data-i18n="p1_model" data-bn="আপনার সার্ভারে সম্পূর্ণ ডিপ্লয়মেন্ট">আপনার সার্ভারে সম্পূর্ণ ডিপ্লয়মেন্ট</div>
+        <div class="price" data-i18n="p1_price" data-bn="৳৫,০০,০০০">৳৫,০০,০০০ <small data-i18n="p1_per" data-bn="এককালীন">এককালীন</small></div>
+        <div class="per">—</div>
         <ul>
-          <li>পুরো সলিউশন গ্রাহকের সার্ভারে ডিপ্লয় (ক্লাউড/লোকাল)</li>
-          <li>আজীবন লাইসেন্স — কোনও মাসিক ফি নেই</li>
-          <li>সোর্স কোডসহ হস্তান্তর</li>
-          <li>নিজস্ব ডেটা — সম্পূর্ণ নিয়ন্ত্রণ</li>
-          <li>অফলাইন ডিপ্লয়মেন্ট সমর্থিত</li>
+          <li data-i18n="p1a" data-bn="পুরো সলিউশন গ্রাহকের সার্ভারে ডিপ্লয় (ক্লাউড/লোকাল)">পুরো সলিউশন গ্রাহকের সার্ভারে ডিপ্লয় (ক্লাউড/লোকাল)</li><li data-i18n="p1b" data-bn="আজীবন লাইসেন্স — কোনো মাসিক ফি নেই">আজীবন লাইসেন্স — কোনো মাসিক ফি নেই</li>
+          <li data-i18n="p1c" data-bn="সোর্স কোডসহ হস্তান্তর">সোর্স কোডসহ হস্তান্তর</li><li data-i18n="p1d" data-bn="নিজস্ব ডেটা — সম্পূর্ণ নিয়ন্ত্রণ">নিজস্ব ডেটা — সম্পূর্ণ নিয়ন্ত্রণ</li>
+          <li data-i18n="p1e" data-bn="অফলাইন ডিপ্লয়মেন্ট সমর্থিত">অফলাইন ডিপ্লয়মেন্ট সমর্থিত</li>
         </ul>
-        <div class="fee">🎁 ৩ মাস ফ্রি সার্ভিস (বেসিক বাগ ফিক্সিং)</div>
-        <a class="btn btn-w" href="#contact">আগ্রহী — যোগাযোগ করুন</a>
+        <div class="fee" data-i18n="p1_fee" data-bn="🎁 ৩ মাস ফ্রি সার্ভিস (বেসিক বাগ ফিক্সিং)">🎁 ৩ মাস ফ্রি সার্ভিস (বেসিক বাগ ফিক্সিং)</div>
+        <a class="btn btn-w" href="#contact" data-i18n="p1_cta" data-bn="আগ্রহী — যোগাযোগ করুন">আগ্রহী — যোগাযোগ করুন</a>
       </div>
-
       <div class="pcard featured">
-        <span class="tag">জনপ্রিয়</span>
+        <span class="tag" data-i18n="p2_tag" data-bn="জনপ্রিয়">জনপ্রিয়</span>
         <div class="p-ico">☁️</div>
-        <h3>বার্ষিক সাবস্ক্রিপশন</h3>
-        <div class="p-model">আমাদের ক্লাউডে হোস্টেড — সম্পূর্ণ স্বতন্ত্র সিস্টেম</div>
-        <div class="price">৳১,০০,০০০ <small>/ বছর</small></div>
-        <div class="per">অথবা ৳১০,০০০/মাস — বছরে ৳১,২০,০০০</div>
+        <h3 data-i18n="p2_name" data-bn="বার্ষিক সাবস্ক্রিপশন">বার্ষিক সাবস্ক্রিপশন</h3>
+        <div class="p-model" data-i18n="p2_model" data-bn="আমাদের ক্লাউডে হোস্টেড — সম্পূর্ণ স্বতন্ত্র">আমাদের ক্লাউডে হোস্টেড — সম্পূর্ণ স্বতন্ত্র</div>
+        <div class="price" data-i18n="p2_price" data-bn="৳১,০০,০০০">৳১,০০,০০০ <small data-i18n="p2_per" data-bn="/ বছর">/ বছর</small></div>
+        <div class="per" data-i18n="p2_sub" data-bn="অথবা ৳১০,০০০/মাস — বছরে ৳১,২০,০০০">অথবা ৳১০,০০০/মাস — বছরে ৳১,২০,০০০</div>
         <ul>
-          <li>আমাদের ক্লাউড সার্ভার থেকে চালু — সিস্টেম সম্পূর্ণ স্বতন্ত্র</li>
-          <li>নিজস্ব ডোমেইন/সাবডোমেইন, নিজস্ব ডেটাবেস</li>
-          <li>অগ্রাধিকার সাপোর্ট ও ব্যাকআপ</li>
-          <li>আপডেট ও উন্নয়ন অন্তর্ভুক্ত</li>
-          <li>যেকোনো সময় আপগ্রেড সম্ভব</li>
+          <li data-i18n="p2a" data-bn="আমাদের ক্লাউড সার্ভার থেকে চালু — সম্পূর্ণ স্বতন্ত্র সিস্টেম">আমাদের ক্লাউড সার্ভার থেকে চালু — সম্পূর্ণ স্বতন্ত্র সিস্টেম</li><li data-i18n="p2b" data-bn="নিজস্ব ডোমেইন ও ডেটাবেস">নিজস্ব ডোমেইন ও ডেটাবেস</li>
+          <li data-i18n="p2c" data-bn="অগ্রাধিকার সাপোর্ট ও ব্যাকআপ">অগ্রাধিকার সাপোর্ট ও ব্যাকআপ</li><li data-i18n="p2d" data-bn="আপডেট ও উন্নয়ন অন্তর্ভুক্ত">আপডেট ও উন্নয়ন অন্তর্ভুক্ত</li>
         </ul>
-        <div class="fee">📝 চুক্তির সময় ৳২০,০০০ ইমপ্লিমেন্টেশন ও সার্ভার সেটআপ ফি</div>
-        <a class="btn btn-w" href="#contact">সাবস্ক্রাইব করুন</a>
+        <div class="fee" data-i18n="p2_fee" data-bn="📝 চুক্তির সময় ৳২০,০০০ ইমপ্লিমেন্টেশন ও সার্ভার সেটআপ ফি">📝 চুক্তির সময় ৳২০,০০০ ইমপ্লিমেন্টেশন ও সার্ভার সেটআপ ফি</div>
+        <a class="btn btn-w" href="#contact" data-i18n="p2_cta" data-bn="সাবস্ক্রাইব করুন">সাবস্ক্রাইব করুন</a>
       </div>
-
       <div class="pcard">
         <div class="p-ico">👥</div>
-        <h3>SaaS / ইউজার-বেসড</h3>
-        <div class="p-model">ব্যবহারকারী বা দোকান অনুযায়ী মাসিক</div>
-        <div class="price">৳১০০ <small>/ ইউজার/দোকান/মাস</small></div>
-        <div class="per">অথবা মোট ৳৫,০০০/মাস — যেটি বেশি হয়</div>
+        <h3 data-i18n="p3_name" data-bn="SaaS / ইউজার-বেসড">SaaS / ইউজার-বেসড</h3>
+        <div class="p-model" data-i18n="p3_model" data-bn="ব্যবহারকারী বা দোকান অনুযায়ী মাসিক">ব্যবহারকারী বা দোকান অনুযায়ী মাসিক</div>
+        <div class="price" data-i18n="p3_price" data-bn="৳১০০">৳১০০ <small data-i18n="p3_per" data-bn="/ ইউজার/দোকান/মাস">/ ইউজার/দোকান/মাস</small></div>
+        <div class="per" data-i18n="p3_sub" data-bn="অথবা মোট ৳৫,০০০/মাস — যেটি বেশি হয়">অথবা মোট ৳৫,০০০/মাস — যেটি বেশি হয়</div>
         <ul>
-          <li>প্রতি ইউজার/দোকান প্রতি মাসে মাত্র ৳১০০</li>
-          <li>নূন্যতম ৳৫,০০০/মাস কম্বাইন্ড — যেটি বেশি</li>
-          <li>ছোট মার্কেট সোসাইটির জন্য আদর্শ</li>
-          <li>হোস্টিং, ব্যাকআপ, আপডেট — সব অন্তর্ভুক্ত</li>
-          <li>যেকোনো সময় আপগ্রেড/ডাউনগ্রেড</li>
+          <li data-i18n="p3a" data-bn="প্রতি ইউজার/দোকান প্রতি মাসে মাত্র ৳১০০">প্রতি ইউজার/দোকান প্রতি মাসে মাত্র ৳১০০</li><li data-i18n="p3b" data-bn="নূন্যতম ৳৫,০০০/মাস কম্বাইন্ড — যেটি বেশি">নূন্যতম ৳৫,০০০/মাস কম্বাইন্ড — যেটি বেশি</li>
+          <li data-i18n="p3c" data-bn="ছোট মার্কেট সোসাইটির জন্য আদর্শ">ছোট মার্কেট সোসাইটির জন্য আদর্শ</li><li data-i18n="p3d" data-bn="হোস্টিং, ব্যাকআপ, আপডেট — সব অন্তর্ভুক্ত">হোস্টিং, ব্যাকআপ, আপডেট — সব অন্তর্ভুক্ত</li>
         </ul>
-        <div class="fee">📝 চুক্তির সময় ৳২০,০০০ ইমপ্লিমেন্টেশন ও সার্ভার সেটআপ ফি</div>
-        <a class="btn btn-w" href="#contact">শুরু করুন</a>
+        <div class="fee" data-i18n="p3_fee" data-bn="📝 চুক্তির সময় ৳২০,০০০ ইমপ্লিমেন্টেশন ও সার্ভার সেটআপ ফি">📝 চুক্তির সময় ৳২০,০০০ ইমপ্লিমেন্টেশন ও সার্ভার সেটআপ ফি</div>
+        <a class="btn btn-w" href="#contact" data-i18n="p3_cta" data-bn="শুরু করুন">শুরু করুন</a>
       </div>
-
     </div>
-    <p class="note">সব মূল্য বাংলাদেশি টাকায় (৳)। ইমপ্লিমেন্টেশন ফি: ডেটা সেটআপ, কনফিগারেশন ও ট্রেনিং।</p>
+    <p class="note" data-i18n="p_note" data-bn="সব মূল্য বাংলাদেশি টাকায় (৳)। ইমপ্লিমেন্টেশন ফি: ডেটা সেটআপ, কনফিগারেশন ও ট্রেনিং।">সব মূল্য বাংলাদেশি টাকায় (৳)। ইমপ্লিমেন্টেশন ফি: ডেটা সেটআপ, কনফিগারেশন ও ট্রেনিং।</p>
+  </div>
+</section>
+
+<section class="testi" id="testimonials">
+  <div class="container">
+    <div class="sec-head">
+      <div class="kicker" data-i18n="t_kicker" data-bn="TESTIMONIALS">TESTIMONIALS</div>
+      <h2 data-i18n="t_title" data-bn="যারা ব্যবহার করছেন">যারা ব্যবহার করছেন</h2>
+      <p data-i18n="t_sub" data-bn="বাস্তব মার্কেট সোসাইটির অভিজ্ঞতা।">বাস্তব মার্কেট সোসাইটির অভিজ্ঞতা।</p>
+    </div>
+    <div class="tgrid">
+<div class="tcard" style="background:#fff;border:1px solid var(--bd);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:10px">
+        <div style="color:var(--gold);font-size:15px">★★★★★</div>
+        <p style="font-size:14px;color:#374151;font-style:italic;line-height:1.8" data-i18n="t1q" data-bn="রিডিং থেকে বিল, আদায় থেকে হিসাব — সব এক জায়গায়। আগে ৩ দিন লাগত, এখন ১ ঘণ্টায় মাসের বিল তৈরি হয়ে যায়।">রিডিং থেকে বিল, আদায় থেকে হিসাব — সব এক জায়গায়। আগে ৩ দিন লাগত, এখন ১ ঘণ্টায় মাসের বিল তৈরি হয়ে যায়।</p>
+        <div style="font-size:12.5px;color:var(--mut);font-weight:800" data-i18n="t1n" data-bn="সাধারণ সম্পাদক — মার্কেট সোসাইটি">— সাধারণ সম্পাদক — মার্কেট সোসাইটি</div>
+      </div>
+<div class="tcard" style="background:#fff;border:1px solid var(--bd);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:10px">
+        <div style="color:var(--gold);font-size:15px">★★★★★</div>
+        <p style="font-size:14px;color:#374151;font-style:italic;line-height:1.8" data-i18n="t2q" data-bn="SMS রিমাইন্ডারে আদায় অনেক বেড়েছে। মালিকরা বিলের তারিখ আর ভুলে যান না।">SMS রিমাইন্ডারে আদায় অনেক বেড়েছে। মালিকরা বিলের তারিখ আর ভুলে যান না।</p>
+        <div style="font-size:12.5px;color:var(--mut);font-weight:800" data-i18n="t2n" data-bn="কোষাধ্যক্ষ — কমার্শিয়াল কমপ্লেক্স">— কোষাধ্যক্ষ — কমার্শিয়াল কমপ্লেক্স</div>
+      </div>
+<div class="tcard" style="background:#fff;border:1px solid var(--bd);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:10px">
+        <div style="color:var(--gold);font-size:15px">★★★★★</div>
+        <p style="font-size:14px;color:#374151;font-style:italic;line-height:1.8" data-i18n="t3q" data-bn="বিল প্যাডের মতোই প্রিন্ট — মালিকরা সমস্যা ছাড়াই মেনে নেন। হিসাবের ব্যালেন্সও সবসময় ঠিক থাকে।">বিল প্যাডের মতোই প্রিন্ট — মালিকরা সমস্যা ছাড়াই মেনে নেন। হিসাবের ব্যালেন্সও সবসময় ঠিক থাকে।</p>
+        <div style="font-size:12.5px;color:var(--mut);font-weight:800" data-i18n="t3n" data-bn="ম্যানেজার — শপিং মল">— ম্যানেজার — শপিং মল</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="background:#fff">
+  <div class="container" style="max-width:820px">
+    <div class="sec-head">
+      <div class="kicker" data-i18n="faq_kicker" data-bn="FAQ">FAQ</div>
+      <h2 data-i18n="faq_title" data-bn="সাধারণ প্রশ্ন">সাধারণ প্রশ্ন</h2>
+      <p data-i18n="faq_sub" data-bn="সবচেয়ে বেশি জিজ্ঞাসিত প্রশ্নের উত্তর।">সবচেয়ে বেশি জিজ্ঞাসিত প্রশ্নের উত্তর।</p>
+    </div>
+    <details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কোন সার্ভারে সিস্টেম চলে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">সাধারণ শেয়ার্ড হোস্টিং (cPanel) চলে — আলাদা সার্ভার বা ডাটাবেস লাইসেন্স লাগে না। PHP 8 + SQLite।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">পুরনো বিল-খাতা থেকে ডেটা স্থানান্তর হয়?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হ্যাঁ — দোকান, মালিক, বর্তমান রিডিং ও চলতি বকেয়া আমদানি করা যায়। ইমপ্লিমেন্টেশন ফির মধ্যে ডেটা সেটআপ অন্তর্ভুক্ত।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কোন কোন পেমেন্ট পদ্ধতি সাপোর্ট করে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">ক্যাশ, ব্যাংক ট্রান্সফার, বিকাশ, নগদ — একাধিক ব্যাংক ও মোবাইল অ্যাকাউন্টসহ। প্রতিটি আদায়ে তাৎক্ষণিক রসিদ ও SMS।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কমিটির সদস্যরা কি বাংলায় ব্যবহার করতে পারবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">অবশ্যই — সিস্টেম বাংলায় ডিফল্ট চালু হয়; ইংরেজি টগলও আছে। মুদ্রিত বিল ও রসিদও বাংলায়।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">বিল প্রিন্ট দেখতে কেমন?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হুবহু ঐতিহ্যবাহী কমিটি বিল প্যাডের মতো — বিদ্যুৎ/সার্ভিস চার্জ হেডার, নম্বরযুক্ত ফিল্ড, নিয়মাবলী ও দুই সই। A4/A5/½+½ প্রিন্ট ও PDF।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">ইন্টারনেট না থাকলে কাজ হবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হ্যাঁ — অফলাইন মোডে রিডিং ও আদায় করা যায়; ইন্টারনেট ফিরলে অটো-সিঙ্ক হয়।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">SMS পাঠানো হয় কীভাবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">bulksmsbd গেটওয়ে দিয়ে — রসিদ, বকেয়া রিমাইন্ডার, সংযোগ সতর্কতা, নোটিশ। সব বাংলায়।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">কয়টি ইউজার একসাথে ব্যবহার করতে পারবে?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">সুপার অ্যাডমিন, মালিক, ম্যানেজার, হিসাবরক্ষক ও কালেক্টর — ৫টি রোল। SaaS মডেলে প্রতি ইউজার/দোকান ৳১০০।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">সাপোর্ট কীভাবে পাব?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">ইমপ্লিমেন্টেশনের পর ৩ মাস ফ্রি বেসিক সাপোর্ট (অন-প্রিমাইস)। সাবস্ক্রিপশন/SaaS-এ অগ্রাধিকার সাপোর্ট, ব্যাকআপ ও আপডেট।</div>
+      </details>
+<details class="faq" style="background:#fff;border:1px solid var(--bd);border-radius:14px;padding:0;margin-bottom:10px">
+        <summary style="cursor:pointer;padding:15px 18px;font-weight:800;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center">ডেমো কি পুরোপুরি ফ্রি?<span style="color:var(--red);font-size:18px">▾</span></summary>
+        <div style="padding:0 18px 16px;font-size:13.5px;color:#374151;line-height:1.9">হ্যাঁ — লাইভ ডেমোতে সব ফিচার ব্যবহার করে দেখতে পারেন, আপনার নাম/মোবাইল দিলেই ডেমো লগইন পেয়ে যাবেন।</div>
+      </details>
   </div>
 </section>
 
 <section class="demo" id="demo">
   <div class="container">
-    <h2>🖥️ লাইভ ডেমো দেখুন</h2>
-    <p>ডেমো মল (রাজ্জাক প্লাজা) — ১৫টি দোকান, ১১১টি বিল, সম্পূর্ণ হিসাবসহ। বাংলায় চালু করা আছে — লগইন করেই সব ফিচার ঘুরে দেখুন।</p>
+    <h2 data-i18n="demo_title" data-bn="🖥️ লাইভ ডেমো দেখুন">🖥️ লাইভ ডেমো দেখুন</h2>
+    <p data-i18n="demo_sub" data-bn="ডেমো মল (রাজ্জাক প্লাজা) — ১৫টি দোকান, ১১১টি বিল, সম্পূর্ণ হিসাবসহ। বাংলায় চালু — লগইন করেই সব ফিচার ঘুরে দেখুন।">ডেমো মল (রাজ্জাক প্লাজা) — ১৫টি দোকান, ১১১টি বিল, সম্পূর্ণ হিসাবসহ। বাংলায় চালু — লগইন করেই সব ফিচার ঘুরে দেখুন।</p>
     <a class="btn btn-w" href="#" onclick="openLead();return false" style="background:var(--red);color:#fff">লাইভ ডেমো খুলুন →</a>
   </div>
 </section>
@@ -405,67 +410,209 @@ section{padding:64px 0}
 <footer class="footer" id="contact">
   <div class="container">
     <div>
-      <h4>🏬 Mall Manager</h4>
-      <p>Commercial Building Management System (BMS)<br>শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটি</p>
-      <p style="margin-top:10px;font-size:12.5px;color:#64748b">Prepared by <b style="color:#cbd5e1">KRTaker</b> (A concern of BITSCOL)<br>Marketed by <b style="color:#cbd5e1">Appvaley</b></p>
+      <h4 data-i18n="ft_brand" data-bn="🏬 Mall Manager">🏬 Mall Manager</h4>
+      <p data-i18n="ft_brand_desc" data-bn="Commercial Building Management System (BMS) — শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটি">Commercial Building Management System (BMS) — শপিং মল · কমার্শিয়াল কমপ্লেক্স · মার্কেট সোসাইটি</p>
+      <p style="margin-top:10px;font-size:12.5px;color:#64748b">প্রস্তুতকারী: <b style="color:#cbd5e1">KRTaker</b> (A concern of BITSCOL)<br>বিপণনে: <b style="color:#cbd5e1">Appvaley</b></p>
     </div>
     <div>
-      <h4>📄 ব্রোশিওর ডাউনলোড</h4>
-      <p style="margin-bottom:10px">সম্পূর্ণ ফিচার তালিকা, স্ক্রিনশট ও মূল্য — PDF/DOCX ফরম্যাটে:</p>
-      <a class="dl" href="brochure/mall_brochure.pdf" download style="display:inline-block;background:#fff;color:#7f1d1d;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;margin-right:8px">📕 PDF ডাউনলোড</a>
-      <a class="dl" href="brochure/mall_brochure.docx" download style="display:inline-block;background:rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;border:1px solid #334155">📘 DOCX</a>
+      <h4 data-i18n="ft_bro" data-bn="📄 ব্রোশিওর ডাউনলোড">📄 ব্রোশিওর ডাউনলোড</h4>
+      <p style="margin-bottom:10px" data-i18n="ft_bro_sub" data-bn="সম্পূর্ণ ফিচার, স্ক্রিনশট ও মূল্য — PDF/DOCX:">সম্পূর্ণ ফিচার, স্ক্রিনশট ও মূল্য — PDF/DOCX:</p>
+      <a class="dl" href="brochure/mall_brochure.pdf" download style="display:inline-block;background:#fff;color:#7f1d1d;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;margin-right:8px" data-i18n="ft_pdf" data-bn="📕 PDF ডাউনলোড">📕 PDF ডাউনলোড</a>
+      <a class="dl" href="brochure/mall_brochure.docx" download style="display:inline-block;background:rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;border:1px solid #334155" data-i18n="ft_docx" data-bn="📘 DOCX">📘 DOCX</a>
     </div>
     <div>
-      <h4>দরকারি লিংক</h4>
+      <h4 data-i18n="ft_links" data-bn="দরকারি লিংক">দরকারি লিংক</h4>
       <p>
-        <a href="#features">ফিচারসমূহ</a><br>
-        <a href="#pricing">মূল্য কাঠামো</a><br>
-        <a href="#screens">স্ক্রিনশট</a><br>
+        <a href="#features" data-i18n="nav_features" data-bn="ফিচারসমূহ">ফিচারসমূহ</a><br>
+        <a href="#pricing" data-i18n="nav_pricing" data-bn="মূল্য">মূল্য</a><br>
+        <a href="#screens">লাইভ সিস্টেমের স্ক্রিনশট</a><br>
+        <a href="#faq" data-i18n="nav_faq" data-bn="সাধারণ প্রশ্ন">সাধারণ প্রশ্ন</a><br>
         <a href="#" onclick="openLead();return false">লাইভ ডেমো</a><br>
         <a href="https://krtaker.com" target="_blank">KRTaker — Property Management</a>
       </p>
     </div>
     <div>
-      <h4>যোগাযোগ</h4>
-      <p>KRTaker (A concern of BITSCOL)<br>Marketed by Appvaley<br>
+      <h4 data-i18n="ft_contact" data-bn="যোগাযোগ">যোগাযোগ</h4>
+      <p>KRTaker (A concern of BITSCOL)<br>বিপণনে: Appvaley<br>
       📧 belal000bd@gmail.com<br>
       📱 +880 1711-853769<br>
       🌐 mall.krtaker.com</p>
     </div>
-    <div class="bottom">© 2026 Mall Manager — KRTaker (A concern of BITSCOL) · Marketed by Appvaley. All rights reserved.</div>
+    <div class="bottom">© 2026 Mall Manager — KRTaker (A concern of BITSCOL) · Marketed by Appvaley. সর্বস্বত্ব সংরক্ষিত।</div>
   </div>
 </footer>
 
+<a class="wa" href="https://wa.me/8801711853769?text=%E0%A6%86%E0%A6%AE%E0%A6%BF%20Mall%20Manager%20%E0%A6%B8%E0%A6%AE%E0%A7%8D%E0%A6%AA%E0%A6%B0%E0%A7%8D%E0%A6%95%E0%A7%87%20%E0%A6%9C%E0%A6%BE%E0%A6%A8%E0%A4%A4%E0%A7%87%20%E0%A6%9A%E0%A6%BE%E0%A6%87" target="_blank" data-i18n="wa" data-bn="💬 WhatsApp-এ কথা বলুন">💬 WhatsApp-এ কথা বলুন</a>
 
 <!-- ═════ LEAD CAPTURE MODAL (demo gate) ═════ -->
 <div id="leadModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.66);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:18px">
   <div style="background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px 26px;box-shadow:0 24px 60px rgba(0,0,0,.35);max-height:92vh;overflow:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:20px;font-weight:900;color:var(--red)">🖥️ লাইভ ডেমো</div>
+      <div style="font-size:20px;font-weight:900;color:var(--red)" data-i18n="lm_title" data-bn="🖥️ লাইভ ডেমো">🖥️ লাইভ ডেমো</div>
       <button onclick="closeLead()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--mut)">✕</button>
     </div>
-    <p style="font-size:13px;color:var(--mut);margin-bottom:18px;line-height:1.8">ডেমো অ্যাকাউন্টের লিংক ও লগইন তথ্য পেতে আপনার তথ্য দিন — SMS এর মাধ্যমে পাঠিয়ে দিচ্ছি।</p>
+    <p style="font-size:13px;color:var(--mut);margin-bottom:18px;line-height:1.8" data-i18n="lm_sub" data-bn="ডেমো অ্যাকাউন্টের লিংক ও লগইন তথ্য পেতে আপনার তথ্য দিন — SMS এর মাধ্যমে পাঠিয়ে দিচ্ছি।">ডেমো অ্যাকাউন্টের লিংক ও লগইন তথ্য পেতে আপনার তথ্য দিন — SMS এর মাধ্যমে পাঠিয়ে দিচ্ছি।</p>
     <form id="leadForm" onsubmit="submitLead(event)">
-      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px">আপনার নাম *</label>
-      <input id="leadName" type="text" required minlength="2" placeholder="যেমন: মোঃ রহিম" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:12px;font-family:inherit;outline:none">
-      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px">মোবাইল নম্বর *</label>
-      <input id="leadMobile" type="tel" required pattern="[0-9+\- ]{11,16}" placeholder="01XXXXXXXXX" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:12px;font-family:inherit;outline:none">
-      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px">ইমেইল</label>
+      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px" data-i18n="lm_name" data-bn="আপনার নাম *">আপনার নাম *</label>
+      <input id="leadName" type="text" required minlength="2" placeholder="রহিম" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:12px;font-family:inherit;outline:none">
+      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px" data-i18n="lm_mobile" data-bn="মোবাইল নম্বর *">মোবাইল নম্বর *</label>
+      <input id="leadMobile" type="tel" required pattern="[0-9+\- ](11, 16)" placeholder="01XXXXXXXXX" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:12px;font-family:inherit;outline:none">
+      <label style="font-size:12.5px;font-weight:800;color:var(--ink);display:block;margin-bottom:4px" data-i18n="lm_email" data-bn="ইমেইল">ইমেইল</label>
       <input id="leadEmail" type="email" placeholder="you@example.com" style="width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-bottom:16px;font-family:inherit;outline:none">
-      <button type="submit" id="leadBtn" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer">ডেমো তথ্য পাঠান 📲</button>
+      <button type="submit" id="leadBtn" style="width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer" data-i18n="lm_btn" data-bn="ডেমো তথ্য পাঠান 📲">ডেমো তথ্য পাঠান 📲</button>
     </form>
     <div id="leadDone" style="display:none;text-align:center">
       <div style="font-size:40px;margin-bottom:6px">✅</div>
-      <div style="font-size:17px;font-weight:900;color:var(--ok);margin-bottom:6px">ধন্যবাদ! ডেমো তথ্য প্রস্তুত</div>
-      <p id="leadNote" style="font-size:13px;color:var(--mut);margin-bottom:14px;line-height:1.8">SMS পাঠানো হয়েছে। নিচের বাটনে ক্লিক করে ডেমো খুলুন।</p>
+      <div style="font-size:17px;font-weight:900;color:var(--ok);margin-bottom:6px" data-i18n="lm_done" data-bn="ধন্যবাদ! ডেমো তথ্য প্রস্তুত">ধন্যবাদ! ডেমো তথ্য প্রস্তুত</div>
+      <p id="leadNote" style="font-size:13px;color:var(--mut);margin-bottom:14px;line-height:1.8" data-i18n="lm_note" data-bn="SMS পাঠানো হয়েছে। নিচের বাটনে ক্লিক করে ডেমো খুলুন।">SMS পাঠানো হয়েছে। নিচের বাটনে ক্লিক করে ডেমো খুলুন।</p>
       <div id="leadCreds" style="background:#f8fafc;border:1px dashed var(--bd);border-radius:12px;padding:12px 14px;font-size:13px;text-align:left;margin-bottom:16px;line-height:2"></div>
-      <a id="leadGo" href="https://appvaley.com/mall/" target="_blank" style="display:inline-block;padding:13px 30px;background:var(--red);color:#fff;border-radius:12px;font-weight:800">ডেমোতে যান →</a>
-      <div style="margin-top:12px"><a href="#" onclick="closeLead();return false" style="font-size:12.5px;color:var(--mut)">পরে দেখব</a></div>
+      <a id="leadGo" href="https://appvaley.com/mall/" target="_blank" style="display:inline-block;padding:13px 30px;background:var(--red);color:#fff;border-radius:12px;font-weight:800" data-i18n="lm_go" data-bn="ডেমোতে যান →">ডেমোতে যান →</a>
+      <div style="margin-top:12px"><a href="#" onclick="closeLead();return false" style="font-size:12.5px;color:var(--mut)" data-i18n="lm_later" data-bn="পরে দেখব">পরে দেখব</a></div>
     </div>
     <div id="leadErr" style="display:none;margin-top:12px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:10px 13px;font-size:13px"></div>
   </div>
 </div>
+
 <script>
+var I18N = {
+  nav_features: {en: "Features" },
+  nav_pricing: {en: "Pricing" },
+  nav_faq: {en: "FAQ" },
+  nav_demo: {en: "Live Demo" },
+  nav_contact: {en: "Contact" },
+  hero_badge: {en: "Commercial Building Management System — BMS" },
+  hero_title: {en: "MALL MANAGER" },
+  hero_sub: {en: "Complete management for shopping malls, commercial complexes & market societies" },
+  hero_desc: {en: "Automatic service-charge billing, sub-meter electricity/water billing, collections with instant receipts, full double-entry accounting, owner portal and a Bangla-first interface — all in one system. Printed bills replicate the traditional committee bill pad exactly." },
+  hero_cta_price: {en: "See Pricing" },
+  hero_cta_demo: {en: "Try the Live Demo" },
+  hero_chip1: {en: "Bangla interface" },
+  hero_chip2: {en: "bKash/Nagad/Bank/Cash" },
+  hero_chip3: {en: "DESCO/WASA billing" },
+  hero_chip4: {en: "Offline + auto-sync" },
+  hero_chip5: {en: "Owner portal" },
+  f_kicker: {en: "PRODUCT FEATURES" },
+  f_title: {en: "Complete Feature List" },
+  f_sub: {en: "13 modules — everything from meter readings to the annual general meeting in one system." },
+  f1: {en: "Spaces & Ownership Management" },
+  f2: {en: "Service-Charge Billing Engine" },
+  f3: {en: "Sub-Meter Electricity & Water Billing" },
+  f4: {en: "Collections, Receipts & Payments" },
+  f5: {en: "Complete Double-Entry Accounting" },
+  f6: {en: "Financial Views for the Committee" },
+  f7: {en: "Alerts, AMC & Risk Management" },
+  f8: {en: "SMS & Communication" },
+  f9: {en: "Vendors, Expenses & Assets" },
+  f10: {en: "Complaints & Maintenance" },
+  f11: {en: "Governance & Committee" },
+  f12: {en: "Security, Roles & Audit" },
+  f13: {en: "Owner Portal & Offline" },
+  st1_b: {en: "100%" },
+  st1_l: {en: "Bangla interface" },
+  st2_b: {en: "4" },
+  st2_l: {en: "Billing models" },
+  st3_b: {en: "5" },
+  st3_l: {en: "User roles" },
+  st4_b: {en: "2-level" },
+  st4_l: {en: "Approval workflow" },
+  st5_b: {en: "Offline" },
+  st5_l: {en: "with auto-sync" },
+  g_kicker: {en: "PRODUCT IN ACTION" },
+  g_title: {en: "Screenshots of the Live System" },
+  g_sub: {en: "Real screens from the demo mall (Razzak Plaza) — Bangla interface." },
+  g_cap1: {en: "Dashboard — collections, dues, expenses, cash balances" },
+  g_cap2: {en: "Invoices — combined bills per space + PDF" },
+  g_cap3: {en: "Payments — every receipt, method & account" },
+  g_cap4: {en: "Printed bill — replicates the traditional committee pad" },
+  g_cap5: {en: "Module map — 13 modules in one system" },
+  roi_kicker: {en: "ROI CALCULATOR" },
+  roi_title: {en: "Estimate Your Mall’s Collection Potential" },
+  roi_sub: {en: "Enter your shops, average bill and expected collection improvement — see the annual gain." },
+  roi_shops: {en: "Number of shops" },
+  roi_bill: {en: "Average monthly bill (৳)" },
+  roi_gain: {en: "Collection improvement (%)" },
+  roi_btn: {en: "Calculate" },
+  roi_month: {en: "Extra collection per month" },
+  roi_year: {en: "Extra collection per year" },
+  roi_note: {en: "With auto-billing + SMS reminders + disconnection alerts, collections typically rise 10–30%." },
+  p_kicker: {en: "PRICING" },
+  p_title: {en: "Pricing — 3 Models" },
+  p_sub: {en: "Choose what fits: full purchase, yearly subscription, or user-based SaaS." },
+  p1_ico: {en: "🖥️" },
+  p1_name: {en: "Product (On-Premise)" },
+  p1_model: {en: "Full deployment on your server" },
+  p1_price: {en: "৳5,00,000" },
+  p1_per: {en: "one-time" },
+  p1a: {en: "Full solution deployed on your server (cloud/local)" },
+  p1b: {en: "Lifetime license — no monthly fee" },
+  p1c: {en: "Source code included" },
+  p1d: {en: "Your data, full control" },
+  p1e: {en: "Offline deployment supported" },
+  p1_fee: {en: "🎁 3 months free service (basic bug fixing)" },
+  p1_cta: {en: "Interested — Contact Us" },
+  p2_tag: {en: "Most Popular" },
+  p2_name: {en: "Yearly Subscription" },
+  p2_model: {en: "Hosted on our cloud — fully standalone" },
+  p2_price: {en: "৳1,00,000" },
+  p2_per: {en: "/ year" },
+  p2_sub: {en: "or ৳10,000/month — ৳1,20,000/year" },
+  p2a: {en: "Runs from our cloud — completely standalone system" },
+  p2b: {en: "Own domain & database" },
+  p2c: {en: "Priority support & backups" },
+  p2d: {en: "Updates & improvements included" },
+  p2_fee: {en: "📝 ৳20,000 implementation & server setup fee at agreement" },
+  p2_cta: {en: "Subscribe" },
+  p3_name: {en: "SaaS / User-Based" },
+  p3_model: {en: "Per user or shop, monthly" },
+  p3_price: {en: "৳100" },
+  p3_per: {en: "/ user/shop/month" },
+  p3_sub: {en: "or ৳5,000/month combined — whichever is higher" },
+  p3a: {en: "Only ৳100 per user/shop per month" },
+  p3b: {en: "Minimum ৳5,000/month combined — whichever is higher" },
+  p3c: {en: "Ideal for small market societies" },
+  p3d: {en: "Hosting, backup, updates — all included" },
+  p3_fee: {en: "📝 ৳20,000 implementation & server setup fee at agreement" },
+  p3_cta: {en: "Get Started" },
+  p_note: {en: "All prices in BDT (৳). Implementation fee covers data setup, configuration & training." },
+  faq_kicker: {en: "FAQ" },
+  faq_title: {en: "Frequently Asked Questions" },
+  faq_sub: {en: "Answers to the most common questions." },
+  t_kicker: {en: "TESTIMONIALS" },
+  t_title: {en: "Trusted by Committees" },
+  t_sub: {en: "Experiences from real market societies." },
+  t1q: {en: "From readings to bills to accounts — everything in one place. What took 3 days now takes 1 hour." },
+  t1n: {en: "General Secretary — Market Society" },
+  t2q: {en: "SMS reminders raised collections significantly — owners no longer forget bill dates." },
+  t2n: {en: "Treasurer — Commercial Complex" },
+  t3q: {en: "The print looks exactly like the bill pad — owners accept it without question. The books always balance." },
+  t3n: {en: "Manager — Shopping Mall" },
+  demo_title: {en: "🖥️ See the Live Demo" },
+  demo_sub: {en: "Demo mall (Razzak Plaza) — 15 shops, 111 bills, full books. Runs in Bangla — log in and explore everything." },
+  demo_btn: {en: "Open Live Demo →" },
+  ft_brand: {en: "🏬 Mall Manager" },
+  ft_brand_desc: {en: "Commercial Building Management System (BMS) — shopping malls, commercial complexes, market societies" },
+  ft_prep: {en: "Prepared by:" },
+  ft_market: {en: "Marketed by:" },
+  ft_bro: {en: "📄 Download Brochure" },
+  ft_bro_sub: {en: "Full features, screenshots & pricing — PDF/DOCX:" },
+  ft_pdf: {en: "📕 PDF Download" },
+  ft_docx: {en: "📘 DOCX" },
+  ft_links: {en: "Quick Links" },
+  ft_contact: {en: "Contact" },
+  ft_rights: {en: "All rights reserved." },
+};
+var lang = localStorage.getItem('mall_lang') || 'bn';
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var k = el.getAttribute('data-i18n');
+    var txt = lang === 'en' ? (I18N[k] && I18N[k].en || el.getAttribute('data-bn')) : el.getAttribute('data-bn');
+    if (txt !== null) el.textContent = txt;
+  });
+  document.documentElement.lang = lang === 'en' ? 'en' : 'bn';
+  document.getElementById('langBtn').textContent = lang === 'en' ? 'বাংলা' : 'English';
+}
+function toggleLang() { lang = lang === 'bn' ? 'en' : 'bn'; localStorage.setItem('mall_lang', lang); applyLang(); }
+applyLang();
 function openLead(){document.getElementById('leadModal').style.display='flex';document.getElementById('leadForm').style.display='block';document.getElementById('leadDone').style.display='none';document.getElementById('leadErr').style.display='none';document.getElementById('leadName').focus();}
 function closeLead(){document.getElementById('leadModal').style.display='none';}
 document.getElementById('leadModal').addEventListener('click',function(e){if(e.target.id==='leadModal')closeLead();});
@@ -473,7 +620,7 @@ async function submitLead(ev){
   ev.preventDefault();
   var err=document.getElementById('leadErr'),btn=document.getElementById('leadBtn');
   err.style.display='none';
-  btn.disabled=true;btn.textContent='পাঠানো হচ্ছে…';
+  btn.disabled=true;btn.textContent= lang==='en' ? 'Sending…' : 'পাঠানো হচ্ছে…';
   var fd=new FormData();
   fd.append('name',document.getElementById('leadName').value.trim());
   fd.append('mobile',document.getElementById('leadMobile').value.trim());
@@ -482,22 +629,32 @@ async function submitLead(ev){
   try{
     var r=await fetch('lead.php',{method:'POST',body:fd});
     var j=await r.json();
-    if(!j.ok){err.textContent=j.error||'দুঃখিত, কিছু ভুল হয়েছে। আবার চেষ্টা করুন।';err.style.display='block';btn.disabled=false;btn.textContent='ডেমো তথ্য পাঠান 📲';return;}
+    if(!j.ok){err.textContent=j.error||(lang==='en'?'Something went wrong. Try again.':'দুঃখিত, কিছু ভুল হয়েছে। আবার চেষ্টা করুন।');err.style.display='block';btn.disabled=false;btn.textContent=lang==='en'?'Get Demo Info 📲':'ডেমো তথ্য পাঠান 📲';return;}
     document.getElementById('leadForm').style.display='none';
     var c=j.creds||{};
-    var note='আপনার নম্বরে ডেমো তথ্য পাঠানো হয়েছে।';
-    if(j.sms&&!j.sms.ok)note='ডেমো মোডে SMS বন্ধ আছে — লগইন তথ্য নিচে দেখানো হলো।';
+    var note= lang==='en' ? 'Demo details sent to your number.' : 'আপনার নম্বরে ডেমো তথ্য পাঠানো হয়েছে।';
+    if(j.sms&&!j.sms.ok)note= lang==='en' ? 'Demo mode — SMS is off; credentials shown below.' : 'ডেমো মোডে SMS বন্ধ আছে — লগইন তথ্য নিচে দেখানো হলো।';
     document.getElementById('leadNote').textContent=note;
     document.getElementById('leadCreds').innerHTML=
-      '<b>লিংক:</b> <a href="'+(j.demo_url||'https://appvaley.com/mall/')+'" target="_blank">appvaley.com/mall</a><br>'+
-      '<b>লগইন ইমেইল:</b> '+(c.email||'—')+'<br><b>পাসওয়ার্ড:</b> '+(c.password||'—');
+      '<b>'+ (lang==='en'?'Link:':'লিংক:') +'</b> <a href="'+(j.demo_url||'https://appvaley.com/mall/')+'" target="_blank">appvaley.com/mall</a><br>'+
+      '<b>'+ (lang==='en'?'Login email:':'লগইন ইমেইল:') +'</b> '+(c.email||'—')+'<br><b>'+ (lang==='en'?'Password:':'পাসওয়ার্ড:') +'</b> '+(c.password||'—');
     document.getElementById('leadDone').style.display='block';
   }catch(e){
-    err.textContent='নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।';err.style.display='block';
-    btn.disabled=false;btn.textContent='ডেমো তথ্য পাঠান 📲';
+    err.textContent= lang==='en' ? 'Network error — try again.' : 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।';
+    err.style.display='block';
+    btn.disabled=false;btn.textContent=lang==='en'?'Get Demo Info 📲':'ডেমো তথ্য পাঠান 📲';
   }
 }
+function calcRoi(){
+  var s=parseInt(document.getElementById('roiShops').value)||0;
+  var b=parseInt(document.getElementById('roiBill').value)||0;
+  var g=parseInt(document.getElementById('roiGain').value)||0;
+  var month=Math.round(s*b*g/100);
+  var year=month*12;
+  document.getElementById('roiMonth').textContent='৳'+month.toLocaleString('en-IN');
+  document.getElementById('roiYear').textContent='৳'+year.toLocaleString('en-IN');
+  document.getElementById('roiOut').style.display='block';
+}
 </script>
-
 </body>
 </html>
