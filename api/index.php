@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260939) {
+        if ($__sv < 20260940) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -528,6 +528,12 @@ function db() {
                   ['1022', 'EBL Account', 'Asset', 'Third bank account'], 
                   ['1031', 'bKash (Business)', 'Asset', 'Business bKash number — separate from the main bKash'],
                   ['1032', 'Nagad Account', 'Asset', 'Nagad mobile banking account']] as $a) $insPay->execute($a);
+        /* V2.10: bank statement import & reconciliation (spec 3.7) */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_bank_stmt (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, acct_id INTEGER DEFAULT 0, batch TEXT DEFAULT '',
+            stmt_date TEXT DEFAULT '', descr TEXT DEFAULT '', out INTEGER DEFAULT 0, inn INTEGER DEFAULT 0,
+            balance INTEGER DEFAULT 0, raw TEXT DEFAULT '', matched INTEGER DEFAULT 0,
+            matched_ref TEXT DEFAULT '', matched_kind TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
         /* V2.8 (continued): multi-level COA — parent + group columns,
            group headings (1000 Assets · 1100 Fixed Assets · 2000 Liabilities ·
            3000 Equity · 4000 Income · 5000 Expenses), parents on every
@@ -1475,7 +1481,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260939'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260940'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15167,13 +15173,14 @@ case 'mall': {
                    'expense-add', 'expense-del', 'complaint-add', 'complaint-status', 'complaint-del',
                    'asset-add', 'asset-update', 'asset-del', 'notice-add', 'notice-del', 'notice-pin',
                    'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject', 'acct-map-set', 'income-add', 'exit-request', 'exit-approve',
-                   'waiver-request', 'waiver-decide', 'payment-void-request', 'payment-void-decide'];
+                   'waiver-request', 'waiver-decide', 'payment-void-request', 'payment-void-decide',
+                   'bank-stmt-parse', 'bank-stmt-import', 'bank-stmt-del'];
     $collector_ok = ['collect', 'meter', 'readings'];
     if ($is_collector) {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids', 'bank-stmt-list'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -16238,6 +16245,142 @@ case 'mall': {
         $sql .= ' ORDER BY p.id DESC LIMIT 200';
         $st = $pdo->prepare($sql); $st->execute($args);
         json_out(['ok' => true, 'salaries' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* ── V2.10 (spec 3.7): BANK STATEMENT IMPORT & RECONCILIATION ──
+       parse a bank/mobile-banking CSV export → preview → import → auto-match
+       against the system entries for that account (amount + ±3-day window). */
+    $stmt_parse_csv = function ($csv) {
+        $lines = preg_split('/\r\n|\r|\n/', trim($csv));
+        $rows = [];
+        foreach ($lines as $ln) {
+            $ln = trim($ln);
+            if ($ln === '') continue;
+            $f = str_getcsv($ln);
+            if (count($f) >= 2) $rows[] = $f;
+        }
+        $normAmt = function ($v) {
+            $v = trim((string)$v);
+            $neg = (strpos($v, '(') !== false && substr($v, -1) === ')') || strpos($v, '-') === 0;
+            $v = preg_replace('/[^0-9.]/', '', $v);
+            $v = (float)$v;
+            if ($neg) $v = -$v;
+            return (int)round($v);
+        };
+        $dateNorm = function ($v) {
+            $v = trim((string)$v);
+            $m = [];
+            if (preg_match('~(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})~', $v, $m)) return sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+            if (preg_match('~(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})~', $v, $m)) return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
+            return '';
+        };
+        /* header detection: find the column indexes by keyword */
+        $hdrIdx = -1; $cols = [];
+        for ($i = 0; $i < min(12, count($rows)); $i++) {
+            $joined = strtolower(implode(' ', $rows[$i]));
+            if (preg_match('/date/', $joined) && preg_match('/(debit|withdraw|credit|deposit|amount|balance)/', $joined)) { $hdrIdx = $i; break; }
+        }
+        if ($hdrIdx >= 0) {
+            $hdr = $rows[$hdrIdx];
+            $find = function ($keys) use ($hdr) {
+                foreach ($hdr as $i => $h) { $h = strtolower(trim($h)); foreach ($keys as $k) if (strpos($h, $k) !== false) return $i; }
+                return -1;
+            };
+            $cols = [
+                'date' => $find(['date']), 'descr' => $find(['descript', 'narrat', 'particular', 'detail', 'remark', 'memo', 'ref']),
+                'out' => $find(['debit', 'withdraw', 'payment', ' dr', 'out']), 'inn' => $find(['credit', 'deposit', ' cr', 'in']),
+                'balance' => $find(['balance', 'closing', 'avail']),
+            ];
+        }
+        $parsed = [];
+        for ($i = $hdrIdx + 1; $i < count($rows); $i++) {
+            $f = $rows[$i];
+            $g = function ($idx) use ($f) { return ($idx >= 0 && $idx < count($f)) ? trim($f[$idx]) : ''; };
+            if ($hdrIdx >= 0) {
+                $date = $dateNorm($g($cols['date'])); $descr = $g($cols['descr']);
+                $out = $normAmt($g($cols['out'])); $inn = $normAmt($g($cols['inn']));
+                $bal = $normAmt($g($cols['balance']));
+            } else {
+                $date = $dateNorm($g(0)); $descr = $g(1);
+                $out = $normAmt($g(2)); $inn = $normAmt($g(3)); $bal = count($f) > 4 ? $normAmt($g(4)) : 0;
+            }
+            if ($date === '' || ($out === 0 && $inn === 0 && $bal === 0)) continue;
+            $parsed[] = ['date' => $date, 'descr' => $descr ?: '—', 'out' => $out, 'in' => $inn, 'balance' => $bal];
+            if (count($parsed) >= 600) break;
+        }
+        return ['cols' => $cols, 'header_idx' => $hdrIdx, 'rows' => $parsed];
+    };
+    if ($a === 'bank-stmt-parse') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $csv = (string)($body['csv'] ?? '');
+        if (strlen($csv) < 10) json_out(['ok' => false, 'error' => 'CSV content missing.'], 400);
+        $r = $stmt_parse_csv($csv);
+        if (empty($r['rows'])) json_out(['ok' => false, 'error' => 'No statement rows detected. Check that the file has Date + Debit/Credit columns (or Date, Desc, Out, In, Balance).'], 400);
+        $totIn = array_sum(array_column($r['rows'], 'in')); $totOut = array_sum(array_column($r['rows'], 'out'));
+        json_out(['ok' => true, 'columns' => $r['cols'], 'rows' => $r['rows'], 'total_in' => $totIn, 'total_out' => $totOut]);
+    }
+    if ($a === 'bank-stmt-import') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $acctId = (int)($body['acct_id'] ?? 0);
+        $rows = $body['rows'] ?? [];
+        if (!$acctId || !is_array($rows) || empty($rows)) json_out(['ok' => false, 'error' => 'Account and parsed rows required.'], 400);
+        $st = $pdo->prepare('SELECT code FROM mall_accounts WHERE id=?'); $st->execute([$acctId]);
+        $acctCode = (string)$st->fetchColumn();
+        $catMethod = $acctCode === '1010' ? 'cash' : (strpos($acctCode, '102') === 0 ? 'bank' : (in_array($acctCode, ['1030', '1031'], true) ? 'bkash' : 'nagad'));
+        $batch = 'STMT-' . date('Ymd-His') . '-' . $acctId;
+        /* system entries pool for this account: id, date, amount (+/−), ref */
+        $pool = [];
+        foreach (["SELECT 'P' kind, id, substr(created_at,1,10) d, amount, receipt FROM shop_payments WHERE COALESCE(voided,0)=0 AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))",
+                  "SELECT 'L' kind, id, substr(ts,1,10) d, CASE WHEN kind='expense' THEN -amount ELSE amount END, ref FROM company_ledger WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))",
+                  "SELECT 'R' kind, id, substr(ts,1,10) d, amount, receipt FROM mall_rent_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))",
+                  "SELECT 'V' kind, id, substr(ts,1,10) d, -amount, ref FROM mall_vendor_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))"] as $sql) {
+            foreach ($pdo->query($sql) as $p) $pool[] = ['kind' => $p['kind'], 'id' => (int)$p['id'], 'date' => $p['d'], 'amt' => (int)$p['amount'], 'ref' => (string)$p['receipt']];
+        }
+        $ins = $pdo->prepare("INSERT INTO mall_bank_stmt (acct_id, batch, stmt_date, descr, out, inn, balance, raw, matched, matched_ref, matched_kind)
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+        $matched = 0; $imported = 0;
+        $used = [];
+        foreach ($rows as $row) {
+            $amt = (int)($row['in'] ?? 0) - (int)($row['out'] ?? 0);
+            $date = trim($row['date'] ?? '');
+            $best = null;
+            foreach ($pool as $i => $p) {
+                if (isset($used[$i]) || (int)$p['amt'] !== $amt) continue;
+                if ($p['date'] === '' || $date === '') continue;
+                $d = abs((strtotime($p['date']) - strtotime($date)) / 86400);
+                if ($d <= 3) { if ($best === null || $d < $best['d']) $best = ['i' => $i, 'p' => $p, 'd' => $d]; }
+            }
+            $ins->execute([$acctId, $batch, $date, trim($row['descr'] ?? ''), (int)($row['out'] ?? 0), (int)($row['in'] ?? 0), (int)($row['balance'] ?? 0), json_encode($row), $best ? 1 : 0, $best ? $best['p']['ref'] : '', $best ? $best['p']['kind'] : '']);
+            $imported++;
+            if ($best) { $used[$best['i']] = 1; $matched++; }
+        }
+        $sysBal = (int)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE COALESCE(voided,0)=0 AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))
+            + COALESCE((SELECT SUM(amount) FROM company_ledger WHERE kind='income' AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)
+            + COALESCE((SELECT SUM(amount) FROM mall_rent_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)
+            - COALESCE((SELECT SUM(amount) FROM company_ledger WHERE kind='expense' AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)
+            - COALESCE((SELECT SUM(amount) FROM mall_vendor_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)")->fetchColumn();
+        $lastBal = 0; foreach ($rows as $row) if ((int)($row['balance'] ?? 0)) $lastBal = (int)$row['balance'];
+        audit($u['name'], 'Bank statement import', 'mall', (string)$acctId, "$imported rows, $matched matched");
+        json_out(['ok' => true, 'batch' => $batch, 'imported' => $imported, 'matched' => $matched, 'unmatched' => $imported - $matched,
+                  'statement_balance' => $lastBal, 'system_balance' => $sysBal, 'difference' => $lastBal - $sysBal]);
+    }
+    if ($a === 'bank-stmt-list') {
+        $acctId = (int)($body['acct_id'] ?? 0);
+        $rows = [];
+        if ($acctId) {
+            $st = $pdo->prepare('SELECT * FROM mall_bank_stmt WHERE acct_id=? ORDER BY id DESC LIMIT 600');
+            $st->execute([$acctId]);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        }
+        json_out(['ok' => true, 'rows' => $rows]);
+    }
+    if ($a === 'bank-stmt-del') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $batch = trim($body['batch'] ?? '');
+        if ($batch === '') json_out(['ok' => false, 'error' => 'batch required.'], 400);
+        $pdo->prepare('DELETE FROM mall_bank_stmt WHERE batch=?')->execute([$batch]);
+        audit($u['name'], 'Bank statement delete', 'mall', '', $batch);
+        json_out(['ok' => true]);
     }
 
     /* recon — custodial fund reconciliation (spec 3.3): elec/water collected vs

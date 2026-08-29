@@ -1325,9 +1325,71 @@ const stmtBalances = ref({})
 function stmtDiff(m) {
   const b = bankRecon.value?.balances[m]?.balance || 0
   const st = Number(stmtBalances.value[m]) || 0
-  return st ? st - b : null
+  if (!stmtBalances.value[m] && stmtBalances.value[m] !== 0) return null
+  return st - b
 }
-/* chart helpers */
+/* ── bank statement import & reconciliation (spec 3.7) ── */
+const stmtAcctId = ref(0)
+const stmtCsvText = ref('')
+const stmtFileName = ref('')
+const stmtPreview = ref(null)
+const stmtResult = ref(null)
+const stmtRows = ref([])
+function onStmtFilePick(e) {
+  const f = e.target.files[0]; if (!f) return
+  stmtFileName.value = f.name
+  const rd = new FileReader()
+  rd.onload = () => { stmtCsvText.value = String(rd.result || ''); stmtPreview.value = null; stmtResult.value = null }
+  rd.readAsText(f)
+}
+async function parseStmt() {
+  if (!stmtAcctId.value) { window.__krToast?.('Pick a bank account first.', 'err'); return }
+  if (!stmtCsvText.value.trim()) { window.__krToast?.('Choose a CSV file first.', 'err'); return }
+  const r = await apiCall('mall', { action: 'bank-stmt-parse', csv: stmtCsvText.value })
+  if (r.ok) stmtPreview.value = r
+  else window.__krToast?.(r.error || 'Parse failed.', 'err')
+}
+async function importStmt() {
+  if (!stmtPreview.value) return
+  const r = await apiCall('mall', { action: 'bank-stmt-import', acct_id: stmtAcctId.value, rows: stmtPreview.value.rows })
+  if (r.ok) { stmtResult.value = r; stmtPreview.value = null; await loadStmt(); await loadReconcile() }
+  else window.__krToast?.(r.error || 'Import failed.', 'err')
+}
+async function loadStmt() {
+  if (!stmtAcctId.value) return
+  const r = await apiCall('mall', { action: 'bank-stmt-list', acct_id: stmtAcctId.value })
+  if (r.ok) stmtRows.value = r.rows
+}
+async function delStmtBatch(batch) {
+  if (!window.confirm('Delete this imported statement batch?')) return
+  const r = await apiCall('mall', { action: 'bank-stmt-del', batch })
+  if (r.ok) { window.__krToast?.('🗑️ Statement batch deleted', 'ok'); await loadStmt() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function exportStmtCsv() {
+  const rows = stmtRows.value.map(x => [x.stmt_date, x.descr, x.out, x.inn, x.balance, x.matched ? 'Matched ' + x.matched_ref : 'Unmatched']).map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\n')
+  const csv = '\uFEFFDate,Description,Debit,Credit,Balance,Match\n' + rows
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'bank-statement-' + stmtAcctId.value + '.csv'; a.click()
+  URL.revokeObjectURL(a.href)
+}
+function printStmt() {
+  const rows = stmtRows.value.map(x => `<tr style="border-bottom:1px solid #ddd"><td style="padding:6px 8px;font-size:12px">${x.stmt_date}</td><td style="padding:6px 8px;font-size:12px">${x.descr}</td><td style="padding:6px 8px;text-align:right;font-size:12px">${x.out ? '৳' + Number(x.out).toLocaleString('en-IN') : ''}</td><td style="padding:6px 8px;text-align:right;font-size:12px">${x.inn ? '৳' + Number(x.inn).toLocaleString('en-IN') : ''}</td><td style="padding:6px 8px;text-align:right;font-size:12px">${x.balance ? '৳' + Number(x.balance).toLocaleString('en-IN') : ''}</td><td style="padding:6px 8px;text-align:center;font-size:11px">${x.matched ? '✅ ' + x.matched_ref : '⚠️'}</td></tr>`).join('')
+  const html = `<div style="font-family:sans-serif;padding:20px;max-width:760px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:14px"><b style="font-size:16px">Bank statement — ${config.mall_name || 'Mall Manager'}</b><br/><small>${payAcctLabel(stmtAcctId.value)} · ${stmtRows.length} lines</small></div>
+    <table style="width:100%;border-collapse:collapse">${rows}</table></div>`
+  let area = document.getElementById('printArea')
+  if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area) }
+  area.innerHTML = html
+  window.print()
+}
+const stmtBatches = computed(() => [...new Set(stmtRows.value.map(x => x.batch).filter(Boolean))])
+const stmtTotals = computed(() => ({
+  in: stmtRows.value.reduce((s, x) => s + Number(x.inn || 0), 0),
+  out: stmtRows.value.reduce((s, x) => s + Number(x.out || 0), 0),
+  matched: stmtRows.value.filter(x => x.matched).length,
+  unmatched: stmtRows.value.filter(x => !x.matched).length,
+}))
 const maxOf = (arr, key) => Math.max(...arr.map(x => Number(x[key]) || 0))
 const maxOfN = (arr) => Math.max(...(arr || []).map(x => Number(x.n) || 0))
 const pctOf = (v, arr) => { const t = (arr || []).reduce((s, x) => s + Number(x.total), 0); return t ? Math.round(Number(v) / t * 100) : 0 }
@@ -2145,6 +2207,87 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <input v-model="stmtBalances[m]" type="number" :placeholder="'Actual ' + m + ' statement / count…'" style="width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
             <div v-if="stmtDiff(m) !== null" style="font-size:11.5px;margin-top:5px" :style="stmtDiff(m) === 0 ? 'color:var(--ok)' : 'color:var(--danger)'">
               {{ stmtDiff(m) === 0 ? '✅ Reconciled — matches the books' : (stmtDiff(m) > 0 ? '⚠️ Books are SHORT by ' + money(stmtDiff(m)) + ' — check uncleared / unrecorded' : '⚠️ Books are OVER by ' + money(-stmtDiff(m))) }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- ═══════ BANK STATEMENT IMPORT & RECONCILIATION (spec 3.7) ═══════ -->
+      <div class="panel" style="padding:18px;margin-top:16px">
+        <h3 style="font-size:14px;margin-bottom:4px">📥 Bank statement import &amp; reconciliation</h3>
+        <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Upload your bank / mobile-banking statement CSV (any bank export — Date, Description, Debit, Credit, Balance). The system parses it, imports it and <b>auto-matches</b> each line against your books (amount + ±3-day window). Unmatched lines need a manual check — they are either missing entries or bank-only items.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select v-model="stmtAcctId" @change="loadStmt" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+            <option :value="0" disabled>Bank account…</option>
+            <option v-for="a in payAccounts.filter(x => x.method === 'bank')" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
+          </select>
+          <label style="padding:9px 14px;border-radius:10px;border:1px dashed var(--primary);color:var(--primary);font-size:12.5px;font-weight:800;cursor:pointer;background:rgba(47,128,237,.06)">
+            📄 {{ stmtFileName || 'Choose CSV file…' }}
+            <input type="file" accept=".csv,.txt" style="display:none" @change="onStmtFilePick" />
+          </label>
+          <button @click="parseStmt" style="padding:9px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">🔍 Preview</button>
+          <button v-if="stmtBatches.length" @click="loadStmt" class="btn-ghost" style="font-size:12px">🔄 Refresh</button>
+          <span v-if="stmtResult" style="font-size:12px;color:var(--text-mute)">Last import: <b>{{ stmtResult.imported }}</b> lines · <b style="color:var(--ok)">{{ stmtResult.matched }}</b> matched · <b style="color:var(--danger)">{{ stmtResult.unmatched }}</b> unmatched</span>
+        </div>
+        <!-- import result summary -->
+        <div v-if="stmtResult" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
+          <div class="stat"><div class="s-label"><span class="s-ico">🧾</span>Statement balance</div><div class="s-value">{{ money(stmtResult.statement_balance) }}</div><div class="s-trend">last line's balance</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">📒</span>System balance</div><div class="s-value">{{ money(stmtResult.system_balance) }}</div><div class="s-trend">books for this account</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">⚖️</span>Difference</div><div class="s-value" :style="stmtResult.difference === 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(stmtResult.difference) }}</div><div class="s-trend">{{ stmtResult.difference === 0 ? '✅ reconciled' : 'unreconciled — see unmatched below' }}</div></div>
+          <div class="stat"><div class="s-label"><span class="s-ico">🔍</span>Matched</div><div class="s-value" style="color:var(--ok)">{{ stmtResult.matched }}<small style="font-size:11px;color:var(--text-mute)"> / {{ stmtResult.imported }}</small></div><div class="s-trend">{{ stmtResult.unmatched }} unmatched lines</div></div>
+        </div>
+        <!-- imported statement -->
+        <div v-if="stmtRows.length" style="margin-top:14px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+            <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px">Imported statements — {{ stmtTotals.matched }} ✅ matched · {{ stmtTotals.unmatched }} ⚠️ unmatched · in ৳{{ Number(stmtTotals.in).toLocaleString('en-IN') }} · out ৳{{ Number(stmtTotals.out).toLocaleString('en-IN') }}</div>
+            <span style="margin-left:auto;display:flex;gap:6px">
+              <button @click="exportStmtCsv" class="btn-ghost" style="font-size:12px">⬇ CSV</button>
+              <button @click="printStmt" class="btn-ghost" style="font-size:12px">🖨️ Print</button>
+            </span>
+          </div>
+          <div class="tbl-wrap" style="max-height:340px">
+            <table class="kr">
+              <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th><th>Match</th></tr></thead>
+              <tbody>
+                <tr v-for="x in stmtRows" :key="x.id">
+                  <td style="font-size:12px">{{ x.stmt_date }}</td>
+                  <td style="font-size:12px">{{ x.descr }}</td>
+                  <td style="text-align:right;font-size:12px">{{ x.out ? money(x.out) : '—' }}</td>
+                  <td style="text-align:right;font-size:12px;color:var(--ok)">{{ x.inn ? money(x.inn) : '—' }}</td>
+                  <td style="text-align:right;font-size:12px;color:var(--text-mute)">{{ x.balance ? money(x.balance) : '—' }}</td>
+                  <td><span class="badge" :class="x.matched ? 'b-green' : 'b-red'" style="font-size:10px">{{ x.matched ? '✅ ' + x.matched_ref : '⚠️ unmatched' }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="stmtBatches.length" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button v-for="batch in stmtBatches" :key="batch" @click="delStmtBatch(batch)" class="btn-ghost" style="font-size:11.5px">🗑️ Delete batch {{ batch }}</button>
+          </div>
+        </div>
+        <p v-else-if="stmtAcctId" style="font-size:12px;color:var(--text-mute);margin-top:12px">No statements imported for this account yet.</p>
+      </div>
+      <!-- ═══════ STATEMENT PREVIEW MODAL ═══════ -->
+      <div v-if="stmtPreview" class="overlay" @click.self="stmtPreview = null">
+        <div class="modal" style="max-width:720px">
+          <div class="modal-h"><div class="t">🔍 Statement preview — {{ stmtFileName || 'CSV' }}</div><button class="close" @click="stmtPreview = null">✕</button></div>
+          <div class="modal-b">
+            <p style="font-size:12px;color:var(--text-mute);margin-bottom:10px"><b>{{ stmtPreview.rows.length }}</b> rows detected · in ৳{{ Number(stmtPreview.total_in).toLocaleString('en-IN') }} · out ৳{{ Number(stmtPreview.total_out).toLocaleString('en-IN') }} — check the columns look right, then import.</p>
+            <div class="tbl-wrap" style="max-height:300px">
+              <table class="kr">
+                <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+                <tbody>
+                  <tr v-for="(r, i) in stmtPreview.rows.slice(0, 40)" :key="i">
+                    <td style="font-size:12px">{{ r.date }}</td><td style="font-size:12px">{{ r.descr }}</td>
+                    <td style="text-align:right;font-size:12px">{{ r.out ? money(r.out) : '—' }}</td>
+                    <td style="text-align:right;font-size:12px;color:var(--ok)">{{ r.in ? money(r.in) : '—' }}</td>
+                    <td style="text-align:right;font-size:12px;color:var(--text-mute)">{{ r.balance ? money(r.balance) : '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p v-if="stmtPreview.rows.length > 40" style="font-size:11.5px;color:var(--text-mute);margin-top:6px">…and {{ stmtPreview.rows.length - 40 }} more rows (imported in full).</p>
+            <div style="display:flex;gap:10px;margin-top:14px">
+              <button @click="importStmt" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Import &amp; auto-match</button>
+              <button @click="stmtPreview = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
             </div>
           </div>
         </div>
