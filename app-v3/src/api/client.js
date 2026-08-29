@@ -4,16 +4,10 @@
 import { useAuthStore } from '../stores/auth'
 
 const API_BASE = (() => {
-  const base = (import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? 'https://krtaker.com/api/' : '../api/')).replace(/\/?$/, '/')
-  // Runtime guard: in production, never let the API point at a non-krtaker.com
-  // host. A stale bundle with a relative base ('../api/') resolves to
-  // test.krtaker.com/api (404 → "Empty response from server") — force the live API.
-  if (import.meta.env.PROD && typeof window !== 'undefined') {
-    try {
-      const u = new URL(base, window.location.href)
-      if (u.hostname !== 'krtaker.com') return 'https://krtaker.com/api/'
-    } catch (e) { /* keep base */ }
-  }
+  // Mall Manager: same-origin relative API — works under ANY domain/subdomain
+  // (the KRTaker prod guard was removed for this fork). Override at build time
+  // with VITE_API_BASE for cross-origin staging.
+  const base = (import.meta.env.VITE_API_BASE || './api/').replace(/\/?$/, '/')
   return base
 })()
 

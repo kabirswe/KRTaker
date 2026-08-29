@@ -11780,7 +11780,10 @@ function seed_app() {
 
 /* ---------- router ---------- */
 $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
-$seg  = preg_replace('#^api/#', '', $path);
+/* API base may be /api/ (root deploy) OR /mall/api/ (subfolder deploy) —
+   the action is everything AFTER the last 'api/' segment. */
+$pos = strrpos($path, 'api/');
+$seg = $pos !== false ? substr($path, $pos + 4) : $path;
 $action = $seg ?: 'health';
 /* sitemap.xml is rewritten to api/index.php from .htaccess so the index is ALWAYS
    dynamic (blog posts + properties included); normalize the action here. */
