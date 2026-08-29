@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260934) {
+        if ($__sv < 20260936) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -485,6 +485,25 @@ function db() {
             $st = $pdo->prepare('SELECT COUNT(*) FROM mall_config WHERE k=?'); $st->execute([$k]);
             if ((int)$st->fetchColumn() === 0) $pdo->prepare('INSERT INTO mall_config (k, v) VALUES (?,?)')->execute([$k, $v]);
         }
+        /* V2.5 (KRTaker import, spec 3.6.1): tenant exit / NOC workflow */
+        $agcols = array_column($pdo->query('PRAGMA table_info(mall_agreements)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        foreach (['exit_requested_at' => "TEXT DEFAULT ''", 'exit_approved_at' => "TEXT DEFAULT ''", 'noc_no' => "TEXT DEFAULT ''"] as $col => $def) {
+            if (!in_array($col, $agcols, true)) { try { $pdo->exec("ALTER TABLE mall_agreements ADD COLUMN $col $def"); } catch (Exception $e) {} }
+        }
+        /* V2.6 (spec 3.2): receipt lock (payment void approval) + two-level
+           discount/waiver approval workflow */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_payment_voids (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, payment_id INTEGER DEFAULT 0, shop TEXT DEFAULT '',
+            amount INTEGER DEFAULT 0, receipt TEXT DEFAULT '', reason TEXT DEFAULT '',
+            requested_by TEXT DEFAULT '', status TEXT DEFAULT 'Pending',
+            decided_by TEXT DEFAULT '', decided_at TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS mall_waivers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, bill_id INTEGER DEFAULT 0, shop TEXT DEFAULT '',
+            month TEXT DEFAULT '', amount INTEGER DEFAULT 0, reason TEXT DEFAULT '',
+            requested_by TEXT DEFAULT '', status TEXT DEFAULT 'Pending',
+            decided_by TEXT DEFAULT '', decided_at TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
+        $spcols = array_column($pdo->query('PRAGMA table_info(shop_payments)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('voided', $spcols, true)) { try { $pdo->exec("ALTER TABLE shop_payments ADD COLUMN voided INTEGER DEFAULT 0"); } catch (Exception $e) {} }
         /* seed the default common-utility heads + income heads once */
         $seedHeads = function ($key, $items) use ($pdo) {
             $st = $pdo->prepare('SELECT COUNT(*) FROM mall_config WHERE k=?'); $st->execute([$key]);
@@ -515,7 +534,7 @@ function db() {
                (same computation as the balances API: collections + income − expenses) */
             $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
             $balFor = function ($m) use ($b) {
-                return $b("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=?", [$m])
+                return $b("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=? AND COALESCE(voided,0)=0", [$m])
                      + $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND method=?", [$m])
                      - $b("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND method=?", [$m]);
             };
@@ -1386,7 +1405,7 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             id TEXT PRIMARY KEY, sub_email TEXT NOT NULL, kind TEXT DEFAULT 'manual',
             size INTEGER DEFAULT 0, note TEXT DEFAULT '', data TEXT DEFAULT '',
             created_by TEXT DEFAULT '', ts TEXT DEFAULT (datetime('now')))");
-        try { $pdo->exec('PRAGMA user_version=20260934'); } catch (Exception $e) {}
+        try { $pdo->exec('PRAGMA user_version=20260936'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -15077,13 +15096,14 @@ case 'mall': {
     $mall_write = ['config-set', 'bill-generate', 'fine-calc', 'shop-create', 'shop-update', 'shop-delete',
                    'expense-add', 'expense-del', 'complaint-add', 'complaint-status', 'complaint-del',
                    'asset-add', 'asset-update', 'asset-del', 'notice-add', 'notice-del', 'notice-pin',
-                   'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject', 'acct-map-set', 'income-add'];
+                   'account-save', 'account-del', 'journal-add', 'journal-del', 'journal-attach', 'journal-approve', 'journal-reject', 'acct-map-set', 'income-add', 'exit-request', 'exit-approve',
+                   'waiver-request', 'waiver-decide', 'payment-void-request', 'payment-void-decide'];
     $collector_ok = ['collect', 'meter', 'readings'];
     if ($is_collector) {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15264,6 +15284,7 @@ case 'mall': {
             'bill_model_default' => $mcfg('bill_model_default', 'fixed'),
             'rate_default'   => (int)$mcfg('rate_default', '0'),
             'rate_sqft_default' => (int)$mcfg('rate_sqft_default', '0'),
+            'bill_seq_start' => (int)$mcfg('bill_seq_start', '0'),
         ]]);
     }
     if ($a === 'config-set') {
@@ -15275,7 +15296,8 @@ case 'mall': {
                   'invoice_template', 'invoice_prefix', 'mall_logo', 'mall_logo_dark',
                   'bank_name', 'bank_account_title', 'bank_account_no', 'receipt_note',
                   'rent_advance_default', 'rent_due_day', 'rent_collect_default', 'rent_statement_note',
-                  'bill_model_default', 'rate_default', 'rate_sqft_default'] as $ck) {
+                  'bill_model_default', 'rate_default', 'rate_sqft_default',
+                  'bill_seq_start'] as $ck) {
             if (isset($body[$ck])) $mset($ck, $body[$ck]);
         }
         audit($u['name'], 'Mall config', 'mall', '', json_encode($body));
@@ -15888,13 +15910,13 @@ case 'mall': {
         $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM company_ledger WHERE kind='income' AND ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['in'] += (int)$r['a'];
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM company_ledger WHERE kind='expense' AND ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['out'] += (int)$r['a'];
-        foreach ($b("SELECT month, SUM(amount) a FROM shop_payments WHERE created_at >= ? GROUP BY month", [$m0]) as $r) if (isset($series[$r['month']])) $series[$r['month']]['in'] += (int)$r['a'];
+        foreach ($b("SELECT month, SUM(amount) a FROM shop_payments WHERE created_at >= ? AND COALESCE(voided,0)=0 GROUP BY month", [$m0]) as $r) if (isset($series[$r['month']])) $series[$r['month']]['in'] += (int)$r['a'];
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM mall_rent_payments WHERE ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['in'] += (int)$r['a'];
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM mall_vendor_payments WHERE ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['out'] += (int)$r['a'];
         $methods = [];
         $sc = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
         foreach (['cash', 'bank', 'bkash', 'nagad'] as $m) {
-            $in = $sc("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=?", [$m])
+            $in = $sc("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE method=? AND COALESCE(voided,0)=0", [$m])
                 + $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND method=?", [$m])
                 + $sc("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE method=?", [$m]);
             $out = $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND method=?", [$m])
@@ -16097,15 +16119,15 @@ case 'mall': {
         $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
         $m = function ($m) use ($q) {
             return [
-                'elec_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='elec' AND month=?", [$m]),
-                'water_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='water' AND month=?", [$m]),
+                'elec_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='elec' AND month=? AND COALESCE(voided,0)=0", [$m]),
+                'water_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='water' AND month=? AND COALESCE(voided,0)=0", [$m]),
                 'desco_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Common Electricity (DESCO)' AND substr(ts,1,7)=?", [$m]),
                 'wasa_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Water (WASA)' AND substr(ts,1,7)=?", [$m]),
             ];
         };
         $cur = $m($month);
-        $all = ['elec_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='elec'"),
-                'water_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='water'"),
+        $all = ['elec_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='elec' AND COALESCE(voided,0)=0"),
+                'water_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='water' AND COALESCE(voided,0)=0"),
                 'desco_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Common Electricity (DESCO)'"),
                 'wasa_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Water (WASA)'")];
         $sum = function ($r) { return $r['elec_collected'] + $r['water_collected'] - $r['desco_paid'] - $r['wasa_paid']; };
@@ -16424,14 +16446,52 @@ case 'mall': {
             }
             $rows[$i]['due_months'] = $dueMonths;
             $rows[$i]['rent_due'] = $dueMonths * (int)$ag['rent'];
+            $rows[$i]['shop_due'] = $shop_dues($ag['shop']);
         }
         json_out(['ok' => true, 'agreements' => $rows,
                   'rent_collected' => (int)$pdo->query('SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments')->fetchColumn(),
                   'rent_outstanding' => array_sum(array_column($rows, 'rent_due'))]);
     }
+    /* V2.5 (spec 3.6.1): tenant exit / NOC workflow —
+       exit request → dues check → NOC only when zero dues; new tenants
+       cannot be tagged to a shop with outstanding bills */
+    $shop_dues = function ($shopId) use ($pdo) {
+        $st = $pdo->prepare("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'");
+        $st->execute([$shopId]);
+        return (int)$st->fetchColumn();
+    };
+    if ($a === 'exit-request') {
+        $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM mall_agreements WHERE id=?'); $st->execute([$id]);
+        $ag = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$ag) json_out(['ok' => false, 'error' => 'Agreement not found.'], 404);
+        if ($ag['status'] !== 'Active') json_out(['ok' => false, 'error' => 'Only an active agreement can request exit.'], 409);
+        $pdo->prepare("UPDATE mall_agreements SET status='Exit-Requested', exit_requested_at=datetime('now') WHERE id=?")->execute([$id]);
+        audit($u['name'], 'Exit requested', 'mall', $ag['shop'], 'agreement ' . $id);
+        json_out(['ok' => true, 'status' => 'Exit-Requested', 'dues' => $shop_dues($ag['shop'])]);
+    }
+    if ($a === 'exit-approve') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM mall_agreements WHERE id=?'); $st->execute([$id]);
+        $ag = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$ag) json_out(['ok' => false, 'error' => 'Agreement not found.'], 404);
+        if ($ag['status'] !== 'Exit-Requested') json_out(['ok' => false, 'error' => 'No exit request pending for this agreement.'], 409);
+        $dues = $shop_dues($ag['shop']);
+        if ($dues > 0) {
+            json_out(['ok' => false, 'error' => "NOC BLOCKED — the shop has ৳" . number_format($dues) . " outstanding (service + electricity + water). Settle all dues first (spec 3.6.1).", 'dues' => $dues], 409);
+        }
+        $nocNo = 'NOC-' . date('Y') . '-' . str_pad((string)$id, 4, '0', STR_PAD_LEFT);
+        $pdo->prepare("UPDATE mall_agreements SET status='Exited', exit_approved_at=datetime('now'), noc_no=? WHERE id=?")->execute([$nocNo, $id]);
+        audit($u['name'], 'Exit approved + NOC', 'mall', $ag['shop'], $nocNo);
+        json_out(['ok' => true, 'status' => 'Exited', 'noc_no' => $nocNo]);
+    }
     if ($a === 'agreement-add') {
         $shop = trim($body['shop'] ?? '');
         if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
+        /* spec 3.6.1: no new tenant can be tagged to a shop with outstanding dues */
+        $dues = $shop_dues($shop);
+        if ($dues > 0) json_out(['ok' => false, 'error' => 'This shop has ৳' . number_format($dues) . ' outstanding (service + electricity + water) — a new tenant cannot be tagged until it is settled (spec 3.6.1).', 'dues' => $dues], 409);
         $pdo->prepare("INSERT INTO mall_agreements (shop, tenant_id, rent, start_date, end_date, advance_months, due_day, rent_collection, status, notes) VALUES (?,?,?,?,?,?,?,?,?,?)")
             ->execute([$shop, (int)($body['tenant_id'] ?? 0), (int)($body['rent'] ?? 0), trim($body['start_date'] ?? ''),
                        trim($body['end_date'] ?? ''), (int)($body['advance_months'] ?? 0), (int)($body['due_day'] ?? 5),
@@ -16580,6 +16640,112 @@ case 'mall': {
     /* bill-generate — configurable service billing: per-space model
        fixed (flat rate) · sqft (rate × size) · fixed+util / sqft+util
        (+ metered electricity/water consolidated into the service bill) */
+    /* V2.6 (spec 3.2): RECEIPT LOCK + TWO-LEVEL DISCOUNT/Waiver approval.
+       Collection staff/accountant can REQUEST a waiver or a payment void —
+       only an admin (president / general secretary) decision makes it
+       effective in the ledger. Every request is reportable. */
+    if ($a === 'waiver-request') {
+        $billId = (int)($body['bill_id'] ?? 0);
+        $amount = (int)($body['amount'] ?? 0);
+        $reason = trim($body['reason'] ?? '');
+        if (!$billId || $amount <= 0 || $reason === '') json_out(['ok' => false, 'error' => 'bill, amount and reason required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM shop_bills WHERE id=?'); $st->execute([$billId]);
+        $bill = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$bill) json_out(['ok' => false, 'error' => 'Bill not found.'], 404);
+        if ($bill['status'] === 'Paid') json_out(['ok' => false, 'error' => 'Paid bills cannot be waived — use a payment-void instead.'], 409);
+        if ($amount > (int)$bill['amount']) json_out(['ok' => false, 'error' => 'Waiver cannot exceed the bill amount (' . number_format((int)$bill['amount']) . ').'], 400);
+        $dup = $pdo->prepare("SELECT COUNT(*) FROM mall_waivers WHERE bill_id=? AND status='Pending'");
+        $dup->execute([$billId]);
+        if ((int)$dup->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'A waiver request is already pending for this bill.'], 409);
+        $pdo->prepare("INSERT INTO mall_waivers (bill_id, shop, month, amount, reason, requested_by) VALUES (?,?,?,?,?,?)")
+            ->execute([$billId, $bill['shop'], $bill['month'], $amount, $reason, $u['name']]);
+        audit($u['name'], 'Waiver requested', 'mall', (string)$billId, "৳$amount — $reason");
+        json_out(['ok' => true]);
+    }
+    if ($a === 'waiver-decide') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only the admin (president / secretary) can decide waivers.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $approve = $body['approve'] ? 1 : 0;
+        $st = $pdo->prepare('SELECT * FROM mall_waivers WHERE id=?'); $st->execute([$id]);
+        $w = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$w) json_out(['ok' => false, 'error' => 'Waiver not found.'], 404);
+        if ($w['status'] !== 'Pending') json_out(['ok' => false, 'error' => 'Already decided.'], 409);
+        if ($w['requested_by'] === $u['name']) json_out(['ok' => false, 'error' => 'You cannot approve your own waiver request.'], 403);
+        $pdo->prepare("UPDATE mall_waivers SET status=?, decided_by=?, decided_at=datetime('now') WHERE id=?")
+            ->execute([$approve ? 'Approved' : 'Rejected', $u['name'], $id]);
+        if ($approve) {
+            $st = $pdo->prepare('SELECT * FROM shop_bills WHERE id=?'); $st->execute([$w['bill_id']]);
+            $bill = $st->fetch(PDO::FETCH_ASSOC);
+            if ($bill && $bill['status'] !== 'Paid') {
+                $newAmt = max(0, (int)$bill['amount'] - (int)$w['amount']);
+                $pdo->prepare('UPDATE shop_bills SET amount=? WHERE id=?')->execute([$newAmt, $w['bill_id']]);
+                /* Smart Ledger correction: Dr income account, Cr AR (waived portion) */
+                $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
+                $post_journal(date('Y-m-d'), 'WAV-' . str_pad((string)$id, 5, '0', STR_PAD_LEFT),
+                    'Waiver ' . $w['reason'] . ' — ' . $w['shop'] . ' (' . $w['month'] . ')',
+                    [[$kindAcct[$bill['kind']] ?? 'Service Charge Income', (int)$w['amount'], 0],
+                     [$ar_acct(), 0, (int)$w['amount']]], $u['name']);
+            }
+            audit($u['name'], 'Waiver approved', 'mall', (string)$w['bill_id'], "৳{$w['amount']} — {$w['reason']}");
+        } else {
+            audit($u['name'], 'Waiver rejected', 'mall', (string)$w['bill_id'], $w['reason']);
+        }
+        json_out(['ok' => true, 'status' => $approve ? 'Approved' : 'Rejected']);
+    }
+    if ($a === 'payment-void-request') {
+        $pid = (int)($body['payment_id'] ?? 0);
+        $reason = trim($body['reason'] ?? '');
+        if (!$pid || $reason === '') json_out(['ok' => false, 'error' => 'payment and reason required.'], 400);
+        $st = $pdo->prepare('SELECT * FROM shop_payments WHERE id=?'); $st->execute([$pid]);
+        $p = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
+        if ((int)($p['voided'] ?? 0)) json_out(['ok' => false, 'error' => 'Payment already voided.'], 409);
+        $dup = $pdo->prepare("SELECT COUNT(*) FROM mall_payment_voids WHERE payment_id=? AND status='Pending'");
+        $dup->execute([$pid]);
+        if ((int)$dup->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'A void request is already pending.'], 409);
+        $pdo->prepare("INSERT INTO mall_payment_voids (payment_id, shop, amount, receipt, reason, requested_by) VALUES (?,?,?,?,?,?)")
+            ->execute([$pid, $p['shop'], (int)$p['amount'], (string)$p['receipt'], $reason, $u['name']]);
+        audit($u['name'], 'Void requested', 'mall', (string)$pid, $p['receipt'] . " ৳{$p['amount']} — $reason");
+        json_out(['ok' => true]);
+    }
+    if ($a === 'payment-void-decide') {
+        if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only the admin can decide voids.'], 403);
+        $id = (int)($body['id'] ?? 0);
+        $approve = $body['approve'] ? 1 : 0;
+        $st = $pdo->prepare('SELECT * FROM mall_payment_voids WHERE id=?'); $st->execute([$id]);
+        $v = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$v) json_out(['ok' => false, 'error' => 'Void request not found.'], 404);
+        if ($v['status'] !== 'Pending') json_out(['ok' => false, 'error' => 'Already decided.'], 409);
+        if ($v['requested_by'] === $u['name']) json_out(['ok' => false, 'error' => 'You cannot approve your own void request.'], 403);
+        $pdo->prepare("UPDATE mall_payment_voids SET status=?, decided_by=?, decided_at=datetime('now') WHERE id=?")
+            ->execute([$approve ? 'Approved' : 'Rejected', $u['name'], $id]);
+        if ($approve) {
+            $pdo->prepare('UPDATE shop_payments SET voided=1 WHERE id=?')->execute([$v['payment_id']]);
+            $st = $pdo->prepare('SELECT bill_id FROM shop_payments WHERE id=?'); $st->execute([$v['payment_id']]);
+            $billId = (int)$st->fetchColumn();
+            if ($billId) $pdo->prepare("UPDATE shop_bills SET status='Unpaid' WHERE id=?")->execute([$billId]);
+            /* Smart Ledger reversal: Dr method account (receive back), Cr income */
+            $st = $pdo->prepare('SELECT method, kind FROM shop_payments WHERE id=?'); $st->execute([$v['payment_id']]);
+            $pm = $st->fetch(PDO::FETCH_ASSOC);
+            if ($pm) {
+                $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
+                $post_journal(date('Y-m-d'), 'VOID-' . str_pad((string)$id, 5, '0', STR_PAD_LEFT),
+                    'Void ' . $v['receipt'] . ' — ' . $v['reason'],
+                    [[$method_acct($pm['method']), (int)$v['amount'], 0],
+                     [$kindAcct[$pm['kind']] ?? 'Service Charge Income', 0, (int)$v['amount']]], $u['name']);
+            }
+            audit($u['name'], 'Payment voided', 'mall', (string)$v['payment_id'], $v['receipt'] . " ৳{$v['amount']}");
+        }
+        json_out(['ok' => true, 'status' => $approve ? 'Approved' : 'Rejected']);
+    }
+    if ($a === 'waivers') {
+        $rows = $pdo->query("SELECT w.*, b.kind FROM mall_waivers w LEFT JOIN shop_bills b ON b.id=w.bill_id ORDER BY w.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'waivers' => $rows]);
+    }
+    if ($a === 'payment-voids') {
+        $rows = $pdo->query("SELECT v.*, p.receipt AS payment_receipt FROM mall_payment_voids v LEFT JOIN shop_payments p ON p.id=v.payment_id ORDER BY v.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'voids' => $rows]);
+    }
     if ($a === 'bill-generate') {
         $month = trim($body['month'] ?? date('Y-m'));
         $dueDay = (int)$mcfg('due_day', '10');
@@ -16634,6 +16800,26 @@ case 'mall': {
         json_out(['ok' => true, 'created' => $created, 'skipped' => $skipped]);
     }
 
+    /* combined-bill (spec 3.11) — one shop's month: all charges (service +
+       electricity + water + fines) in a single printable breakdown */
+    if ($a === 'combined-bill') {
+        $shop = trim($body['shop'] ?? '');
+        $month = trim($body['month'] ?? date('Y-m'));
+        if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
+        $st = $pdo->prepare("SELECT * FROM shops WHERE id=?"); $st->execute([$shop]);
+        $s = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$s) json_out(['ok' => false, 'error' => 'Space not found.'], 404);
+        $bills = $pdo->prepare("SELECT * FROM shop_bills WHERE shop=? AND month=? ORDER BY kind");
+        $bills->execute([$shop, $month]);
+        $rows = $bills->fetchAll(PDO::FETCH_ASSOC);
+        $total = 0; $paid = 0;
+        foreach ($rows as $b) { $total += (int)$b['amount'] + (int)($b['fine'] ?? 0); if ($b['status'] === 'Paid') $paid += (int)$b['amount'] + (int)($b['fine'] ?? 0); }
+        $fine = (int)$mcfg('late_fee_pct', '5');
+        json_out(['ok' => true, 'shop' => $s, 'month' => $month, 'bills' => $rows,
+                  'total' => $total, 'paid' => $paid, 'due' => $total - $paid,
+                  'fine_rule' => 'Late fee: ' . $fine . '% after due date (+' . (int)$mcfg('late_fee_grace', '0') . ' days grace, min ৳' . (int)$mcfg('late_fee_min', '0') . ')']);
+    }
+
     /* collect — record a payment against a bill; marks bill Paid; receipt auto-numbered. */
     if ($a === 'collect') {
         $billId = (int)($body['bill_id'] ?? 0);
@@ -16646,7 +16832,10 @@ case 'mall': {
         $bill = $st->fetch(PDO::FETCH_ASSOC);
         if (!$bill) json_out(['ok' => false, 'error' => 'Bill not found.'], 404);
         if ($bill['status'] === 'Paid') json_out(['ok' => false, 'error' => 'Bill already paid.'], 409);
-        $receipt = $mcfg('invoice_prefix', 'RCT') . '-' . str_replace('-', '', $bill['month']) . '-' . str_pad((string)$billId, 4, '0', STR_PAD_LEFT);
+        $seqStart = (int)$mcfg('bill_seq_start', '0');
+        $receipt = $seqStart > 0
+            ? $mcfg('invoice_prefix', 'RCT') . '-' . str_pad((string)($seqStart + $billId), 6, '0', STR_PAD_LEFT)
+            : $mcfg('invoice_prefix', 'RCT') . '-' . str_replace('-', '', $bill['month']) . '-' . str_pad((string)$billId, 4, '0', STR_PAD_LEFT);
         $pdo->prepare("INSERT INTO shop_payments (shop, bill_id, month, kind, amount, method, ref, receipt)
                        VALUES (?,?,?,?,?,?,?,?)")
             ->execute([$bill['shop'], $billId, $bill['month'], $bill['kind'], $amount, $method, trim($body['ref'] ?? ''), $receipt]);

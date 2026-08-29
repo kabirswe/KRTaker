@@ -12,6 +12,46 @@ const route = useRoute()
 const auth = useAuthStore()
 const data = useDataStore()
 const canManage = computed(() => ['superadmin', 'owner', 'manager', 'accountant'].includes(auth.user?.role || ''))
+const canDecideApprovals = computed(() => ['superadmin', 'owner', 'manager'].includes(auth.user?.role || ''))
+const showApprovals = ref(false)
+const waivers = ref([])
+const voids = ref([])
+const pendingApprovals = computed(() => waivers.value.filter(w => w.status === 'Pending').length + voids.value.filter(v => v.status === 'Pending').length)
+async function loadApprovals() {
+  const [r1, r2] = await Promise.all([apiCall('mall', { action: 'waivers' }), apiCall('mall', { action: 'payment-voids' })])
+  if (r1.ok) waivers.value = r1.waivers
+  if (r2.ok) voids.value = r2.voids
+}
+const waiverModal = ref(null)
+const waiverForm = ref({})
+function openWaiver(b) { waiverForm.value = { bill_id: b.id, shop: b.shop_no || b.shop, month: b.month, max: Number(b.amount), amount: Math.min(Number(b.amount), 500), reason: '' }; waiverModal.value = { bill: b } }
+async function requestWaiver() {
+  const f = waiverForm.value
+  if (!f.amount || f.amount <= 0 || f.amount > f.max || !f.reason.trim()) { window.__krToast?.('Enter a valid amount (≤ ' + money(f.max) + ') and a reason.', 'err'); return }
+  const r = await apiCall('mall', { action: 'waiver-request', bill_id: f.bill_id, amount: Number(f.amount), reason: f.reason.trim() })
+  if (r.ok) { window.__krToast?.('💸 Waiver requested — pending admin approval', 'ok'); waiverModal.value = null; await loadApprovals() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function decideWaiver(w, approve) {
+  if (!window.confirm(`${approve ? 'Approve' : 'Reject'} the ৳${w.amount} waiver for ${w.shop}?`)) return
+  const r = await apiCall('mall', { action: 'waiver-decide', id: w.id, approve: approve ? 1 : 0 })
+  if (r.ok) { window.__krToast?.(approve ? '✅ Waiver approved — ledger adjusted' : '⛔ Waiver rejected', 'ok'); await loadApprovals(); await loadBills() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function requestVoid(p) {
+  const reason = window.prompt(`Void receipt ${p.receipt} (৳${p.amount})?\nReason (required) — the admin must approve this:`, 'Wrong entry / correction')
+  if (reason === null) return
+  if (!reason.trim()) { window.__krToast?.('Reason required.', 'err'); return }
+  const r = await apiCall('mall', { action: 'payment-void-request', payment_id: p.id, reason: reason.trim() })
+  if (r.ok) { window.__krToast?.('🔒 Void requested — pending admin approval (receipt lock)', 'ok'); await loadApprovals() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function decideVoid(v, approve) {
+  if (!window.confirm(`${approve ? 'Approve' : 'Reject'} voiding ${v.receipt || v.payment_receipt} (৳${v.amount})?`)) return
+  const r = await apiCall('mall', { action: 'payment-void-decide', id: v.id, approve: approve ? 1 : 0 })
+  if (r.ok) { window.__krToast?.(approve ? '✅ Void approved — bill reverted to unpaid' : '⛔ Void rejected', 'ok'); await loadApprovals(); await loadBills(); await loadPayments?.() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
 const isCollector = computed(() => auth.user?.role === 'collector')
 const canCollect = computed(() => canManage.value || isCollector.value)
 
@@ -233,6 +273,40 @@ async function openReceipt(b) {
   const r = await apiCall('mall', { action: 'receipt', bill_id: b.id })
   if (r.ok) { recData.value = r; recModal.value = b }
   else window.__krToast?.(r.error || 'Receipt load failed.', 'err')
+}
+/* spec 3.11: combined bill — all charges for a space & month on ONE print,
+   with breakdown, due date + fine rule, and three signature lines */
+async function printCombined(b) {
+  const r = await apiCall('mall', { action: 'combined-bill', shop: b.shop, month: b.month })
+  if (!r.ok) { window.__krToast?.(r.error || 'Failed.', 'err'); return }
+  const d = r
+  const rows = d.bills.map(x => `<tr style="border-bottom:1px solid #ddd"><td style="padding:7px 8px;font-size:13px">${x.kind === 'service' ? '🧾 Service charge' : x.kind === 'elec' ? '⚡ Electricity (sub-meter)' : '💧 Water (sub-meter)'}</td><td style="padding:7px 8px;font-size:12px;color:#555">${x.note || ''}</td><td style="padding:7px 8px;text-align:right;font-size:13px">৳${Number(x.amount).toLocaleString('en-IN')}</td><td style="padding:7px 8px;text-align:right;font-size:12px">${x.fine ? '৳' + Number(x.fine).toLocaleString('en-IN') : '—'}</td><td style="padding:7px 8px;text-align:center;font-size:11px"><b>${x.status}</b></td></tr>`).join('')
+  const html = `<div style="font-family:serif;max-width:700px;margin:0 auto;padding:26px;border:2px solid #111;border-radius:6px">
+    <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px">
+      <div style="font-size:20px;font-weight:800">COMBINED BILL / INVOICE</div>
+      <div style="font-size:12px;margin-top:3px">${d.shop.no} · Floor ${d.shop.floor || '—'} · ${d.shop.sqft || 0} sqft — ${monthLabel(d.month)}</div>
+      <div style="font-size:12px;margin-top:2px">${config.mall_name || 'Mall Manager'}${config.mall_address ? ' — ' + config.mall_address : ''}${config.mall_phone ? ' · ☎ ' + config.mall_phone : ''}</div>
+    </div>
+    <div style="font-size:13px;line-height:1.8;margin-bottom:12px">
+      <div>Shop owner: <b>${d.shop.owner_name || '—'}</b>${d.shop.owner_mobile ? ' (☎ ' + d.shop.owner_mobile + ')' : ''}</div>
+      <div>Billing model: ${({ fixed: 'Fixed (flat)', sqft: 'Per sqft', 'fixed+util': 'Fixed + utilities', 'sqft+util': 'Per sqft + utilities' })[d.shop.bill_model] || 'Fixed'} · Due date: <b>${(d.bills[0] && d.bills[0].due_date) || '—'}</b></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-family:sans-serif">
+      <thead><tr style="background:#f1f5f9"><th style="padding:8px;text-align:left;font-size:12px">Charge</th><th style="padding:8px;text-align:left;font-size:12px">Note</th><th style="padding:8px;text-align:right;font-size:12px">Amount</th><th style="padding:8px;text-align:right;font-size:12px">Fine</th><th style="padding:8px;font-size:12px">Status</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" style="padding:14px;text-align:center;font-size:13px;color:#888">No bills for this space & month.</td></tr>'}</tbody>
+      <tfoot><tr style="border-top:2px solid #111"><td colspan="2" style="padding:8px;font-weight:800;font-size:13px">TOTAL DUE</td><td style="padding:8px;text-align:right;font-weight:800;font-size:14px">৳${Number(d.total).toLocaleString('en-IN')}</td><td colspan="2" style="padding:8px;text-align:right;font-size:12px">Paid ৳${Number(d.paid).toLocaleString('en-IN')} · Due ৳${Number(d.due).toLocaleString('en-IN')}</td></tr></tfoot>
+    </table>
+    <p style="font-size:11.5px;color:#555;margin-top:10px">⚠️ ${d.fine_rule}</p>
+    <div style="display:flex;justify-content:space-between;margin-top:26px;font-size:12px;color:#333">
+      <span>Prepared by: ________________<br /><small>${(recData.value && recData.value.user_name) || ''} — preparer</small></span>
+      <span>General Secretary: ________________<br /><small>${config.secretary || ''}</small></span>
+      <span>President: ________________<br /><small>${config.chairman || ''}</small></span>
+    </div>
+  </div>`
+  let area = document.getElementById('printArea')
+  if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area) }
+  area.innerHTML = html
+  window.print()
 }
 function printReceipt() { window.print() }
 /* receipt logo: modern/classic use the dark variant (colored band), minimal the light one */
@@ -735,6 +809,38 @@ const rentModal = ref(null)
 const rentForm = ref({})
 async function loadTenants() { const r = await apiCall('mall', { action: 'tenants' }); if (r.ok) tenants.value = r.tenants }
 async function loadAgreements() { const r = await apiCall('mall', { action: 'agreements' }); if (r.ok) { agreements.value = r.agreements; rentStats.value = { collected: r.rent_collected, outstanding: r.rent_outstanding } } }
+async function exitRequest(a) {
+  if (!window.confirm(`Request exit for ${a.tenant_name || 'tenant'} at ${a.shop}?`)) return
+  const r = await apiCall('mall', { action: 'exit-request', id: a.id })
+  if (r.ok) { window.__krToast?.(`🚪 Exit requested — pending approval${r.dues > 0 ? ' (⚠️ ৳' + r.dues + ' dues will block the NOC)' : ''}`, 'ok'); await loadAgreements() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function exitApprove(a) {
+  if (!window.confirm(`Approve exit + generate NOC for ${a.tenant_name || 'tenant'} at ${a.shop}?`)) return
+  const r = await apiCall('mall', { action: 'exit-approve', id: a.id })
+  if (r.ok) { window.__krToast?.(`✅ Exited — ${r.noc_no} generated`, 'ok'); await loadAgreements() }
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function printNoc(a) {
+  const m = config.value.mall_name || 'Mall Manager'
+  const html = `<div style="font-family:serif;max-width:640px;margin:0 auto;padding:28px;border:2px solid #111;border-radius:6px">
+    <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px">
+      <div style="font-size:20px;font-weight:800">NO OBJECTION CERTIFICATE (NOC)</div>
+      <div style="font-size:12px;margin-top:3px">${m}${config.value.mall_address ? ' — ' + config.value.mall_address : ''}</div>
+    </div>
+    <div style="font-size:13px;line-height:1.7">
+      <p>NOC No: <b>${a.noc_no}</b> &nbsp;&nbsp; Date: ${new Date().toLocaleDateString('en-GB')}</p>
+      <p>This is to certify that <b>${a.tenant_name || '—'}</b>, occupant of <b>${a.shop}</b>${a.start_date ? ' (agreement ' + a.start_date + (a.end_date ? ' → ' + a.end_date : '') + ')' : ''}, has cleared all dues (service charge + electricity + water) payable to ${m}.</p>
+      <p>Accordingly, ${m} has <b>no objection</b> to the said occupant vacating the space, and the premises stand released from all claims of the society.</p>
+      <p style="margin-top:22px">Authorized signature: ________________________</p>
+      <p style="font-size:11px;color:#555">This NOC is auto-generated by Mall Manager when the shop has zero outstanding dues (spec 3.6.1).</p>
+    </div>
+  </div>`
+  let area = document.getElementById('printArea')
+  if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area) }
+  area.innerHTML = html
+  window.print()
+}
 function openTenantAdd() { tenantForm.value = { name: '', phone: '', email: '', nid: '', address: '', employer: '', notes: '' }; tenantModal.value = { mode: 'add', title: '➕ New tenant' } }
 function openTenantEdit(t) { tenantForm.value = { ...t }; tenantModal.value = { mode: 'edit', title: '✏️ Edit tenant', id: t.id } }
 async function saveTenant() {
@@ -1128,7 +1234,7 @@ async function loadLedger() {
 function switchTab(x) {
   tab.value = x
   if (x === 'dashboard') loadDash()
-  if (x === 'bills') loadBills()
+  if (x === 'bills') { loadBills(); loadApprovals() }
   if (x === 'ledger') loadLedger()
   if (x === 'meters') { meterForm.value.month = month.value; loadMeters(); loadBills() }
   if (x === 'expenses') { loadExpenses(); loadVendors() }
@@ -1399,6 +1505,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
         <button v-if="canManage" @click="calcFines" :disabled="finesBusy || !config.late_fees_enabled" class="btn-ghost" :title="config.late_fees_enabled ? 'Apply late payment fines to overdue bills' : 'Late fees are disabled in ⚙️ Settings → Billing rules'">💸 Compute late fees</button>
         <button v-if="canManage" @click="clearFines" class="btn-ghost" title="Remove all computed fines for this month">🧹 Clear fines</button>
         <button @click="exportBills" class="btn-ghost" title="Download this month's bills as Excel-compatible CSV">⬇ CSV</button>
+        <button @click="loadApprovals(); showApprovals = !showApprovals" class="btn-ghost" style="font-size:12px">🛡️ Waivers &amp; voids <span v-if="pendingApprovals" class="badge b-red" style="font-size:10px">{{ pendingApprovals }}</span></button>
         <select v-model="billKind" @change="loadBills" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">All kinds</option>
           <option v-for="(v, k) in { service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }" :key="k" :value="k">{{ v }}</option>
@@ -1423,7 +1530,9 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td style="text-align:right;white-space:nowrap">
                   <button v-if="b.status === 'Unpaid' && b.owner_mobile" @click="waRemind(b)" title="Send WhatsApp reminder to the shop owner" style="padding:6px 10px;border:1px solid #25D366;color:#1faa53;background:rgba(37,211,102,.08);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">📲 Remind</button>
                   <button v-if="b.status === 'Unpaid' && canCollect" @click="openPay(b)" style="padding:6px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer;margin-left:4px">💵 Collect</button>
+                  <button v-if="b.status === 'Unpaid' && canManage" @click="openWaiver(b)" title="Request a discount / waiver (two-level approval)" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">💸 Waiver</button>
                   <button v-if="b.status === 'Paid'" @click="openReceipt(b)" title="View / print receipt" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">🖨️ Receipt</button>
+                  <button @click="printCombined(b)" title="Combined bill — all charges for this space & month in one print (spec 3.11)" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px">📄 Combined</button>
                 </td>
               </tr>
               <tr v-if="!bills.length"><td colspan="8" style="text-align:center;color:var(--text-mute);padding:28px">No bills for {{ monthLabel(month) }} — press ⚙️ Generate to create monthly service-charge bills for all active spaces.</td></tr>
@@ -1444,10 +1553,48 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
                 <td><span class="badge b-blue">{{ p.method }}</span></td>
                 <td style="color:var(--text-mute)">{{ p.ref || '—' }}</td>
                 <td style="text-align:right;font-weight:800;color:var(--ok)">{{ money(p.amount) }}</td>
+                <td style="text-align:right;white-space:nowrap">
+                  <button v-if="!p.voided && canManage" @click="requestVoid(p)" title="Request to void this receipt (admin approval — receipt lock)" style="padding:6px 9px;border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;cursor:pointer;font-size:11px">🔒 Void</button>
+                  <span v-if="p.voided" class="badge b-red" style="font-size:10px">voided</span>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
+      </div>
+      <!-- ═══ WAIVERS & VOIDS approval panel (spec 3.2 — receipt lock + two-level discount) ═══ -->
+      <div v-if="showApprovals" class="panel" style="padding:16px;margin-top:16px">
+        <h3 style="font-size:14px;margin-bottom:4px">🛡️ Waivers &amp; payment voids — approval trail</h3>
+        <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:10px">Collection staff / accountant <b>requests</b> — the admin (president / general secretary) <b>decides</b>. Only approved waivers/voids touch the ledger; everything is logged for the committee report.</p>
+        <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px">💸 Waiver requests</div>
+        <div v-if="waivers.length" style="display:flex;flex-direction:column;gap:6px">
+          <div v-for="w in waivers" :key="w.id" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;padding:9px 12px;border-radius:10px;background:var(--bg-alt)">
+            <b>{{ w.shop }}</b> <span class="badge b-gray" style="font-size:10px">{{ w.month }}</span>
+            <span style="font-weight:800;color:var(--danger)">৳{{ Number(w.amount).toLocaleString('en-IN') }}</span>
+            <small style="color:var(--text-mute);flex:1;min-width:120px">{{ w.reason }}</small>
+            <small style="color:var(--text-mute)">by {{ w.requested_by }}<template v-if="w.decided_by"> · {{ w.decided_by }}</template></small>
+            <span class="badge" :class="badge(w.status)" style="font-size:10px">{{ w.status }}</span>
+            <template v-if="w.status === 'Pending' && canDecideApprovals">
+              <button @click="decideWaiver(w, 1)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve</button>
+              <button @click="decideWaiver(w, 0)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">⛔ Reject</button>
+            </template>
+          </div>
+        </div>
+        <p v-else style="font-size:12px;color:var(--text-mute)">No waiver requests.</p>
+        <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">🔒 Payment void requests</div>
+        <div v-if="voids.length" style="display:flex;flex-direction:column;gap:6px">
+          <div v-for="v in voids" :key="v.id" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;padding:9px 12px;border-radius:10px;background:var(--bg-alt)">
+            <b>{{ v.receipt || v.payment_receipt }}</b> <span style="font-weight:800;color:var(--danger)">৳{{ Number(v.amount).toLocaleString('en-IN') }}</span>
+            <small style="color:var(--text-mute);flex:1;min-width:120px">{{ v.reason }}</small>
+            <small style="color:var(--text-mute)">by {{ v.requested_by }}<template v-if="v.decided_by"> · {{ v.decided_by }}</template></small>
+            <span class="badge" :class="badge(v.status)" style="font-size:10px">{{ v.status }}</span>
+            <template v-if="v.status === 'Pending' && canDecideApprovals">
+              <button @click="decideVoid(v, 1)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--ok);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve</button>
+              <button @click="decideVoid(v, 0)" style="padding:6px 11px;border:none;border-radius:8px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">⛔ Reject</button>
+            </template>
+          </div>
+        </div>
+        <p v-else style="font-size:12px;color:var(--text-mute)">No void requests.</p>
       </div>
     </template>
 
@@ -2467,18 +2614,24 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <div v-for="a in agreements" :key="a.id" style="border:1px solid var(--border);border-radius:12px;padding:12px 14px">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <b style="font-size:13px">{{ a.shop }}</b>
-                <span class="badge" :class="{ Active: 'b-green', Expired: 'b-gray', Terminated: 'b-red' }[a.status] || 'b-gray'">{{ a.status }}</span>
+                <span class="badge" :class="{ Active: 'b-green', 'Exit-Requested': 'b-orange', Exited: 'b-gray', Expired: 'b-gray', Terminated: 'b-red' }[a.status] || 'b-gray'">{{ a.status }}</span>
+                <span v-if="a.noc_no" class="badge b-blue" style="font-size:10px">📄 {{ a.noc_no }}</span>
                 <span v-if="a.rent_collection" class="badge b-blue" style="font-size:10px">committee collects rent</span>
                 <span v-else class="badge b-gray" style="font-size:10px">owner collects</span>
                 <span style="flex:1"></span>
                 <span style="font-weight:800;font-size:13px">{{ money(a.rent) }}/mo</span>
               </div>
               <div style="font-size:11.5px;color:var(--text-mute);margin-top:5px">{{ a.tenant_name || '—' }} · {{ a.start_date }}<span v-if="a.end_date"> → {{ a.end_date }}</span><span v-if="a.advance_months"> · {{ a.advance_months }} mo advance</span></div>
-              <div v-if="a.rent_collection" style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
-                <span style="font-size:12px;font-weight:700" :style="a.rent_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ a.due_months }} mo due · {{ money(a.rent_due) }}</span>
-                <span style="font-size:11px;color:var(--text-mute)">{{ a.paid_months }} mo paid</span>
-                <button v-if="canManage" @click="openRentCollect(a)" style="margin-left:auto;padding:7px 13px;border:none;border-radius:9px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💵 Collect rent</button>
-                <button v-if="canManage" @click="delAgreement(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:11px">🗑️</button>
+              <div v-if="a.shop_due > 0" style="font-size:11.5px;font-weight:800;color:var(--danger);margin-top:6px">⚠️ Shop outstanding: {{ money(a.shop_due) }} — NOC blocked until settled</div>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+                <span v-if="a.rent_collection" style="font-size:12px;font-weight:700" :style="a.rent_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ a.due_months }} mo due · {{ money(a.rent_due) }}</span>
+                <span v-if="a.rent_collection" style="font-size:11px;color:var(--text-mute)">{{ a.paid_months }} mo paid</span>
+                <button v-if="canManage && a.rent_collection && a.status === 'Active'" @click="openRentCollect(a)" style="padding:7px 13px;border:none;border-radius:9px;background:var(--ok);color:#fff;font-size:12px;font-weight:800;cursor:pointer">💵 Collect rent</button>
+                <span style="flex:1"></span>
+                <button v-if="canManage && a.status === 'Active'" @click="exitRequest(a)" style="padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">🚪 Exit request</button>
+                <button v-if="canManage && a.status === 'Exit-Requested'" @click="exitApprove(a)" style="padding:7px 12px;border:none;border-radius:9px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer">✅ Approve exit + NOC</button>
+                <button v-if="a.status === 'Exited' && a.noc_no" @click="printNoc(a)" style="padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer">🖨️ NOC</button>
+                <button v-if="canManage && a.status === 'Active'" @click="delAgreement(a)" style="border:1px solid var(--border);background:var(--bg-alt);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:11px">🗑️</button>
               </div>
             </div>
           </div>
@@ -2989,6 +3142,27 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="saveShop" :disabled="saving" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ saving ? 'Saving…' : '💾 Save shop' }}</button>
             <button @click="modal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ WAIVER MODAL (two-level approval — spec 3.2) ═══════ -->
+    <div v-if="waiverModal" class="overlay" @click.self="waiverModal = null">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-h"><div class="t">💸 Waiver / discount request</div><button class="close" @click="waiverModal = null">✕</button></div>
+        <div class="modal-b">
+          <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">{{ waiverForm.shop }} · {{ monthLabel(waiverForm.month) }} · bill {{ money(waiverForm.max) }}</p>
+          <label style="font-size:12px;color:var(--text-mute)">Waiver amount (৳)
+            <input type="number" v-model.number="waiverForm.amount" min="1" :max="waiverForm.max" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">Reason *
+            <textarea v-model="waiverForm.reason" rows="2" placeholder="e.g. shop closed 10 days for renovation — committee case #12" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          </label>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-top:10px">🛡️ Two-level approval — this request goes <b>Pending</b>; only the admin (president / general secretary) can approve it into the ledger. Every request is logged for the committee report.</p>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button @click="requestWaiver" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">📨 Submit request</button>
+            <button @click="waiverModal = null" class="btn-ghost" style="padding:11px 18px">Cancel</button>
           </div>
         </div>
       </div>
@@ -4075,8 +4249,9 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               </tbody>
             </table>
             <div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-mute)">
-              <span>Received by: ________________<span v-if="recData.brand.secretary"><br /><small style="font-size:10.5px">{{ recData.brand.secretary }} — Secretary</small></span></span>
-              <span>Chairman: ________________<span v-if="recData.brand.chairman"><br /><small style="font-size:10.5px">{{ recData.brand.chairman }}</small></span></span>
+              <span>Prepared by: ________________<br /><small style="font-size:10.5px">{{ recData.user_name || '—' }} — {{ recData.brand.invoice_prefix || 'Bill' }} preparer</small></span>
+              <span>Secretary: ________________<span v-if="recData.brand.secretary"><br /><small style="font-size:10.5px">{{ recData.brand.secretary }} — General Secretary</small></span></span>
+              <span>President: ________________<span v-if="recData.brand.chairman"><br /><small style="font-size:10.5px">{{ recData.brand.chairman }} — Chairman</small></span></span>
             </div>
             <div v-if="recData.brand.receipt_note" style="margin-top:12px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-mute);text-align:center">{{ recData.brand.receipt_note }}</div>
           </div>
