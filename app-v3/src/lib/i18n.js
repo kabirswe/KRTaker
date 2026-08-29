@@ -793,7 +793,12 @@ const BN = {
   "space(s)": "টি দোকান",
   "overdue": "বকেয়া",
   "months": "মাস",
-  "unpaid": "অপরিশোধিত",/* ── Mall buttons & forms (sweep) ── */
+  "unpaid": "অপরিশোধিত",
+  "Print template": "প্রিন্ট টেমপ্লেট",
+  "current": "বর্তমান",
+  "Orientation": "ওরিয়েন্টেশন",
+  "Portrait": "পোর্ট্রেট",
+  "Landscape": "ল্যান্ডস্কেপ",/* ── Mall buttons & forms (sweep) ── */
   "Cancel": "বাতিল",
   "Close": "বন্ধ করুন",
   "Search": "সার্চ",

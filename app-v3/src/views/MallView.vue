@@ -277,6 +277,25 @@ const isOverdue = (b) => b.due_date && b.status === 'Unpaid' && new Date(b.due_d
 const invList = ref([]); const invSummary = ref(null); const invStatus = ref(''); const invShop = ref(''); const invDetail = ref(null)
 const payList = ref([]); const paySummary = ref(null); const payShop = ref(''); const payMethod = ref(''); const payStatus = ref('')
 const payQuick = ref(null); const payQuickBills = ref([])
+
+const printTmpl = ref('a4')   /* 'a4' | 'a5' | 'half' */
+const printOrient = ref('portrait') /* 'portrait' | 'landscape' */
+const PRINT_TPL = {
+  'a4':    { page: 'A4 portrait',  zoom: 1.0,  two: false },
+  'a5p':   { page: 'A5 portrait',  zoom: 0.72, two: false },
+  'a5l':   { page: 'A5 landscape', zoom: 0.62, two: false },
+  'halfp': { page: 'A4 portrait',  zoom: 0.50, two: true },
+  'halfl': { page: 'A4 landscape', zoom: 0.72, two: true },
+}
+const printPageCss = {
+  'a4': '@page { size: A4 portrait; margin: 6mm }',
+  'a5p': '@page { size: A5 portrait; margin: 5mm }',
+  'a5l': '@page { size: A5 landscape; margin: 5mm }',
+  'halfp': '@page { size: A4 portrait; margin: 6mm }',
+  'halfl': '@page { size: A4 landscape; margin: 6mm }',
+}
+const effTmpl = computed(() => printTmpl.value === 'a4' ? 'a4' : printTmpl.value + (printOrient.value === 'landscape' ? 'l' : 'p'))
+
 const shopOpts = computed(() => (shops.value || []).map(s => ({ value: s.id, label: `${s.no} — ${s.owner_name || ''}` })))
 async function loadInvoices() {
   const r = await apiCall('mall', { action: 'invoices', month: month.value, shop: invShop.value, status: invStatus.value })
@@ -347,13 +366,13 @@ async function printCombined(b) {
   const watAmt = Number(billWat.amount || 0)
   const fines = d.bills.reduce((s, x) => s + Number(x.fine || 0), 0)
   const misc = watAmt + fines
-  const rate = Number(config.elec_unit_rate || 0)
+  const rate = Number(config.value.elec_unit_rate || 0)
   const issued = (d.bills[0] && d.bills[0].created_at || '').slice(0, 10)
   const due = (d.bills[0] && d.bills[0].due_date) || ''
   const bn = (n) => '৳' + Number(n || 0).toLocaleString('en-IN')
   const dline = (label, val, bold) => `<div style="flex:1;display:flex;align-items:baseline;gap:6px;min-width:0"><span style="font-size:13px;white-space:nowrap">${label}</span><span style="flex:1;border-bottom:1px dotted #000;min-width:40px"></span><span style="font-size:13px;font-weight:${bold ? 800 : 400};white-space:nowrap">${val || '…'}</span></div>`
   const frow = (num, left, right) => `<div style="display:flex;gap:28px;margin-top:9px">${num ? `<span style="font-size:13px;font-weight:800;width:16px;flex-shrink:0">${num}</span>` : ''}${left}${right}</div>`
-  const html = `<div style="font-family:'Noto Serif Bengali',serif;max-width:740px;margin:0 auto;padding:0;border:2px solid #111">
+  const form = `<div style="width:190mm;zoom:${PRINT_TPL[effTmpl.value].zoom};background:#fff;border:2px solid #111;margin:0 auto;font-family:'Noto Serif Bengali',serif">
     <div style="text-align:center;padding:16px 10px 10px">
       <div style="font-size:22px;font-weight:800">${(config.value.mall_name || 'Mall Manager')}</div>
       <div style="font-size:12.5px;color:#555;margin-top:5px">${config.value.mall_address || ''}${config.value.mall_phone ? ((config.value.mall_address ? ' · ☎ ' : '☎ ') + config.value.mall_phone) : ''}</div>
@@ -386,6 +405,13 @@ async function printCombined(b) {
       </div>
     </div>
   </div>`
+  const t = PRINT_TPL[effTmpl.value]
+  const html = t.two
+    ? `<div style="display:flex;gap:6mm;justify-content:center;align-items:flex-start;width:100%">${form}${form}</div>`
+    : `<div style="display:flex;justify-content:center;width:100%">${form}</div>`
+  let s = document.getElementById('printTmplCss')
+  if (!s) { s = document.createElement('style'); s.id = 'printTmplCss'; document.head.appendChild(s) }
+  s.textContent = printPageCss[effTmpl.value]
   let area = document.getElementById('printArea')
   if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area) }
   area.innerHTML = html
@@ -2471,6 +2497,15 @@ onBeforeUnmount(() => {
           </select>
           <SearchableSelect v-model="invShop" :options="shopOpts" :placeholder="t('All spaces')" @change="loadInvoices" style="width:220px" />
           <button @click="loadInvoices" class="btn-ghost" style="padding:8px 12px;font-size:12px">🔄 {{ t('Refresh') }}</button>
+          <select v-model="printTmpl" title="{{ t('Print template') }}" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px;font-weight:800">
+            <option value="a4">A4 · {{ t('current') }}</option>
+            <option value="a5">A5</option>
+            <option value="half">½ + ½ A4</option>
+          </select>
+          <select v-if="printTmpl !== 'a4'" v-model="printOrient" title="{{ t('Orientation') }}" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px;font-weight:800">
+            <option value="portrait">{{ t('Portrait') }}</option>
+            <option value="landscape">{{ t('Landscape') }}</option>
+          </select>
         </div>
       </div>
 
@@ -2544,7 +2579,16 @@ onBeforeUnmount(() => {
                 </tr>
               </tbody>
             </table>
-            <div style="display:flex;gap:10px;margin-top:16px">
+            <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+              <select v-model="printTmpl" style="padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px;font-weight:800">
+                <option value="a4">A4 · {{ t('current') }}</option>
+                <option value="a5">A5</option>
+                <option value="half">½ + ½ A4</option>
+              </select>
+              <select v-if="printTmpl !== 'a4'" v-model="printOrient" style="padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12px;font-weight:800">
+                <option value="portrait">{{ t('Portrait') }}</option>
+                <option value="landscape">{{ t('Landscape') }}</option>
+              </select>
               <button @click="printCombined(invDetail)" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🖨️ {{ t('Print invoice') }}</button>
               <button @click="invDetail = null" class="btn-ghost" style="padding:11px 18px">{{ t('Close') }}</button>
             </div>
