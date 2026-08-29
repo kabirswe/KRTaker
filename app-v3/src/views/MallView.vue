@@ -331,27 +331,58 @@ async function printCombined(b) {
   const r = await apiCall('mall', { action: 'combined-bill', shop: b.shop, month: b.month })
   if (!r.ok) { window.__krToast?.(r.error || 'Failed.', 'err'); return }
   const d = r
-  const rows = d.bills.map(x => `<tr style="border-bottom:1px solid #ddd"><td style="padding:7px 8px;font-size:13px">${x.kind === 'service' ? '🧾 Service charge' : x.kind === 'elec' ? '⚡ Electricity (sub-meter)' : '💧 Water (sub-meter)'}</td><td style="padding:7px 8px;font-size:12px;color:#555">${x.note || ''}</td><td style="padding:7px 8px;text-align:right;font-size:13px">৳${Number(x.amount).toLocaleString('en-IN')}</td><td style="padding:7px 8px;text-align:right;font-size:12px">${x.fine ? '৳' + Number(x.fine).toLocaleString('en-IN') : '—'}</td><td style="padding:7px 8px;text-align:center;font-size:11px"><b>${x.status}</b></td></tr>`).join('')
-  const html = `<div style="font-family:serif;max-width:700px;margin:0 auto;padding:26px;border:2px solid #111;border-radius:6px">
-    <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px">
-      <div style="font-size:20px;font-weight:800">${t('COMBINED BILL / INVOICE')}</div>
-      <div style="font-size:12px;margin-top:3px">${d.shop.no} · Floor ${d.shop.floor || '—'} · ${d.shop.sqft || 0} sqft — ${monthLabel(d.month)}</div>
-      <div style="font-size:12px;margin-top:2px">${config.mall_name || 'Mall Manager'}${config.mall_address ? ' — ' + config.mall_address : ''}${config.mall_phone ? ' · ☎ ' + config.mall_phone : ''}</div>
-    </div>
-    <div style="font-size:13px;line-height:1.8;margin-bottom:12px">
-      <div>Shop owner: <b>${d.shop.owner_name || '—'}</b>${d.shop.owner_mobile ? ' (☎ ' + d.shop.owner_mobile + ')' : ''}</div>
-      <div>Billing model: ${({ fixed: 'Fixed (flat)', sqft: 'Per sqft', 'fixed+util': 'Fixed + utilities', 'sqft+util': 'Per sqft + utilities' })[d.shop.bill_model] || 'Fixed'} · Due date: <b>${(d.bills[0] && d.bills[0].due_date) || '—'}</b></div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-family:sans-serif">
-      <thead><tr style="background:#f1f5f9"><th style="padding:8px;text-align:left;font-size:12px">Charge</th><th style="padding:8px;text-align:left;font-size:12px">Note</th><th style="padding:8px;text-align:right;font-size:12px">Amount</th><th style="padding:8px;text-align:right;font-size:12px">Fine</th><th style="padding:8px;font-size:12px">Status</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="5" style="padding:14px;text-align:center;font-size:13px;color:#888">No bills for this space & month.</td></tr>'}</tbody>
-      <tfoot><tr style="border-top:2px solid #111"><td colspan="2" style="padding:8px;font-weight:800;font-size:13px">TOTAL DUE</td><td style="padding:8px;text-align:right;font-weight:800;font-size:14px">৳${Number(d.total).toLocaleString('en-IN')}</td><td colspan="2" style="padding:8px;text-align:right;font-size:12px">Paid ৳${Number(d.paid).toLocaleString('en-IN')} · Due ৳${Number(d.due).toLocaleString('en-IN')}</td></tr></tfoot>
-    </table>
-    <p style="font-size:11.5px;color:#555;margin-top:10px">⚠️ ${d.fine_rule}</p>
-    <div style="display:flex;justify-content:space-between;margin-top:26px;font-size:12px;color:#333">
-      <span>${t('Prepared by')}: ________________<br /><small>${(recData.value && recData.value.user_name) || ''} — preparer</small></span>
-      <span>${t('General Secretary')}: ________________<br /><small>${config.secretary || ''}</small></span>
-      <span>${t('President')}: ________________<br /><small>${config.chairman || ''}</small></span>
+  if (!lastReadings.value.length) await loadMeters()
+  const rds = (lastReadings.value || []).filter(x => x.shop === d.shop.id && x.type === 'elec').sort((a, z) => (z.id || 0) - (a.id || 0))
+  const cur = rds[0], prev = rds[1]
+  const curReading = cur ? cur.reading : ''
+  const prevReading = prev ? prev.reading : ''
+  const units = cur && prev ? Math.max(0, Number(cur.reading) - Number(prev.reading)) : (cur ? (cur.units || '') : '')
+  const curDate = cur ? String(cur.date || '').slice(0, 10) : ''
+  const prevDate = prev ? String(prev.date || '').slice(0, 10) : ''
+  const billSvc = d.bills.find(x => x.kind === 'service') || {}
+  const billElec = d.bills.find(x => x.kind === 'elec') || {}
+  const billWat = d.bills.find(x => x.kind === 'water') || {}
+  const svcAmt = Number(billSvc.amount || 0)
+  const elecAmt = Number(billElec.amount || 0)
+  const watAmt = Number(billWat.amount || 0)
+  const fines = d.bills.reduce((s, x) => s + Number(x.fine || 0), 0)
+  const misc = watAmt + fines
+  const rate = Number(config.elec_unit_rate || 0)
+  const issued = (d.bills[0] && d.bills[0].created_at || '').slice(0, 10)
+  const due = (d.bills[0] && d.bills[0].due_date) || ''
+  const bn = (n) => '৳' + Number(n || 0).toLocaleString('en-IN')
+  const dline = (label, val, bold) => `<div style="flex:1;display:flex;align-items:baseline;gap:6px;min-width:0"><span style="font-size:13px;white-space:nowrap">${label}</span><span style="flex:1;border-bottom:1px dotted #000;min-width:40px"></span><span style="font-size:13px;font-weight:${bold ? 800 : 400};white-space:nowrap">${val || '…'}</span></div>`
+  const frow = (num, left, right) => `<div style="display:flex;gap:28px;margin-top:9px">${num ? `<span style="font-size:13px;font-weight:800;width:16px;flex-shrink:0">${num}</span>` : ''}${left}${right}</div>`
+  const html = `<div style="font-family:'Noto Serif Bengali',serif;max-width:740px;margin:0 auto;padding:0;border:2px solid #111">
+    <div style="background:#7f1d1d;color:#fff;text-align:center;padding:13px 10px;font-size:18px;font-weight:800;letter-spacing:.4px">বিদ্যুৎ/পার্টিস চার্জ এবং অন্যান্য বিল</div>
+    <div style="padding:22px 26px 26px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <div style="font-size:12.5px;color:#555">${config.mall_name || 'Mall Manager'}${config.mall_address ? ' — ' + config.mall_address : ''}${config.mall_phone ? ' · ☎ ' + config.mall_phone : ''}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:800;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:4px">
+        <span>নং- ${billSvc.id ? 'BILL-' + billSvc.id : d.shop.no}</span>
+        <span>মাস: ${monthLabel(d.month)}</span>
+      </div>
+      ${frow('১.', dline('ক্রেতার নাম', d.shop.owner_name || '—', true), dline('ডোকান নং', d.shop.no, true))}
+      ${frow('২.', dline('বর্তমান রিডিং', curReading || ''), dline('তারিখ', curDate || ''))}
+      ${frow('৩.', dline('পূর্ববর্তী রিডিং', prevReading || ''), dline('তারিখ', prevDate || ''))}
+      ${frow('৪.', dline('ব্যবহৃত ইউনিট', units !== '' ? units : ''), dline('ডোকানের আয়তন', d.shop.sqft ? d.shop.sqft + ' বর্গফুট' : ''))}
+      ${frow('৫.', dline('প্রতি ইউনিটের মূল্য', rate ? bn(rate) : ''), dline('হিসাবে মোট টাকা', elecAmt ? bn(elecAmt) : '', true))}
+      ${frow('৬.', dline('রীতমতো ফি সেবা চার্জ', svcAmt ? bn(svcAmt) : ''), dline('হিসাবে মোট সার্ভিস চার্জ', svcAmt ? bn(svcAmt) : '', true))}
+      ${frow('৭.', dline('বিল ইস্যুর তারিখ', issued || ''), dline('পরিশোধের তারিখ', due || ''))}
+      ${frow('৮.', dline('বকেয়া পাওনা মোট', d.due ? bn(d.due) : ''), dline('টাকা', d.due ? bn(d.due) : ''))}
+      ${frow('৯.', dline('বিবিধ (পানি/ফাইন)', misc ? bn(misc) : ''), dline('ও বিবিধ টাকা', misc ? bn(misc) : ''))}
+      ${frow('১০.', dline('মোট টাকা', bn(d.total), true), dline('', ''))}
+      <div style="margin-top:18px;border-top:1px solid #000;padding-top:10px;font-size:12.5px;line-height:2">
+        <div>১। নির্ধারিত তারিখে বিল পরিশোধ করিয়া লাইন সচল রাখিতে সহায়তা করুন।</div>
+        <div>২। প্রতি মাসের ২০ (বিশ) তারিখের মধ্যে সমস্ত বিল পরিশোধ করুন। অন্যথায় বিদ্যুৎ লাইন বিচ্ছিন্ন করা হইবে।</div>
+        <div>৩। ২০ (বিশ) তারিখের মধ্যে বিল পরিশোধ না করিলে সার্ভিস চার্জ সহ বিল পরিশোধ করিতে হইবে।</div>
+        <div>৪। আপনার সহযোগীতা একান্ত কাম্য।</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:34px;text-align:center;font-size:13px">
+        <div style="flex:1">____________________________<br /><b>বিল প্রস্তুতকারী</b><br /><small style="font-size:11px;color:#555">${(recData.value && recData.value.user_name) || ''}</small></div>
+        <div style="flex:1">____________________________<br /><b>সাধারণ সম্পাদক</b><br /><small style="font-size:11px;color:#555">${config.secretary || ''}</small></div>
+      </div>
     </div>
   </div>`
   let area = document.getElementById('printArea')
