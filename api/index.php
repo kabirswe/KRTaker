@@ -15180,7 +15180,7 @@ case 'mall': {
         if (in_array($a, $mall_write, true)) {
             json_out(['ok' => false, 'error' => 'Collector role is limited to collections, meter readings and viewing.'], 403);
         }
-        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids', 'bank-stmt-list', 'alerts'], true)) {
+        if (!in_array($a, $collector_ok, true) && !in_array($a, ['config-get', 'bills', 'payments', 'dashboard', 'ledger', 'expenses', 'complaints', 'assets', 'audit', 'notices', 'shop-list', 'staff-list', 'salaries', 'recon', 'balances', 'receipt', 'users', 'committee', 'owners', 'owner-profile', 'tenants', 'agreements', 'vendors', 'vendor-payments', 'rent-payments', 'license-get', 'space-detail', 'vendor-detail', 'staff-detail', 'tenant-detail', 'committee-roles', 'accounts', 'journal', 'trial', 'pnl', 'party-ledger', 'account-ledger', 'acct-map', 'analytics', 'cashflow', 'sms', 'combined-bill', 'waivers', 'payment-voids', 'bank-stmt-list', 'alerts', 'effective-rate'], true)) {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
@@ -15313,6 +15313,13 @@ case 'mall': {
         $phones['tenant'] = (string)$st->fetchColumn();
         return $phones;
     };
+    /* V2.11 (spec 3.1): recipient choice — 'owner' | 'tenant' | 'both' */
+    $mall_phones = function ($shopId, $to = 'both') use ($pdo, $mall_owner_tenant_phones) {
+        $p = $mall_owner_tenant_phones($shopId);
+        if ($to === 'owner') return array_filter([$p['owner']]);
+        if ($to === 'tenant') return array_filter([$p['tenant']]);
+        return array_filter([$p['owner'], $p['tenant']]);
+    };
 
     /* sms — SMS engine config (ported from KRTaker app-sms): get/save/test/log.
        Sub-action in $body['sub'] — $body['action'] is consumed by the router. */
@@ -15328,12 +15335,13 @@ case 'mall': {
         if ($act === 'config-save') {
             if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only the admin can change SMS settings.'], 403);
             foreach ([['enabled', 'sms_enabled'], ['provider', 'sms_provider'], ['api_key', 'sms_api_key'],
-                      ['sender_id', 'sms_sender_id'], ['api_url', 'sms_api_url']] as [$k, $ck]) {
+                      ['sender_id', 'sms_sender_id'], ['api_url', 'sms_api_url'], ['recipients', 'sms_recipients']] as [$k, $ck]) {
                 if (isset($body[$k])) $mset($ck, (string)$body[$k]);
             }
             audit($u['name'], 'SMS config', 'mall', '', json_encode($body));
             $c = $sms_cfg();
             if ($c['api_key'] !== '') $c['api_key'] = substr($c['api_key'], 0, 4) . '…' . substr($c['api_key'], -2);
+            $c['recipients'] = $mcfg('sms_recipients', 'both');
             json_out(['ok' => true] + $c);
         }
         if ($act === 'send-test') {
@@ -15360,7 +15368,8 @@ case 'mall': {
                 ? "সতর্কবার্তা: $mallName — আপনার দোকান {$s['no']} এর বকেয়া ৳" . number_format($due) . " ($months মাস)। জরুরি ভিত্তিতে পরিশোধ করুন, নতুবা সংযোগ বিচ্ছিন্ন হতে পারে। ধন্যবাদ।"
                 : "জরুরি নোটিশ: $mallName — দোকান {$s['no']} এর বকেয়া ৳" . number_format($due) . " ($months মাস)। অনুগ্রহ করে দ্রুত পরিশোধ করুন। ধন্যবাদ।";
             $sent = 0; $errs = [];
-            $phones = $mall_owner_tenant_phones($shop);
+            $to = in_array(trim($body['to'] ?? ''), ['owner', 'tenant', 'both'], true) ? trim($body['to']) : $mcfg('sms_recipients', 'both');
+            $phones = $mall_phones($shop, $to);
             foreach ($phones as $ph) {
                 $r = $sms_send($ph, $text, 'alert-' . $kind);
                 if ($r['ok']) $sent++; else $errs[] = $r['reason'];
@@ -16411,8 +16420,32 @@ case 'mall': {
         json_out(['ok' => true]);
     }
 
-    /* recon — custodial fund reconciliation (spec 3.3): elec/water collected vs
-       DESCO/WASA main bills paid → balance to forward. Monthly + all-time. */
+    /* effective-rate (spec 3.3): DESCO main bill ÷ total sub-meter units →
+       average effective rate + suggested shop rates at small margins */
+    if ($a === 'effective-rate') {
+        $mainBill = (int)($body['main_bill'] ?? 0);
+        $month = trim($body['month'] ?? date('Y-m'));
+        $units = (int)($body['total_units'] ?? 0);
+        if ($units <= 0) {
+            $st = $pdo->prepare("SELECT COALESCE(SUM(units),0) FROM mall_meter_readings WHERE type='elec' AND month=?");
+            $st->execute([$month]);
+            $units = (int)$st->fetchColumn();
+        }
+        if ($mainBill <= 0) json_out(['ok' => false, 'error' => 'Main DESCO bill amount required.'], 400);
+        if ($units <= 0) json_out(['ok' => false, 'error' => 'No elec units found for this month — enter total units or record readings.'], 400);
+        $eff = round($mainBill / $units, 2);
+        json_out(['ok' => true, 'main_bill' => $mainBill, 'total_units' => $units, 'month' => $month,
+                  'effective_rate' => $eff,
+                  'suggested' => [
+                      ['margin' => 2, 'rate' => round($eff * 1.02)],
+                      ['margin' => 5, 'rate' => round($eff * 1.05)],
+                      ['margin' => 10, 'rate' => round($eff * 1.10)],
+                  ]]);
+    }
+
+    /* recon (spec 3.3/3.4): utility income vs cost — collections are the
+       society's OWN income (NOT custodial); main DESCO/WASA bills are expenses
+       in the same ledger. Profit/loss = collected − paid. Monthly + all-time. */
     if ($a === 'recon') {
         $month = trim($body['month'] ?? date('Y-m'));
         $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
@@ -16430,8 +16463,12 @@ case 'mall': {
                 'desco_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Common Electricity (DESCO)'"),
                 'wasa_paid' => $q("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND cat='Water (WASA)'")];
         $sum = function ($r) { return $r['elec_collected'] + $r['water_collected'] - $r['desco_paid'] - $r['wasa_paid']; };
+        /* spec 3.3 line 40 report: main bill − total sub-meter collections = loss/profit */
+        $pnl = function ($r) { return $r['elec_collected'] - $r['desco_paid']; };
         json_out(['ok' => true, 'month' => $month, 'current' => $cur, 'all_time' => $all,
-                  'current_balance' => $sum($cur), 'all_time_balance' => $sum($all)]);
+                  'current_balance' => $sum($cur), 'all_time_balance' => $sum($all),
+                  'utility_pnl' => ['current' => $sum($cur), 'all_time' => $sum($all)],
+                  'elec_pnl' => ['current' => $pnl($cur), 'all_time' => $pnl($all)]]);
     }
 
     /* balances — cash in hand / EACH bank & mobile banking account (spec 3.7);
@@ -17170,12 +17207,11 @@ case 'mall': {
         if ($finePart > 0) $lines[] = [$flow_acct('fine'), 0, $finePart];
         $post_journal(date('Y-m-d'), 'RCT-' . str_pad((string)$payId, 5, '0', STR_PAD_LEFT),
             'Collection ' . $receipt . ' — ' . $bill['shop'] . ' (' . $bill['month'] . ')', $lines, $u['name']);
-        /* V2.4 (spec 3.2): auto SMS receipt confirmation to owner + tenant */
-        $phones = $mall_owner_tenant_phones($bill['shop']);
+        /* V2.4 (spec 3.2): auto SMS receipt confirmation — recipients per spec
+           3.1 choice (owner / tenant / both, configurable in Settings → SMS) */
+        $phones = $mall_phones($bill['shop'], $mcfg('sms_recipients', 'both'));
         $smsText = ($mcfg('mall_name', 'Mall Manager')) . ': রসিদ ' . $receipt . ' — ৳' . number_format($amount) . ' (' . $bill['kind'] . ', ' . $bill['month'] . ') প্রাপ্ত হয়েছে। ধন্যবাদ।';
-        foreach (['owner' => $phones['owner'], 'tenant' => $phones['tenant']] as $who => $ph) {
-            if ($ph !== '') $sms_send($ph, $smsText, 'receipt-' . $who);
-        }
+        foreach ($phones as $ph) $sms_send($ph, $smsText, 'receipt');
         json_out(['ok' => true, 'receipt' => $receipt, 'sms' => ['sent' => (int)$sms_cfg()['enabled']]]);
     }
 
@@ -17287,7 +17323,19 @@ case 'mall': {
         }
         usort($high, fn($a, $b) => $b['due'] - $a['due']);
         usort($dc, fn($a, $b) => $b['due'] - $a['due']);
-        json_out(['ok' => true, 'high_dues' => $high, 'disconnect_risk' => $dc, 'high_months' => $hiMonths, 'disconnect_months' => $dcMonths]);
+        /* spec 3.5: AMC / servicing contract expiring within 30 days or already expired */
+        $amc = [];
+        $today = strtotime(date('Y-m-d'));
+        foreach ($pdo->query("SELECT id, name, type, location, vendor, contract_until FROM mall_assets WHERE status != 'Sold'") as $as) {
+            $cu = trim($as['contract_until'] ?? '');
+            if ($cu === '') continue;
+            $ts = strtotime($cu);
+            if ($ts === false) continue;
+            $days = (int)(($ts - $today) / 86400);
+            if ($days <= 30) $amc[] = ['id' => (int)$as['id'], 'name' => $as['name'], 'type' => $as['type'], 'location' => $as['location'], 'vendor' => $as['vendor'], 'contract_until' => $cu, 'days_left' => $days];
+        }
+        usort($amc, fn($a, $b) => $a['days_left'] - $b['days_left']);
+        json_out(['ok' => true, 'high_dues' => $high, 'disconnect_risk' => $dc, 'high_months' => $hiMonths, 'disconnect_months' => $dcMonths, 'amc_due' => $amc]);
     }
 
     if ($a === 'dashboard') {

@@ -95,11 +95,11 @@ const incomeHeadInput = ref('')
 function addUtilHead() { const v = utilHeadInput.value.trim(); if (!v) return; if (!config.value.util_heads) config.value.util_heads = []; if (!config.value.util_heads.includes(v)) config.value.util_heads.push(v); utilHeadInput.value = ''; cfgDirty.value = true }
 function addIncomeHead() { const v = incomeHeadInput.value.trim(); if (!v) return; if (!config.value.income_heads) config.value.income_heads = []; if (!config.value.income_heads.includes(v)) config.value.income_heads.push(v); incomeHeadInput.value = ''; cfgDirty.value = true }
 /* SMS engine (ported from KRTaker) */
-const smsCfg = ref({ enabled: 0, provider: 'log', api_key: '', sender_id: 'Mall Manager', api_url: '', log: [] })
+const smsCfg = ref({ enabled: 0, provider: 'log', api_key: '', sender_id: 'Mall Manager', api_url: '', recipients: 'both', log: [] })
 const smsTestPhone = ref('')
 async function loadSmsCfg() { const r = await apiCall('mall', { action: 'sms' }); if (r.ok) smsCfg.value = r }
 async function saveSmsCfg() {
-  const r = await apiCall('mall', { action: 'sms', sub: 'config-save', enabled: smsCfg.value.enabled ? 1 : 0, provider: smsCfg.value.provider, api_key: smsCfg.value.api_key, sender_id: smsCfg.value.sender_id, api_url: smsCfg.value.api_url })
+  const r = await apiCall('mall', { action: 'sms', sub: 'config-save', enabled: smsCfg.value.enabled ? 1 : 0, provider: smsCfg.value.provider, api_key: smsCfg.value.api_key, sender_id: smsCfg.value.sender_id, api_url: smsCfg.value.api_url, recipients: smsCfg.value.recipients || 'both' })
   if (r.ok) { smsCfg.value = { ...smsCfg.value, ...r }; window.__krToast?.(r.enabled ? '📱 SMS enabled' : '📱 SMS disabled', 'ok') }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
@@ -1405,6 +1405,15 @@ function billRiskMonths(b) {
   return Math.max(0, (now.getFullYear() - y) * 12 + (now.getMonth() + 1) - m)
 }
 function isDisconnectRisk(b) { return billRiskMonths(b) >= (config.disconnect_months || 3) }
+/* spec 3.3: effective elec rate calculator (DESCO bill ÷ units) */
+const effCalc = ref({ main_bill: 0, month: '', result: null })
+async function calcEffectiveRate() {
+  if (!effCalc.value.main_bill || Number(effCalc.value.main_bill) <= 0) { window.__krToast?.('Enter the DESCO main bill amount.', 'err'); return }
+  const r = await apiCall('mall', { action: 'effective-rate', main_bill: Number(effCalc.value.main_bill), month: effCalc.value.month || month.value })
+  if (r.ok) effCalc.value.result = r
+  else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+function useEffRate(rate) { config.elec_unit_rate = rate; cfgDirty.value = true; window.__krToast?.(`⚡ Elec rate set to ৳${rate}/unit — hit Save`, 'ok') }
 const maxOf = (arr, key) => Math.max(...arr.map(x => Number(x[key]) || 0))
 const maxOfN = (arr) => Math.max(...(arr || []).map(x => Number(x.n) || 0))
 const pctOf = (v, arr) => { const t = (arr || []).reduce((s, x) => s + Number(x.total), 0); return t ? Math.round(Number(v) / t * 100) : 0 }
@@ -1514,6 +1523,15 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <span v-for="s in alerts.high_dues" :key="s.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
               <b>{{ s.no }}</b> <span style="color:var(--text-mute)">{{ s.months }}mo · ৳{{ Number(s.due).toLocaleString('en-IN') }}</span>
               <button @click="sendDuesAlert(s, 'high')" title="SMS dues reminder to owner & tenant" style="border:none;background:#F2994A;color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">📲 Remind</button>
+            </span>
+          </div>
+        </div>
+        <div v-if="alerts.amc_due?.length" style="border:1px solid #9B51E0;background:rgba(155,81,224,.08);border-radius:14px;padding:13px 16px">
+          <div style="font-size:12.5px;font-weight:800;color:#7B2CBF;margin-bottom:8px">🛠️ AMC / servicing contract expiring (spec 3.5)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span v-for="a in alerts.amc_due" :key="a.id" style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:5px 8px 5px 12px;font-size:12px">
+              <b>{{ a.name }}</b>
+              <span :style="a.days_left < 0 ? 'color:var(--danger);font-weight:700' : 'color:var(--text-mute)'">{{ a.days_left < 0 ? 'expired ' + Math.abs(a.days_left) + 'd ago' : a.days_left + 'd left' }} · {{ a.contract_until }}</span>
             </span>
           </div>
         </div>
@@ -2212,23 +2230,26 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
     <template v-if="tab === 'reconcile'">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px" class="rc-grid">
         <div class="panel" style="padding:18px;overflow:hidden">
-          <h3 style="font-size:14px;margin-bottom:4px">⚡ Custodial utilities reconciliation</h3>
-          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Utility charges collected from occupants (custodial) vs paid out to DESCO / WASA. A positive balance means the mall is holding utility funds that must be remitted.</p>
+          <h3 style="font-size:14px;margin-bottom:4px">⚡ Utility income vs cost <small style="color:var(--text-mute);font-weight:400">(own-income model, spec 3.3)</small></h3>
+          <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:12px">Elec/water collections are the society's <b>own income</b>; the main DESCO/WASA bills are expenses in the same ledger — <b>not</b> a custodial pass-through fund. Profit/loss = collected − paid.</p>
           <div v-if="bankRecon?.recon">
             <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">{{ bankRecon.recon.month }}</div>
             <div v-for="r in [
-              { label: '⚡ Elec collected', v: bankRecon.recon.current.elec_collected },
-              { label: '💧 Water collected', v: bankRecon.recon.current.water_collected },
-              { label: '🔌 Paid to DESCO', v: bankRecon.recon.current.desco_paid },
-              { label: '🚰 Paid to WASA', v: bankRecon.recon.current.wasa_paid },
+              { label: '⚡ Elec collected (income)', v: bankRecon.recon.current.elec_collected },
+              { label: '💧 Water collected (income)', v: bankRecon.recon.current.water_collected },
+              { label: '🔌 DESCO main bill (expense)', v: bankRecon.recon.current.desco_paid },
+              { label: '🚰 WASA main bill (expense)', v: bankRecon.recon.current.wasa_paid },
             ]" :key="r.label" style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:9px 12px;border-radius:10px;background:var(--bg-alt);margin-bottom:6px">
               <span>{{ r.label }}</span><b>{{ money(r.v) }}</b>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:10px 12px;border-radius:10px;background:rgba(47,128,237,.08);border:1px solid var(--border);margin-top:8px">
-              <span>Held this month (must remit)</span><b style="color:var(--danger)">{{ money(bankRecon.recon.current_balance) }}</b>
+              <span>⚖️ Utility profit/loss this month</span><b :style="(bankRecon.recon.utility_pnl?.current || 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(bankRecon.recon.utility_pnl?.current || 0) }}</b>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:8px 12px;color:var(--text-mute)">
-              <span>All-time custodial balance</span><b style="color:var(--danger)">{{ money(bankRecon.recon.all_time_balance) }}</b>
+              <span>⚡ Elec only: sub-meter collections − DESCO bill (spec 3.3)</span><b :style="(bankRecon.recon.elec_pnl?.current || 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(bankRecon.recon.elec_pnl?.current || 0) }}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:8px 12px;color:var(--text-mute)">
+              <span>All-time utility profit/loss</span><b :style="(bankRecon.recon.utility_pnl?.all_time || 0) >= 0 ? 'color:var(--ok)' : 'color:var(--danger)'">{{ money(bankRecon.recon.utility_pnl?.all_time || 0) }}</b>
             </div>
           </div>
         </div>
@@ -2334,7 +2355,7 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
     <template v-if="tab === 'meters'">
       <div class="panel" style="padding:18px">
         <h3 style="font-size:14px;margin-bottom:6px">⚡ Sub-meter reading → auto bill</h3>
-        <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Collected amounts are <b>custodial</b> — forwarded to DESCO/WASA, tracked separately from service charges.</p>
+        <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:14px">Units = reading − previous reading × rate ({{ money(config.elec_unit_rate) }}/unit elec, {{ money(config.water_unit_rate) }}/unit water). Elec/water collections are the society's <b>own income</b> — the main DESCO/WASA bills are expenses in the same ledger (spec 3.3).</p>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">Space
             <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" placeholder="Select space…" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
@@ -3127,6 +3148,23 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
               <input type="number" v-model.number="config.disconnect_months" min="1" max="12" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" @input="cfgDirty = true" />
             </label>
           </div>
+          <!-- spec 3.3: effective elec rate calculator -->
+          <div style="margin-top:14px;border:1px dashed var(--border);border-radius:12px;padding:13px 15px;background:rgba(47,128,237,.04)">
+            <div style="font-size:12.5px;font-weight:800;margin-bottom:6px">⚡ Effective elec rate calculator <small style="color:var(--text-mute);font-weight:400">(spec 3.3 — DESCO main bill ÷ total sub-meter units)</small></div>
+            <p style="font-size:11.5px;color:var(--text-mute);margin-bottom:10px">Put this month's DESCO main bill (unit charge + demand + VAT + system loss) in — the system pulls the month's total sub-meter units and suggests a shop rate slightly above the effective cost.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <input v-model.number="effCalc.main_bill" type="number" min="0" placeholder="DESCO main bill ৳…" style="flex:1;min-width:160px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+              <input v-model="effCalc.month" type="month" style="padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+              <button @click="calcEffectiveRate" style="padding:10px 16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">Calculate</button>
+            </div>
+            <div v-if="effCalc.result" style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+              <span style="font-size:12.5px">Total units: <b>{{ effCalc.result.total_units.toLocaleString('en-IN') }}</b> · Effective cost: <b style="color:var(--primary)">৳{{ effCalc.result.effective_rate }}/unit</b></span>
+              <span v-for="s in effCalc.result.suggested" :key="s.margin" style="display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:4px 6px 4px 12px;font-size:12px">
+                <b>{{ s.margin }}% margin → ৳{{ s.rate }}</b>
+                <button @click="useEffRate(s.rate)" style="border:none;background:var(--primary);color:#fff;border-radius:99px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">Use</button>
+              </span>
+            </div>
+          </div>
         </div>
         <div v-if="settingsTab === 'billing'" class="panel" style="padding:18px">
           <h3 style="font-size:14px;margin-bottom:4px">💳 Rent &amp; statements config</h3>
@@ -3234,11 +3272,18 @@ watch(() => route.query.tab, (t) => { if (t && TABS.some(x => x[0] === t)) switc
             <label style="font-size:12px;color:var(--text-mute)">Sender ID
               <input v-model="smsCfg.sender_id" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
+            <label style="font-size:12px;color:var(--text-mute)">API URL
+              <input v-model="smsCfg.api_url" placeholder="https://api.bulksmsbd.com/smsapi" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">📨 Recipients <small style="color:var(--text-mute)">(spec 3.1 — who gets SMS receipts &amp; alerts)</small>
+              <select v-model="smsCfg.recipients" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option value="both">👥 Owner &amp; tenant (both)</option>
+                <option value="owner">👤 Owner only</option>
+                <option value="tenant">🧑‍💼 Tenant only</option>
+              </select>
+            </label>
             <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">API key
               <input v-model="smsCfg.api_key" :placeholder="smsCfg.masked ? '•••• saved — type to replace' : ''" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
-            </label>
-            <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">API URL
-              <input v-model="smsCfg.api_url" placeholder="https://api.bulksmsbd.com/smsapi" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
