@@ -1151,6 +1151,29 @@ async function openTenantDrawer(t) { eTab.value = 'overview'; const r = await ap
 function openMemberDrawer(m) { eTab.value = 'overview'; mDrawer.value = m }
 async function openOwnerDrawer(o) { eTab.value = 'overview'; const r = await apiCall('mall', { action: 'owner-profile', id: o.id }); if (r.ok) oDrawer.value = r }
 function closeEntityDrawers() { vDrawer.value = sDrawer.value = tDrawer.value = mDrawer.value = oDrawer.value = null }
+/* ── entity deep-links: click a name anywhere → its drawer ── */
+function linkShop(row) {
+  if (!row) return
+  const id = row.shop || row.id || row.shop_id
+  if (!id) return
+  openSpaceDetail(typeof row === 'object' && row.id === id ? row : { id })
+}
+function linkOwner(row) {
+  if (!row) return
+  let id = row.owner_id || row.ownerId
+  if (!id && (row.shop || row.id)) { const sh = (shops.value || []).find(x => x.id === (row.shop || row.id)); id = sh && sh.owner_id }
+  if (!id && row.owner_name) { const o = (owners.value || []).find(x => x.name === row.owner_name); if (o) return openOwnerDrawer(o) }
+  if (!id) { window.__krToast?.(t('Owner profile not linked.'), 'err'); return }
+  openOwnerDrawer({ id })
+}
+function linkTenant(row) {
+  if (!row) return
+  let id = row.tenant_id || row.tenantId
+  if (id && !/^\d+$/.test(String(id))) id = 0   // legacy agreements store the tenant NAME in tenant_id
+  if (!id && row.tenant_name) { const f = (tenants.value || []).find(x => x.name === row.tenant_name); if (f) return openTenantDrawer(f) }
+  if (!id) { window.__krToast?.(t('Tenant profile not linked.'), 'err'); return }
+  openTenantDrawer({ id })
+}
 function drawerStats(d, rows) {
   return d
 }
@@ -1763,8 +1786,8 @@ onBeforeUnmount(() => {
               <thead><tr><th>{{ t('Space') }}</th><th>{{ t('Owner') }}</th><th style="text-align:right">{{ t('Due') }}</th></tr></thead>
               <tbody>
                 <tr v-for="d in dash.defaulters" :key="d.id">
-                  <td><b>{{ d.no }}</b> <small style="color:var(--text-mute)">· {{ d.floor }}</small></td>
-                  <td>{{ d.owner_name }}</td>
+                  <td><span class="elink" @click.stop="linkShop(d)"><b>{{ d.no }}</b></span> <small style="color:var(--text-mute)">· {{ d.floor }}</small></td>
+                  <td><span class="elink" @click.stop="linkOwner(d)">{{ d.owner_name }}</span></td>
                   <td style="text-align:right;color:var(--danger);font-weight:800">{{ money(d.due) }}</td>
                 </tr>
               </tbody>
@@ -1795,7 +1818,7 @@ onBeforeUnmount(() => {
             <h3 style="font-size:14px;margin-bottom:10px">{{ t('🕘 Recent collections') }}</h3>
             <div v-if="payments.length" style="display:flex;flex-direction:column;gap:8px">
               <div v-for="p in payments.slice(0, 5)" :key="p.id" style="display:flex;justify-content:space-between;font-size:12.5px">
-                <span><b>{{ p.shop_no }}</b> · {{ bnd(p.method) }} <small style="color:var(--text-mute)">({{ p.receipt }})</small></span>
+                <span><span class="elink" @click.stop="linkShop(p)"><b>{{ p.shop_no }}</b></span> · {{ bnd(p.method) }} <small style="color:var(--text-mute)">({{ p.receipt }})</small></span>
                 <b style="color:var(--ok)">{{ money(p.amount) }}</b>
               </div>
             </div>
@@ -1895,7 +1918,7 @@ onBeforeUnmount(() => {
                 <td><b>{{ s.no }}</b><br /><small style="color:var(--text-mute)">{{ s.id }}</small></td>
                 <td>{{ s.floor }}</td>
                 <td>{{ (s.sqft || 0).toLocaleString('en-IN') }}</td>
-                <td>{{ s.owner_name || '—' }}</td>
+                <td><span class="elink" @click.stop="linkOwner(s)">{{ s.owner_name || '—' }}</span></td>
                 <td>{{ s.owner_mobile || '—' }}</td>
                 <td><span class="badge b-gray" style="font-size:10px">{{ s.space_type || 'Shop' }}</span><br /><span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px;margin-top:2px">{{ s.occupancy || 'Owner' }}</span></td>
                 <td><span class="badge" :class="badge(s.status)">{{ bnd(s.status) }}</span></td>
@@ -1926,7 +1949,7 @@ onBeforeUnmount(() => {
             <span class="badge b-gray" style="font-size:10px">{{ s.space_type || 'Shop' }}</span>
             <span class="badge" :class="{ Owner: 'b-green', Rented: 'b-blue', Vacant: 'b-gray' }[s.occupancy] || 'b-gray'" style="font-size:10px">{{ s.occupancy || 'Owner' }}</span>
           </div>
-          <div style="font-size:11.5px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👤 {{ s.owner_name || '—' }}<span v-if="s.owner_mobile"> · {{ s.owner_mobile }}</span></div>
+          <div style="font-size:11.5px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="elink" @click.stop="linkOwner(s)">👤 {{ s.owner_name || '—' }}</span><span v-if="s.owner_mobile"> · {{ s.owner_mobile }}</span></div>
           <div style="display:flex;align-items:center;margin-top:8px;border-top:1px dashed var(--border);padding-top:8px">
             <span style="font-size:11px;color:var(--text-mute)">{{ t('Rate/mo') }}</span>
             <b style="margin-left:auto;font-size:13.5px">{{ money(s.service_rate) }}</b>
@@ -1971,7 +1994,7 @@ onBeforeUnmount(() => {
             <tbody>
               <tr v-for="b in bills" :key="b.id">
                 <td><small style="color:var(--text-mute)">{{ b.id }}</small></td>
-                <td><b>{{ b.shop_no || b.shop }}</b></td>
+                <td><span class="elink" @click.stop="linkShop(b)"><b>{{ b.shop_no || b.shop }}</b></span></td>
                 <td>{{ b.shop_floor || '—' }}</td>
                 <td>{{ bnd({ service: '🧾 Service', elec: '⚡ Electricity', water: '💧 Water' }[b.kind] || b.kind) }}</td>
                 <td style="text-align:right;font-weight:800">{{ money(b.amount) }}<span v-if="b.fine" style="color:var(--danger);font-size:11px"> +{{ money(b.fine) }} fine</span></td>
@@ -2601,8 +2624,8 @@ onBeforeUnmount(() => {
             <tbody>
               <tr v-for="iv in invList" :key="iv.shop">
                 <td style="font-weight:800;font-size:12px">{{ iv.ref }}</td>
-                <td style="font-size:12.5px;font-weight:700">{{ iv.shop_no }} <small style="color:var(--text-mute)">· {{ iv.shop_floor || '—' }}</small></td>
-                <td class="inv-hide-sm" style="font-size:12px">{{ iv.owner_name || '—' }}</td>
+                <td style="font-size:12.5px;font-weight:700"><span class="elink" @click.stop="linkShop(iv)">{{ iv.shop_no }}</span> <small style="color:var(--text-mute)">· {{ iv.shop_floor || '—' }}</small></td>
+                <td class="inv-hide-sm" style="font-size:12px"><span class="elink" @click.stop="linkOwner(iv)">{{ iv.owner_name || '—' }}</span></td>
                 <td class="inv-hide-sm" style="text-align:right;font-size:12px">{{ iv.items.service ? money(iv.items.service) : '—' }}</td>
                 <td class="inv-hide-sm" style="text-align:right;font-size:12px">{{ iv.items.elec ? money(iv.items.elec) : '—' }}</td>
                 <td class="inv-hide-sm" style="text-align:right;font-size:12px">{{ iv.items.water ? money(iv.items.water) : '—' }}</td>
@@ -2719,8 +2742,8 @@ onBeforeUnmount(() => {
               <tr v-for="p in payList" :key="p.ptype + '-' + p.id">
                 <td style="font-weight:800;font-size:12px">{{ p.receipt }}</td>
                 <td style="font-size:12px">{{ (p.stamp || '').slice(0, 10) }}</td>
-                <td style="font-size:12.5px;font-weight:700">{{ p.shop_no }} <small style="color:var(--text-mute)">· {{ p.shop_floor || '—' }}</small></td>
-                <td style="font-size:12px">{{ p.payer || '—' }}</td>
+                <td style="font-size:12.5px;font-weight:700"><span class="elink" @click.stop="linkShop(p)">{{ p.shop_no }}</span> <small style="color:var(--text-mute)">· {{ p.shop_floor || '—' }}</small></td>
+                <td style="font-size:12px"><span class="elink" @click.stop="linkOwner(p)">{{ p.payer || '—' }}</span></td>
                 <td style="font-size:12px">{{ bnd(p.method) }}<small v-if="p.acct_name" style="color:var(--text-mute)"> · {{ p.acct_name }}</small></td>
                 <td style="text-align:right;font-weight:800;font-size:12.5px">{{ money(p.amount) }}</td>
                 <td><span class="badge" :class="p.status === 'Approved' ? 'b-green' : p.status === 'Pending' ? 'b-amber' : 'b-red'">{{ bnd(p.status) }}</span></td>
@@ -3371,7 +3394,7 @@ onBeforeUnmount(() => {
                 <span style="flex:1"></span>
                 <span style="font-weight:800;font-size:13px">{{ money(a.rent) }}/mo</span>
               </div>
-              <div style="font-size:11.5px;color:var(--text-mute);margin-top:5px">{{ a.tenant_name || '—' }} · {{ a.start_date }}<span v-if="a.end_date"> → {{ a.end_date }}</span><span v-if="a.advance_months"> · {{ a.advance_months }} mo advance</span></div>
+              <div style="font-size:11.5px;color:var(--text-mute);margin-top:5px"><span class="elink" @click.stop="linkTenant(a)">{{ a.tenant_name || '—' }}</span> · {{ a.start_date }}<span v-if="a.end_date"> → {{ a.end_date }}</span><span v-if="a.advance_months"> · {{ a.advance_months }} mo advance</span></div>
               <div v-if="a.shop_due > 0" style="font-size:11.5px;font-weight:800;color:var(--danger);margin-top:6px">⚠️ Shop outstanding: {{ money(a.shop_due) }} — NOC blocked until settled</div>
               <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
                 <span v-if="a.rent_collection" style="font-size:12px;font-weight:700" :style="a.rent_due > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ a.due_months }} mo due · {{ money(a.rent_due) }}</span>
@@ -3455,7 +3478,7 @@ onBeforeUnmount(() => {
               <tbody>
                 <tr v-for="s in ledger.per_shop" :key="s.id">
                   <td><b>{{ s.no }}</b> <small style="color:var(--text-mute)">· {{ s.floor }}</small></td>
-                  <td>{{ s.owner_name || '—' }}</td>
+                  <td><span class="elink" @click.stop="linkOwner(s)">{{ s.owner_name || '—' }}</span></td>
                   <td style="text-align:right">{{ money(s.sc_paid) }}<small style="color:var(--text-mute)"> / {{ money(s.sc_billed) }}</small></td>
                   <td style="text-align:right">{{ money(s.el_paid) }}<small style="color:var(--text-mute)"> / {{ money(s.el_billed) }}</small></td>
                   <td style="text-align:right">{{ money(s.w_paid) }}<small style="color:var(--text-mute)"> / {{ money(s.w_billed) }}</small></td>
@@ -4755,7 +4778,7 @@ onBeforeUnmount(() => {
         </div>
         <div style="padding:18px 20px 0;overflow-y:auto;flex:1">
           <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px">{{ drawer.shop.no }} <span style="font-size:13px;color:var(--text-mute);font-weight:600">· {{ drawer.shop.id }}</span></h2>
-          <div class="c-sub" style="margin-top:3px">🏢 {{ drawer.shop.owner_name || '—' }}<template v-if="drawer.shop.floor"> · {{ drawer.shop.floor }} floor</template><template v-if="drawer.shop.sqft"> · {{ Number(drawer.shop.sqft).toLocaleString('en-IN') }} sqft</template></div>
+          <div class="c-sub" style="margin-top:3px"><span class="elink" @click.stop="linkOwner(drawer.shop)">🏢 {{ drawer.shop.owner_name || '—' }}</span><template v-if="drawer.shop.floor"> · {{ drawer.shop.floor }} floor</template><template v-if="drawer.shop.sqft"> · {{ Number(drawer.shop.sqft).toLocaleString('en-IN') }} sqft</template></div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:16px 0">
             <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px">
@@ -4825,8 +4848,8 @@ onBeforeUnmount(() => {
               <thead><tr><th>{{ t('Space') }}</th><th>{{ t('Tenant') }}</th><th>{{ t('Rent/mo') }}</th><th>{{ t('Term') }}</th><th>{{ t('Advance') }}</th><th>{{ t('Collection') }}</th><th>{{ t('Status') }}</th></tr></thead>
               <tbody>
                 <tr v-for="a in drawer.agreements" :key="a.id">
-                  <td style="font-weight:700">{{ a.shop }}</td>
-                  <td>{{ a.tenant_name || '—' }}</td>
+                  <td style="font-weight:700"><span class="elink" @click.stop="linkShop(a)">{{ a.shop }}</span></td>
+                  <td><span class="elink" @click.stop="linkTenant(a)">{{ a.tenant_name || '—' }}</span></td>
                   <td style="font-weight:700">{{ money(a.rent) }}</td>
                   <td style="font-size:12px">{{ a.start_date }}<template v-if="a.end_date"> → {{ a.end_date }}</template></td>
                   <td>{{ a.advance_months }} mo</td>
@@ -5212,4 +5235,7 @@ onBeforeUnmount(() => {
   .page-head select { max-width: 132px; }
   .modal { max-width: 96vw !important; }
 }
+
+.elink { cursor: pointer; color: var(--primary); font-weight: 600; }
+.elink:hover { text-decoration: underline; }
 </style>
