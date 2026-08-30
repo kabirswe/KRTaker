@@ -140,7 +140,7 @@ function db() {
            ⚠ BUMP 20260809 to a higher number whenever adding new CREATE/ALTER
            statements to the block below, or they will never run on migrated DBs. ── */
         $__sv = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-        if ($__sv < 20260941) {
+        if ($__sv < 20260942) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT DEFAULT '', ip TEXT DEFAULT '',
             kind TEXT DEFAULT '', ok INTEGER DEFAULT 0, ts TEXT DEFAULT (datetime('now')))");
@@ -1487,7 +1487,18 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             email TEXT DEFAULT '', source TEXT DEFAULT 'mall.krtaker.com',
             creds_sent INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now','localtime')))");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_mall_leads_mobile ON mall_leads(mobile)");
-        try { $pdo->exec('PRAGMA user_version=20260941'); } catch (Exception $e) {}
+        /* ── Tenant profiles — KRTaker-depth (kind, family, company, addresses, business) ── */
+        $__tc = array_column($pdo->query('PRAGMA table_info(mall_tenants)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        foreach ([
+            'kind' => "TEXT DEFAULT 'Individual'", 'father_name' => "TEXT DEFAULT ''", 'mother_name' => "TEXT DEFAULT ''",
+            'present_address' => "TEXT DEFAULT ''", 'permanent_address' => "TEXT DEFAULT ''", 'city' => "TEXT DEFAULT ''",
+            'business_name' => "TEXT DEFAULT ''", 'occupation' => "TEXT DEFAULT ''", 'emergency_contact' => "TEXT DEFAULT ''",
+            'photo' => "TEXT DEFAULT ''", 'family' => "TEXT DEFAULT ''", 'company' => "TEXT DEFAULT ''",
+            'tags' => "TEXT DEFAULT ''", 'joined_at' => "TEXT DEFAULT ''",
+        ] as $__col => $__def) {
+            if (!in_array($__col, $__tc, true)) $pdo->exec("ALTER TABLE mall_tenants ADD COLUMN $__col $__def");
+        }
+        try { $pdo->exec('PRAGMA user_version=20260942'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -16856,18 +16867,30 @@ case 'mall': {
     if ($a === 'tenant-add') {
         $name = trim($body['name'] ?? '');
         if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
-        $pdo->prepare("INSERT INTO mall_tenants (name, phone, email, nid, address, employer, notes) VALUES (?,?,?,?,?,?,?)")
-            ->execute([$name, trim($body['phone'] ?? ''), trim($body['email'] ?? ''), trim($body['nid'] ?? ''),
-                       trim($body['address'] ?? ''), trim($body['employer'] ?? ''), trim($body['notes'] ?? '')]);
+        $__tf = ['kind','father_name','mother_name','present_address','permanent_address','city','business_name','occupation','emergency_contact','photo','family','company','tags','joined_at'];
+        $__tv = [trim($body['kind'] ?? 'Individual') ?: 'Individual'];
+        foreach (array_slice($__tf, 1) as $__f) $__tv[] = trim((string)($body[$__f] ?? ''));
+        $__cols = 'name, phone, email, nid, address, employer, notes, ' . implode(', ', $__tf);
+        $__ph = implode(',', array_fill(0, 7 + count($__tf), '?'));
+        $__vals = [$name, trim($body['phone'] ?? ''), trim($body['email'] ?? ''), trim($body['nid'] ?? ''),
+                   trim($body['address'] ?? ''), trim($body['employer'] ?? ''), trim($body['notes'] ?? '')];
+        $pdo->prepare("INSERT INTO mall_tenants ($__cols) VALUES ($__ph)")->execute(array_merge($__vals, $__tv));
         audit($u['name'], 'Tenant add', 'mall', $name, '');
         json_out(['ok' => true]);
     }
     if ($a === 'tenant-update') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('UPDATE mall_tenants SET name=?, phone=?, email=?, nid=?, address=?, employer=?, notes=? WHERE id=?')
-            ->execute([trim($body['name'] ?? ''), trim($body['phone'] ?? ''), trim($body['email'] ?? ''), trim($body['nid'] ?? ''),
-                       trim($body['address'] ?? ''), trim($body['employer'] ?? ''), trim($body['notes'] ?? ''), $id]);
+        $__tf2 = ['kind','father_name','mother_name','present_address','permanent_address','city','business_name','occupation','emergency_contact','photo','family','company','tags','joined_at'];
+        $__sets = 'name=?, phone=?, email=?, nid=?, address=?, employer=?, notes=?';
+        $__uv = [trim($body['name'] ?? ''), trim($body['phone'] ?? ''), trim($body['email'] ?? ''), trim($body['nid'] ?? ''),
+                 trim($body['address'] ?? ''), trim($body['employer'] ?? ''), trim($body['notes'] ?? '')];
+        foreach ($__tf2 as $__f2) {
+            $__sets .= ', ' . $__f2 . '=?';
+            $__uv[] = trim((string)($body[$__f2] ?? ($__f2 === 'kind' ? 'Individual' : '')));
+        }
+        $__uv[] = $id;
+        $pdo->prepare("UPDATE mall_tenants SET $__sets WHERE id=?")->execute($__uv);
         json_out(['ok' => true]);
     }
     if ($a === 'tenant-del') {

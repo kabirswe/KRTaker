@@ -1019,7 +1019,8 @@ function printNoc(a) {
   area.innerHTML = html
   window.print()
 }
-function openTenantAdd() { tenantForm.value = { name: '', phone: '', email: '', nid: '', address: '', employer: '', notes: '' }; tenantModal.value = { mode: 'add', title: '➕ New tenant' } }
+function openTenantAdd() { tenantForm.value = { name: '', phone: '', email: '', nid: '', address: '', employer: '', notes: '', kind: 'Individual', father_name: '', mother_name: '', present_address: '', permanent_address: '', city: '', business_name: '', occupation: '', emergency_contact: '', photo: '', family: '', company: '', tags: '', joined_at: '' }; tenantModal.value = { mode: 'add', title: '➕ New tenant' } }
+function tenLines(v) { return String(v || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean) }
 function openTenantEdit(t) { tenantForm.value = { ...t }; tenantModal.value = { mode: 'edit', title: '✏️ Edit tenant', id: t.id } }
 async function saveTenant() {
   if (!tenantForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
@@ -1027,6 +1028,17 @@ async function saveTenant() {
   const r = await apiCall('mall', { action, ...tenantForm.value, ...(tenantModal.value.mode === 'edit' ? { id: tenantModal.value.id } : {}) })
   if (r.ok) { window.__krToast?.(tenantModal.value.mode === 'edit' ? '✏️ Tenant updated' : '✅ Tenant added', 'ok'); tenantModal.value = null; await loadTenants(); applyAfterAdd() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
+}
+async function saveTenantDrawer() {
+  if (!tenantForm.value.name.trim()) { window.__krToast?.(t('Name required.'), 'err'); return }
+  const r = await apiCall('mall', { action: 'tenant-update', id: tDrawer.value.tenant.id, ...tenantForm.value })
+  if (r.ok) {
+    window.__krToast?.('✏️ Tenant updated', 'ok')
+    const id = tDrawer.value.tenant.id
+    const fresh = await apiCall('mall', { action: 'tenant-detail', id })
+    if (fresh.ok) { tDrawer.value = fresh; eTab.value = 'overview' }
+    await loadTenants(); applyAfterAdd()
+  } else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function delTenant(t) {
   if (!window.confirm(`Delete tenant "${t.name}"?`)) return
@@ -4329,30 +4341,74 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- ═══════ TENANT MODAL ═══════ -->
-    <div v-if="tenantModal" class="overlay" @click.self="tenantModal = null">
-      <div class="modal" style="max-width:520px">
+    <div     <div v-if="tenantModal" class="overlay" @click.self="tenantModal = null">
+      <div class="modal" style="max-width:660px">
         <div class="modal-h"><div class="t">{{ tenantModal.title }}</div><button class="close" @click="tenantModal = null">✕</button></div>
-        <div class="modal-b">
+        <div class="modal-b" style="max-height:74vh;overflow-y:auto">
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">👤 {{ t('Identity') }}</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Full name *') }}
               <input v-model="tenantForm.name" :placeholder="t('e.g. Abdul Kader')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
-              <input v-model="tenantForm.phone" :placeholder="t('e.g. 01800-000000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
+              <select v-model="tenantForm.kind" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+                <option value="Individual">{{ t('Individual') }}</option>
+                <option value="Corporate">{{ t('Corporate') }}</option>
+                <option value="Company">{{ t('Company') }}</option>
+              </select>
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Father name') }}
+              <input v-model="tenantForm.father_name" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Mother name') }}
+              <input v-model="tenantForm.mother_name" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('NID') }}
               <input v-model="tenantForm.nid" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}
+              <input v-model="tenantForm.phone" :placeholder="t('e.g. 01800-000000')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
             <label style="font-size:12px;color:var(--text-mute)">{{ t('Email') }}
               <input v-model="tenantForm.email" type="email" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
-            <label style="font-size:12px;color:var(--text-mute)">{{ t('Employer / business') }}
-              <input v-model="tenantForm.employer" :placeholder="t('e.g. Mobile accessories shop')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
-            </label>
-            <label style="font-size:12px;color:var(--text-mute)">{{ t('Address') }}
-              <input v-model="tenantForm.address" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Emergency contact') }}
+              <input v-model="tenantForm.emergency_contact" :placeholder="t('e.g. 01700-000000 (wife/brother)')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
             </label>
           </div>
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">📍 {{ t('Address') }}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Present address') }}
+              <input v-model="tenantForm.present_address" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Permanent address') }}
+              <input v-model="tenantForm.permanent_address" :placeholder="t('optional')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('City') }}
+              <input v-model="tenantForm.city" :placeholder="t('e.g. Dhaka')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Joined') }}
+              <input v-model="tenantForm.joined_at" type="date" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">🏪 {{ t('Business & occupation') }}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Business name') }}
+              <input v-model="tenantForm.business_name" :placeholder="t('e.g. Rahman Mobile Gallery')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Occupation') }}
+              <input v-model="tenantForm.occupation" :placeholder="t('e.g. Business / Service')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+            <label style="font-size:12px;color:var(--text-mute)">{{ t('Tags') }}
+              <input v-model="tenantForm.tags" :placeholder="t('comma separated, e.g. vip, wholesale')" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+            </label>
+          </div>
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">👨‍👩‍👧 {{ t('Family members') }} <small style="text-transform:none;font-weight:600">({{ t('one per line — Name, Relation') }})</small></div>
+          <textarea v-model="tenantForm.family" rows="3" :placeholder="t('e.g. Fatema Begum, Wife')" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">🏢 {{ t('Company profile') }} <small style="text-transform:none;font-weight:600">({{ t('Corporate tenants — one line: Label, Value') }})</small></div>
+          <textarea v-model="tenantForm.company" rows="3" :placeholder="t('e.g. Trade license, TR-2026-1122')" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+          <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">📝 {{ t('Notes') }}</div>
+          <textarea v-model="tenantForm.notes" rows="2" :placeholder="t('optional')" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea>
           <div style="display:flex;gap:10px;margin-top:18px">
             <button @click="saveTenant" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save tenant') }}</button>
             <button @click="tenantModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
@@ -4361,7 +4417,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- ═══════ AGREEMENT MODAL ═══════ -->
+<!-- ═══════ AGREEMENT MODAL ═══════ -->
     <div v-if="agrModal" class="overlay" @click.self="agrModal = false">
       <div class="modal" style="max-width:540px">
         <div class="modal-h"><div class="t">📄 New rental agreement</div><button class="close" @click="agrModal = false">✕</button></div>
@@ -4940,10 +4996,51 @@ onBeforeUnmount(() => {
               <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:11px;padding:10px 12px"><div style="font-size:10.5px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.3px">{{ t('Rent collected') }}</div><div style="font-size:14.5px;font-weight:800;margin-top:2px;color:var(--ok)">{{ money(tDrawer.rent_total) }}</div></div>
             </div>
             <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px;flex-wrap:wrap">
-              <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'agreements',label:'Agreements',ico:'📄'}]" :key="t.id" @click="eTab = t.id" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : tDrawer.agreements.length }})</span></button>
+              <button v-for="t in [{id:'overview',label:'Overview',ico:'📋'},{id:'agreements',label:'Agreements',ico:'📄'},{id:'edit',label:'Edit',ico:'✏️'}]" :key="t.id" @click="eTab = t.id; if (t.id === 'edit') tenantForm.value = { ...tDrawer.tenant }" style="padding:9px 14px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-mute)" :style="eTab === t.id ? 'color:var(--primary);border-bottom-color:var(--primary)' : ''">{{ t.ico }} {{ t.label }} <span style="opacity:.7">({{ t.id === 'overview' ? '' : t.id === 'agreements' ? tDrawer.agreements.length : '' }})</span></button>
             </div>
-            <div v-if="eTab === 'overview'" style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
-              <div v-for="r in [['Phone', tDrawer.tenant.phone || '—'], ['Email', tDrawer.tenant.email || '—'], ['NID', tDrawer.tenant.nid || '—'], ['Employer / business', tDrawer.tenant.employer || '—'], ['Address', tDrawer.tenant.address || '—'], ['Notes', tDrawer.tenant.notes || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
+            <div v-if="eTab === 'overview'">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px 16px">
+                <div v-for="r in [[t('Type'), tDrawer.tenant.kind || 'Individual'], [t('Father name'), tDrawer.tenant.father_name || '—'], [t('Mother name'), tDrawer.tenant.mother_name || '—'], ['NID', tDrawer.tenant.nid || '—'], [t('Phone'), tDrawer.tenant.phone || '—'], [t('Email'), tDrawer.tenant.email || '—'], [t('Emergency contact'), tDrawer.tenant.emergency_contact || '—'], [t('Business name'), tDrawer.tenant.business_name || '—'], [t('Occupation'), tDrawer.tenant.occupation || tDrawer.tenant.employer || '—'], [t('City'), tDrawer.tenant.city || '—'], [t('Joined'), tDrawer.tenant.joined_at || '—'], [t('Tags'), tDrawer.tenant.tags || '—']]" :key="r[0]" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ r[0] }}</span><b style="text-align:right">{{ r[1] }}</b></div>
+              </div>
+              <div v-if="tDrawer.tenant.present_address || tDrawer.tenant.permanent_address" style="margin-top:8px">
+                <div v-if="tDrawer.tenant.present_address" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ t('Present address') }}</span><b style="text-align:right">{{ tDrawer.tenant.present_address }}</b></div>
+                <div v-if="tDrawer.tenant.permanent_address" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:7px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ t('Permanent address') }}</span><b style="text-align:right">{{ tDrawer.tenant.permanent_address }}</b></div>
+              </div>
+              <div v-if="tenLines(tDrawer.tenant.family).length" style="margin-top:10px">
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">👨‍👩‍👧 {{ t('Family members') }}</div>
+                <div v-for="m in tenLines(tDrawer.tenant.family)" :key="m" style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--border);font-size:12.5px"><span style="width:26px;height:26px;border-radius:50%;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-size:11px">👤</span>{{ m }}</div>
+              </div>
+              <div v-if="tenLines(tDrawer.tenant.company).length" style="margin-top:10px">
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🏢 {{ t('Company profile') }}</div>
+                <div v-for="m in tenLines(tDrawer.tenant.company)" :key="m" style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--border);padding:6px 0;font-size:12.5px"><span style="color:var(--text-mute)">{{ m.split(',')[0].trim() }}</span><b style="text-align:right">{{ m.split(',').slice(1).join(',').trim() }}</b></div>
+              </div>
+              <div v-if="tDrawer.tenant.notes" style="margin-top:10px;background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--text-mute)">📝 {{ tDrawer.tenant.notes }}</div>
+            </div>
+            <div v-else-if="eTab === 'edit'" style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Full name *') }}<input v-model="tenantForm.name" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}<select v-model="tenantForm.kind" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px"><option value="Individual">{{ t('Individual') }}</option><option value="Corporate">{{ t('Corporate') }}</option><option value="Company">{{ t('Company') }}</option></select></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Father name') }}<input v-model="tenantForm.father_name" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Mother name') }}<input v-model="tenantForm.mother_name" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">NID<input v-model="tenantForm.nid" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Phone') }}<input v-model="tenantForm.phone" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Email') }}<input v-model="tenantForm.email" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Emergency contact') }}<input v-model="tenantForm.emergency_contact" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Business name') }}<input v-model="tenantForm.business_name" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Occupation') }}<input v-model="tenantForm.occupation" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Present address') }}<input v-model="tenantForm.present_address" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Permanent address') }}<input v-model="tenantForm.permanent_address" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('City') }}<input v-model="tenantForm.city" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Joined') }}<input v-model="tenantForm.joined_at" type="date" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+                <label style="font-size:12px;color:var(--text-mute)">{{ t('Tags') }}<input v-model="tenantForm.tags" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+              </div>
+              <label style="font-size:12px;color:var(--text-mute)">{{ t('Family members') }} <small>({{ t('one per line — Name, Relation') }})</small><textarea v-model="tenantForm.family" rows="2" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
+              <label style="font-size:12px;color:var(--text-mute)">{{ t('Company profile') }} <small>({{ t('one line: Label, Value') }})</small><textarea v-model="tenantForm.company" rows="2" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
+              <label style="font-size:12px;color:var(--text-mute)">{{ t('Notes') }}<textarea v-model="tenantForm.notes" rows="2" style="width:100%;margin-top:4px;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px;resize:vertical"></textarea></label>
+              <div style="display:flex;gap:10px;margin-top:6px">
+                <button @click="saveTenantDrawer" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save changes') }}</button>
+                <button @click="eTab = 'overview'" class="btn-ghost" style="padding:11px 16px">{{ t('Cancel') }}</button>
+              </div>
             </div>
             <div v-else class="drawer-tbl-wrap">
               <table class="kr" style="width:100%"><thead><tr><th>{{ t('Space') }}</th><th>{{ t('Rent/mo') }}</th><th>{{ t('Term') }}</th><th>{{ t('Advance') }}</th><th>{{ t('Status') }}</th></tr></thead><tbody>
