@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { lang } from '../lib/i18n'
+import hindFont from '../assets/HindSiliguri-Regular.ttf?inline'
 
 const q = ref('')
 const open = ref({})   // section id -> set of open item ids (or 'all')
@@ -662,6 +663,27 @@ function goTo(sid, iid) {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
+/* ── jump to the actual app screen for each topic ── */
+const GO = {
+  login: { tab: 'dashboard' }, ui: { tab: 'dashboard' }, overview: { tab: 'dashboard' }, dash: { tab: 'dashboard' },
+  'space-add': { tab: 'space' }, 'owner-profile': { tab: 'owners' }, 'owner-portal': { hash: '#/portal' }, 'deep-links': { tab: 'space' },
+  'bill-model': { tab: 'bills' }, 'auto-bill': { tab: 'meters' }, 'rate-calc': { tab: 'settings' }, 'combined-bill': { tab: 'invoices' }, 'bill-templates': { tab: 'invoices' }, 'dues-fines': { tab: 'bills' },
+  'collect-flow': { tab: 'payments' }, methods: { tab: 'payments' }, receipts: { tab: 'payments' }, history: { tab: 'payments' }, 'void-waiver': { tab: 'payments' },
+  coa: { tab: 'coa' }, journal: { tab: 'journal' }, ledger: { tab: 'statements' }, reports: { tab: 'trial' }, 'bank-import': { tab: 'reconcile' },
+  'reading-entry': { tab: 'meters' }, 'shop-info': { tab: 'meters' }, 'util-income': { tab: 'reconcile' },
+  'alert-types': { tab: 'dashboard' }, 'sms-recipients': { tab: 'settings' }, blasts: { tab: 'bills' },
+  'tenant-profile': { tab: 'rent' }, agreements: { tab: 'rent' }, 'rent-due': { tab: 'rent' },
+  assets: { tab: 'assets' }, complaints: { tab: 'complaints' }, notices: { tab: 'notices' },
+  permissions: { tab: 'users' }, audit: { tab: 'audit' },
+  'offline-mode': { tab: 'dashboard' },
+  'settings-tabs': { tab: 'settings' }, backup: { hash: '#/backup' },
+}
+function goApp(g) {
+  if (!g) return
+  if (g.hash) location.hash = g.hash
+  else location.hash = '#/mall?tab=' + g.tab
+}
+
 /* ── notation callout styles ── */
 function noteStyle(type) {
   const m = {
@@ -686,34 +708,143 @@ async function printWiki() {
   window.print()
 }
 
-/* ── ⬇ complete PDF download (html2canvas + jsPDF, page-sliced) ── */
+/* ── ⬇ complete PDF as a DOCUMENT (margins, cover, TOC, footer, version) ── */
+const PDF_VER = 'v1.0'
+const APP_VER = 'v2.2 · Mall & Commercial Edition'
+function b64FromBuffer(buf) {
+  let bin = ''
+  const chunk = 0x8000
+  for (let i = 0; i < buf.length; i += chunk) bin += String.fromCharCode.apply(null, new Uint8Array(buf.subarray(i, i + chunk)))
+  return btoa(bin)
+}
+async function loadImage(url) {
+  const r = await fetch(url)
+  const blob = await r.blob()
+  return new Promise((res, rej) => {
+    const fr = new FileReader()
+    fr.onload = () => {
+      const im = new Image()
+      im.onload = () => res({ data: fr.result, w: im.width, h: im.height })
+      im.onerror = rej
+      im.src = fr.result
+    }
+    fr.onerror = rej
+    fr.readAsDataURL(blob)
+  })
+}
 async function downloadPdf() {
   if (pdfBusy.value) return
   pdfBusy.value = true
   try {
-    await expandAll()
-    await new Promise(r => setTimeout(r, 1500)) // images
-    const root = document.querySelector('.wiki-pdf-root')
-    if (!root) throw new Error('root not found')
-    const html2canvas = (await import('html2canvas')).default
     const { jsPDF } = await import('jspdf')
-    const canvas = await html2canvas(root, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
-    const pdf = new jsPDF('p', 'mm', 'a4')
-    const pw = 210, ph = 297
-    const imgH = canvas.height * pw / canvas.width
-    let pos = 0, page = 0
-    while (pos < imgH) {
-      const h = Math.min(ph, imgH - pos)
-      const slice = document.createElement('canvas')
-      slice.width = canvas.width
-      slice.height = Math.max(1, Math.round(canvas.height * h / imgH))
-      slice.getContext('2d').drawImage(canvas, 0, Math.round(canvas.height * pos / imgH), canvas.width, slice.height, 0, 0, canvas.width, slice.height)
-      if (page > 0) pdf.addPage()
-      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, h)
-      pos += h; page++
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+    const L = 16, T = 20, R = 16, B = 18            // margins
+    const W = 210 - L - R                            // content width
+    const bn = lang.value === 'bn'
+    /* embedded Bengali-capable font (static TTF inlined at build time) */
+    const fontB64 = hindFont.split(',')[1] || hindFont
+    doc.addFileToVFS('HindSiliguri.ttf', fontB64)
+    doc.addFont('HindSiliguri.ttf', 'nsb', 'normal')
+    doc.setFont('nsb', 'normal')
+
+    /* preload every wiki image once */
+    const imgCache = {}
+    const allImgs = [...new Set(SECTIONS.flatMap(s => s.items.flatMap(it => it.imgs || [it.img]).filter(Boolean)))]
+    for (const im of allImgs) { try { imgCache[im] = await loadImage('img/wiki/' + im) } catch (e) { console.warn('img fail', im) } }
+
+    let y = 0
+    const pageCount = () => doc.internal.getNumberOfPages()
+
+    /* ── cover page ── */
+    doc.setFillColor(15, 118, 110); doc.rect(0, 0, 210, 88, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(30); doc.text('Mall Manager', 105, 42, { align: 'center' })
+    doc.setFontSize(16); doc.text(bn ? 'উইকি ও সাহায্য — সম্পূর্ণ ডকুমেন্টেশন' : 'Wiki & Help — Complete Documentation', 105, 54, { align: 'center' })
+    doc.setFontSize(11); doc.text('মল ও কমার্শিয়াল বিল্ডিং ম্যানেজমেন্ট · Shopping Mall & Commercial Building Management', 105, 66, { align: 'center' })
+    doc.setTextColor(15, 118, 110); doc.setFontSize(11)
+    doc.text(`${bn ? 'ডকুমেন্ট ভার্সন' : 'Document version'}: ${PDF_VER}`, 105, 120, { align: 'center' })
+    doc.text(`${bn ? 'অ্যাপ ভার্সন' : 'App version'}: ${APP_VER}`, 105, 129, { align: 'center' })
+    doc.text(`${bn ? 'তৈরি' : 'Generated'}: ${new Date().toLocaleDateString(bn ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, 105, 138, { align: 'center' })
+    doc.setDrawColor(15, 118, 110); doc.setLineWidth(0.5); doc.line(60, 150, 150, 150)
+    doc.setTextColor(90, 90, 90); doc.setFontSize(9.5)
+    doc.text(bn ? 'এই ডকুমেন্টে মল ম্যানেজারের ১২টি সেকশন ও ৪১টি নিবন্ধ রয়েছে — ধাপে ধাপে নির্দেশনা, স্ক্রিনশট ও গ্রাফিক্সসহ।' : 'This document covers all 12 sections and 41 articles of Mall Manager — step-by-step guides with screenshots & graphics.', 105, 165, { align: 'center', maxWidth: 160 })
+    doc.addPage()
+    /* ── table of contents ── */
+    doc.setFontSize(16); doc.setTextColor(15, 118, 110)
+    doc.text(bn ? 'সূচিপত্র' : 'Table of Contents', L, T)
+    doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3); doc.line(L, T + 3, 210 - R, T + 3)
+    y = T + 12
+    doc.setFontSize(10.5); doc.setTextColor(30, 30, 30)
+    SECTIONS.forEach((s, i) => {
+      if (y > 270) { doc.addPage(); y = T }
+      doc.text(`${s.ico}  ${i + 1}. ${s.title[bn ? 'bn' : 'en']}  —  ${s.items.length} ${bn ? 'টি নিবন্ধ' : 'articles'}`, L, y)
+      y += 7
+    })
+
+    /* ── sections ── */
+    let first = true
+    for (const sec of SECTIONS) {
+      if (!first) { doc.addPage() } else { first = false }
+      y = T
+      doc.setFillColor(15, 118, 110); doc.rect(0, y - 7, 210, 12, 'F')
+      doc.setTextColor(255, 255, 255); doc.setFontSize(12.5)
+      doc.text(`${sec.ico}  ${sec.title[bn ? 'bn' : 'en']}`, L, y)
+      y += 10
+      doc.setTextColor(30, 30, 30)
+      for (const it of sec.items) {
+        const bodyLines = doc.splitTextToSize(it.b[bn ? 'bn' : 'en'], W)
+        const noteLines = (it.notes || []).flatMap(n => doc.splitTextToSize(`• ${n[bn ? 'bn' : 'en']}`, W - 6))
+        const seeLines = it.see && it.see.length ? [`${bn ? 'আরও দেখুন: ' : 'See also: '}${it.see.map(sg => sg.l[bn ? 'bn' : 'en']).join(' · ')}`] : []
+        const imgs = (it.imgs || (it.img ? [it.img] : [])).filter(im => imgCache[im])
+        let ih = 0
+        for (const im of imgs) ih += Math.min(85, imgCache[im].h * 175 / imgCache[im].w) + 6 + 5   // img height + caption + gap
+        const need = 16 + bodyLines.length * 4.6 + noteLines.length * 4 + seeLines.length * 4.6 + ih
+        if (y + need > 272) { doc.addPage(); y = T }
+        doc.setFontSize(11); doc.setTextColor(15, 118, 110)
+        doc.text(it.t[bn ? 'bn' : 'en'], L, y)
+        y += 5.5
+        doc.setFontSize(9.5); doc.setTextColor(50, 50, 50)
+        for (const ln of bodyLines) { doc.text(ln, L, y); y += 4.6 }
+        if (noteLines.length) {
+          y += 1
+          doc.setFontSize(9); doc.setTextColor(120, 80, 20)
+          for (const ln of noteLines) { doc.text(ln, L + 3, y); y += 4 }
+          y += 1
+        }
+        if (seeLines.length) {
+          doc.setFontSize(9); doc.setTextColor(15, 118, 110)
+          doc.text(seeLines[0], L, y); y += 4.8
+        }
+        for (const im of imgs) {
+          const c = imgCache[im]
+          const iw = Math.min(175, W)
+          const iht = c.h * iw / c.w
+          if (y + iht + 12 > 272) { doc.addPage(); y = T }
+          doc.addImage(c.data, c.data.startsWith('data:image/png') ? 'PNG' : 'JPEG', L + (W - iw) / 2, y, iw, iht)
+          y += iht + 3
+          doc.setFontSize(8.5); doc.setTextColor(120, 120, 120)
+          if (it.cap) doc.text(doc.splitTextToSize(it.cap[bn ? 'bn' : 'en'], W)[0], L + (W - iw) / 2 + iw / 2, y, { align: 'center' })
+          y += 8
+        }
+        y += 3
+        doc.setDrawColor(225, 225, 225); doc.setLineWidth(0.2)
+        doc.line(L, y - 1, 210 - R, y - 1)
+        y += 2
+      }
     }
-    pdf.save('Mall-Manager-Wiki.pdf')
-    window.__krToast?.(lang.value === 'bn' ? '✅ PDF ডাউনলোড হয়েছে' : '✅ PDF downloaded', 'ok')
+
+    /* ── footer on every page: version + page numbers ── */
+    const n = pageCount()
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i)
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3)
+      doc.line(L, 287, 210 - R, 287)
+      doc.setFontSize(7.5); doc.setTextColor(140, 140, 140)
+      doc.text(`Mall Manager — Wiki & Help · App ${APP_VER} · Document ${PDF_VER}`, L, 291.5)
+      doc.text(`${bn ? 'পৃষ্ঠা' : 'Page'} ${i} ${bn ? 'এর' : 'of'} ${n}`, 210 - R, 291.5, { align: 'right' })
+    }
+    doc.save(`Mall-Manager-Wiki-${PDF_VER}.pdf`)
+    window.__krToast?.(bn ? '✅ PDF ডকুমেন্ট ডাউনলোড হয়েছে' : '✅ PDF document downloaded', 'ok')
   } catch (e) {
     console.error('wiki pdf failed:', e)
     window.__krToast?.(lang.value === 'bn' ? 'PDF তৈরি ব্যর্থ — প্রিন্ট → Save as PDF ব্যবহার করুন' : 'PDF render failed — use Print → Save as PDF', 'err')
@@ -783,6 +914,9 @@ async function downloadPdf() {
           <div v-if="it.see && it.see.length" style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             <span style="font-size:11.5px;color:var(--text-mute);font-weight:800">{{ lang === 'bn' ? 'আরও দেখুন:' : 'See also:' }}</span>
             <a v-for="sg in it.see" :key="sg.s + ':' + sg.i" @click.prevent="goTo(sg.s, sg.i)" style="cursor:pointer;padding:4px 11px;border:1px solid var(--border);border-radius:20px;font-size:11.5px;background:var(--bg-alt);color:var(--primary);font-weight:700">{{ sg.l[lang] }}</a>
+          </div>
+          <div v-if="GO[it.id]" style="margin-top:12px">
+            <button @click="goApp(GO[it.id])" style="padding:8px 15px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer">🚀 {{ lang === 'bn' ? 'এই ফিচারে যান' : 'Open this feature' }}</button>
           </div>
         </div>
       </div>
