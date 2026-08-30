@@ -17387,6 +17387,29 @@ case 'mall': {
         json_out(['ok' => true, 'payments' => $list, 'summary' => [
             'total' => $sum, 'voided' => $voided, 'net' => $sum - $voided, 'count' => count($list)]]);
     }
+    if ($a === 'shop-payments-history') {
+        $shop = trim($body['shop'] ?? '');
+        if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
+        $st1 = $pdo->prepare("SELECT p.*, 'service' AS ptype, COALESCE(s.no, p.shop) AS shop_no, s.floor AS shop_floor,
+                        COALESCE(s.owner_name, p.shop) AS payer, a.name AS acct_name
+                     FROM shop_payments p LEFT JOIN shops s ON s.id=p.shop
+                     LEFT JOIN mall_accounts a ON a.id=p.method_acct
+                     WHERE p.shop=? ORDER BY p.created_at DESC, p.id DESC LIMIT 300");
+        $st1->execute([$shop]);
+        $st2 = $pdo->prepare("SELECT r.*, 'rent' AS ptype, COALESCE(s.no, r.shop) AS shop_no, s.floor AS shop_floor,
+                        COALESCE(s.owner_name, r.shop) AS payer, a.name AS acct_name
+                     FROM mall_rent_payments r LEFT JOIN shops s ON s.id=r.shop
+                     LEFT JOIN mall_accounts a ON a.id=r.method_acct
+                     WHERE r.shop=? ORDER BY r.ts DESC, r.id DESC LIMIT 150");
+        $st2->execute([$shop]);
+        $all = array_merge($st1->fetchAll(PDO::FETCH_ASSOC), $st2->fetchAll(PDO::FETCH_ASSOC));
+        foreach ($all as &$x) { if (empty($x['created_at']) && !empty($x['ts'])) $x['created_at'] = $x['ts']; }
+        usort($all, function ($x, $y) { return strcmp($y['created_at'] ?? '', $x['created_at'] ?? ''); });
+        $total = 0.0; $net = 0.0;
+        foreach ($all as $x) { $total += (float)$x['amount']; if (empty($x['voided'])) $net += (float)$x['amount']; }
+        json_out(['ok' => true, 'rows' => $all, 'total' => round($total, 2), 'net' => round($net, 2), 'count' => count($all)]);
+    }
+
 
     if ($a === 'combined-bill') {
         $shop = trim($body['shop'] ?? '');

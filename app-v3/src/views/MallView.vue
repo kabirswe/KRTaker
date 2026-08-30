@@ -279,6 +279,19 @@ const isOverdue = (b) => b.due_date && b.status === 'Unpaid' && new Date(b.due_d
 const invList = ref([]); const invSummary = ref(null); const invStatus = ref(''); const invShop = ref(''); const invDetail = ref(null)
 const payList = ref([]); const paySummary = ref(null); const payShop = ref(''); const payMethod = ref(''); const payStatus = ref('')
 const payQuick = ref(null); const payQuickBills = ref([])
+const quickInfo = ref(null)
+async function loadQuickInfo() {
+  if (!payQuick.value) { quickInfo.value = null; return }
+  const r = await apiCall('mall', { action: 'space-bill-info', shop: payQuick.value, month: month.value })
+  if (r.ok) quickInfo.value = r
+}
+const payHistory = ref(null)
+async function loadPayHistory() {
+  if (!payShop.value) { payHistory.value = null; return }
+  const r = await apiCall('mall', { action: 'shop-payments-history', shop: payShop.value })
+  if (r.ok) payHistory.value = r
+}
+watch(payShop, () => { loadPayHistory() })
 
 const printTmpl = ref('a4')   /* 'a4' | 'a5' | 'half' */
 const printOrient = ref('portrait') /* 'portrait' | 'landscape' */
@@ -299,6 +312,7 @@ const printPageCss = {
 const effTmpl = computed(() => printTmpl.value === 'a4' ? 'a4' : printTmpl.value + (printOrient.value === 'landscape' ? 'l' : 'p'))
 
 const shopOpts = computed(() => (shops.value || []).map(s => ({ value: s.id, label: `${s.no} — ${s.owner_name || ''}` })))
+const payShopLabel = computed(() => { const s = (shops.value || []).find(x => x.id === payShop.value); return s ? `${s.no} — ${s.owner_name || ''}` : payShop.value })
 async function loadInvoices() {
   const r = await apiCall('mall', { action: 'invoices', month: month.value, shop: invShop.value, status: invStatus.value })
   if (r.ok) { invList.value = r.invoices || []; invSummary.value = r.summary || null }
@@ -314,6 +328,7 @@ async function openPayQuick() {
   if (!bills.value.length) await loadBills()
   payQuick.value = 'SH-001'
   refreshQuickBills()
+  loadQuickInfo()
 }
 function refreshQuickBills() {
   payQuickBills.value = payQuick.value ? (bills.value || []).filter(b => b.shop === payQuick.value && b.status !== 'Paid') : []
@@ -331,11 +346,12 @@ const PAY_METHODS = ['cash', 'bank', 'bkash', 'nagad']
 const PAY_ST = ['Approved', 'Pending', 'Voided']
 const payModal = ref(null)
 const payForm = ref({})
-function openPay(b) { payForm.value = { amount: Number(b.amount) + Number(b.fine || 0), method: 'cash', method_acct: defaultPayAcct(), ref: '' }; payModal.value = b }
+function openPay(b) { payForm.value = { amount: Number(b.amount) + Number(b.fine || 0), method: 'cash', method_acct: defaultPayAcct(), ref: '', payer: b.owner_name || '' }; payModal.value = b }
 async function savePay() {
   if (!payModal.value || Number(payForm.value.amount) <= 0) return
+  const saved = payModal.value
   const r = await apiCall('mall', { action: 'collect', bill_id: payModal.value.id, amount: Number(payForm.value.amount), method: payAcctMethod(payForm.value.method_acct), method_acct: payForm.value.method_acct || 0, ref: payForm.value.ref })
-  if (r.ok) { window.__krToast?.(`${t('💵 Collected')} — ${t('receipt')} ${r.receipt}`, 'ok'); payModal.value = null; await loadBills(); await loadDash() }
+  if (r.ok) { window.__krToast?.(`${t('💵 Collected')} — ${t('receipt')} ${r.receipt}`, 'ok'); payModal.value = null; await loadBills(); await loadDash(); await loadPayments(); await loadPayHistory(); openReceipt(saved) }
   else window.__krToast?.(r.error || 'Collection failed.', 'err')
 }
 const recModal = ref(null)
@@ -2766,12 +2782,43 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div v-if="payHistory && payShop" class="panel" style="padding:16px;margin-top:14px">
+        <h3 style="font-size:14px;margin-bottom:6px">📜 {{ t('Payment history') }} — <span class="elink" @click.stop="linkShop(payShop)">{{ payShopLabel }}</span> <small style="color:var(--text-mute);font-weight:600">· {{ t('all months') }} ({{ payHistory.count }})</small></h3>
+        <div style="display:flex;gap:16px;font-size:12px;margin-bottom:10px;color:var(--text-mute)">
+          <span>{{ t('Total') }}: <b style="color:var(--ink)">{{ money(payHistory.total) }}</b></span>
+          <span>{{ t('Net (after voids)') }}: <b style="color:var(--ok)">{{ money(payHistory.net) }}</b></span>
+        </div>
+        <div class="tbl-wrap" style="max-height:320px">
+          <table class="kr" style="font-size:12px">
+            <thead><tr><th>{{ t('Receipt') }}</th><th>{{ t('Date') }}</th><th>{{ t('Month') }}</th><th>{{ t('Payer') }}</th><th>{{ t('Method') }}</th><th style="text-align:right">{{ t('Amount') }}</th><th>{{ t('Status') }}</th></tr></thead>
+            <tbody>
+              <tr v-for="h in payHistory.rows" :key="h.ptype + '-' + h.id">
+                <td style="font-weight:800;font-size:11.5px">{{ h.receipt }}</td>
+                <td style="font-size:11.5px">{{ (h.created_at || h.stamp || '').slice(0, 10) }}</td>
+                <td style="font-size:11.5px">{{ h.month ? monthLabel(h.month) : '—' }}</td>
+                <td style="font-size:12px">{{ h.payer || '—' }}</td>
+                <td style="font-size:12px">{{ bnd(h.method) }}<small v-if="h.acct_name" style="color:var(--text-mute)"> · {{ h.acct_name }}</small></td>
+                <td style="text-align:right;font-weight:800">{{ money(h.amount) }}</td>
+                <td><span class="badge" :class="h.voided ? 'b-red' : 'b-green'">{{ h.voided ? t('Voided') : t('Approved') }}</span></td>
+              </tr>
+              <tr v-if="!payHistory.rows.length"><td colspan="7" style="text-align:center;color:var(--text-mute);padding:22px">{{ t('No payments recorded for this space yet.') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div v-if="payQuick" class="overlay" @click.self="payQuick = null">
         <div class="modal" style="max-width:440px">
           <div class="modal-h"><div class="t">💵 {{ t('Collect payment') }}</div><button @click="payQuick = null" style="background:none;border:none;font-size:16px;cursor:pointer">✕</button></div>
           <div class="modal-b">
             <label style="font-size:12px;color:var(--text-mute);display:block;margin-bottom:6px">{{ t('Space *') }}</label>
-            <SearchableSelect v-model="payQuick" :options="shopOpts" placeholder="Select space…" @change="refreshQuickBills" />
+            <SearchableSelect v-model="payQuick" :options="shopOpts" placeholder="Select space…" @change="refreshQuickBills(); loadQuickInfo()" />
+            <div v-if="quickInfo" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;font-size:12px">
+              <div v-if="quickInfo.due.total > 0" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 10px">⚠️ <b style="color:var(--danger)">{{ t('Total due') }}: {{ money(quickInfo.due.total) }}</b> <small style="color:var(--text-mute)">· {{ quickInfo.due.count }} {{ t('unpaid') }}</small>
+                <div v-if="quickInfo.due.unpaid_months.length" style="margin-top:4px;display:flex;gap:5px;flex-wrap:wrap"><span v-for="m in quickInfo.due.unpaid_months" :key="m" class="badge b-red">{{ monthLabel(m) }}</span></div>
+              </div>
+              <div v-else style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px">✅ {{ t('No dues') }} <small style="color:var(--text-mute)">· {{ t('fully paid') }}</small></div>
+            </div>
             <div v-if="payQuickBills.length" style="margin-top:14px">
               <div style="font-size:12px;color:var(--text-mute);font-weight:800;margin-bottom:6px">{{ t('Unpaid bills') }}</div>
               <div v-for="b in payQuickBills" :key="b.id" @click="startCollectFromQuick(b)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;background:var(--bg-alt)">
@@ -4028,30 +4075,53 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- ═══════ COLLECT MODAL ═══════ -->
-    <div v-if="payModal" class="overlay" @click.self="payModal = null">
-      <div class="modal" style="max-width:420px">
-        <div class="modal-h"><div class="t">💵 Collect — {{ payModal.shop_no }} ({{ { service: 'Service', elec: 'Electricity', water: 'Water' }[payModal.kind] }})</div><button class="close" @click="payModal = null">✕</button></div>
+    <div     <div v-if="payModal" class="overlay" @click.self="payModal = null">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-h"><div class="t">💵 {{ t('Collect payment') }} — {{ payModal.shop_no }}</div><button class="close" @click="payModal = null">✕</button></div>
         <div class="modal-b">
-          <p style="color:var(--text-mute);font-size:12.5px;margin-bottom:12px">{{ monthLabel(payModal.month) }} · bill #{{ payModal.id }}</p>
-          <label style="font-size:12px;color:var(--text-mute)">{{ t('Amount (৳)') }}<input type="number" v-model.number="payForm.amount" min="1" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
-          <p v-if="payModal.fine" style="font-size:12px;color:var(--danger);margin-top:8px">⚠️ Includes late fee of {{ money(payModal.fine) }} (bill overdue)</p>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Method') }}
+          <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <div style="font-weight:800;font-size:14px">{{ { service: '🧾 ' + t('Service'), elec: '⚡ ' + t('Electricity'), water: '💧 ' + t('Water') }[payModal.kind] || payModal.kind }}</div>
+              <span class="badge" :class="badge(payModal.status)">{{ bnd(payModal.status) }}</span>
+            </div>
+            <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;color:var(--text-mute);flex-wrap:wrap">
+              <span>📅 {{ monthLabel(payModal.month) }}</span>
+              <span>#{{ payModal.id }}</span>
+              <span v-if="payModal.due_date">{{ t('Due') }}: {{ payModal.due_date }}</span>
+              <span v-if="payModal.owner_mobile">📱 {{ payModal.owner_mobile }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);margin-top:9px;padding-top:9px;font-size:12.5px">
+              <span style="color:var(--text-mute)">{{ t('Bill amount') }}: {{ money(payModal.amount) }}</span>
+              <span v-if="payModal.fine" style="color:var(--danger)">⚠️ {{ t('Late fee') }}: +{{ money(payModal.fine) }}</span>
+              <b style="font-size:14px">{{ t('Total') }}: {{ money(Number(payModal.amount) + Number(payModal.fine || 0)) }}</b>
+            </div>
+          </div>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-bottom:6px">{{ t('Payer (owner)') }}</label>
+          <input v-model="payForm.payer" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:12px">{{ t('Amount (৳)') }}</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+            <input type="number" v-model.number="payForm.amount" min="1" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:15px;font-weight:800" />
+            <button @click="payForm.amount = Number(payModal.amount) + Number(payModal.fine || 0)" class="btn-ghost" style="padding:9px 12px;font-size:12px">{{ t('Full') }}</button>
+            <button @click="payForm.amount = Math.round((Number(payModal.amount) + Number(payModal.fine || 0)) / 2)" class="btn-ghost" style="padding:9px 12px;font-size:12px">½</button>
+          </div>
+          <p v-if="payModal.fine" style="font-size:12px;color:var(--danger);margin-top:6px">⚠️ {{ t('Includes late fee of') }} {{ money(payModal.fine) }} ({{ t('bill overdue') }})</p>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:12px">{{ t('Method') }}
             <select v-model="payForm.method_acct" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
               <optgroup v-for="g in payGroups" :key="g.label" :label="g.label">
                 <option v-for="a in g.items" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
               </optgroup>
             </select>
           </label>
-          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:10px">{{ t('Reference (trx no / note)') }}<input v-model="payForm.ref" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
+          <label style="font-size:12px;color:var(--text-mute);display:block;margin-top:12px">{{ t('Reference (trx no / note)') }}<input v-model="payForm.ref" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" /></label>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <button @click="savePay" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ t('💾 Save collection') }}</button>
+            <button @click="savePay" style="flex:1;padding:12px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer">{{ t('💾 Save & print receipt') }}</button>
             <button @click="payModal = null" class="btn-ghost" style="padding:11px 18px">{{ t('Cancel') }}</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ═══════ COMPLAINT MODAL ═══════ -->
+<!-- ═══════ COMPLAINT MODAL ═══════ -->
     <div v-if="compModal" class="overlay" @click.self="compModal = null">
       <div class="modal" style="max-width:480px">
         <div class="modal-h"><div class="t">{{ compModal.title }}</div><button class="close" @click="compModal = null">✕</button></div>
