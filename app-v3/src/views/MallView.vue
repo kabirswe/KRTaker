@@ -2794,7 +2794,26 @@ onBeforeUnmount(() => {
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">{{ t('Space') }}
             <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" :placeholder="t('Select space…')" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
-            <div v-if="spaceBillInfo" style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+            
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
+            <select v-model="meterForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
+              <option value="elec">{{ t('⚡ Electricity') }}</option><option value="water">{{ t('💧 Water') }}</option>
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Month') }}
+            <input type="month" v-model="meterForm.month" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute)">{{ t('Meter reading') }}
+            <input type="number" v-model.number="meterForm.reading" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
+          </label>
+          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span>📸 Meter photo <b style="color:var(--danger)">*</b> (spec 3.3 — mandatory)</span><span v-if="meterForm.photoName" style="color:var(--ok);font-size:11.5px">✅ {{ meterForm.photoName }}</span></div>
+            <input type="file" accept="image/*" capture="environment" @change="onMeterPhotoPick" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
+          </label>
+        </div>
+        <button @click="saveMeter" :disabled="saving" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save reading &amp; generate bill</button>
+        <div v-if="spaceBillInfo" class="meter-info" style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:12px;align-items:start">
               <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 11px">
                 <div style="font-size:11px;font-weight:800;color:var(--text-mute);margin-bottom:5px">💡 {{ t('This month') }} — {{ monthLabel(month) }} <template v-if="spaceBillInfo.shop">· {{ spaceBillInfo.shop.no }} <small>({{ spaceBillInfo.shop.owner_name }})</small></template></div>
                 <div v-if="spaceBillInfo.current.length" style="display:flex;flex-direction:column;gap:3px;font-size:12px">
@@ -2833,25 +2852,7 @@ onBeforeUnmount(() => {
                   </table>
                 </div>
               </div>
-            </div>
-          </label>
-          <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
-            <select v-model="meterForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">
-              <option value="elec">{{ t('⚡ Electricity') }}</option><option value="water">{{ t('💧 Water') }}</option>
-            </select>
-          </label>
-          <label style="font-size:12px;color:var(--text-mute)">{{ t('Month') }}
-            <input type="month" v-model="meterForm.month" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
-          </label>
-          <label style="font-size:12px;color:var(--text-mute)">{{ t('Meter reading') }}
-            <input type="number" v-model.number="meterForm.reading" min="0" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px" />
-          </label>
-          <label style="font-size:12px;color:var(--text-mute);grid-column:1/-1">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span>📸 Meter photo <b style="color:var(--danger)">*</b> (spec 3.3 — mandatory)</span><span v-if="meterForm.photoName" style="color:var(--ok);font-size:11.5px">✅ {{ meterForm.photoName }}</span></div>
-            <input type="file" accept="image/*" capture="environment" @change="onMeterPhotoPick" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:12.5px" />
-          </label>
         </div>
-        <button @click="saveMeter" :disabled="saving" style="margin-top:14px;padding:10px 18px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:13px;font-weight:800;cursor:pointer">💾 Save reading &amp; generate bill</button>
       </div>
       <div class="panel" style="padding:16px;margin-top:16px">
         <h3 style="font-size:14px;margin-bottom:10px">📋 Readings — {{ monthLabel(meterForm.month || month) }}</h3>
@@ -5279,4 +5280,7 @@ onBeforeUnmount(() => {
 
 .elink { cursor: pointer; color: var(--primary); font-weight: 600; }
 .elink:hover { text-decoration: underline; }
+
+.meter-info { grid-template-columns: 1fr 1fr 1.6fr; }
+@media (max-width: 900px) { .meter-info { grid-template-columns: 1fr !important; } }
 </style>
