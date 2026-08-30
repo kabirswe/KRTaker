@@ -17621,7 +17621,14 @@ case 'mall': {
         $expenseTotal = (int)$exT->fetchColumn();
         $shopCount = (int)$pdo->query("SELECT COUNT(*) FROM shops")->fetchColumn();
         $activeShops = (int)$pdo->query("SELECT COUNT(*) FROM shops WHERE status='Active'")->fetchColumn();
+        /* today's collections + ALL dues till today (any month) */
+        $todayC = (int)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE date(created_at)=date('now','localtime') AND (voided IS NULL OR voided=0)")->fetchColumn();
+        $todayR = (int)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE date(ts)=date('now','localtime')")->fetchColumn();
+        $todayN = (int)$pdo->query("SELECT COUNT(*) FROM shop_payments WHERE date(created_at)=date('now','localtime') AND (voided IS NULL OR voided=0)")->fetchColumn();
+        $allDue = $pdo->query("SELECT COALESCE(SUM(amount+fine),0), COUNT(*) FROM shop_bills WHERE status != 'Paid'")->fetch(PDO::FETCH_NUM);
         json_out(['ok' => true, 'month' => $month, 'kpi' => $kpi->fetch(PDO::FETCH_ASSOC),
+                  'today' => ['collected' => $todayC + $todayR, 'count' => $todayN],
+                  'all_due' => ['total' => round((float)$allDue[0], 2), 'bills' => (int)$allDue[1]],
                   'defaulters' => $defaulters->fetchAll(PDO::FETCH_ASSOC),
                   'expense_cats' => $expCats, 'expense_total' => $expenseTotal, 'shops' => ['total' => $shopCount, 'active' => $activeShops],
                   'budget' => ['total' => $budTotal, 'used' => $budUsed]]);

@@ -159,6 +159,8 @@ const dashKpis = computed(() => {
     { label: 'Outstanding', ico: '⏳', value: money(k.outstanding), trend: `${k.unpaid_bills || 0} ${t('unpaid bills')}`, ok: !k.outstanding },
     { label: 'Expenses', ico: '📉', value: money(dash.value.expense_total), trend: t('this month') },
     { label: 'Spaces', ico: '🏪', value: `${dash.value.shops.active} / ${dash.value.shops.total}`, trend: `${dash.value.shops.total - dash.value.shops.active} ${t('inactive')}` },
+    { label: 'Today collected', ico: '📅', value: money(dash.value.today ? dash.value.today.collected : 0), trend: `${dash.value.today ? dash.value.today.count : 0} ${t('receipts today')}` },
+    { label: 'All dues till today', ico: '⚠️', value: money(dash.value.all_due ? dash.value.all_due.total : 0), trend: `${dash.value.all_due ? dash.value.all_due.bills : 0} ${t('unpaid bills')}`, ok: !(dash.value.all_due && dash.value.all_due.total > 0) },
   ]
 })
 
@@ -320,7 +322,7 @@ async function loadInvoices() {
 }
 async function loadPayments() {
   const r = await apiCall('mall', { action: 'payments-list', month: month.value, shop: payShop.value, method: payMethod.value, status: payStatus.value })
-  if (r.ok) { payList.value = r.payments || []; paySummary.value = r.summary || null }
+  if (r.ok) { payList.value = r.payments || []; paySummary.value = r.summary || null; loadDash() }
   else window.__krToast?.(r.error || 'Failed.', 'err')
 }
 async function openPayQuick() {
@@ -2122,11 +2124,11 @@ onBeforeUnmount(() => {
           <table class="kr" ref="coaTbl">
             <thead><tr><th>{{ t('Code') }}</th><th>{{ t('Account') }}</th><th>{{ t('Type') }}</th><th style="text-align:right">{{ t('Opening') }}</th><th style="text-align:right">{{ t('Debits') }}</th><th style="text-align:right">{{ t('Credits') }}</th><th style="text-align:right">{{ t('Balance') }}</th><th></th></tr></thead>
             <tbody>
-              <template v-for="t in ACCOUNT_TYPES" :key="t">
-                <tr v-if="coaRows.some(r => r.a.type === t)" style="background:var(--bg-alt)">
-                  <td colspan="8" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ TYPE_ICONS[t] }} {{ TYPE_PLURAL[t] || (t + 's') }}</td>
+              <template v-for="aty in ACCOUNT_TYPES" :key="aty">
+                <tr v-if="coaRows.some(r => r.a.type === aty)" style="background:var(--bg-alt)">
+                  <td colspan="8" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-mute)">{{ TYPE_ICONS[aty] }} {{ TYPE_PLURAL[aty] || (aty + 's') }}</td>
                 </tr>
-                <tr v-for="r in coaRows.filter(x => x.a.type === t)" :key="r.a.id"
+                <tr v-for="r in coaRows.filter(x => x.a.type === aty)" :key="r.a.id"
                     :style="r.isGroup ? 'background:color-mix(in srgb, var(--bg-alt) 55%, transparent);cursor:pointer' : 'cursor:pointer'"
                     @click="r.isGroup ? toggleGroup(r.a.code) : openAccountLedger(r.a)">
                   <td :style="{ fontFamily: 'monospace', fontSize: '11.5px', color: 'var(--text-mute)', paddingLeft: (12 + r.depth * 20) + 'px' }">{{ r.a.code || '—' }}</td>
@@ -2383,9 +2385,9 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'statements'">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <div style="display:flex;gap:4px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--bg-alt)">
-          <button v-for="t in [{id:'owner',ic:'🏢',label:'Owner'},{id:'tenant',ic:'🧑‍🤝‍🧑',label:'Tenant'},{id:'vendor',ic:'🧰',label:'Vendor'},{id:'staff',ic:'🧑‍💼',label:'Staff'}]" :key="t.id" @click="pickStType(stb.id)"
+          <button v-for="stb in [{id:'owner',ic:'🏢',label:'Owner'},{id:'tenant',ic:'🧑‍🤝‍🧑',label:'Tenant'},{id:'vendor',ic:'🧰',label:'Vendor'},{id:'staff',ic:'🧑‍💼',label:'Staff'}]" :key="stb.id" @click="pickStType(stb.id)"
             :style="stType === stb.id ? 'background:var(--primary);color:#fff' : 'background:transparent;color:var(--text-mute)'"
-            style="border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">{{ t.ic }} {{ t(stb.label) }}</button>
+            style="border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">{{ stb.ic }} {{ t(stb.label) }}</button>
         </div>
         <div style="min-width:240px;flex:1;max-width:360px">
           <SearchableSelect v-model="stId" :options="stOptions" :placeholder="'Select ' + stType + '…'" style="width:100%" @update:modelValue="loadStatement" />
@@ -2753,6 +2755,8 @@ onBeforeUnmount(() => {
         <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Net (after voids)') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px;color:var(--ok)">{{ money(paySummary?.net || 0) }}</div></div>
         <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">🔒 {{ t('Voided') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px;color:var(--danger)">{{ money(paySummary?.voided || 0) }}</div></div>
         <div class="panel" style="padding:14px"><div style="font-size:11px;color:var(--text-mute);font-weight:800">{{ t('Receipts') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px">{{ paySummary?.count || 0 }}</div></div>
+        <div class="panel" style="padding:14px;background:linear-gradient(135deg,#eff6ff,#f0fdf4)"><div style="font-size:11px;color:var(--text-mute);font-weight:800">📅 {{ t('Today collected') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px;color:var(--ok)">{{ money(dash?.today?.collected || 0) }}</div><div style="font-size:11px;color:var(--text-mute);margin-top:2px">{{ dash?.today?.count || 0 }} {{ t('receipts today') }}</div></div>
+        <div class="panel" style="padding:14px;background:linear-gradient(135deg,#fef2f2,#fff7ed)"><div style="font-size:11px;color:var(--text-mute);font-weight:800">⚠️ {{ t('All dues till today') }}</div><div style="font-size:17px;font-weight:800;margin-top:3px" :style="(dash?.all_due?.total || 0) > 0 ? 'color:var(--danger)' : 'color:var(--ok)'">{{ money(dash?.all_due?.total || 0) }}</div><div style="font-size:11px;color:var(--text-mute);margin-top:2px">{{ dash?.all_due?.bills || 0 }} {{ t('unpaid bills') }}</div></div>
       </div>
 
       <div class="panel" style="padding:0;overflow:hidden">
