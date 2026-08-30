@@ -132,7 +132,7 @@ function resendOtp() { twofa.value = ''; doLogin() }
     <button class="auth-btn" :disabled="auth.loading" @click="doLogin">{{ auth.loading ? (lang === 'bn' ? 'সাইন ইন হচ্ছে…' : 'Signing in…') : t('Log in') }}</button>
     <div v-if="turnstile" ref="tsEl" class="auth-ts" style="margin-top:12px;display:flex;justify-content:center"></div>
     <div class="auth-creds">
-      {{ lang === 'bn' ? 'নতুন?' : 'New here?' }} <a href="#" style="color:var(--primary);font-weight:700">{{ lang === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন →' : 'Create an account →' }}</a>
+      {{ lang === 'bn' ? 'নতুন?' : 'New here?' }} <a href="#/register" style="color:var(--primary);font-weight:700">{{ lang === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন →' : 'Create an account →' }}</a>
     </div>
     <div style="margin-top:10px;text-align:center;font-size:12px">
       🏬 Space owner? <a href="#/owner" style="color:var(--primary);font-weight:800">{{ t('Open the owner portal →') }}</a>

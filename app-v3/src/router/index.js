@@ -7,6 +7,7 @@ import { useDataStore } from '../stores/data'
 // Generic collection routes map each module to its bootstrap table.
 const routes = [
   { path: '/login', name: 'login', component: () => import('../views/LoginView.vue'), meta: { public: true } },
+  { path: '/register', name: 'register', component: () => import('../views/RegisterView.vue'), meta: { public: true } },
   { path: '/owner', name: 'owner', component: () => import('../views/OwnerPortalView.vue'), meta: { public: true, portal: true } },
   { path: '/', redirect: '/mall' },
   { path: '/dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
@@ -127,9 +128,9 @@ router.beforeEach(async (to) => {
       return { name: 'login', query: { redirect: to.fullPath } }
     }
   }
-  // V2.27: guided setup for new subscribers — an owner workspace with zero
-  // properties and no done/skip marker is routed through the /setup wizard
-  // on first arrival at the dashboard.
+  // Mall guided setup — an admin workspace with ZERO spaces and no
+  // done/skip marker is routed through the /setup wizard on first arrival
+  // at the dashboard.
   if (to.name === 'dashboard' && needsSetup(auth, data)) return { name: 'setup' }
   return true
 })
@@ -145,14 +146,15 @@ router.beforeEach(async (to) => {
 // onboarding never showed the wizard again).
 function needsSetup(auth, data) {
   const u = auth.user || {}
-  if ((u.kind || '') !== 'sub') return false
-  if (u.role !== 'owner' && u.role !== 'property_owner') return false
   if (auth.isImpersonating) return false
-  if (u.setup_at) return false
+  // Mall Manager: any admin role (not collector) whose workspace has ZERO spaces
+  const role = u.role || ''
+  if (!['superadmin', 'owner', 'manager', 'accountant'].includes(role)) return false
   try {
+    if ((data.list('shops') || []).length > 0) return false
     const k = (u.email || '').toLowerCase()
-    if (localStorage.getItem('krtaker_onboard_done_' + k)) return false
-    if (localStorage.getItem('krtaker_onboard_skip_' + k)) return false
+    if (localStorage.getItem('mall_onboard_done_' + k)) return false
+    if (localStorage.getItem('mall_onboard_skip_' + k)) return false
   } catch (e) { return false }
   return true
 }

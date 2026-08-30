@@ -1499,6 +1499,37 @@ $defTariff = $pdo->prepare('INSERT OR IGNORE INTO utility_tariffs (type, rate, s
             if (!in_array($__col, $__tc, true)) $pdo->exec("ALTER TABLE mall_tenants ADD COLUMN $__col $__def");
         }
         try { $pdo->exec('PRAGMA user_version=20260942'); } catch (Exception $e) {}
+        }
+        /* V2.35: self-registration — per-owner workspace isolation.
+           Every mall data row gets a sub_email scope ('' = demo/system workspace);
+           mall_config becomes per-workspace (sub_email, k) so registered owners'
+           profile/billing/sms settings never leak into the demo config. */
+        if ($__sv < 20260943) {
+            $__scope_tables = ['mall_owners', 'mall_tenants', 'mall_agreements', 'shop_bills',
+                'shop_payments', 'mall_rent_payments', 'mall_vendor_payments', 'mall_meter_readings',
+                'mall_expenses', 'mall_complaints', 'mall_assets', 'mall_notices', 'mall_vendors',
+                'mall_staff', 'mall_journal', 'company_ledger', 'mall_committee', 'mall_meetings',
+                'mall_resolutions', 'mall_bank_stmt', 'mall_waivers', 'mall_payment_voids',
+                'mall_staff_salaries', 'mall_budget', 'mall_owner_accounts', 'mall_sms_log'];
+            foreach ($__scope_tables as $__t) {
+                try {
+                    $__cols = array_column($pdo->query("PRAGMA table_info($__t)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+                    if (!in_array('sub_email', $__cols, true)) {
+                        $pdo->exec("ALTER TABLE $__t ADD COLUMN sub_email TEXT DEFAULT ''");
+                        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_{$__t}_sub ON $__t(sub_email)");
+                    }
+                } catch (Exception $e) { /* table may not exist on fresh DBs */ }
+            }
+            /* mall_config → per-workspace (sub_email, k) */
+            $__mc = array_column($pdo->query('PRAGMA table_info(mall_config)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+            if (!in_array('sub_email', $__mc, true)) {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS mall_config2 (k TEXT NOT NULL, v TEXT DEFAULT '', sub_email TEXT NOT NULL DEFAULT '')");
+                $pdo->exec("INSERT OR IGNORE INTO mall_config2 (k, v, sub_email) SELECT k, v, '' FROM mall_config");
+                $pdo->exec('DROP TABLE mall_config');
+                $pdo->exec('ALTER TABLE mall_config2 RENAME TO mall_config');
+                $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_mall_config_scope ON mall_config(sub_email, k)');
+            }
+            try { $pdo->exec('PRAGMA user_version=20260943'); } catch (Exception $e) {}
         }   /* end schema bootstrap gate */
         /* V2.40 (unconditional): seed templates on every boot — COUNT-guarded
            inserts make it idempotent; needed so NEW template ids (e.g.
@@ -11993,6 +12024,61 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, ['health', 'list
     json_out(['ok' => false, 'error' => 'POST required.'], 405);
 }
 
+/* V2.35: workspace isolation — inject `sub_email = <scope>` into any SQL that
+   touches a scoped mall table (registered owners see only their own workspace;
+   demo/system accounts operate on the sub_email='' workspace). Tables like
+   mall_accounts (shared COA) and mall_config (per-workspace closures) are excluded. */
+function mall_scope_sql($sql, $scope) {
+    $scope = (string)$scope;
+    if (!preg_match('/\b(?:mall_|shop_)\w+|\bshops\b|\bcompany_ledger\b/', $sql)) return $sql;
+    $lit = "'" . str_replace("'", "''", $scope) . "'";
+    $TAB = '(?:(?:mall_|shop_)\w+|shops|company_ledger)';
+    $NAL = '(?!WHERE|ORDER|GROUP|LIMIT|JOIN|INNER|LEFT|RIGHT|CROSS|FULL|ON|SET|VALUES|UNION|FROM|UPDATE|DELETE|AS)\b';
+    /* per-statement processing (the mall case SQL never embeds ';' inside literals) */
+    $parts = explode(';', $sql);
+    foreach ($parts as $idx => $st) {
+        $s2 = $st;
+        /* UPDATE / DELETE — guard the WHERE so id-guarded edits can never cross workspaces */
+        if (preg_match('/\b(?:UPDATE|DELETE FROM)\s+' . $TAB . '\b/i', $s2)) {
+            $g = preg_replace('/\bWHERE\s+/i', 'WHERE sub_email=' . $lit . ' AND ', $s2, 1);
+            $s2 = ($g === $s2) ? $s2 . ' WHERE sub_email=' . $lit : $g;
+            $parts[$idx] = $s2;
+            continue;
+        }
+        /* INSERT — stamp the row with the workspace (registered owners' rows
+           stay invisible to every other workspace) */
+        if (preg_match('/\bINSERT INTO\s+' . $TAB . '\b/i', $s2)) {
+            if (preg_match('/\(([^)]+)\)\s*VALUES\s*\(([^)]*)\)/i', $s2, $im)) {
+                $cols = trim($im[1]); $vals = trim($im[2]);
+                if (preg_match('/\bsub_email\b/i', $cols) === 0) {
+                    $newCols = ($cols === '' ? '' : $cols . ', ') . 'sub_email';
+                    $newVals = ($vals === '' ? '' : $vals . ', ') . $lit;
+                    $s2 = str_replace($im[0], '(' . $newCols . ') VALUES (' . $newVals . ')', $s2);
+                }
+            }
+            $parts[$idx] = $s2;
+            continue;
+        }
+        if (!preg_match('/\bFROM\s+' . $TAB . '\b/i', $s2)) { $parts[$idx] = $s2; continue; }
+        /* main-table alias (used to qualify the injected column) */
+        $alias = '';
+        if (preg_match('/\bFROM\s+' . $TAB . '(?:\s+(' . $NAL . '\w+))?/i', $s2, $mm)) $alias = $mm[1] ?? '';
+        $col = $alias !== '' ? $alias . '.sub_email' : 'sub_email';
+        if (preg_match('/\bWHERE\s+/i', $s2)) {
+            $s2 = preg_replace('/\bWHERE\s+/i', 'WHERE ' . $col . '=' . $lit . ' AND ', $s2, 1);
+        } else {
+            $s2 = preg_replace('/(\bORDER BY\b|\bGROUP BY\b|\bLIMIT\b|$)/i', ' WHERE ' . $col . '=' . $lit . ' \1', $s2, 1);
+        }
+        /* JOIN ... ON — alias-aware */
+        $s2 = preg_replace_callback('/\bJOIN\s+(' . $TAB . ')(?:\s+(' . $NAL . '\w+))?\s+ON\s+/i', function ($m) use ($lit) {
+            $col = ($m[2] ?? '') !== '' ? $m[2] . '.sub_email' : 'sub_email';
+            return 'JOIN ' . $m[1] . (($m[2] ?? '') !== '' ? ' ' . $m[2] : '') . ' ON ' . $col . '=' . $lit . ' AND ';
+        }, $s2);
+        $parts[$idx] = $s2;
+    }
+    return implode(';', $parts);
+}
+
 switch ($action) {
 case 'health':
     json_out(['ok' => true, 'service' => 'krtaker-landing', 'php' => PHP_VERSION]);
@@ -12391,6 +12477,49 @@ case 'app-view-as': {
               'user' => ['name' => $t['name'], 'email' => $t['email'], 'role' => $t['role'] ?? '', 'kind' => $kind]]);
 }
 
+case 'app-register': {
+    /* V2.35: self-service registration — creates a fresh isolated workspace.
+       The account is a subscriber (kind=sub, role=owner) → every mall row it
+       creates carries its own sub_email; the guided setup wizard then boots
+       it through profile → first space → billing → SMS. */
+    $name  = str_replace(["\r", "\n", "\0"], ' ', trim($body['name'] ?? ''));
+    $email = strtolower(trim($body['email'] ?? ''));
+    $pass  = (string)($body['password'] ?? '');
+    $phoneRaw = trim((string)($body['phone'] ?? ''));
+    $ip = client_ip();
+    if (recent_any($email, $ip, 60, 4, 8, ['app-register'])) {
+        throttle_out('Too many attempts from this address. Try again later.', $email, $ip, 60, ['app-register']);
+    }
+    if (!$name) json_out(['ok' => false, 'error' => 'আপনার নাম লিখুন / Please enter your name.'], 400);
+    if (($body['agree'] ?? '') !== '1') json_out(['ok' => false, 'error' => 'রেজিস্ট্রেশনের শর্তাবলি মেনে নিতে হবে / You must accept the terms.'], 400);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) json_out(['ok' => false, 'error' => 'সঠিক ইমেইল দিন / Invalid email address.'], 400);
+    if (strlen($pass) < 6) json_out(['ok' => false, 'error' => 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে / Password must be at least 6 characters.'], 400);
+    $phone = '';
+    if ($phoneRaw !== '') {
+        $phoneDigits = preg_replace('/\D/', '', $phoneRaw);
+        if (strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) json_out(['ok' => false, 'error' => 'মোবাইল নম্বর সঠিক নয় / Invalid phone number.'], 400);
+        $phone = '+' . $phoneDigits;
+    }
+    $pdo = db();
+    $st = $pdo->prepare('SELECT id FROM subscribers WHERE email=?');
+    $st->execute([$email]);
+    if ($st->fetch()) json_out(['ok' => false, 'error' => 'এই ইমেইলে ইতিমধ্যে অ্যাকাউন্ট আছে — লগ ইন করুন / Email already registered — please log in.'], 409);
+    $st = $pdo->prepare('SELECT id FROM app_users WHERE email=?');
+    $st->execute([$email]);
+    if ($st->fetch()) json_out(['ok' => false, 'error' => 'এই ইমেইলে ইতিমধ্যে অ্যাকাউন্ট আছে — লগ ইন করুন / Email already registered — please log in.'], 409);
+    $hash = password_hash($pass, PASSWORD_DEFAULT);
+    $trial_end = gmdate('Y-m-d H:i:s', time() + (14 * 86400));
+    $st = $pdo->prepare('INSERT INTO subscribers (name, org, email, phone, role, plan, status, trial_end, otp_hash, otp_expires, password_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+    $st->execute([$name, '', $email, $phone, 'owner', 'starter', 'active', $trial_end, '', '', $hash]);
+    $id = (int)$pdo->lastInsertId();
+    $tok = make_token($id, 'sub');
+    webhook_dispatch($pdo, 'subscriber.registered', ['email' => $email, 'name' => $name]);
+    json_out(['ok' => true, 'token' => $tok, 'user' => [
+        'id' => $id, 'name' => $name, 'email' => $email, 'role' => 'owner', 'kind' => 'sub',
+        'plan' => 'starter', 'status' => 'active', 'trial_end' => $trial_end,
+    ]]);
+}
+
 case 'app-login': {
     $email = strtolower(trim($body['email'] ?? ''));
     $pass  = $body['password'] ?? '';
@@ -12714,7 +12843,9 @@ case 'app-bootstrap': {
         /* V2.34: subscriber owners see ONLY their own workspace rows (sub_email-scoped);
            staff/demo roles keep the full org dataset. Fresh accounts start clean. */
         $scope = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : '';
-        $S = $scope ? ' WHERE sub_email=' . $pdo->quote($scope) : '';
+        /* V2.35: always filter — registered owners see only their own workspace;
+           demo/system accounts see the sub_email='' workspace only. */
+        $S = ' WHERE sub_email=' . $pdo->quote($scope);
         $data = [
             'properties' => $q('SELECT * FROM properties' . $S),
             'units'      => $q('SELECT * FROM units' . $S),
@@ -15256,13 +15387,19 @@ case 'mall': {
             json_out(['ok' => false, 'error' => 'Unknown action for collector.'], 403);
         }
     }
-    $mcfg = function ($k, $def = '') use ($pdo) {
-        $st = $pdo->prepare('SELECT v FROM mall_config WHERE k=?'); $st->execute([$k]);
+    /* V2.35: workspace scope — registered owners (kind=sub) operate ONLY on
+       their own rows (sub_email = their email); demo/system accounts operate
+       on the sub_email='' workspace. mall_config is per-workspace too. */
+    $scope = ($u['kind'] ?? '') === 'sub' ? strtolower(trim((string)$u['email'])) : '';
+    $SE  = ' AND sub_email=' . $pdo->quote($scope);
+    $SEW = ' WHERE sub_email=' . $pdo->quote($scope);
+    $mcfg = function ($k, $def = '') use ($pdo, $scope) {
+        $st = $pdo->prepare(mall_scope_sql('SELECT v FROM mall_config WHERE k=? AND sub_email=?', $scope)); $st->execute([$k, $scope]);
         $v = (string)$st->fetchColumn();
         return $v === '' ? $def : $v;
     };
-    $mset = function ($k, $v) use ($pdo) {
-        $pdo->prepare('INSERT INTO mall_config (k, v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v')->execute([$k, (string)$v]);
+    $mset = function ($k, $v) use ($pdo, $scope) {
+        $pdo->prepare(mall_scope_sql('INSERT INTO mall_config (k, v, sub_email) VALUES (?,?,?) ON CONFLICT(sub_email, k) DO UPDATE SET v=excluded.v', $scope))->execute([$k, (string)$v, $scope]);
     };
 
     /* ── SMART LEDGER: auto-post every operational flow into the COA ──
@@ -15275,7 +15412,7 @@ case 'mall': {
     $ACCT_ID = function ($name) use ($pdo) {
         static $cache = [];
         if (!isset($cache[$name])) {
-            $st = $pdo->prepare('SELECT id FROM mall_accounts WHERE name=?'); $st->execute([$name]);
+            $st = $pdo->prepare(mall_scope_sql('SELECT id FROM mall_accounts WHERE name=?', $scope)); $st->execute([$name]);
             $id = (int)$st->fetchColumn();
             $cache[$name] = $id ?: null;
         }
@@ -15297,8 +15434,8 @@ case 'mall': {
     $METHOD_ACCT = ['cash' => 'Cash in Hand', 'bank' => 'Bank Account', 'bkash' => 'bKash', 'nagad' => 'bKash'];
     $post_journal = function ($date, $ref, $note, $lines, $by = 'system') use ($pdo, $ACCT_ID) {
         /* Smart-Ledger posts are ALWAYS approved (trusted system flow) */
-        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, approved_by, approved_at)
-                              VALUES (?,?,?,?,?,?,?,'Approved','system',datetime('now'))");
+        $ins = $pdo->prepare(mall_scope_sql("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, approved_by, approved_at)
+                              VALUES (?,?,?,?,?,?,?,'Approved','system',datetime('now'))", $scope));
         foreach ($lines as $ln) {
             [$an, $d, $c] = $ln;
             $id = $ACCT_ID($an);
@@ -15312,7 +15449,7 @@ case 'mall': {
        resolve its COA name by id, falling back to the method's default */
     $pay_acct = function ($method, $acctId = 0) use ($pdo, $method_acct) {
         $acctId = (int)$acctId;
-        if ($acctId) { $st = $pdo->prepare('SELECT name FROM mall_accounts WHERE id=?'); $st->execute([$acctId]); $n = $st->fetchColumn(); if ($n) return $n; }
+        if ($acctId) { $st = $pdo->prepare(mall_scope_sql('SELECT name FROM mall_accounts WHERE id=?', $scope)); $st->execute([$acctId]); $n = $st->fetchColumn(); if ($n) return $n; }
         return $method_acct($method);
     };
     $ar_acct = function () use ($ACCT_ID) { return 'Accounts Receivable (space dues)'; };
@@ -15321,7 +15458,7 @@ case 'mall': {
     $acct_name_for = function ($key, $defName) use ($pdo, $mcfg, &$acctMapArr) {
         if ($acctMapArr === null) { $raw = $mcfg('acct_map', ''); $acctMapArr = $raw !== '' ? (json_decode($raw, true) ?: []) : []; }
         $id = (int)($acctMapArr[$key] ?? 0);
-        if ($id) { $st = $pdo->prepare('SELECT name FROM mall_accounts WHERE id=?'); $st->execute([$id]); $n = $st->fetchColumn(); if ($n) return $n; }
+        if ($id) { $st = $pdo->prepare(mall_scope_sql('SELECT name FROM mall_accounts WHERE id=?', $scope)); $st->execute([$id]); $n = $st->fetchColumn(); if ($n) return $n; }
         return $defName;
     };
     $exp_acct_for = function ($cat) use ($acct_name_for, $EXP_ACCT) { return $acct_name_for('exp:' . $cat, $EXP_ACCT[$cat] ?? 'General Maintenance'); };
@@ -15373,15 +15510,15 @@ case 'mall': {
             }
             $status = (strpos($resp, 'SUCCESS') !== false || strpos($resp, '"status":1') !== false) ? 'sent' : 'failed';
         }
-        $pdo->prepare('INSERT INTO mall_sms_log (to_phone, message, provider, ref, status, kind) VALUES (?,?,?,?,?,?)')
+        $pdo->prepare(mall_scope_sql('INSERT INTO mall_sms_log (to_phone, message, provider, ref, status, kind) VALUES (?,?,?,?,?,?)', $scope))
             ->execute([$to, mb_substr($message, 0, 480), $prov, $ref, $status, $kind]);
         return ['ok' => $status === 'sent', 'to' => $to, 'ref' => $ref, 'provider' => $prov, 'status' => $status];
     };
     $mall_owner_tenant_phones = function ($shopId) use ($pdo) {
         $phones = ['owner' => '', 'tenant' => ''];
-        $st = $pdo->prepare("SELECT owner_mobile FROM shops WHERE id=?"); $st->execute([$shopId]);
+        $st = $pdo->prepare(mall_scope_sql("SELECT owner_mobile FROM shops WHERE id=?", $scope)); $st->execute([$shopId]);
         $phones['owner'] = (string)$st->fetchColumn();
-        $st = $pdo->prepare("SELECT t.phone FROM mall_agreements a JOIN mall_tenants t ON t.id=a.tenant_id WHERE a.shop=? AND a.status='Active' LIMIT 1"); $st->execute([$shopId]);
+        $st = $pdo->prepare(mall_scope_sql("SELECT t.phone FROM mall_agreements a JOIN mall_tenants t ON t.id=a.tenant_id WHERE a.shop=? AND a.status='Active' LIMIT 1", $scope)); $st->execute([$shopId]);
         $phones['tenant'] = (string)$st->fetchColumn();
         return $phones;
     };
@@ -15401,7 +15538,7 @@ case 'mall': {
             $c = $sms_cfg();
             if ($c['api_key'] !== '') $c['api_key'] = substr($c['api_key'], 0, 4) . '…' . substr($c['api_key'], -2);
             $c['masked'] = 1;
-            $log = $pdo->query('SELECT * FROM mall_sms_log ORDER BY id DESC LIMIT 25')->fetchAll(PDO::FETCH_ASSOC);
+            $log = $pdo->query(mall_scope_sql('SELECT * FROM mall_sms_log ORDER BY id DESC LIMIT 25', $scope))->fetchAll(PDO::FETCH_ASSOC);
             json_out(['ok' => true] + $c + ['log' => $log]);
         }
         if ($act === 'config-save') {
@@ -15428,10 +15565,10 @@ case 'mall': {
             $shop = trim($body['shop'] ?? '');
             $kind = in_array(trim($body['kind'] ?? ''), ['high', 'disconnect'], true) ? trim($body['kind']) : 'high';
             if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
-            $st = $pdo->prepare('SELECT * FROM shops WHERE id=?'); $st->execute([$shop]);
+            $st = $pdo->prepare(mall_scope_sql('SELECT * FROM shops WHERE id=?', $scope)); $st->execute([$shop]);
             $s = $st->fetch(PDO::FETCH_ASSOC);
             if (!$s) json_out(['ok' => false, 'error' => 'Space not found.'], 404);
-            $dst = $pdo->prepare("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'");
+            $dst = $pdo->prepare(mall_scope_sql("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'", $scope));
             $dst->execute([$shop]);
             $due = (int)$dst->fetchColumn();
             $months = (int)($body['months'] ?? 1);
@@ -15459,15 +15596,15 @@ case 'mall': {
             if ($mode === 'notice') {
                 $text = trim($body['text'] ?? '');
                 if ($text === '') json_out(['ok' => false, 'error' => 'Notice text required.'], 400);
-                $shops = $pdo->query("SELECT id FROM shops WHERE status='Active'")->fetchAll(PDO::FETCH_COLUMN);
+                $shops = $pdo->query(mall_scope_sql("SELECT id FROM shops WHERE status='Active'", $scope))->fetchAll(PDO::FETCH_COLUMN);
                 foreach ($shops as $sid) foreach ($mall_phones($sid, $to) as $ph) {
                     $targets++;
                     $r = $sms_send($ph, "📢 $mallName — $text", 'notice');
                     if ($r['ok']) $sent++; else $fail++;
                 }
             } else {
-                $dst = $pdo->prepare("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'");
-                foreach ($pdo->query("SELECT DISTINCT s.id, s.no FROM shops s JOIN shop_bills b ON b.shop=s.id AND b.status='Unpaid'") as $srow) {
+                $dst = $pdo->prepare(mall_scope_sql("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'", $scope));
+                foreach ($pdo->query(mall_scope_sql("SELECT DISTINCT s.id, s.no FROM shops s JOIN shop_bills b ON b.shop=s.id AND b.status='Unpaid'", $scope)) as $srow) {
                     $dst->execute([$srow['id']]);
                     $due = (int)$dst->fetchColumn();
                     foreach ($mall_phones($srow['id'], $to) as $ph) {
@@ -15549,8 +15686,8 @@ case 'mall': {
         $min = (int)$mcfg('late_fee_min', '0');
         $maxPct = (int)$mcfg('late_fee_max_pct', '100');
         /* overdue = due_date + grace days < today */
-        $st = $pdo->prepare("SELECT id, amount FROM shop_bills
-                             WHERE month=? AND status='Unpaid' AND due_date != '' AND date(due_date, '+' || ? || ' days') < date('now')");
+        $st = $pdo->prepare(mall_scope_sql("SELECT id, amount FROM shop_bills
+                             WHERE month=? AND status='Unpaid' AND due_date != '' AND date(due_date, '+' || ? || ' days') < date('now')", $scope));
         $st->execute([$month, $grace]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
         $count = 0; $total = 0;
@@ -15559,7 +15696,7 @@ case 'mall': {
             if ($min > 0) $fine = max($fine, $min);
             if ($maxPct > 0 && $maxPct < 100) $fine = min($fine, (int)round((int)$r['amount'] * $maxPct / 100));
             $fine = (int)round($fine / 5) * 5;   /* tidy: nearest ৳5 */
-            $pdo->prepare('UPDATE shop_bills SET fine=? WHERE id=?')->execute([$fine, $r['id']]);
+            $pdo->prepare(mall_scope_sql('UPDATE shop_bills SET fine=? WHERE id=?', $scope))->execute([$fine, $r['id']]);
             $count++; $total += $fine;
         }
         audit($u['name'], 'Fine calc', 'mall', $month, "$count bills, $total total (@$pct% grace $grace min $min cap $maxPct%)");
@@ -15568,10 +15705,10 @@ case 'mall': {
     /* fine-clear — remove computed fines for a month (used when disabling the rule) */
     if ($a === 'fine-clear') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $st = $pdo->prepare("SELECT COUNT(*), COALESCE(SUM(fine),0) FROM shop_bills WHERE month=? AND fine > 0");
+        $st = $pdo->prepare(mall_scope_sql("SELECT COUNT(*), COALESCE(SUM(fine),0) FROM shop_bills WHERE month=? AND fine > 0", $scope));
         $st->execute([$month]);
         list($n, $sum) = $st->fetch(PDO::FETCH_NUM);
-        $pdo->prepare('UPDATE shop_bills SET fine=0 WHERE month=?')->execute([$month]);
+        $pdo->prepare(mall_scope_sql('UPDATE shop_bills SET fine=0 WHERE month=?', $scope))->execute([$month]);
         audit($u['name'], 'Fine clear', 'mall', $month, "$n bills, $sum removed");
         json_out(['ok' => true, 'cleared' => (int)$n, 'amount' => (int)$sum]);
     }
@@ -15580,18 +15717,18 @@ case 'mall': {
     if ($a === 'receipt') {
         $billId = (int)($body['bill_id'] ?? 0);
         if (!$billId) json_out(['ok' => false, 'error' => 'bill_id required.'], 400);
-        $st = $pdo->prepare("SELECT b.*, s.no AS shop_no, s.floor AS shop_floor, s.owner_name, s.owner_mobile
-                             FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop WHERE b.id=?");
+        $st = $pdo->prepare(mall_scope_sql("SELECT b.*, s.no AS shop_no, s.floor AS shop_floor, s.owner_name, s.owner_mobile
+                             FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop WHERE b.id=?", $scope));
         $st->execute([$billId]);
         $bill = $st->fetch(PDO::FETCH_ASSOC);
         if (!$bill) json_out(['ok' => false, 'error' => 'Bill not found.'], 404);
         $pay = null;
-        $ps = $pdo->prepare("SELECT * FROM shop_payments WHERE bill_id=? ORDER BY id DESC LIMIT 1");
+        $ps = $pdo->prepare(mall_scope_sql("SELECT * FROM shop_payments WHERE bill_id=? ORDER BY id DESC LIMIT 1", $scope));
         $ps->execute([$billId]);
         $pay = $ps->fetch(PDO::FETCH_ASSOC) ?: null;
         $payAcctName = '';
         if ($pay && (int)($pay['method_acct'] ?? 0)) {
-            $ast = $pdo->prepare('SELECT name FROM mall_accounts WHERE id=?'); $ast->execute([(int)$pay['method_acct']]);
+            $ast = $pdo->prepare(mall_scope_sql('SELECT name FROM mall_accounts WHERE id=?', $scope)); $ast->execute([(int)$pay['method_acct']]);
             $payAcctName = (string)$ast->fetchColumn();
         }
         json_out(['ok' => true, 'bill' => $bill, 'payment' => $pay, 'pay_acct_name' => $payAcctName,
@@ -15610,9 +15747,9 @@ case 'mall': {
         if ($a === 'shop-unpaid-bills') {
         $shop = trim($body['shop'] ?? '');
         if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
-        $st = $pdo->prepare("SELECT b.*, COALESCE(s.no, b.shop) AS shop_no, s.floor AS shop_floor,
+        $st = $pdo->prepare(mall_scope_sql("SELECT b.*, COALESCE(s.no, b.shop) AS shop_no, s.floor AS shop_floor,
                         s.owner_name, s.owner_mobile FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop
-                     WHERE b.shop=? AND b.status != 'Paid' ORDER BY b.month DESC, b.kind");
+                     WHERE b.shop=? AND b.status != 'Paid' ORDER BY b.month DESC, b.kind", $scope));
         $st->execute([$shop]);
         json_out(['ok' => true, 'bills' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     }
@@ -15622,10 +15759,10 @@ case 'mall': {
         $shop = trim($body['shop'] ?? '');
         $month = trim($body['month'] ?? date('Y-m'));
         if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
-        $st = $pdo->prepare('SELECT b.*, COALESCE(s.no, b.shop) AS shop_no, s.floor AS shop_floor, s.owner_name, s.owner_mobile FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop WHERE b.shop=? AND b.month=? ORDER BY b.kind');
+        $st = $pdo->prepare(mall_scope_sql('SELECT b.*, COALESCE(s.no, b.shop) AS shop_no, s.floor AS shop_floor, s.owner_name, s.owner_mobile FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop WHERE b.shop=? AND b.month=? ORDER BY b.kind', $scope));
         $st->execute([$shop, $month]);
         $current = $st->fetchAll(PDO::FETCH_ASSOC);
-        $st2 = $pdo->prepare("SELECT month, kind, amount, fine, status FROM shop_bills WHERE shop=? ORDER BY month DESC, kind");
+        $st2 = $pdo->prepare(mall_scope_sql("SELECT month, kind, amount, fine, status FROM shop_bills WHERE shop=? ORDER BY month DESC, kind", $scope));
         $st2->execute([$shop]);
         $all = $st2->fetchAll(PDO::FETCH_ASSOC);
         $history = []; $dueCount = 0; $dueTotal = 0.0; $unpaidMonths = [];
@@ -15642,7 +15779,7 @@ case 'mall': {
                 if (!in_array($m, $unpaidMonths, true)) $unpaidMonths[] = $m;
             }
         }
-        $st3 = $pdo->prepare('SELECT * FROM shops WHERE id=?');
+        $st3 = $pdo->prepare(mall_scope_sql('SELECT * FROM shops WHERE id=?', $scope));
         $st3->execute([$shop]);
         $shopRow = $st3->fetch(PDO::FETCH_ASSOC) ?: null;
         json_out(['ok' => true, 'current' => $current, 'history' => array_values($history),
@@ -15654,8 +15791,8 @@ case 'mall': {
     if (
     $a === 'readings') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $st = $pdo->prepare("SELECT r.*, s.no FROM mall_meter_readings r LEFT JOIN shops s ON s.id=r.shop
-                             WHERE r.month=? ORDER BY r.id DESC LIMIT 100");
+        $st = $pdo->prepare(mall_scope_sql("SELECT r.*, s.no FROM mall_meter_readings r LEFT JOIN shops s ON s.id=r.shop
+                             WHERE r.month=? ORDER BY r.id DESC LIMIT 100", $scope));
         $st->execute([$month]);
         json_out(['ok' => true, 'readings' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     }
@@ -15663,20 +15800,20 @@ case 'mall': {
     /* expenses — list month expenses from company_ledger (kind=expense, cat=mall category) */
     if ($a === 'expenses' || $a === 'expense-add' || $a === 'expense-del') {
         /* fresh-DB guard: company_ledger may lack note/payee (added later on prod) */
-        $lcols = array_column($pdo->query('PRAGMA table_info(company_ledger)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        $lcols = array_column($pdo->query(mall_scope_sql('PRAGMA table_info(company_ledger)', $scope))->fetchAll(PDO::FETCH_ASSOC), 'name');
         foreach (['note', 'payee'] as $lc) {
             if (!in_array($lc, $lcols, true)) { try { $pdo->exec("ALTER TABLE company_ledger ADD COLUMN $lc TEXT DEFAULT ''"); } catch (Exception $e) {} }
         }
     }
     if ($a === 'expenses') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $st = $pdo->prepare("SELECT id, cat AS category, amount, method, payee AS vendor, note, ts AS date, voucher
-                             FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=? ORDER BY id DESC");
+        $st = $pdo->prepare(mall_scope_sql("SELECT id, cat AS category, amount, method, payee AS vendor, note, ts AS date, voucher
+                             FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=? ORDER BY id DESC", $scope));
         $st->execute([$month]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
         $total = array_sum(array_map(fn($r) => (int)$r['amount'], $rows));
-        $inc = $pdo->prepare("SELECT id, cat AS category, amount, method, note, ts AS date
-                              FROM company_ledger WHERE kind='income' AND substr(ts,1,7)=? ORDER BY id DESC");
+        $inc = $pdo->prepare(mall_scope_sql("SELECT id, cat AS category, amount, method, note, ts AS date
+                              FROM company_ledger WHERE kind='income' AND substr(ts,1,7)=? ORDER BY id DESC", $scope));
         $inc->execute([$month]);
         $incomeRows = $inc->fetchAll(PDO::FETCH_ASSOC);
         $incomeTotal = array_sum(array_map(fn($r) => (int)$r['amount'], $incomeRows));
@@ -15694,8 +15831,8 @@ case 'mall': {
         $month = trim($body['month'] ?? date('Y-m'));
         if ($cat === '' || $amount <= 0 || !in_array($method, ['cash', 'bank', 'bkash', 'nagad'], true)) json_out(['ok' => false, 'error' => 'Head, amount and a valid method required.'], 400);
         $mAcct = (int)($body['method_acct'] ?? 0);
-        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts)
-                       VALUES ('income', ?, ?, ?, ?, ?, ?, '', ?, ?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts)
+                       VALUES ('income', ?, ?, ?, ?, ?, ?, '', ?, ?)", $scope))
             ->execute([$cat, $cat, $amount, $method, $mAcct, 'INC-' . str_pad((string)(mt_rand(1, 99999)), 5, '0', STR_PAD_LEFT), $note, $month . '-01 12:00:00']);
         $clId = (int)$pdo->lastInsertId();
         $post_journal($month . '-01', 'INC-' . str_pad((string)$clId, 5, '0', STR_PAD_LEFT),
@@ -15715,8 +15852,8 @@ case 'mall': {
         $vendor = trim($body['vendor'] ?? '');
         $voucher = trim($body['voucher'] ?? '');
         if ($voucher !== '' && (strpos($voucher, 'data:image') !== 0 || strlen($voucher) > 1500000)) $voucher = '';
-        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts, voucher)
-                       VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts, voucher)
+                       VALUES ('expense', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)", $scope))
             ->execute([$cat, $cat, $amount, $method, $mAcct, '', trim($body['note'] ?? ''), $vendor, $voucher]);
         $expId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Expense', 'mall', $cat, "$amount via $method");
@@ -15731,7 +15868,7 @@ case 'mall': {
     if ($a === 'expense-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare("DELETE FROM company_ledger WHERE id=? AND kind='expense'")->execute([$id]);
+        $pdo->prepare(mall_scope_sql("DELETE FROM company_ledger WHERE id=? AND kind='expense'", $scope))->execute([$id]);
         audit($u['name'], 'Expense delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
@@ -15739,9 +15876,9 @@ case 'mall': {
     /* payments — collection history for the month (receipts ledger) */
     if ($a === 'payments') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $st = $pdo->prepare("SELECT p.*, s.no AS shop_no, s.floor AS shop_floor
+        $st = $pdo->prepare(mall_scope_sql("SELECT p.*, s.no AS shop_no, s.floor AS shop_floor
                              FROM shop_payments p LEFT JOIN shops s ON s.id=p.shop
-                             WHERE p.month=? ORDER BY p.id DESC");
+                             WHERE p.month=? ORDER BY p.id DESC", $scope));
         $st->execute([$month]);
         json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     }
@@ -15754,7 +15891,7 @@ case 'mall': {
         $args = [];
         if ($status !== '') { $sql .= ' WHERE c.status=?'; $args[] = $status; }
         $sql .= ' ORDER BY c.id DESC LIMIT 200';
-        $st = $pdo->prepare($sql); $st->execute($args);
+        $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
         $counts = ['Open' => 0, 'In Progress' => 0, 'Resolved' => 0];
         foreach ($rows as $r) if (isset($counts[$r['status']])) $counts[$r['status']]++;
@@ -15764,11 +15901,11 @@ case 'mall': {
        (Units-style: overview, owner, rent/agreements, bills, meters, complaints). */
     if ($a === 'space-detail') {
         $id = trim((string)($body['id'] ?? ''));
-        $st = $pdo->prepare('SELECT * FROM shops WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM shops WHERE id=?', $scope)); $st->execute([$id]);
         $s = $st->fetch(PDO::FETCH_ASSOC);
         if (!$s) json_out(['ok' => false, 'error' => 'Space not found.'], 404);
-        $q = function ($sql, $args = []) use ($pdo) {
-            $st = $pdo->prepare($sql); $st->execute($args);
+        $q = function ($sql, $args = []) use ($pdo, $scope) {
+            $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
             return $st->fetchAll(PDO::FETCH_ASSOC);
         };
         $owner = null;
@@ -15798,11 +15935,11 @@ case 'mall': {
     /* vendor-detail — one vendor: profile + payment ledger + linked expenses */
     if ($a === 'vendor-detail') {
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT * FROM mall_vendors WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_vendors WHERE id=?', $scope)); $st->execute([$id]);
         $v = $st->fetch(PDO::FETCH_ASSOC);
         if (!$v) json_out(['ok' => false, 'error' => 'Vendor not found.'], 404);
-        $q = function ($sql, $args = []) use ($pdo) {
-            $st = $pdo->prepare($sql); $st->execute($args);
+        $q = function ($sql, $args = []) use ($pdo, $scope) {
+            $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
             return $st->fetchAll(PDO::FETCH_ASSOC);
         };
         $payments = $q('SELECT * FROM mall_vendor_payments WHERE vendor_id=? ORDER BY ts DESC', [$id]);
@@ -15814,11 +15951,11 @@ case 'mall': {
     /* staff-detail — one staff: profile + salary history */
     if ($a === 'staff-detail') {
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT * FROM mall_staff WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_staff WHERE id=?', $scope)); $st->execute([$id]);
         $s = $st->fetch(PDO::FETCH_ASSOC);
         if (!$s) json_out(['ok' => false, 'error' => 'Staff not found.'], 404);
-        $q = function ($sql, $args = []) use ($pdo) {
-            $st = $pdo->prepare($sql); $st->execute($args);
+        $q = function ($sql, $args = []) use ($pdo, $scope) {
+            $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
             return $st->fetchAll(PDO::FETCH_ASSOC);
         };
         $salaries = $q('SELECT * FROM mall_staff_salaries WHERE staff_id=? ORDER BY ts DESC', [$id]);
@@ -15828,11 +15965,11 @@ case 'mall': {
     /* tenant-detail — one tenant: profile + agreements + rent collections */
     if ($a === 'tenant-detail') {
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT * FROM mall_tenants WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_tenants WHERE id=?', $scope)); $st->execute([$id]);
         $t = $st->fetch(PDO::FETCH_ASSOC);
         if (!$t) json_out(['ok' => false, 'error' => 'Tenant not found.'], 404);
-        $q = function ($sql, $args = []) use ($pdo) {
-            $st = $pdo->prepare($sql); $st->execute($args);
+        $q = function ($sql, $args = []) use ($pdo, $scope) {
+            $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
             return $st->fetchAll(PDO::FETCH_ASSOC);
         };
         $agreements = $q('SELECT * FROM mall_agreements WHERE tenant_id=? ORDER BY id DESC', [$id]);
@@ -15844,8 +15981,8 @@ case 'mall': {
     }
     /* ── BASIC ACCOUNTING: Chart of Accounts / Journal / Trial balance ── */
     if ($a === 'accounts') {
-        $rows = $pdo->query("SELECT * FROM mall_accounts ORDER BY CASE type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, code")->fetchAll(PDO::FETCH_ASSOC);
-        $acts = $pdo->query("SELECT account, SUM(debit) d, SUM(credit) c FROM mall_journal WHERE status='Approved' GROUP BY account")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql("SELECT * FROM mall_accounts ORDER BY CASE type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, code", $scope))->fetchAll(PDO::FETCH_ASSOC);
+        $acts = $pdo->query(mall_scope_sql("SELECT account, SUM(debit) d, SUM(credit) c FROM mall_journal WHERE status='Approved' GROUP BY account", $scope))->fetchAll(PDO::FETCH_ASSOC);
         $map = [];
         foreach ($acts as $x) $map[(int)$x['account']] = $x;
         foreach ($rows as &$r) {
@@ -15875,16 +16012,16 @@ case 'mall': {
         if ($isGroup) { $subsidiary = 0; $subsType = ''; }
         $parent = trim($body['parent'] ?? '');
         if ($parent !== '' && $parent !== $code) {
-            $pst = $pdo->prepare('SELECT is_group FROM mall_accounts WHERE code=?'); $pst->execute([$parent]);
+            $pst = $pdo->prepare(mall_scope_sql('SELECT is_group FROM mall_accounts WHERE code=?', $scope)); $pst->execute([$parent]);
             if (!$pst->fetchColumn()) $parent = '';
             if ($parent === $code) $parent = '';
         } else { $parent = ''; }
         $note = trim($body['note'] ?? '');
         if ($id) {
-            $pdo->prepare('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, subsidiary=?, subs_type=?, note=?, parent=?, is_group=? WHERE id=?')
+            $pdo->prepare(mall_scope_sql('UPDATE mall_accounts SET code=?, name=?, type=?, opening=?, active=?, subsidiary=?, subs_type=?, note=?, parent=?, is_group=? WHERE id=?', $scope))
                 ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note, $parent, $isGroup, $id]);
         } else {
-            $pdo->prepare('INSERT INTO mall_accounts (code, name, type, opening, active, subsidiary, subs_type, note, parent, is_group) VALUES (?,?,?,?,?,?,?,?,?,?)')
+            $pdo->prepare(mall_scope_sql('INSERT INTO mall_accounts (code, name, type, opening, active, subsidiary, subs_type, note, parent, is_group) VALUES (?,?,?,?,?,?,?,?,?,?)', $scope))
                 ->execute([$code, $name, $type, $opening, $active, $subsidiary, $subsType, $note, $parent, $isGroup]);
             $id = (int)$pdo->lastInsertId();
         }
@@ -15894,13 +16031,13 @@ case 'mall': {
     if ($a === 'account-del') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
-        $kids = (int)$pdo->query("SELECT COUNT(*) FROM mall_accounts WHERE parent=(SELECT code FROM mall_accounts WHERE id=$id) AND id!=$id")->fetchColumn();
-        $grp = (int)$pdo->query("SELECT is_group FROM mall_accounts WHERE id=$id")->fetchColumn();
+        $kids = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM mall_accounts WHERE parent=(SELECT code FROM mall_accounts WHERE id=$id) AND id!=$id", $scope))->fetchColumn();
+        $grp = (int)$pdo->query(mall_scope_sql("SELECT is_group FROM mall_accounts WHERE id=$id", $scope))->fetchColumn();
         if ($grp) json_out(['ok' => false, 'error' => 'Group headings cannot be deleted — remove its accounts first.'], 400);
         if ($kids) json_out(['ok' => false, 'error' => "This account has $kids child accounts under it — remove them first."], 400);
-        $used = (int)$pdo->query("SELECT COUNT(*) FROM mall_journal WHERE account=$id")->fetchColumn();
+        $used = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM mall_journal WHERE account=$id", $scope))->fetchColumn();
         if ($used) json_out(['ok' => false, 'error' => "This account has $used journal entries — deactivate it instead."], 400);
-        $pdo->prepare('DELETE FROM mall_accounts WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_accounts WHERE id=?', $scope))->execute([$id]);
         json_out(['ok' => true]);
     }
     if ($a === 'journal') {
@@ -15909,9 +16046,9 @@ case 'mall': {
         $where = "1=1";
         if ($from !== '') $where .= " AND j.date >= '" . $from . "'";
         if ($to !== '') $where .= " AND j.date <= '" . $to . "'";
-        $rows = $pdo->query("SELECT j.*, a.name AS account_name, a.code AS account_code, a.type AS account_type
+        $rows = $pdo->query(mall_scope_sql("SELECT j.*, a.name AS account_name, a.code AS account_code, a.type AS account_type
             FROM mall_journal j LEFT JOIN mall_accounts a ON a.id=j.account
-            WHERE $where ORDER BY j.date DESC, j.id DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+            WHERE $where ORDER BY j.date DESC, j.id DESC LIMIT 500", $scope))->fetchAll(PDO::FETCH_ASSOC);
         $totD = 0; $totC = 0; $pending = 0; $approved = 0; $rejected = 0;
         foreach ($rows as $x) {
             $totD += (int)$x['debit']; $totC += (int)$x['credit'];
@@ -15936,7 +16073,7 @@ case 'mall': {
             $c = (int)($ln['credit'] ?? 0);
             if (!$acc || ($d <= 0 && $c <= 0)) continue;
             if ($d > 0 && $c > 0) json_out(['ok' => false, 'error' => 'A line cannot be both debit and credit.'], 400);
-            $gst = $pdo->prepare('SELECT is_group FROM mall_accounts WHERE id=?'); $gst->execute([$acc]);
+            $gst = $pdo->prepare(mall_scope_sql('SELECT is_group FROM mall_accounts WHERE id=?', $scope)); $gst->execute([$acc]);
             if ((int)$gst->fetchColumn() === 1) json_out(['ok' => false, 'error' => 'Group accounts (headings like 1000 Assets) cannot be posted to — pick a posting (leaf) account.'], 400);
             $subType = trim($ln['subsidiary_type'] ?? '');
             $subName = trim($ln['subsidiary_name'] ?? '');
@@ -15949,14 +16086,14 @@ case 'mall': {
         $date = trim($body['date'] ?? '') ?: date('Y-m-d');
         $ref = trim($body['ref'] ?? '');
         if ($ref === '') {
-            $seq = (int)$pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ref, 4) AS INTEGER)),0) FROM mall_journal WHERE ref LIKE 'JV-%'")->fetchColumn();
+            $seq = (int)$pdo->query(mall_scope_sql("SELECT COALESCE(MAX(CAST(SUBSTR(ref, 4) AS INTEGER)),0) FROM mall_journal WHERE ref LIKE 'JV-%'", $scope))->fetchColumn();
             $ref = 'JV-' . str_pad((string)($seq + 1), 5, '0', STR_PAD_LEFT);
         }
         $note = trim($body['note'] ?? '');
         $voucher = trim($body['voucher'] ?? '');
         if ($voucher !== '' && strlen($voucher) > 1200000) json_out(['ok' => false, 'error' => 'Attachment too large.'], 400);
-        $ins = $pdo->prepare("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, voucher, subsidiary, subsidiary_type)
-                              VALUES (?,?,?,?,?,?,?,'Pending',?,?,?)");
+        $ins = $pdo->prepare(mall_scope_sql("INSERT INTO mall_journal (date, ref, account, debit, credit, note, created_by, status, voucher, subsidiary, subsidiary_type)
+                              VALUES (?,?,?,?,?,?,?,'Pending',?,?,?)", $scope));
         $firstId = 0;
         foreach ($clean as $ln) {
             $ins->execute([$date, $ref, $ln['acc'], $ln['d'], $ln['c'], $note, $u['name'], $voucher, $ln['sn'], $ln['st']]);
@@ -15973,10 +16110,10 @@ case 'mall': {
         $voucher = trim($body['voucher'] ?? '');
         if (!$id || $voucher === '') json_out(['ok' => false, 'error' => 'id and voucher required.'], 400);
         if (strlen($voucher) > 1200000) json_out(['ok' => false, 'error' => 'Attachment too large.'], 400);
-        $st = $pdo->prepare('SELECT ref FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT ref FROM mall_journal WHERE id=?', $scope)); $st->execute([$id]);
         $ref = $st->fetchColumn();
         if (!$ref) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
-        $pdo->prepare('UPDATE mall_journal SET voucher=? WHERE ref=?')->execute([$voucher, $ref]);
+        $pdo->prepare(mall_scope_sql('UPDATE mall_journal SET voucher=? WHERE ref=?', $scope))->execute([$voucher, $ref]);
         json_out(['ok' => true]);
     }
     /* journal-approve / journal-reject — approval workflow for the WHOLE voucher
@@ -15984,24 +16121,24 @@ case 'mall': {
     if ($a === 'journal-approve' || $a === 'journal-reject') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT ref, created_by, status FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT ref, created_by, status FROM mall_journal WHERE id=?', $scope)); $st->execute([$id]);
         $j = $st->fetch(PDO::FETCH_ASSOC);
         if (!$j) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
         if ($j['status'] !== 'Pending') json_out(['ok' => false, 'error' => 'Only pending entries can be ' . ($a === 'journal-approve' ? 'approved' : 'rejected') . '.'], 409);
         if ($j['created_by'] === $u['name']) json_out(['ok' => false, 'error' => 'You cannot ' . ($a === 'journal-approve' ? 'approve' : 'reject') . ' your own entry — another manager must review it.'], 403);
         $new = $a === 'journal-approve' ? 'Approved' : 'Rejected';
-        $pdo->prepare("UPDATE mall_journal SET status=?, approved_by=?, approved_at=datetime('now') WHERE ref=?")->execute([$new, $u['name'], $j['ref']]);
+        $pdo->prepare(mall_scope_sql("UPDATE mall_journal SET status=?, approved_by=?, approved_at=datetime('now') WHERE ref=?", $scope))->execute([$new, $u['name'], $j['ref']]);
         audit($u['name'], 'Journal ' . $new, 'mall', $j['ref'], $j['created_by'] . "'s voucher");
         json_out(['ok' => true, 'status' => $new]);
     }
     if ($a === 'journal-del') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT ref, status FROM mall_journal WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT ref, status FROM mall_journal WHERE id=?', $scope)); $st->execute([$id]);
         $j = $st->fetch(PDO::FETCH_ASSOC);
         if (!$j) json_out(['ok' => false, 'error' => 'Entry not found.'], 404);
         if ($j['status'] === 'Approved') json_out(['ok' => false, 'error' => 'Approved entries are immutable — reject or adjust with a new voucher.'], 409);
-        $pdo->prepare('DELETE FROM mall_journal WHERE ref=?')->execute([$j['ref']]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_journal WHERE ref=?', $scope))->execute([$j['ref']]);
         json_out(['ok' => true]);
     }
     /* pnl — monthly income statement (Smart Ledger): income vs expense by account */
@@ -16009,11 +16146,11 @@ case 'mall': {
         $month = trim($body['month'] ?? date('Y-m'));
         $m0 = $month . '-01';
         $m1 = date('Y-m-d', strtotime($month . '-01 +1 month'));
-        $rows = $pdo->query("SELECT a.name, a.type, a.code,
+        $rows = $pdo->query(mall_scope_sql("SELECT a.name, a.type, a.code,
             COALESCE(SUM(j.debit),0) AS d, COALESCE(SUM(j.credit),0) AS c
             FROM mall_journal j JOIN mall_accounts a ON a.id=j.account
             WHERE j.status='Approved' AND j.date >= '$m0' AND j.date < '$m1'
-            GROUP BY a.id ORDER BY a.code")->fetchAll(PDO::FETCH_ASSOC);
+            GROUP BY a.id ORDER BY a.code", $scope))->fetchAll(PDO::FETCH_ASSOC);
         $income = []; $expense = []; $totI = 0; $totE = 0;
         foreach ($rows as $r) {
             $bal = (int)$r['c'] - (int)$r['d'];
@@ -16024,10 +16161,10 @@ case 'mall': {
                   'total_income' => $totI, 'total_expense' => $totE, 'net' => $totI - $totE]);
     }
     if ($a === 'trial') {
-        $rows = $pdo->query("SELECT a.id, a.code, a.name, a.type, a.opening,
+        $rows = $pdo->query(mall_scope_sql("SELECT a.id, a.code, a.name, a.type, a.opening,
             COALESCE(SUM(j.debit),0) AS debit, COALESCE(SUM(j.credit),0) AS credit
             FROM mall_accounts a LEFT JOIN mall_journal j ON j.account=a.id AND j.status='Approved'
-            GROUP BY a.id ORDER BY CASE a.type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, a.code")->fetchAll(PDO::FETCH_ASSOC);
+            GROUP BY a.id ORDER BY CASE a.type WHEN 'Asset' THEN 0 WHEN 'Liability' THEN 1 WHEN 'Equity' THEN 2 WHEN 'Income' THEN 3 ELSE 4 END, a.code", $scope))->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$r) {
             $r['balance'] = in_array($r['type'], ['Asset', 'Expense'], true)
                 ? (int)$r['opening'] + (int)$r['debit'] - (int)$r['credit']
@@ -16044,8 +16181,8 @@ case 'mall': {
         $from = trim($body['from'] ?? '');
         $to = trim($body['to'] ?? '');
         if (!in_array($type, ['vendor', 'owner', 'tenant', 'staff'], true) || !$id) json_out(['ok' => false, 'error' => 'type (vendor/owner/tenant/staff) and id required.'], 400);
-        $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
-        $one = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetch(PDO::FETCH_ASSOC); };
+        $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
+        $one = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args); return $st->fetch(PDO::FETCH_ASSOC); };
         $rows = []; $opening = 0;
         if ($type === 'vendor') {
             $p = $one('SELECT * FROM mall_vendors WHERE id=?', [$id]);
@@ -16124,18 +16261,18 @@ case 'mall': {
        (subsidiary balances grouped by party, for control accounts) */
     if ($a === 'account-ledger') {
         $id = (int)($body['id'] ?? 0);
-        $acc = $pdo->prepare('SELECT * FROM mall_accounts WHERE id=?'); $acc->execute([$id]);
+        $acc = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_accounts WHERE id=?', $scope)); $acc->execute([$id]);
         $accRow = $acc->fetch(PDO::FETCH_ASSOC);
         if (!$accRow) json_out(['ok' => false, 'error' => 'Account not found.'], 404);
-        $entries = $pdo->prepare("SELECT j.*, a.name AS account_name, a.type AS account_type
+        $entries = $pdo->prepare(mall_scope_sql("SELECT j.*, a.name AS account_name, a.type AS account_type
             FROM mall_journal j LEFT JOIN mall_accounts a ON a.id=j.account
-            WHERE j.account=? AND j.status='Approved' ORDER BY j.date DESC, j.id DESC LIMIT 300");
+            WHERE j.account=? AND j.status='Approved' ORDER BY j.date DESC, j.id DESC LIMIT 300", $scope));
         $entries->execute([$id]);
         $rows = $entries->fetchAll(PDO::FETCH_ASSOC);
         $totD = 0; $totC = 0;
         foreach ($rows as $r) { $totD += (int)$r['debit']; $totC += (int)$r['credit']; }
-        $subs = $pdo->prepare("SELECT subsidiary, subsidiary_type, SUM(debit) d, SUM(credit) c
-            FROM mall_journal WHERE account=? AND status='Approved' AND subsidiary != '' GROUP BY subsidiary ORDER BY subsidiary");
+        $subs = $pdo->prepare(mall_scope_sql("SELECT subsidiary, subsidiary_type, SUM(debit) d, SUM(credit) c
+            FROM mall_journal WHERE account=? AND status='Approved' AND subsidiary != '' GROUP BY subsidiary ORDER BY subsidiary", $scope));
         $subs->execute([$id]);
         $subRows = $subs->fetchAll(PDO::FETCH_ASSOC);
         foreach ($subRows as &$s) {
@@ -16168,7 +16305,7 @@ case 'mall': {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $map = $body['map'] ?? [];
         if (!is_array($map)) json_out(['ok' => false, 'error' => 'map must be an object.'], 400);
-        $okIds = $pdo->query('SELECT id FROM mall_accounts')->fetchAll(PDO::FETCH_COLUMN);
+        $okIds = $pdo->query(mall_scope_sql('SELECT id FROM mall_accounts', $scope))->fetchAll(PDO::FETCH_COLUMN);
         $clean = [];
         foreach ($map as $k => $v) {
             $k = (string)$k; $v = (int)$v;
@@ -16189,22 +16326,22 @@ case 'mall': {
             $m = date('Y-m', strtotime('-' . $i . ' months'));
             $series[$m] = ['month' => $m, 'billed' => 0, 'collected' => 0, 'expense' => 0, 'income' => 0];
         }
-        foreach ($pdo->query("SELECT month, SUM(amount) billed, COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) collected
-            FROM shop_bills WHERE month >= '$m0' GROUP BY month")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        foreach ($pdo->query(mall_scope_sql("SELECT month, SUM(amount) billed, COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) collected
+            FROM shop_bills WHERE month >= '$m0' GROUP BY month", $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) {
             if (isset($series[$r['month']])) { $series[$r['month']]['billed'] = (int)$r['billed']; $series[$r['month']]['collected'] = (int)$r['collected']; }
         }
-        foreach ($pdo->query("SELECT substr(ts,1,7) m, SUM(amount) exp FROM company_ledger WHERE kind='expense' AND ts >= '$m0' GROUP BY m")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        foreach ($pdo->query(mall_scope_sql("SELECT substr(ts,1,7) m, SUM(amount) exp FROM company_ledger WHERE kind='expense' AND ts >= '$m0' GROUP BY m", $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) {
             if (isset($series[$r['m']])) $series[$r['m']]['expense'] = (int)$r['exp'];
         }
-        foreach ($pdo->query("SELECT substr(j.date,1,7) m, SUM(j.credit) inc FROM mall_journal j
-            JOIN mall_accounts a ON a.id=j.account WHERE a.type='Income' AND j.status='Approved' AND j.date >= '$m0' GROUP BY m")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        foreach ($pdo->query(mall_scope_sql("SELECT substr(j.date,1,7) m, SUM(j.credit) inc FROM mall_journal j
+            JOIN mall_accounts a ON a.id=j.account WHERE a.type='Income' AND j.status='Approved' AND j.date >= '$m0' GROUP BY m", $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) {
             if (isset($series[$r['m']])) $series[$r['m']]['income'] = (int)$r['inc'];
         }
         $series = array_values($series);
-        $expCats = $pdo->query("SELECT cat, SUM(amount) total FROM company_ledger WHERE kind='expense' AND ts >= '$m0' GROUP BY cat ORDER BY total DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
-        $occupancy = $pdo->query("SELECT occupancy, COUNT(*) n FROM shops WHERE status='Active' GROUP BY occupancy")->fetchAll(PDO::FETCH_ASSOC);
-        $defaulters = $pdo->query("SELECT s.no, s.floor, s.owner_name, COALESCE(SUM(b.amount),0) due
-            FROM shops s JOIN shop_bills b ON b.shop=s.id AND b.status='Unpaid' GROUP BY s.id ORDER BY due DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+        $expCats = $pdo->query(mall_scope_sql("SELECT cat, SUM(amount) total FROM company_ledger WHERE kind='expense' AND ts >= '$m0' GROUP BY cat ORDER BY total DESC LIMIT 8", $scope))->fetchAll(PDO::FETCH_ASSOC);
+        $occupancy = $pdo->query(mall_scope_sql("SELECT occupancy, COUNT(*) n FROM shops WHERE status='Active' GROUP BY occupancy", $scope))->fetchAll(PDO::FETCH_ASSOC);
+        $defaulters = $pdo->query(mall_scope_sql("SELECT s.no, s.floor, s.owner_name, COALESCE(SUM(b.amount),0) due
+            FROM shops s JOIN shop_bills b ON b.shop=s.id AND b.status='Unpaid' GROUP BY s.id ORDER BY due DESC LIMIT 5", $scope))->fetchAll(PDO::FETCH_ASSOC);
         $colRate = 0; $totB = 0; $totC = 0;
         foreach ($series as $s) { $totB += $s['billed']; $totC += $s['collected']; }
         if ($totB > 0) $colRate = (int)round($totC / $totB * 100);
@@ -16220,19 +16357,19 @@ case 'mall': {
             $m = date('Y-m', strtotime('-' . $i . ' months'));
             $series[$m] = ['month' => $m, 'in' => 0, 'out' => 0];
         }
-        $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
+        $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM company_ledger WHERE kind='income' AND ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['in'] += (int)$r['a'];
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM company_ledger WHERE kind='expense' AND ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['out'] += (int)$r['a'];
         foreach ($b("SELECT month, SUM(amount) a FROM shop_payments WHERE created_at >= ? AND COALESCE(voided,0)=0 GROUP BY month", [$m0]) as $r) if (isset($series[$r['month']])) $series[$r['month']]['in'] += (int)$r['a'];
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM mall_rent_payments WHERE ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['in'] += (int)$r['a'];
         foreach ($b("SELECT substr(ts,1,7) m, SUM(amount) a FROM mall_vendor_payments WHERE ts >= ? GROUP BY m", [$m0]) as $r) if (isset($series[$r['m']])) $series[$r['m']]['out'] += (int)$r['a'];
         $methods = [];
-        $sc = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
+        $sc = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args); return (int)$st->fetchColumn(); };
         $defCode = ['cash' => '1010', 'bank' => '1020', 'bkash' => '1030', 'nagad' => '1032'];
-        foreach ($pdo->query("SELECT id, code, name,
+        foreach ($pdo->query(mall_scope_sql("SELECT id, code, name,
                 CASE WHEN code='1010' THEN 'cash' WHEN code LIKE '102%' THEN 'bank'
                      WHEN code IN ('1030','1031') THEN 'bkash' ELSE 'nagad' END m
-                FROM mall_accounts WHERE active=1 AND (code='1010' OR code LIKE '102%' OR code LIKE '103%') ORDER BY code") as $pa) {
+                FROM mall_accounts WHERE active=1 AND (code='1010' OR code LIKE '102%' OR code LIKE '103%') ORDER BY code", $scope)) as $pa) {
             $fb = ($pa['code'] === $defCode[$pa['m']]) ? " OR (COALESCE(method_acct,0)=0 AND method=?)" : "";
             $in = $sc("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE COALESCE(voided,0)=0 AND (method_acct=?" . $fb . ")", $fb ? [$pa['id'], $pa['m']] : [$pa['id']])
                 + $sc("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='income' AND (method_acct=?" . $fb . ")", $fb ? [$pa['id'], $pa['m']] : [$pa['id']])
@@ -16250,8 +16387,8 @@ case 'mall': {
         $shop = trim($body['shop'] ?? '');
         $subject = trim($body['subject'] ?? '');
         if (!$shop || $subject === '') json_out(['ok' => false, 'error' => 'shop and subject required.'], 400);
-        $pdo->prepare("INSERT INTO mall_complaints (shop, subject, descr, priority, status, note, created_by)
-            VALUES (?,?,?,?, 'Open', ?, ?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_complaints (shop, subject, descr, priority, status, note, created_by)
+            VALUES (?,?,?,?, 'Open', ?, ?)", $scope))
             ->execute([$shop, $subject, trim($body['descr'] ?? ''), in_array(trim($body['priority'] ?? ''), ['Low', 'Normal', 'High', 'Urgent'], true) ? trim($body['priority']) : 'Normal', trim($body['note'] ?? ''), $u['name']]);
         audit($u['name'], 'Complaint', 'mall', $shop, $subject);
         json_out(['ok' => true]);
@@ -16260,7 +16397,7 @@ case 'mall': {
         $id = (int)($body['id'] ?? 0);
         $status = trim($body['status'] ?? '');
         if (!$id || !in_array($status, ['Open', 'In Progress', 'Resolved'], true)) json_out(['ok' => false, 'error' => 'id and status (Open/In Progress/Resolved) required.'], 400);
-        $pdo->prepare("UPDATE mall_complaints SET status=?, resolved_at=CASE WHEN ?='Resolved' THEN datetime('now') ELSE '' END, note=? WHERE id=?")
+        $pdo->prepare(mall_scope_sql("UPDATE mall_complaints SET status=?, resolved_at=CASE WHEN ?='Resolved' THEN datetime('now') ELSE '' END, note=? WHERE id=?", $scope))
             ->execute([$status, $status, trim($body['note'] ?? ''), $id]);
         audit($u['name'], 'Complaint status', 'mall', (string)$id, $status);
         json_out(['ok' => true]);
@@ -16268,16 +16405,16 @@ case 'mall': {
     if ($a === 'complaint-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_complaints WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_complaints WHERE id=?', $scope))->execute([$id]);
         audit($u['name'], 'Complaint delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
 
     /* assets — list + AMC/warranty reminders (contract expiring within 30 days) */
     if ($a === 'assets') {
-        $rows = $pdo->query('SELECT * FROM mall_assets ORDER BY id DESC LIMIT 200')->fetchAll(PDO::FETCH_ASSOC);
-        $due = $pdo->query("SELECT * FROM mall_assets WHERE status='Active' AND contract_until != ''
-                            AND contract_until <= date('now','+30 days') ORDER BY contract_until LIMIT 50")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_assets ORDER BY id DESC LIMIT 200', $scope))->fetchAll(PDO::FETCH_ASSOC);
+        $due = $pdo->query(mall_scope_sql("SELECT * FROM mall_assets WHERE status='Active' AND contract_until != ''
+                            AND contract_until <= date('now','+30 days') ORDER BY contract_until LIMIT 50", $scope))->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as $i => $r) {
             $days = null;
             if ($r['contract_until'] !== '') $days = (int)round((strtotime($r['contract_until']) - time()) / 86400);
@@ -16288,8 +16425,8 @@ case 'mall': {
     if ($a === 'asset-add') {
         $name = trim($body['name'] ?? '');
         if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
-        $pdo->prepare("INSERT INTO mall_assets (name, type, location, vendor, install_date, warranty_until, contract_until, cost, status, note)
-                       VALUES (?,?,?,?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_assets (name, type, location, vendor, install_date, warranty_until, contract_until, cost, status, note)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)", $scope))
             ->execute([$name, trim($body['type'] ?? 'Lift'), trim($body['location'] ?? ''), trim($body['vendor'] ?? ''),
                        trim($body['install_date'] ?? ''), trim($body['warranty_until'] ?? ''), trim($body['contract_until'] ?? ''),
                        (int)($body['cost'] ?? 0), in_array(trim($body['status'] ?? ''), ['Active', 'Under Service', 'Out of Service'], true) ? trim($body['status']) : 'Active',
@@ -16300,7 +16437,7 @@ case 'mall': {
     if ($a === 'asset-update') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare("UPDATE mall_assets SET name=?, type=?, location=?, vendor=?, install_date=?, warranty_until=?, contract_until=?, cost=?, status=?, note=? WHERE id=?")
+        $pdo->prepare(mall_scope_sql("UPDATE mall_assets SET name=?, type=?, location=?, vendor=?, install_date=?, warranty_until=?, contract_until=?, cost=?, status=?, note=? WHERE id=?", $scope))
             ->execute([trim($body['name'] ?? ''), trim($body['type'] ?? ''), trim($body['location'] ?? ''), trim($body['vendor'] ?? ''),
                        trim($body['install_date'] ?? ''), trim($body['warranty_until'] ?? ''), trim($body['contract_until'] ?? ''),
                        (int)($body['cost'] ?? 0), trim($body['status'] ?? ''), trim($body['note'] ?? ''), $id]);
@@ -16310,7 +16447,7 @@ case 'mall': {
     if ($a === 'asset-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_assets WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_assets WHERE id=?', $scope))->execute([$id]);
         audit($u['name'], 'Asset delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
@@ -16322,19 +16459,19 @@ case 'mall': {
         $args = [];
         if ($q !== '') { $sql .= ' WHERE user LIKE ? OR action LIKE ? OR module LIKE ? OR entity LIKE ? OR details LIKE ?'; $like = '%' . $q . '%'; $args = [$like, $like, $like, $like, $like]; }
         $sql .= ' ORDER BY id DESC LIMIT 150';
-        $st = $pdo->prepare($sql); $st->execute($args);
+        $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
         json_out(['ok' => true, 'audit' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     }
 
     /* notices — committee notice board (spec 3.9) */
     if ($a === 'notices') {
-        $rows = $pdo->query('SELECT * FROM mall_notices ORDER BY pinned DESC, id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_notices ORDER BY pinned DESC, id DESC LIMIT 100', $scope))->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'notices' => $rows]);
     }
     if ($a === 'notice-add') {
         $title = trim($body['title'] ?? '');
         if ($title === '') json_out(['ok' => false, 'error' => 'title required.'], 400);
-        $pdo->prepare("INSERT INTO mall_notices (title, body, date, pinned, author) VALUES (?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_notices (title, body, date, pinned, author) VALUES (?,?,?,?,?)", $scope))
             ->execute([$title, trim($body['body'] ?? ''), trim($body['date'] ?? date('Y-m-d')), (int)($body['pinned'] ?? 0) ? 1 : 0, $u['name']]);
         audit($u['name'], 'Notice', 'mall', $title, 'posted');
         json_out(['ok' => true]);
@@ -16342,32 +16479,32 @@ case 'mall': {
     if ($a === 'notice-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_notices WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_notices WHERE id=?', $scope))->execute([$id]);
         audit($u['name'], 'Notice delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
     if ($a === 'notice-pin') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('UPDATE mall_notices SET pinned=? WHERE id=?')->execute([(int)($body['pinned'] ?? 0) ? 1 : 0, $id]);
+        $pdo->prepare(mall_scope_sql('UPDATE mall_notices SET pinned=? WHERE id=?', $scope))->execute([(int)($body['pinned'] ?? 0) ? 1 : 0, $id]);
         json_out(['ok' => true]);
     }
 
     /* staff — committee staff/employees (spec 3.4: office staff & security guards) */
     if ($a === 'staff-list') {
-        $rows = $pdo->query('SELECT * FROM mall_staff ORDER BY status, id DESC LIMIT 200')->fetchAll(PDO::FETCH_ASSOC);
-        $sal = $pdo->prepare('SELECT staff_id, COUNT(*) n, COALESCE(SUM(amount),0) total FROM mall_staff_salaries GROUP BY staff_id');
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_staff ORDER BY status, id DESC LIMIT 200', $scope))->fetchAll(PDO::FETCH_ASSOC);
+        $sal = $pdo->prepare(mall_scope_sql('SELECT staff_id, COUNT(*) n, COALESCE(SUM(amount),0) total FROM mall_staff_salaries GROUP BY staff_id', $scope));
         $byStaff = [];
         foreach ($sal->execute() ? $sal->fetchAll(PDO::FETCH_ASSOC) : [] as $s) $byStaff[$s['staff_id']] = $s;
         foreach ($rows as $i => $r) { $rows[$i]['salaries_paid'] = (int)($byStaff[$r['id']]['n'] ?? 0); $rows[$i]['salaries_total'] = (int)($byStaff[$r['id']]['total'] ?? 0); }
-        $payroll = (int)$pdo->query("SELECT COALESCE(SUM(salary),0) FROM mall_staff WHERE status='Active'")->fetchColumn();
-        $active = (int)$pdo->query("SELECT COUNT(*) FROM mall_staff WHERE status='Active'")->fetchColumn();
+        $payroll = (int)$pdo->query(mall_scope_sql("SELECT COALESCE(SUM(salary),0) FROM mall_staff WHERE status='Active'", $scope))->fetchColumn();
+        $active = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM mall_staff WHERE status='Active'", $scope))->fetchColumn();
         json_out(['ok' => true, 'staff' => $rows, 'payroll_monthly' => $payroll, 'active' => $active]);
     }
     if ($a === 'staff-add') {
         $name = trim($body['name'] ?? '');
         if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
-        $pdo->prepare("INSERT INTO mall_staff (name, designation, phone, nid, join_date, salary, status, notes) VALUES (?,?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_staff (name, designation, phone, nid, join_date, salary, status, notes) VALUES (?,?,?,?,?,?,?,?)", $scope))
             ->execute([$name, trim($body['designation'] ?? 'Security Guard'), trim($body['phone'] ?? ''), trim($body['nid'] ?? ''),
                        trim($body['join_date'] ?? ''), (int)($body['salary'] ?? 0),
                        in_array(trim($body['status'] ?? ''), ['Active', 'On Leave', 'Resigned'], true) ? trim($body['status']) : 'Active',
@@ -16378,7 +16515,7 @@ case 'mall': {
     if ($a === 'staff-update') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare("UPDATE mall_staff SET name=?, designation=?, phone=?, nid=?, join_date=?, salary=?, status=?, notes=? WHERE id=?")
+        $pdo->prepare(mall_scope_sql("UPDATE mall_staff SET name=?, designation=?, phone=?, nid=?, join_date=?, salary=?, status=?, notes=? WHERE id=?", $scope))
             ->execute([trim($body['name'] ?? ''), trim($body['designation'] ?? ''), trim($body['phone'] ?? ''), trim($body['nid'] ?? ''),
                        trim($body['join_date'] ?? ''), (int)($body['salary'] ?? 0), trim($body['status'] ?? ''), trim($body['notes'] ?? ''), $id]);
         audit($u['name'], 'Staff update', 'mall', (string)$id, '');
@@ -16387,7 +16524,7 @@ case 'mall': {
     if ($a === 'staff-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_staff WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_staff WHERE id=?', $scope))->execute([$id]);
         audit($u['name'], 'Staff delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
@@ -16396,19 +16533,19 @@ case 'mall': {
         $staffId = (int)($body['staff_id'] ?? 0);
         $month = trim($body['month'] ?? date('Y-m'));
         if (!$staffId) json_out(['ok' => false, 'error' => 'staff_id required.'], 400);
-        $st = $pdo->prepare('SELECT * FROM mall_staff WHERE id=?'); $st->execute([$staffId]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_staff WHERE id=?', $scope)); $st->execute([$staffId]);
         $s = $st->fetch(PDO::FETCH_ASSOC);
         if (!$s) json_out(['ok' => false, 'error' => 'Staff not found.'], 404);
         $amount = (int)($body['amount'] ?? $s['salary']);
         if ($amount <= 0) json_out(['ok' => false, 'error' => 'amount required.'], 400);
-        $dup = $pdo->prepare('SELECT id FROM mall_staff_salaries WHERE staff_id=? AND month=?');
+        $dup = $pdo->prepare(mall_scope_sql('SELECT id FROM mall_staff_salaries WHERE staff_id=? AND month=?', $scope));
         $dup->execute([$staffId, $month]);
         if ($dup->fetchColumn()) json_out(['ok' => false, 'error' => 'Salary already paid for ' . $month . '.'], 409);
         $method = in_array(trim($body['method'] ?? ''), ['cash', 'bank', 'bkash', 'nagad'], true) ? trim($body['method']) : 'cash';
         $mAcct = (int)($body['method_acct'] ?? 0);
-        $pdo->prepare("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts) VALUES ('expense', 'Staff Salary', ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+        $pdo->prepare(mall_scope_sql("INSERT INTO company_ledger (kind, cat, label, amount, method, method_acct, ref, note, payee, ts) VALUES ('expense', 'Staff Salary', ?, ?, ?, ?, ?, ?, ?, datetime('now'))", $scope))
             ->execute(['Staff Salary — ' . $s['name'] . ' (' . $month . ')', $amount, $method, $mAcct, '', trim($body['note'] ?? '') . ' Salary ' . $month, $s['name']]);
-        $pdo->prepare('INSERT INTO mall_staff_salaries (staff_id, month, amount, method, note) VALUES (?,?,?,?,?)')
+        $pdo->prepare(mall_scope_sql('INSERT INTO mall_staff_salaries (staff_id, month, amount, method, note) VALUES (?,?,?,?,?)', $scope))
             ->execute([$staffId, $month, $amount, $method, trim($body['note'] ?? '')]);
         $salId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Salary', 'mall', $s['name'], "$amount for $month via $method");
@@ -16427,7 +16564,7 @@ case 'mall': {
         if ($month !== '') { $sql .= ' WHERE p.month=?'; $args[] = $month; }
         elseif ($staffId) { $sql .= ' WHERE p.staff_id=?'; $args[] = $staffId; }
         $sql .= ' ORDER BY p.id DESC LIMIT 200';
-        $st = $pdo->prepare($sql); $st->execute($args);
+        $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
         json_out(['ok' => true, 'salaries' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     }
 
@@ -16508,7 +16645,7 @@ case 'mall': {
         $acctId = (int)($body['acct_id'] ?? 0);
         $rows = $body['rows'] ?? [];
         if (!$acctId || !is_array($rows) || empty($rows)) json_out(['ok' => false, 'error' => 'Account and parsed rows required.'], 400);
-        $st = $pdo->prepare('SELECT code FROM mall_accounts WHERE id=?'); $st->execute([$acctId]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT code FROM mall_accounts WHERE id=?', $scope)); $st->execute([$acctId]);
         $acctCode = (string)$st->fetchColumn();
         $catMethod = $acctCode === '1010' ? 'cash' : (strpos($acctCode, '102') === 0 ? 'bank' : (in_array($acctCode, ['1030', '1031'], true) ? 'bkash' : 'nagad'));
         $batch = 'STMT-' . date('Ymd-His') . '-' . $acctId;
@@ -16518,10 +16655,10 @@ case 'mall': {
                   "SELECT 'L' kind, id, substr(ts,1,10) d, CASE WHEN kind='expense' THEN -amount ELSE amount END, ref FROM company_ledger WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))",
                   "SELECT 'R' kind, id, substr(ts,1,10) d, amount, receipt FROM mall_rent_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))",
                   "SELECT 'V' kind, id, substr(ts,1,10) d, -amount, ref FROM mall_vendor_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))"] as $sql) {
-            foreach ($pdo->query($sql) as $p) $pool[] = ['kind' => $p['kind'], 'id' => (int)$p['id'], 'date' => $p['d'], 'amt' => (int)$p['amount'], 'ref' => (string)$p['receipt']];
+            foreach ($pdo->query(mall_scope_sql($sql, $scope)) as $p) $pool[] = ['kind' => $p['kind'], 'id' => (int)$p['id'], 'date' => $p['d'], 'amt' => (int)$p['amount'], 'ref' => (string)$p['receipt']];
         }
-        $ins = $pdo->prepare("INSERT INTO mall_bank_stmt (acct_id, batch, stmt_date, descr, out, inn, balance, raw, matched, matched_ref, matched_kind)
-                              VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+        $ins = $pdo->prepare(mall_scope_sql("INSERT INTO mall_bank_stmt (acct_id, batch, stmt_date, descr, out, inn, balance, raw, matched, matched_ref, matched_kind)
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?)", $scope));
         $matched = 0; $imported = 0;
         $used = [];
         foreach ($rows as $row) {
@@ -16538,11 +16675,11 @@ case 'mall': {
             $imported++;
             if ($best) { $used[$best['i']] = 1; $matched++; }
         }
-        $sysBal = (int)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE COALESCE(voided,0)=0 AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))
+        $sysBal = (int)$pdo->query(mall_scope_sql("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE COALESCE(voided,0)=0 AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))
             + COALESCE((SELECT SUM(amount) FROM company_ledger WHERE kind='income' AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)
             + COALESCE((SELECT SUM(amount) FROM mall_rent_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)
             - COALESCE((SELECT SUM(amount) FROM company_ledger WHERE kind='expense' AND (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)
-            - COALESCE((SELECT SUM(amount) FROM mall_vendor_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)")->fetchColumn();
+            - COALESCE((SELECT SUM(amount) FROM mall_vendor_payments WHERE (method_acct=$acctId OR (COALESCE(method_acct,0)=0 AND method='$catMethod'))),0)", $scope))->fetchColumn();
         $lastBal = 0; foreach ($rows as $row) if ((int)($row['balance'] ?? 0)) $lastBal = (int)$row['balance'];
         audit($u['name'], 'Bank statement import', 'mall', (string)$acctId, "$imported rows, $matched matched");
         json_out(['ok' => true, 'batch' => $batch, 'imported' => $imported, 'matched' => $matched, 'unmatched' => $imported - $matched,
@@ -16552,7 +16689,7 @@ case 'mall': {
         $acctId = (int)($body['acct_id'] ?? 0);
         $rows = [];
         if ($acctId) {
-            $st = $pdo->prepare('SELECT * FROM mall_bank_stmt WHERE acct_id=? ORDER BY id DESC LIMIT 600');
+            $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_bank_stmt WHERE acct_id=? ORDER BY id DESC LIMIT 600', $scope));
             $st->execute([$acctId]);
             $rows = $st->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -16562,7 +16699,7 @@ case 'mall': {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $batch = trim($body['batch'] ?? '');
         if ($batch === '') json_out(['ok' => false, 'error' => 'batch required.'], 400);
-        $pdo->prepare('DELETE FROM mall_bank_stmt WHERE batch=?')->execute([$batch]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_bank_stmt WHERE batch=?', $scope))->execute([$batch]);
         audit($u['name'], 'Bank statement delete', 'mall', '', $batch);
         json_out(['ok' => true]);
     }
@@ -16574,7 +16711,7 @@ case 'mall': {
         $month = trim($body['month'] ?? date('Y-m'));
         $units = (int)($body['total_units'] ?? 0);
         if ($units <= 0) {
-            $st = $pdo->prepare("SELECT COALESCE(SUM(units),0) FROM mall_meter_readings WHERE type='elec' AND month=?");
+            $st = $pdo->prepare(mall_scope_sql("SELECT COALESCE(SUM(units),0) FROM mall_meter_readings WHERE type='elec' AND month=?", $scope));
             $st->execute([$month]);
             $units = (int)$st->fetchColumn();
         }
@@ -16595,7 +16732,7 @@ case 'mall': {
        in the same ledger. Profit/loss = collected − paid. Monthly + all-time. */
     if ($a === 'recon') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
+        $q = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args); return (int)$st->fetchColumn(); };
         $m = function ($m) use ($q) {
             return [
                 'elec_collected' => $q("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE kind='elec' AND month=? AND COALESCE(voided,0)=0", [$m]),
@@ -16621,11 +16758,11 @@ case 'mall': {
     /* balances — cash in hand / EACH bank & mobile banking account (spec 3.7);
        category totals kept for the dashboard + recon, per-account added */
     if ($a === 'balances') {
-        $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return (int)$st->fetchColumn(); };
-        $payAccts = $pdo->query("SELECT id, code, name,
+        $b = function ($sql, $args = []) use ($pdo) { $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args); return (int)$st->fetchColumn(); };
+        $payAccts = $pdo->query(mall_scope_sql("SELECT id, code, name,
             CASE WHEN code='1010' THEN 'cash' WHEN code LIKE '102%' THEN 'bank'
                  WHEN code IN ('1030','1031') THEN 'bkash' ELSE 'nagad' END m
-            FROM mall_accounts WHERE active=1 AND (code='1010' OR code LIKE '102%' OR code LIKE '103%') ORDER BY code")->fetchAll(PDO::FETCH_ASSOC);
+            FROM mall_accounts WHERE active=1 AND (code='1010' OR code LIKE '102%' OR code LIKE '103%') ORDER BY code", $scope))->fetchAll(PDO::FETCH_ASSOC);
         $defCode = ['cash' => '1010', 'bank' => '1020', 'bkash' => '1030', 'nagad' => '1032'];
         $inOut = function ($id, $m, $code) use ($b, $defCode) {
             $fb = ($code === $defCode[$m]) ? " OR (COALESCE(method_acct,0)=0 AND method=?)" : "";
@@ -16652,7 +16789,7 @@ case 'mall': {
     /* ── System users & RBAC (spec 3.8) ── */
     /* users — committee system users; viewable by any mall role, writes by owner/superadmin */
     if ($a === 'users') {
-        $rows = $pdo->query("SELECT id, name, email, role, active, is_staff, last_login FROM app_users ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql("SELECT id, name, email, role, active, is_staff, last_login FROM app_users ORDER BY id", $scope))->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as $i => $r) {
             $rows[$i]['last_login'] = $r['last_login'] ? substr($r['last_login'], 0, 16) : '';
             $rows[$i]['self'] = (int)$r['id'] === (int)$u['id'] ? 1 : 0;
@@ -16670,9 +16807,9 @@ case 'mall': {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) json_out(['ok' => false, 'error' => 'Invalid email address.'], 400);
         if (strlen($pw) < 8) json_out(['ok' => false, 'error' => 'Password must be at least 8 characters.'], 400);
         if (!in_array($role, ['owner', 'manager', 'accountant', 'collector'], true)) json_out(['ok' => false, 'error' => 'Role must be owner/manager/accountant/collector.'], 400);
-        $dup = $pdo->prepare('SELECT id FROM app_users WHERE email=?'); $dup->execute([$email]);
+        $dup = $pdo->prepare(mall_scope_sql('SELECT id FROM app_users WHERE email=?', $scope)); $dup->execute([$email]);
         if ($dup->fetchColumn()) json_out(['ok' => false, 'error' => 'Email already registered.'], 409);
-        $pdo->prepare('INSERT INTO app_users (name, email, password_hash, role, is_staff, active) VALUES (?,?,?,?,1,1)')
+        $pdo->prepare(mall_scope_sql('INSERT INTO app_users (name, email, password_hash, role, is_staff, active) VALUES (?,?,?,?,1,1)', $scope))
             ->execute([$name, $email, password_hash($pw, PASSWORD_DEFAULT), $role]);
         audit($u['name'], 'User add', 'mall', $email, "role $role");
         json_out(['ok' => true]);
@@ -16682,19 +16819,19 @@ case 'mall': {
         if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only owner/superadmin can manage users.'], 403);
         $id = (int)($body['id'] ?? 0);
         if (!$id || $id === (int)$u['id']) json_out(['ok' => false, 'error' => 'You cannot modify your own account here (use Profile).'], 400);
-        $st = $pdo->prepare('SELECT * FROM app_users WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM app_users WHERE id=?', $scope)); $st->execute([$id]);
         $t = $st->fetch(PDO::FETCH_ASSOC);
         if (!$t) json_out(['ok' => false, 'error' => 'User not found.'], 404);
         $role = trim($body['role'] ?? $t['role']);
         if (!in_array($role, ['superadmin', 'owner', 'manager', 'accountant', 'collector'], true)) json_out(['ok' => false, 'error' => 'Invalid role.'], 400);
         /* protect the last owner/superadmin from demotion */
         if (in_array($t['role'], ['superadmin', 'owner'], true) && !in_array($role, ['superadmin', 'owner'], true)) {
-            $n = (int)$pdo->query("SELECT COUNT(*) FROM app_users WHERE role IN ('superadmin','owner')")->fetchColumn();
+            $n = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM app_users WHERE role IN ('superadmin','owner')", $scope))->fetchColumn();
             if ($n <= 1) json_out(['ok' => false, 'error' => 'Cannot demote the last owner account.'], 409);
         }
         $active = isset($body['active']) ? ((int)$body['active'] ? 1 : 0) : (int)$t['active'];
         $name = trim($body['name'] ?? $t['name']);
-        $pdo->prepare('UPDATE app_users SET name=?, role=?, active=? WHERE id=?')->execute([$name, $role, $active, $id]);
+        $pdo->prepare(mall_scope_sql('UPDATE app_users SET name=?, role=?, active=? WHERE id=?', $scope))->execute([$name, $role, $active, $id]);
         audit($u['name'], 'User update', 'mall', $t['email'], "role $role active $active");
         json_out(['ok' => true]);
     }
@@ -16703,14 +16840,14 @@ case 'mall': {
         if (!in_array($u['role'], ['superadmin', 'owner'], true)) json_out(['ok' => false, 'error' => 'Only owner/superadmin can manage users.'], 403);
         $id = (int)($body['id'] ?? 0);
         if (!$id || $id === (int)$u['id']) json_out(['ok' => false, 'error' => 'You cannot delete your own account.'], 400);
-        $st = $pdo->prepare('SELECT email, role FROM app_users WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT email, role FROM app_users WHERE id=?', $scope)); $st->execute([$id]);
         $t = $st->fetch(PDO::FETCH_ASSOC);
         if (!$t) json_out(['ok' => false, 'error' => 'User not found.'], 404);
         if (in_array($t['role'], ['superadmin', 'owner'], true)) {
-            $n = (int)$pdo->query("SELECT COUNT(*) FROM app_users WHERE role IN ('superadmin','owner')")->fetchColumn();
+            $n = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM app_users WHERE role IN ('superadmin','owner')", $scope))->fetchColumn();
             if ($n <= 1) json_out(['ok' => false, 'error' => 'Cannot delete the last owner account.'], 409);
         }
-        $pdo->prepare('UPDATE app_users SET active=0 WHERE id=?')->execute([$id]);  /* soft-disable: audit trail stays */
+        $pdo->prepare(mall_scope_sql('UPDATE app_users SET active=0 WHERE id=?', $scope))->execute([$id]);  /* soft-disable: audit trail stays */
         audit($u['name'], 'User delete', 'mall', $t['email'], 'disabled');
         json_out(['ok' => true]);
     }
@@ -16721,17 +16858,17 @@ case 'mall': {
         $pw = (string)($body['password'] ?? '');
         if (!$id || $id === (int)$u['id']) json_out(['ok' => false, 'error' => 'Use Profile to change your own password.'], 400);
         if (strlen($pw) < 8) json_out(['ok' => false, 'error' => 'Password must be at least 8 characters.'], 400);
-        $st = $pdo->prepare('SELECT email FROM app_users WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT email FROM app_users WHERE id=?', $scope)); $st->execute([$id]);
         if (!$st->fetchColumn()) json_out(['ok' => false, 'error' => 'User not found.'], 404);
-        $pdo->prepare('UPDATE app_users SET password_hash=? WHERE id=?')->execute([password_hash($pw, PASSWORD_DEFAULT), $id]);
-        $pdo->prepare("DELETE FROM app_tokens WHERE user_id=?")->execute([$id]);
+        $pdo->prepare(mall_scope_sql('UPDATE app_users SET password_hash=? WHERE id=?', $scope))->execute([password_hash($pw, PASSWORD_DEFAULT), $id]);
+        $pdo->prepare(mall_scope_sql("DELETE FROM app_tokens WHERE user_id=?", $scope))->execute([$id]);
         audit($u['name'], 'User password reset', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
 
     /* budget-get / budget-set — monthly budget per expense category (spec 3.7) */
     if ($a === 'budget-get') {
-        $rows = $pdo->query('SELECT * FROM mall_budget ORDER BY amount DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_budget ORDER BY amount DESC', $scope))->fetchAll(PDO::FETCH_ASSOC);
         $map = []; foreach ($rows as $r) $map[$r['cat']] = (int)$r['amount'];
         json_out(['ok' => true, 'budget' => $map, 'total' => array_sum($map)]);
     }
@@ -16741,8 +16878,8 @@ case 'mall': {
         $pdo->beginTransaction();
         foreach ($b as $cat => $amt) {
             $amt = (int)$amt;
-            if ($amt <= 0) $pdo->prepare('DELETE FROM mall_budget WHERE cat=?')->execute([(string)$cat]);
-            else $pdo->prepare('INSERT INTO mall_budget (cat, amount) VALUES (?,?) ON CONFLICT(cat) DO UPDATE SET amount=excluded.amount')->execute([(string)$cat, $amt]);
+            if ($amt <= 0) $pdo->prepare(mall_scope_sql('DELETE FROM mall_budget WHERE cat=?', $scope))->execute([(string)$cat]);
+            else $pdo->prepare(mall_scope_sql('INSERT INTO mall_budget (cat, amount) VALUES (?,?) ON CONFLICT(cat) DO UPDATE SET amount=excluded.amount', $scope))->execute([(string)$cat, $amt]);
         }
         $pdo->commit();
         audit($u['name'], 'Budget set', 'mall', '', json_encode($b));
@@ -16751,9 +16888,9 @@ case 'mall': {
 
     /* ── COMMITTEE / SOMITY (spec 3.11 governance) ── */
     if ($a === 'committee') {
-        $rows = $pdo->query('SELECT * FROM mall_committee ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
-        $meetings = $pdo->query('SELECT * FROM mall_meetings ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
-        $resolutions = $pdo->query('SELECT * FROM mall_resolutions ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_committee ORDER BY id', $scope))->fetchAll(PDO::FETCH_ASSOC);
+        $meetings = $pdo->query(mall_scope_sql('SELECT * FROM mall_meetings ORDER BY id DESC', $scope))->fetchAll(PDO::FETCH_ASSOC);
+        $resolutions = $pdo->query(mall_scope_sql('SELECT * FROM mall_resolutions ORDER BY id DESC', $scope))->fetchAll(PDO::FETCH_ASSOC);
         $roles = $mcfg('committee_roles', '');
         $rolesArr = $roles !== '' ? json_decode($roles, true) : ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
         if (!is_array($rolesArr) || !$rolesArr) $rolesArr = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
@@ -16776,7 +16913,7 @@ case 'mall': {
             if ($r !== '' && !in_array($r, $clean, true)) $clean[] = $r;
         }
         if (!$clean) $clean = ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'];
-        $st = $pdo->prepare('INSERT INTO mall_config (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v');
+        $st = $pdo->prepare(mall_scope_sql('INSERT INTO mall_config (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', $scope));
         $st->execute(['committee_roles', json_encode($clean)]);
         audit($u['name'], 'Committee roles', 'mall', '', implode(', ', $clean));
         json_out(['ok' => true, 'roles' => $clean]);
@@ -16786,7 +16923,7 @@ case 'mall': {
         if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
         $role = trim($body['role'] ?? 'Member');
         if (!in_array($role, ['Chairman', 'Vice Chairman', 'Secretary', 'Treasurer', 'Member'], true)) $role = 'Member';
-        $pdo->prepare("INSERT INTO mall_committee (role, name, shop, phone, email, term, active) VALUES (?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_committee (role, name, shop, phone, email, term, active) VALUES (?,?,?,?,?,?,?)", $scope))
             ->execute([$role, $name, trim($body['shop'] ?? ''), trim($body['phone'] ?? ''), trim($body['email'] ?? ''),
                        trim($body['term'] ?? ''), isset($body['active']) ? ((int)$body['active'] ? 1 : 0) : 1]);
         audit($u['name'], 'Committee add', 'mall', $name, $role);
@@ -16795,7 +16932,7 @@ case 'mall': {
     if ($a === 'committee-update') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare("UPDATE mall_committee SET role=?, name=?, shop=?, phone=?, email=?, term=?, active=? WHERE id=?")
+        $pdo->prepare(mall_scope_sql("UPDATE mall_committee SET role=?, name=?, shop=?, phone=?, email=?, term=?, active=? WHERE id=?", $scope))
             ->execute([trim($body['role'] ?? ''), trim($body['name'] ?? ''), trim($body['shop'] ?? ''), trim($body['phone'] ?? ''),
                        trim($body['email'] ?? ''), trim($body['term'] ?? ''), isset($body['active']) ? ((int)$body['active'] ? 1 : 0) : 1, $id]);
         audit($u['name'], 'Committee update', 'mall', (string)$id, '');
@@ -16804,14 +16941,14 @@ case 'mall': {
     if ($a === 'committee-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_committee WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_committee WHERE id=?', $scope))->execute([$id]);
         audit($u['name'], 'Committee delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
     if ($a === 'meeting-add') {
         $title = trim($body['title'] ?? '');
         if ($title === '') json_out(['ok' => false, 'error' => 'title required.'], 400);
-        $pdo->prepare("INSERT INTO mall_meetings (date, type, title, agenda, decisions, minutes, created_by) VALUES (?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_meetings (date, type, title, agenda, decisions, minutes, created_by) VALUES (?,?,?,?,?,?,?)", $scope))
             ->execute([trim($body['date'] ?? date('Y-m-d')), trim($body['type'] ?? 'Executive'), $title,
                        trim($body['agenda'] ?? ''), trim($body['decisions'] ?? ''), trim($body['minutes'] ?? ''), $u['name']]);
         audit($u['name'], 'Meeting', 'mall', $title, trim($body['type'] ?? ''));
@@ -16820,15 +16957,15 @@ case 'mall': {
     if ($a === 'meeting-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_meetings WHERE id=?')->execute([$id]);
-        $pdo->prepare('UPDATE mall_resolutions SET meeting_id=0 WHERE meeting_id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_meetings WHERE id=?', $scope))->execute([$id]);
+        $pdo->prepare(mall_scope_sql('UPDATE mall_resolutions SET meeting_id=0 WHERE meeting_id=?', $scope))->execute([$id]);
         audit($u['name'], 'Meeting delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
     if ($a === 'resolution-add') {
         $title = trim($body['title'] ?? '');
         if ($title === '') json_out(['ok' => false, 'error' => 'title required.'], 400);
-        $pdo->prepare("INSERT INTO mall_resolutions (meeting_id, number, title, body, date, passed, created_by) VALUES (?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_resolutions (meeting_id, number, title, body, date, passed, created_by) VALUES (?,?,?,?,?,?,?)", $scope))
             ->execute([(int)($body['meeting_id'] ?? 0), trim($body['number'] ?? ''), $title, trim($body['body'] ?? ''),
                        trim($body['date'] ?? date('Y-m-d')), isset($body['passed']) ? ((int)$body['passed'] ? 1 : 0) : 1, $u['name']]);
         audit($u['name'], 'Resolution', 'mall', $title, trim($body['number'] ?? ''));
@@ -16837,16 +16974,16 @@ case 'mall': {
     if ($a === 'resolution-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_resolutions WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_resolutions WHERE id=?', $scope))->execute([$id]);
         audit($u['name'], 'Resolution delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
 
     /* ── OWNERS / OWNERSHIP (flexible ownership model) ── */
     if ($a === 'owners') {
-        $rows = $pdo->query('SELECT * FROM mall_owners ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_owners ORDER BY id DESC', $scope))->fetchAll(PDO::FETCH_ASSOC);
         $byShop = [];
-        foreach ($pdo->query("SELECT owner_id, COUNT(*) n, COALESCE(SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END),0) act FROM shops WHERE owner_id > 0 GROUP BY owner_id")->fetchAll(PDO::FETCH_ASSOC) as $r) $byShop[(int)$r['owner_id']] = $r;
+        foreach ($pdo->query(mall_scope_sql("SELECT owner_id, COUNT(*) n, COALESCE(SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END),0) act FROM shops WHERE owner_id > 0 GROUP BY owner_id", $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) $byShop[(int)$r['owner_id']] = $r;
         foreach ($rows as $i => $o) {
             $rows[$i]['shops'] = (int)($byShop[$o['id']]['n'] ?? 0);
             $rows[$i]['active_shops'] = (int)($byShop[$o['id']]['act'] ?? 0);
@@ -16857,7 +16994,7 @@ case 'mall': {
     if ($a === 'owner-add') {
         $name = trim($body['name'] ?? '');
         if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
-        $pdo->prepare("INSERT INTO mall_owners (name, type, contact_person, phone, email, nid, trade_license, address, notes) VALUES (?,?,?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_owners (name, type, contact_person, phone, email, nid, trade_license, address, notes) VALUES (?,?,?,?,?,?,?,?,?)", $scope))
             ->execute([$name, trim($body['type'] ?? 'Person'), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
                        trim($body['email'] ?? ''), trim($body['nid'] ?? ''), trim($body['trade_license'] ?? ''),
                        trim($body['address'] ?? ''), trim($body['notes'] ?? '')]);
@@ -16867,7 +17004,7 @@ case 'mall': {
     if ($a === 'owner-update') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('UPDATE mall_owners SET name=?, type=?, contact_person=?, phone=?, email=?, nid=?, trade_license=?, address=?, notes=? WHERE id=?')
+        $pdo->prepare(mall_scope_sql('UPDATE mall_owners SET name=?, type=?, contact_person=?, phone=?, email=?, nid=?, trade_license=?, address=?, notes=? WHERE id=?', $scope))
             ->execute([trim($body['name'] ?? ''), trim($body['type'] ?? 'Person'), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
                        trim($body['email'] ?? ''), trim($body['nid'] ?? ''), trim($body['trade_license'] ?? ''),
                        trim($body['address'] ?? ''), trim($body['notes'] ?? ''), $id]);
@@ -16877,23 +17014,23 @@ case 'mall': {
     if ($a === 'owner-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $n = (int)$pdo->query("SELECT COUNT(*) FROM shops WHERE owner_id=$id")->fetchColumn();
+        $n = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM shops WHERE owner_id=$id", $scope))->fetchColumn();
         if ($n > 0) json_out(['ok' => false, 'error' => "Owner has $n shop(s) — reassign them first."], 409);
-        $pdo->prepare('DELETE FROM mall_owners WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_owners WHERE id=?', $scope))->execute([$id]);
         audit($u['name'], 'Owner delete', 'mall', (string)$id, '');
         json_out(['ok' => true]);
     }
     if ($a === 'owner-profile') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $st = $pdo->prepare('SELECT * FROM mall_owners WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_owners WHERE id=?', $scope)); $st->execute([$id]);
         $o = $st->fetch(PDO::FETCH_ASSOC);
         if (!$o) json_out(['ok' => false, 'error' => 'Owner not found.'], 404);
-        $ss = $pdo->prepare("SELECT s.id, s.no, s.floor, s.sqft, s.space_type, s.occupancy, s.status, s.service_rate,
+        $ss = $pdo->prepare(mall_scope_sql("SELECT s.id, s.no, s.floor, s.sqft, s.space_type, s.occupancy, s.status, s.service_rate,
                                     COALESCE(SUM(CASE WHEN b.status='Unpaid' THEN b.amount ELSE 0 END),0) due,
                                     COALESCE(SUM(CASE WHEN b.status='Paid' THEN b.amount ELSE 0 END),0) paid
                              FROM shops s LEFT JOIN shop_bills b ON b.shop=s.id
-                             WHERE s.owner_id=? GROUP BY s.id ORDER BY s.no");
+                             WHERE s.owner_id=? GROUP BY s.id ORDER BY s.no", $scope));
         $ss->execute([$id]);
         $shops = $ss->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'owner' => $o, 'shops' => $shops,
@@ -16902,9 +17039,9 @@ case 'mall': {
 
     /* ── TENANTS / OCCUPANTS (KRTaker-style import shape) + RENTAL AGREEMENTS ── */
     if ($a === 'tenants') {
-        $rows = $pdo->query('SELECT * FROM mall_tenants ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_tenants ORDER BY id DESC', $scope))->fetchAll(PDO::FETCH_ASSOC);
         $ag = [];
-        foreach ($pdo->query("SELECT tenant_id, COUNT(*) n FROM mall_agreements WHERE status='Active' GROUP BY tenant_id")->fetchAll(PDO::FETCH_ASSOC) as $r) $ag[(int)$r['tenant_id']] = (int)$r['n'];
+        foreach ($pdo->query(mall_scope_sql("SELECT tenant_id, COUNT(*) n FROM mall_agreements WHERE status='Active' GROUP BY tenant_id", $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) $ag[(int)$r['tenant_id']] = (int)$r['n'];
         foreach ($rows as $i => $t) $rows[$i]['agreements'] = $ag[$t['id']] ?? 0;
         json_out(['ok' => true, 'tenants' => $rows]);
     }
@@ -16918,7 +17055,7 @@ case 'mall': {
         $__ph = implode(',', array_fill(0, 7 + count($__tf), '?'));
         $__vals = [$name, trim($body['phone'] ?? ''), trim($body['email'] ?? ''), trim($body['nid'] ?? ''),
                    trim($body['address'] ?? ''), trim($body['employer'] ?? ''), trim($body['notes'] ?? '')];
-        $pdo->prepare("INSERT INTO mall_tenants ($__cols) VALUES ($__ph)")->execute(array_merge($__vals, $__tv));
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_tenants ($__cols) VALUES ($__ph)", $scope))->execute(array_merge($__vals, $__tv));
         audit($u['name'], 'Tenant add', 'mall', $name, '');
         json_out(['ok' => true]);
     }
@@ -16934,20 +17071,20 @@ case 'mall': {
             $__uv[] = trim((string)($body[$__f2] ?? ($__f2 === 'kind' ? 'Individual' : '')));
         }
         $__uv[] = $id;
-        $pdo->prepare("UPDATE mall_tenants SET $__sets WHERE id=?")->execute($__uv);
+        $pdo->prepare(mall_scope_sql("UPDATE mall_tenants SET $__sets WHERE id=?", $scope))->execute($__uv);
         json_out(['ok' => true]);
     }
     if ($a === 'tenant-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_tenants WHERE id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_tenants WHERE id=?', $scope))->execute([$id]);
         json_out(['ok' => true]);
     }
     /* agreements — with tenant names + rent due (when rent collection is enabled) */
     if ($a === 'agreements') {
-        $rows = $pdo->query("SELECT a.*, t.name AS tenant_name FROM mall_agreements a LEFT JOIN mall_tenants t ON t.id=a.tenant_id ORDER BY a.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql("SELECT a.*, t.name AS tenant_name FROM mall_agreements a LEFT JOIN mall_tenants t ON t.id=a.tenant_id ORDER BY a.id DESC LIMIT 200", $scope))->fetchAll(PDO::FETCH_ASSOC);
         $paid = [];
-        foreach ($pdo->query('SELECT agreement_id, COUNT(*) n FROM mall_rent_payments GROUP BY agreement_id')->fetchAll(PDO::FETCH_ASSOC) as $r) $paid[(int)$r['agreement_id']] = (int)$r['n'];
+        foreach ($pdo->query(mall_scope_sql('SELECT agreement_id, COUNT(*) n FROM mall_rent_payments GROUP BY agreement_id', $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) $paid[(int)$r['agreement_id']] = (int)$r['n'];
         $today = date('Y-m-d');
         foreach ($rows as $i => $ag) {
             $rows[$i]['paid_months'] = $paid[$ag['id']] ?? 0;
@@ -16961,31 +17098,31 @@ case 'mall': {
             $rows[$i]['shop_due'] = $shop_dues($ag['shop']);
         }
         json_out(['ok' => true, 'agreements' => $rows,
-                  'rent_collected' => (int)$pdo->query('SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments')->fetchColumn(),
+                  'rent_collected' => (int)$pdo->query(mall_scope_sql('SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments', $scope))->fetchColumn(),
                   'rent_outstanding' => array_sum(array_column($rows, 'rent_due'))]);
     }
     /* V2.5 (spec 3.6.1): tenant exit / NOC workflow —
        exit request → dues check → NOC only when zero dues; new tenants
        cannot be tagged to a shop with outstanding bills */
     $shop_dues = function ($shopId) use ($pdo) {
-        $st = $pdo->prepare("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'");
+        $st = $pdo->prepare(mall_scope_sql("SELECT COALESCE(SUM(amount + COALESCE(fine,0)),0) FROM shop_bills WHERE shop=? AND status='Unpaid'", $scope));
         $st->execute([$shopId]);
         return (int)$st->fetchColumn();
     };
     if ($a === 'exit-request') {
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT * FROM mall_agreements WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_agreements WHERE id=?', $scope)); $st->execute([$id]);
         $ag = $st->fetch(PDO::FETCH_ASSOC);
         if (!$ag) json_out(['ok' => false, 'error' => 'Agreement not found.'], 404);
         if ($ag['status'] !== 'Active') json_out(['ok' => false, 'error' => 'Only an active agreement can request exit.'], 409);
-        $pdo->prepare("UPDATE mall_agreements SET status='Exit-Requested', exit_requested_at=datetime('now') WHERE id=?")->execute([$id]);
+        $pdo->prepare(mall_scope_sql("UPDATE mall_agreements SET status='Exit-Requested', exit_requested_at=datetime('now') WHERE id=?", $scope))->execute([$id]);
         audit($u['name'], 'Exit requested', 'mall', $ag['shop'], 'agreement ' . $id);
         json_out(['ok' => true, 'status' => 'Exit-Requested', 'dues' => $shop_dues($ag['shop'])]);
     }
     if ($a === 'exit-approve') {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager', 'accountant'], true)) json_out(['ok' => false, 'error' => 'Not allowed.'], 403);
         $id = (int)($body['id'] ?? 0);
-        $st = $pdo->prepare('SELECT * FROM mall_agreements WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_agreements WHERE id=?', $scope)); $st->execute([$id]);
         $ag = $st->fetch(PDO::FETCH_ASSOC);
         if (!$ag) json_out(['ok' => false, 'error' => 'Agreement not found.'], 404);
         if ($ag['status'] !== 'Exit-Requested') json_out(['ok' => false, 'error' => 'No exit request pending for this agreement.'], 409);
@@ -16994,7 +17131,7 @@ case 'mall': {
             json_out(['ok' => false, 'error' => "NOC BLOCKED — the shop has ৳" . number_format($dues) . " outstanding (service + electricity + water). Settle all dues first (spec 3.6.1).", 'dues' => $dues], 409);
         }
         $nocNo = 'NOC-' . date('Y') . '-' . str_pad((string)$id, 4, '0', STR_PAD_LEFT);
-        $pdo->prepare("UPDATE mall_agreements SET status='Exited', exit_approved_at=datetime('now'), noc_no=? WHERE id=?")->execute([$nocNo, $id]);
+        $pdo->prepare(mall_scope_sql("UPDATE mall_agreements SET status='Exited', exit_approved_at=datetime('now'), noc_no=? WHERE id=?", $scope))->execute([$nocNo, $id]);
         audit($u['name'], 'Exit approved + NOC', 'mall', $ag['shop'], $nocNo);
         json_out(['ok' => true, 'status' => 'Exited', 'noc_no' => $nocNo]);
     }
@@ -17004,7 +17141,7 @@ case 'mall': {
         /* spec 3.6.1: no new tenant can be tagged to a shop with outstanding dues */
         $dues = $shop_dues($shop);
         if ($dues > 0) json_out(['ok' => false, 'error' => 'This shop has ৳' . number_format($dues) . ' outstanding (service + electricity + water) — a new tenant cannot be tagged until it is settled (spec 3.6.1).', 'dues' => $dues], 409);
-        $pdo->prepare("INSERT INTO mall_agreements (shop, tenant_id, rent, start_date, end_date, advance_months, due_day, rent_collection, status, notes) VALUES (?,?,?,?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_agreements (shop, tenant_id, rent, start_date, end_date, advance_months, due_day, rent_collection, status, notes) VALUES (?,?,?,?,?,?,?,?,?,?)", $scope))
             ->execute([$shop, (int)($body['tenant_id'] ?? 0), (int)($body['rent'] ?? 0), trim($body['start_date'] ?? ''),
                        trim($body['end_date'] ?? ''), (int)($body['advance_months'] ?? 0), (int)($body['due_day'] ?? 5),
                        isset($body['rent_collection']) ? ((int)$body['rent_collection'] ? 1 : 0) : 0,
@@ -17016,27 +17153,27 @@ case 'mall': {
     if ($a === 'agreement-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_agreements WHERE id=?')->execute([$id]);
-        $pdo->prepare('DELETE FROM mall_rent_payments WHERE agreement_id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_agreements WHERE id=?', $scope))->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_rent_payments WHERE agreement_id=?', $scope))->execute([$id]);
         json_out(['ok' => true]);
     }
     /* rent-collect — optional rent management service: record a month's rent */
     if ($a === 'rent-collect') {
         $agId = (int)($body['agreement_id'] ?? 0);
         if (!$agId) json_out(['ok' => false, 'error' => 'agreement_id required.'], 400);
-        $st = $pdo->prepare('SELECT * FROM mall_agreements WHERE id=?'); $st->execute([$agId]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_agreements WHERE id=?', $scope)); $st->execute([$agId]);
         $ag = $st->fetch(PDO::FETCH_ASSOC);
         if (!$ag) json_out(['ok' => false, 'error' => 'Agreement not found.'], 404);
         if (!$ag['rent_collection']) json_out(['ok' => false, 'error' => 'Rent collection is OFF for this agreement (optional service).'], 409);
         $month = trim($body['month'] ?? date('Y-m'));
-        $dup = $pdo->prepare('SELECT COUNT(*) FROM mall_rent_payments WHERE agreement_id=? AND month=?');
+        $dup = $pdo->prepare(mall_scope_sql('SELECT COUNT(*) FROM mall_rent_payments WHERE agreement_id=? AND month=?', $scope));
         $dup->execute([$agId, $month]);
         if ((int)$dup->fetchColumn() > 0) json_out(['ok' => false, 'error' => "$month already collected for this agreement."], 409);
         $amount = (int)($body['amount'] ?? 0);
         if ($amount <= 0) $amount = (int)$ag['rent'];
         $receipt = 'RNT-' . str_replace('-', '', $month) . '-' . str_pad((string)$agId, 4, '0', STR_PAD_LEFT);
         $mAcct = (int)($body['method_acct'] ?? 0);
-        $pdo->prepare("INSERT INTO mall_rent_payments (agreement_id, shop, month, amount, method, method_acct, ref, receipt) VALUES (?,?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_rent_payments (agreement_id, shop, month, amount, method, method_acct, ref, receipt) VALUES (?,?,?,?,?,?,?,?)", $scope))
             ->execute([$agId, $ag['shop'], $month, $amount, trim($body['method'] ?? 'cash'), $mAcct, trim($body['ref'] ?? ''), $receipt]);
         $rpId = (int)$pdo->lastInsertId();
         audit($u['name'], 'Rent collect', 'mall', $ag['shop'], "$month $amount");
@@ -17049,28 +17186,28 @@ case 'mall': {
     if ($a === 'rent-payments') {
         $agId = (int)($body['agreement_id'] ?? 0);
         if ($agId) {
-            $st = $pdo->prepare('SELECT * FROM mall_rent_payments WHERE agreement_id=? ORDER BY id DESC LIMIT 100'); $st->execute([$agId]);
+            $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_rent_payments WHERE agreement_id=? ORDER BY id DESC LIMIT 100', $scope)); $st->execute([$agId]);
         } else {
-            $st = $pdo->query('SELECT * FROM mall_rent_payments ORDER BY id DESC LIMIT 200');
+            $st = $pdo->query(mall_scope_sql('SELECT * FROM mall_rent_payments ORDER BY id DESC LIMIT 200', $scope));
         }
         json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     }
 
     /* ── VENDORS (profiles + ledgers + payment tracking) ── */
     if ($a === 'vendors') {
-        $rows = $pdo->query('SELECT * FROM mall_vendors ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql('SELECT * FROM mall_vendors ORDER BY id DESC', $scope))->fetchAll(PDO::FETCH_ASSOC);
         $tot = [];
-        foreach ($pdo->query('SELECT vendor_id, COUNT(*) n, SUM(amount) amt FROM mall_vendor_payments GROUP BY vendor_id')->fetchAll(PDO::FETCH_ASSOC) as $r) $tot[(int)$r['vendor_id']] = $r;
+        foreach ($pdo->query(mall_scope_sql('SELECT vendor_id, COUNT(*) n, SUM(amount) amt FROM mall_vendor_payments GROUP BY vendor_id', $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) $tot[(int)$r['vendor_id']] = $r;
         foreach ($rows as $i => $v) {
             $rows[$i]['payments'] = (int)($tot[$v['id']]['n'] ?? 0);
             $rows[$i]['paid'] = (int)($tot[$v['id']]['amt'] ?? 0);
         }
-        json_out(['ok' => true, 'vendors' => $rows, 'total_paid' => (int)$pdo->query('SELECT COALESCE(SUM(amount),0) FROM mall_vendor_payments')->fetchColumn()]);
+        json_out(['ok' => true, 'vendors' => $rows, 'total_paid' => (int)$pdo->query(mall_scope_sql('SELECT COALESCE(SUM(amount),0) FROM mall_vendor_payments', $scope))->fetchColumn()]);
     }
     if ($a === 'vendor-add') {
         $name = trim($body['name'] ?? '');
         if ($name === '') json_out(['ok' => false, 'error' => 'name required.'], 400);
-        $pdo->prepare("INSERT INTO mall_vendors (name, category, contact_person, phone, email, address, notes) VALUES (?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_vendors (name, category, contact_person, phone, email, address, notes) VALUES (?,?,?,?,?,?,?)", $scope))
             ->execute([$name, trim($body['category'] ?? ''), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
                        trim($body['email'] ?? ''), trim($body['address'] ?? ''), trim($body['notes'] ?? '')]);
         audit($u['name'], 'Vendor add', 'mall', $name, trim($body['category'] ?? ''));
@@ -17079,7 +17216,7 @@ case 'mall': {
     if ($a === 'vendor-update') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('UPDATE mall_vendors SET name=?, category=?, contact_person=?, phone=?, email=?, address=?, notes=? WHERE id=?')
+        $pdo->prepare(mall_scope_sql('UPDATE mall_vendors SET name=?, category=?, contact_person=?, phone=?, email=?, address=?, notes=? WHERE id=?', $scope))
             ->execute([trim($body['name'] ?? ''), trim($body['category'] ?? ''), trim($body['contact_person'] ?? ''), trim($body['phone'] ?? ''),
                        trim($body['email'] ?? ''), trim($body['address'] ?? ''), trim($body['notes'] ?? ''), $id]);
         json_out(['ok' => true]);
@@ -17087,8 +17224,8 @@ case 'mall': {
     if ($a === 'vendor-del') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) json_out(['ok' => false, 'error' => 'id required.'], 400);
-        $pdo->prepare('DELETE FROM mall_vendors WHERE id=?')->execute([$id]);
-        $pdo->prepare('DELETE FROM mall_vendor_payments WHERE vendor_id=?')->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_vendors WHERE id=?', $scope))->execute([$id]);
+        $pdo->prepare(mall_scope_sql('DELETE FROM mall_vendor_payments WHERE vendor_id=?', $scope))->execute([$id]);
         json_out(['ok' => true]);
     }
     if ($a === 'vendor-payment-add') {
@@ -17096,10 +17233,10 @@ case 'mall': {
         $amount = (int)($body['amount'] ?? 0);
         if (!$vid || $amount <= 0) json_out(['ok' => false, 'error' => 'vendor_id and amount required.'], 400);
         $mAcct = (int)($body['method_acct'] ?? 0);
-        $pdo->prepare('INSERT INTO mall_vendor_payments (vendor_id, amount, method, method_acct, ref, note) VALUES (?,?,?,?,?,?)')
+        $pdo->prepare(mall_scope_sql('INSERT INTO mall_vendor_payments (vendor_id, amount, method, method_acct, ref, note) VALUES (?,?,?,?,?,?)', $scope))
             ->execute([$vid, $amount, trim($body['method'] ?? 'bank'), $mAcct, trim($body['ref'] ?? ''), trim($body['note'] ?? '')]);
         $vpId = (int)$pdo->lastInsertId();
-        $vn = $pdo->query("SELECT name, category FROM mall_vendors WHERE id=$vid")->fetch(PDO::FETCH_ASSOC);
+        $vn = $pdo->query(mall_scope_sql("SELECT name, category FROM mall_vendors WHERE id=$vid", $scope))->fetch(PDO::FETCH_ASSOC);
         audit($u['name'], 'Vendor payment', 'mall', (string)($vn['name'] ?? ''), "$amount via " . trim($body['method'] ?? 'bank'));
         /* Smart Ledger: Dr expense (by vendor category), Cr bank/cash */
         $post_journal(date('Y-m-d'), 'VNP-' . str_pad((string)$vpId, 5, '0', STR_PAD_LEFT),
@@ -17110,7 +17247,7 @@ case 'mall': {
     }
     if ($a === 'vendor-payments') {
         $vid = (int)($body['vendor_id'] ?? 0);
-        $st = $pdo->prepare('SELECT * FROM mall_vendor_payments WHERE vendor_id=? ORDER BY id DESC LIMIT 100'); $st->execute([$vid]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_vendor_payments WHERE vendor_id=? ORDER BY id DESC LIMIT 100', $scope)); $st->execute([$vid]);
         json_out(['ok' => true, 'payments' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     }
 
@@ -17143,11 +17280,11 @@ case 'mall': {
         if ($kind !== '')   { $sql .= ' AND b.kind=?';  $args[] = $kind; }
         if ($status !== '') { $sql .= ' AND b.status=?'; $args[] = $status; }
         $sql .= ' ORDER BY s.floor, s.no';
-        $st = $pdo->prepare($sql); $st->execute($args);
+        $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
         $bills = $st->fetchAll(PDO::FETCH_ASSOC);
-        $sum = $pdo->prepare("SELECT COALESCE(SUM(amount),0) billed, COALESCE(SUM(fine),0) fines,
+        $sum = $pdo->prepare(mall_scope_sql("SELECT COALESCE(SUM(amount),0) billed, COALESCE(SUM(fine),0) fines,
                     COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) collected
-                    FROM shop_bills WHERE month=?"); $sum->execute([$month]);
+                    FROM shop_bills WHERE month=?", $scope)); $sum->execute([$month]);
         json_out(['ok' => true, 'bills' => $bills, 'totals' => $sum->fetch(PDO::FETCH_ASSOC)]);
     }
 
@@ -17163,15 +17300,15 @@ case 'mall': {
         $amount = (int)($body['amount'] ?? 0);
         $reason = trim($body['reason'] ?? '');
         if (!$billId || $amount <= 0 || $reason === '') json_out(['ok' => false, 'error' => 'bill, amount and reason required.'], 400);
-        $st = $pdo->prepare('SELECT * FROM shop_bills WHERE id=?'); $st->execute([$billId]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM shop_bills WHERE id=?', $scope)); $st->execute([$billId]);
         $bill = $st->fetch(PDO::FETCH_ASSOC);
         if (!$bill) json_out(['ok' => false, 'error' => 'Bill not found.'], 404);
         if ($bill['status'] === 'Paid') json_out(['ok' => false, 'error' => 'Paid bills cannot be waived — use a payment-void instead.'], 409);
         if ($amount > (int)$bill['amount']) json_out(['ok' => false, 'error' => 'Waiver cannot exceed the bill amount (' . number_format((int)$bill['amount']) . ').'], 400);
-        $dup = $pdo->prepare("SELECT COUNT(*) FROM mall_waivers WHERE bill_id=? AND status='Pending'");
+        $dup = $pdo->prepare(mall_scope_sql("SELECT COUNT(*) FROM mall_waivers WHERE bill_id=? AND status='Pending'", $scope));
         $dup->execute([$billId]);
         if ((int)$dup->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'A waiver request is already pending for this bill.'], 409);
-        $pdo->prepare("INSERT INTO mall_waivers (bill_id, shop, month, amount, reason, requested_by) VALUES (?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_waivers (bill_id, shop, month, amount, reason, requested_by) VALUES (?,?,?,?,?,?)", $scope))
             ->execute([$billId, $bill['shop'], $bill['month'], $amount, $reason, $u['name']]);
         audit($u['name'], 'Waiver requested', 'mall', (string)$billId, "৳$amount — $reason");
         json_out(['ok' => true]);
@@ -17180,19 +17317,19 @@ case 'mall': {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only the admin (president / secretary) can decide waivers.'], 403);
         $id = (int)($body['id'] ?? 0);
         $approve = $body['approve'] ? 1 : 0;
-        $st = $pdo->prepare('SELECT * FROM mall_waivers WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_waivers WHERE id=?', $scope)); $st->execute([$id]);
         $w = $st->fetch(PDO::FETCH_ASSOC);
         if (!$w) json_out(['ok' => false, 'error' => 'Waiver not found.'], 404);
         if ($w['status'] !== 'Pending') json_out(['ok' => false, 'error' => 'Already decided.'], 409);
         if ($w['requested_by'] === $u['name']) json_out(['ok' => false, 'error' => 'You cannot approve your own waiver request.'], 403);
-        $pdo->prepare("UPDATE mall_waivers SET status=?, decided_by=?, decided_at=datetime('now') WHERE id=?")
+        $pdo->prepare(mall_scope_sql("UPDATE mall_waivers SET status=?, decided_by=?, decided_at=datetime('now') WHERE id=?", $scope))
             ->execute([$approve ? 'Approved' : 'Rejected', $u['name'], $id]);
         if ($approve) {
-            $st = $pdo->prepare('SELECT * FROM shop_bills WHERE id=?'); $st->execute([$w['bill_id']]);
+            $st = $pdo->prepare(mall_scope_sql('SELECT * FROM shop_bills WHERE id=?', $scope)); $st->execute([$w['bill_id']]);
             $bill = $st->fetch(PDO::FETCH_ASSOC);
             if ($bill && $bill['status'] !== 'Paid') {
                 $newAmt = max(0, (int)$bill['amount'] - (int)$w['amount']);
-                $pdo->prepare('UPDATE shop_bills SET amount=? WHERE id=?')->execute([$newAmt, $w['bill_id']]);
+                $pdo->prepare(mall_scope_sql('UPDATE shop_bills SET amount=? WHERE id=?', $scope))->execute([$newAmt, $w['bill_id']]);
                 /* Smart Ledger correction: Dr income account, Cr AR (waived portion) */
                 $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
                 $post_journal(date('Y-m-d'), 'WAV-' . str_pad((string)$id, 5, '0', STR_PAD_LEFT),
@@ -17210,14 +17347,14 @@ case 'mall': {
         $pid = (int)($body['payment_id'] ?? 0);
         $reason = trim($body['reason'] ?? '');
         if (!$pid || $reason === '') json_out(['ok' => false, 'error' => 'payment and reason required.'], 400);
-        $st = $pdo->prepare('SELECT * FROM shop_payments WHERE id=?'); $st->execute([$pid]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM shop_payments WHERE id=?', $scope)); $st->execute([$pid]);
         $p = $st->fetch(PDO::FETCH_ASSOC);
         if (!$p) json_out(['ok' => false, 'error' => 'Payment not found.'], 404);
         if ((int)($p['voided'] ?? 0)) json_out(['ok' => false, 'error' => 'Payment already voided.'], 409);
-        $dup = $pdo->prepare("SELECT COUNT(*) FROM mall_payment_voids WHERE payment_id=? AND status='Pending'");
+        $dup = $pdo->prepare(mall_scope_sql("SELECT COUNT(*) FROM mall_payment_voids WHERE payment_id=? AND status='Pending'", $scope));
         $dup->execute([$pid]);
         if ((int)$dup->fetchColumn() > 0) json_out(['ok' => false, 'error' => 'A void request is already pending.'], 409);
-        $pdo->prepare("INSERT INTO mall_payment_voids (payment_id, shop, amount, receipt, reason, requested_by) VALUES (?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_payment_voids (payment_id, shop, amount, receipt, reason, requested_by) VALUES (?,?,?,?,?,?)", $scope))
             ->execute([$pid, $p['shop'], (int)$p['amount'], (string)$p['receipt'], $reason, $u['name']]);
         audit($u['name'], 'Void requested', 'mall', (string)$pid, $p['receipt'] . " ৳{$p['amount']} — $reason");
         json_out(['ok' => true]);
@@ -17226,20 +17363,20 @@ case 'mall': {
         if (!in_array($u['role'], ['superadmin', 'owner', 'manager'], true)) json_out(['ok' => false, 'error' => 'Only the admin can decide voids.'], 403);
         $id = (int)($body['id'] ?? 0);
         $approve = $body['approve'] ? 1 : 0;
-        $st = $pdo->prepare('SELECT * FROM mall_payment_voids WHERE id=?'); $st->execute([$id]);
+        $st = $pdo->prepare(mall_scope_sql('SELECT * FROM mall_payment_voids WHERE id=?', $scope)); $st->execute([$id]);
         $v = $st->fetch(PDO::FETCH_ASSOC);
         if (!$v) json_out(['ok' => false, 'error' => 'Void request not found.'], 404);
         if ($v['status'] !== 'Pending') json_out(['ok' => false, 'error' => 'Already decided.'], 409);
         if ($v['requested_by'] === $u['name']) json_out(['ok' => false, 'error' => 'You cannot approve your own void request.'], 403);
-        $pdo->prepare("UPDATE mall_payment_voids SET status=?, decided_by=?, decided_at=datetime('now') WHERE id=?")
+        $pdo->prepare(mall_scope_sql("UPDATE mall_payment_voids SET status=?, decided_by=?, decided_at=datetime('now') WHERE id=?", $scope))
             ->execute([$approve ? 'Approved' : 'Rejected', $u['name'], $id]);
         if ($approve) {
-            $pdo->prepare('UPDATE shop_payments SET voided=1 WHERE id=?')->execute([$v['payment_id']]);
-            $st = $pdo->prepare('SELECT bill_id FROM shop_payments WHERE id=?'); $st->execute([$v['payment_id']]);
+            $pdo->prepare(mall_scope_sql('UPDATE shop_payments SET voided=1 WHERE id=?', $scope))->execute([$v['payment_id']]);
+            $st = $pdo->prepare(mall_scope_sql('SELECT bill_id FROM shop_payments WHERE id=?', $scope)); $st->execute([$v['payment_id']]);
             $billId = (int)$st->fetchColumn();
-            if ($billId) $pdo->prepare("UPDATE shop_bills SET status='Unpaid' WHERE id=?")->execute([$billId]);
+            if ($billId) $pdo->prepare(mall_scope_sql("UPDATE shop_bills SET status='Unpaid' WHERE id=?", $scope))->execute([$billId]);
             /* Smart Ledger reversal: Dr method account (receive back), Cr income */
-            $st = $pdo->prepare('SELECT method, kind FROM shop_payments WHERE id=?'); $st->execute([$v['payment_id']]);
+            $st = $pdo->prepare(mall_scope_sql('SELECT method, kind FROM shop_payments WHERE id=?', $scope)); $st->execute([$v['payment_id']]);
             $pm = $st->fetch(PDO::FETCH_ASSOC);
             if ($pm) {
                 $kindAcct = ['service' => 'Service Charge Income', 'elec' => 'Utility Billing Income', 'water' => 'Utility Billing Income'];
@@ -17253,26 +17390,26 @@ case 'mall': {
         json_out(['ok' => true, 'status' => $approve ? 'Approved' : 'Rejected']);
     }
     if ($a === 'waivers') {
-        $rows = $pdo->query("SELECT w.*, b.kind FROM mall_waivers w LEFT JOIN shop_bills b ON b.id=w.bill_id ORDER BY w.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql("SELECT w.*, b.kind FROM mall_waivers w LEFT JOIN shop_bills b ON b.id=w.bill_id ORDER BY w.id DESC LIMIT 200", $scope))->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'waivers' => $rows]);
     }
     if ($a === 'payment-voids') {
-        $rows = $pdo->query("SELECT v.*, p.receipt AS payment_receipt FROM mall_payment_voids v LEFT JOIN shop_payments p ON p.id=v.payment_id ORDER BY v.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $pdo->query(mall_scope_sql("SELECT v.*, p.receipt AS payment_receipt FROM mall_payment_voids v LEFT JOIN shop_payments p ON p.id=v.payment_id ORDER BY v.id DESC LIMIT 200", $scope))->fetchAll(PDO::FETCH_ASSOC);
         json_out(['ok' => true, 'voids' => $rows]);
     }
     if ($a === 'bill-generate') {
         $month = trim($body['month'] ?? date('Y-m'));
         $dueDay = (int)$mcfg('due_day', '10');
         $dueDate = date('Y-m-d', strtotime($month . '-' . sprintf('%02d', $dueDay)));
-        $st = $pdo->prepare("SELECT id, service_rate, sqft, bill_model, rate_sqft, util_included FROM shops WHERE status='Active'");
+        $st = $pdo->prepare(mall_scope_sql("SELECT id, service_rate, sqft, bill_model, rate_sqft, util_included FROM shops WHERE status='Active'", $scope));
         $st->execute();
         $shops = $st->fetchAll(PDO::FETCH_ASSOC);
         $created = 0; $skipped = 0;
-        $exists = $pdo->prepare("SELECT COUNT(*) FROM shop_bills WHERE shop=? AND month=? AND kind='service'");
-        $ins = $pdo->prepare("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status, note)
-                              VALUES (?,?, 'service', ?, 0, ?, 'Unpaid', ?)");
-        $rdg = $pdo->prepare("SELECT units FROM mall_meter_readings WHERE shop=? AND type=? AND month<=? ORDER BY month DESC LIMIT 1");
-        $m2 = $pdo->prepare('SELECT bill_model, util_included FROM shops WHERE id=?');
+        $exists = $pdo->prepare(mall_scope_sql("SELECT COUNT(*) FROM shop_bills WHERE shop=? AND month=? AND kind='service'", $scope));
+        $ins = $pdo->prepare(mall_scope_sql("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status, note)
+                              VALUES (?,?, 'service', ?, 0, ?, 'Unpaid', ?)", $scope));
+        $rdg = $pdo->prepare(mall_scope_sql("SELECT units FROM mall_meter_readings WHERE shop=? AND type=? AND month<=? ORDER BY month DESC LIMIT 1", $scope));
+        $m2 = $pdo->prepare(mall_scope_sql('SELECT bill_model, util_included FROM shops WHERE id=?', $scope));
         $modelLabel = ['fixed' => 'Fixed', 'sqft' => 'Per sqft', 'fixed+util' => 'Fixed + utilities', 'sqft+util' => 'Per sqft + utilities'];
         foreach ($shops as $s) {
             $exists->execute([$s['id'], $month]);
@@ -17327,7 +17464,7 @@ case 'mall': {
         $args = [$month];
         if ($shop !== '') { $sql .= ' AND b.shop=?'; $args[] = $shop; }
         $sql .= ' ORDER BY s.floor, s.no';
-        $st = $pdo->prepare($sql); $st->execute($args);
+        $st = $pdo->prepare(mall_scope_sql($sql, $scope)); $st->execute($args);
         $byShop = [];
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $b) {
             $k = $b['shop'];
@@ -17362,20 +17499,20 @@ case 'mall': {
         $shop  = trim($body['shop'] ?? '');
         $method = trim($body['method'] ?? '');
         $status = trim($body['status'] ?? '');
-        $st1 = $pdo->prepare("SELECT p.*, 'service' AS ptype, COALESCE(s.no, p.shop) AS shop_no, s.floor AS shop_floor,
+        $st1 = $pdo->prepare(mall_scope_sql("SELECT p.*, 'service' AS ptype, COALESCE(s.no, p.shop) AS shop_no, s.floor AS shop_floor,
                         COALESCE(s.owner_name, p.shop) AS payer, a.name AS acct_name
                      FROM shop_payments p LEFT JOIN shops s ON s.id=p.shop
                      LEFT JOIN mall_accounts a ON a.id=p.method_acct
-                     WHERE p.month=?");
+                     WHERE p.month=?", $scope));
         $st1->execute([$month]);
-        $st2 = $pdo->prepare("SELECT r.*, 'rent' AS ptype, COALESCE(s.no, r.shop) AS shop_no, s.floor AS shop_floor,
+        $st2 = $pdo->prepare(mall_scope_sql("SELECT r.*, 'rent' AS ptype, COALESCE(s.no, r.shop) AS shop_no, s.floor AS shop_floor,
                         COALESCE(s.owner_name, r.shop) AS payer, a.name AS acct_name
                      FROM mall_rent_payments r LEFT JOIN shops s ON s.id=r.shop
                      LEFT JOIN mall_accounts a ON a.id=r.method_acct
-                     WHERE r.month=?");
+                     WHERE r.month=?", $scope));
         $st2->execute([$month]);
         $all = array_merge($st1->fetchAll(PDO::FETCH_ASSOC), $st2->fetchAll(PDO::FETCH_ASSOC));
-        $vst = $pdo->prepare("SELECT payment_id FROM mall_payment_voids WHERE status='Pending'");
+        $vst = $pdo->prepare(mall_scope_sql("SELECT payment_id FROM mall_payment_voids WHERE status='Pending'", $scope));
         $vst->execute();
         $pendingVoid = array_flip(array_map('intval', $vst->fetchAll(PDO::FETCH_COLUMN)));
         $list = [];
@@ -17400,17 +17537,17 @@ case 'mall': {
     if ($a === 'shop-payments-history') {
         $shop = trim($body['shop'] ?? '');
         if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
-        $st1 = $pdo->prepare("SELECT p.*, 'service' AS ptype, COALESCE(s.no, p.shop) AS shop_no, s.floor AS shop_floor,
+        $st1 = $pdo->prepare(mall_scope_sql("SELECT p.*, 'service' AS ptype, COALESCE(s.no, p.shop) AS shop_no, s.floor AS shop_floor,
                         COALESCE(s.owner_name, p.shop) AS payer, a.name AS acct_name
                      FROM shop_payments p LEFT JOIN shops s ON s.id=p.shop
                      LEFT JOIN mall_accounts a ON a.id=p.method_acct
-                     WHERE p.shop=? ORDER BY p.created_at DESC, p.id DESC LIMIT 300");
+                     WHERE p.shop=? ORDER BY p.created_at DESC, p.id DESC LIMIT 300", $scope));
         $st1->execute([$shop]);
-        $st2 = $pdo->prepare("SELECT r.*, 'rent' AS ptype, COALESCE(s.no, r.shop) AS shop_no, s.floor AS shop_floor,
+        $st2 = $pdo->prepare(mall_scope_sql("SELECT r.*, 'rent' AS ptype, COALESCE(s.no, r.shop) AS shop_no, s.floor AS shop_floor,
                         COALESCE(s.owner_name, r.shop) AS payer, a.name AS acct_name
                      FROM mall_rent_payments r LEFT JOIN shops s ON s.id=r.shop
                      LEFT JOIN mall_accounts a ON a.id=r.method_acct
-                     WHERE r.shop=? ORDER BY r.ts DESC, r.id DESC LIMIT 150");
+                     WHERE r.shop=? ORDER BY r.ts DESC, r.id DESC LIMIT 150", $scope));
         $st2->execute([$shop]);
         $all = array_merge($st1->fetchAll(PDO::FETCH_ASSOC), $st2->fetchAll(PDO::FETCH_ASSOC));
         foreach ($all as &$x) { if (empty($x['created_at']) && !empty($x['ts'])) $x['created_at'] = $x['ts']; }
@@ -17425,10 +17562,10 @@ case 'mall': {
         $shop = trim($body['shop'] ?? '');
         $month = trim($body['month'] ?? date('Y-m'));
         if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
-        $st = $pdo->prepare("SELECT * FROM shops WHERE id=?"); $st->execute([$shop]);
+        $st = $pdo->prepare(mall_scope_sql("SELECT * FROM shops WHERE id=?", $scope)); $st->execute([$shop]);
         $s = $st->fetch(PDO::FETCH_ASSOC);
         if (!$s) json_out(['ok' => false, 'error' => 'Space not found.'], 404);
-        $bills = $pdo->prepare("SELECT * FROM shop_bills WHERE shop=? AND month=? ORDER BY kind");
+        $bills = $pdo->prepare(mall_scope_sql("SELECT * FROM shop_bills WHERE shop=? AND month=? ORDER BY kind", $scope));
         $bills->execute([$shop, $month]);
         $rows = $bills->fetchAll(PDO::FETCH_ASSOC);
         $total = 0; $paid = 0;
@@ -17448,7 +17585,7 @@ case 'mall': {
         $method = trim($body['method'] ?? 'cash');
         if (!in_array($method, ['cash', 'bank', 'bkash', 'nagad'], true)) json_out(['ok' => false, 'error' => 'method must be cash/bank/bkash/nagad.'], 400);
         $mAcct = (int)($body['method_acct'] ?? 0);
-        $st = $pdo->prepare("SELECT * FROM shop_bills WHERE id=?"); $st->execute([$billId]);
+        $st = $pdo->prepare(mall_scope_sql("SELECT * FROM shop_bills WHERE id=?", $scope)); $st->execute([$billId]);
         $bill = $st->fetch(PDO::FETCH_ASSOC);
         if (!$bill) json_out(['ok' => false, 'error' => 'Bill not found.'], 404);
         if ($bill['status'] === 'Paid') json_out(['ok' => false, 'error' => 'Bill already paid.'], 409);
@@ -17456,11 +17593,11 @@ case 'mall': {
         $receipt = $seqStart > 0
             ? $mcfg('invoice_prefix', 'RCT') . '-' . str_pad((string)($seqStart + $billId), 6, '0', STR_PAD_LEFT)
             : $mcfg('invoice_prefix', 'RCT') . '-' . str_replace('-', '', $bill['month']) . '-' . str_pad((string)$billId, 4, '0', STR_PAD_LEFT);
-        $pdo->prepare("INSERT INTO shop_payments (shop, bill_id, month, kind, amount, method, method_acct, ref, receipt)
-                       VALUES (?,?,?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO shop_payments (shop, bill_id, month, kind, amount, method, method_acct, ref, receipt)
+                       VALUES (?,?,?,?,?,?,?,?,?)", $scope))
             ->execute([$bill['shop'], $billId, $bill['month'], $bill['kind'], $amount, $method, $mAcct, trim($body['ref'] ?? ''), $receipt]);
         $payId = (int)$pdo->lastInsertId();
-        $pdo->prepare("UPDATE shop_bills SET status='Paid' WHERE id=?")->execute([$billId]);
+        $pdo->prepare(mall_scope_sql("UPDATE shop_bills SET status='Paid' WHERE id=?", $scope))->execute([$billId]);
         audit($u['name'], 'Collect', 'mall', $bill['shop'], "$receipt $amount via $method");
         /* Smart Ledger: Dr cash/bank/bKash; Cr income by kind (+ fine portion) */
         $billAmt = (int)$bill['amount'];
@@ -17493,35 +17630,35 @@ case 'mall': {
         if ($photo === '' || strpos($photo, 'data:image') !== 0 || strlen($photo) > 1500000) {
             json_out(['ok' => false, 'error' => 'A meter photo is required — take a photo of the meter display (max 1.5 MB).'], 400);
         }
-        $st = $pdo->prepare("SELECT reading FROM mall_meter_readings WHERE shop=? AND type=? AND month=? ORDER BY id DESC LIMIT 1");
+        $st = $pdo->prepare(mall_scope_sql("SELECT reading FROM mall_meter_readings WHERE shop=? AND type=? AND month=? ORDER BY id DESC LIMIT 1", $scope));
         $st->execute([$shop, $type, $month]);
         $prev = (int)$st->fetchColumn();
         $units = $reading - $prev;
         if ($units < 0) json_out(['ok' => false, 'error' => 'Reading cannot be lower than the previous reading (' . $prev . ').'], 400);
         /* anomaly flag: current reading > 200% of the previous month's reading */
         $flag = 0;
-        $st2 = $pdo->prepare("SELECT reading FROM mall_meter_readings WHERE shop=? AND type=? AND month < ? ORDER BY month DESC LIMIT 1");
+        $st2 = $pdo->prepare(mall_scope_sql("SELECT reading FROM mall_meter_readings WHERE shop=? AND type=? AND month < ? ORDER BY month DESC LIMIT 1", $scope));
         $st2->execute([$shop, $type, $month]);
         $prevMo = (int)$st2->fetchColumn();
         if ($prevMo > 0 && $reading > $prevMo * 2) $flag = 1;
-        $pdo->prepare("INSERT INTO mall_meter_readings (shop, type, reading, units, month, note, photo, flag) VALUES (?,?,?,?,?,?,?,?)")
+        $pdo->prepare(mall_scope_sql("INSERT INTO mall_meter_readings (shop, type, reading, units, month, note, photo, flag) VALUES (?,?,?,?,?,?,?,?)", $scope))
             ->execute([$shop, $type, $reading, $units, $month, trim($body['note'] ?? ''), $photo, $flag]);
         if ($units > 0) {
             /* if the space's service bill already includes utilities (bill_model
                fixed+util / sqft+util), don't create a separate utility bill */
-            $m2 = $pdo->prepare('SELECT bill_model, util_included FROM shops WHERE id=?');
+            $m2 = $pdo->prepare(mall_scope_sql('SELECT bill_model, util_included FROM shops WHERE id=?', $scope));
             $m2->execute([$shop]);
             $sm = $m2->fetch(PDO::FETCH_ASSOC);
             $bundleUtil = $sm && in_array($sm['bill_model'] ?? '', ['fixed+util', 'sqft+util'], true) && (int)($sm['util_included'] ?? 0) === 1;
             $rate = (int)$mcfg($type === 'elec' ? 'elec_unit_rate' : 'water_unit_rate', $type === 'elec' ? '8' : '30');
             $amount = $units * $rate;
             if (!$bundleUtil) {
-                $ex = $pdo->prepare("SELECT COUNT(*) FROM shop_bills WHERE shop=? AND month=? AND kind=?");
+                $ex = $pdo->prepare(mall_scope_sql("SELECT COUNT(*) FROM shop_bills WHERE shop=? AND month=? AND kind=?", $scope));
                 $ex->execute([$shop, $month, $type]);
                 if ((int)$ex->fetchColumn() === 0) {
                     $dueDay = (int)$mcfg('due_day', '10');
-                    $pdo->prepare("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status)
-                                   VALUES (?,?,?,?,0,?,'Unpaid')")
+                    $pdo->prepare(mall_scope_sql("INSERT INTO shop_bills (shop, month, kind, amount, fine, due_date, status)
+                                   VALUES (?,?,?,?,0,?,'Unpaid')", $scope))
                         ->execute([$shop, $month, $type, $amount, date('Y-m-d', strtotime($month . '-' . sprintf('%02d', $dueDay)))]);
                     $billId = (int)$pdo->lastInsertId();
                     /* Smart Ledger: Dr Accounts Receivable, Cr Utility Billing Income */
@@ -17538,15 +17675,15 @@ case 'mall': {
     /* ledger — central: billed vs collected by kind; expenses; per-shop summary */
     if ($a === 'ledger') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $byKind = $pdo->prepare("SELECT kind,
+        $byKind = $pdo->prepare(mall_scope_sql("SELECT kind,
                     COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) collected,
                     COALESCE(SUM(amount),0) billed
-                    FROM shop_bills WHERE month=? GROUP BY kind");
+                    FROM shop_bills WHERE month=? GROUP BY kind", $scope));
         $byKind->execute([$month]);
-        $exSt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=?");
+        $exSt = $pdo->prepare(mall_scope_sql("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=?", $scope));
         $exSt->execute([$month]);
         $expenses = (int)$exSt->fetchColumn();
-        $perShop = $pdo->prepare("SELECT s.id, s.no, s.floor, s.owner_name, s.owner_mobile,
+        $perShop = $pdo->prepare(mall_scope_sql("SELECT s.id, s.no, s.floor, s.owner_name, s.owner_mobile,
                     COALESCE(SUM(CASE WHEN b.kind='service' AND b.status='Paid' THEN b.amount ELSE 0 END),0) sc_paid,
                     COALESCE(SUM(CASE WHEN b.kind='service' THEN b.amount ELSE 0 END),0) sc_billed,
                     COALESCE(SUM(CASE WHEN b.kind='elec' AND b.status='Paid' THEN b.amount ELSE 0 END),0) el_paid,
@@ -17554,7 +17691,7 @@ case 'mall': {
                     COALESCE(SUM(CASE WHEN b.kind='water' AND b.status='Paid' THEN b.amount ELSE 0 END),0) w_paid,
                     COALESCE(SUM(CASE WHEN b.kind='water' THEN b.amount ELSE 0 END),0) w_billed
                     FROM shops s LEFT JOIN shop_bills b ON b.shop=s.id AND b.month=?
-                    GROUP BY s.id ORDER BY s.floor, s.no");
+                    GROUP BY s.id ORDER BY s.floor, s.no", $scope));
         $perShop->execute([$month]);
         json_out(['ok' => true, 'month' => $month, 'by_kind' => $byKind->fetchAll(PDO::FETCH_ASSOC),
                   'expenses' => $expenses, 'per_shop' => $perShop->fetchAll(PDO::FETCH_ASSOC)]);
@@ -17567,10 +17704,10 @@ case 'mall': {
         $hiMonths = max(1, (int)$mcfg('high_dues_months', '2'));
         $dcMonths = max(1, (int)$mcfg('disconnect_months', '3'));
         $now = date('Y-m');
-        $shops = $pdo->query("SELECT id, no, floor, owner_name, owner_mobile, service_rate FROM shops WHERE status='Active'")->fetchAll(PDO::FETCH_ASSOC);
+        $shops = $pdo->query(mall_scope_sql("SELECT id, no, floor, owner_name, owner_mobile, service_rate FROM shops WHERE status='Active'", $scope))->fetchAll(PDO::FETCH_ASSOC);
         $high = []; $dc = [];
         foreach ($shops as $s) {
-            $st = $pdo->prepare("SELECT month, SUM(amount + COALESCE(fine,0)) due FROM shop_bills WHERE shop=? AND status='Unpaid' GROUP BY month ORDER BY month");
+            $st = $pdo->prepare(mall_scope_sql("SELECT month, SUM(amount + COALESCE(fine,0)) due FROM shop_bills WHERE shop=? AND status='Unpaid' GROUP BY month ORDER BY month", $scope));
             $st->execute([$s['id']]);
             $unpaid = $st->fetchAll(PDO::FETCH_ASSOC);
             if (!$unpaid) continue;
@@ -17590,7 +17727,7 @@ case 'mall': {
         /* spec 3.5: AMC / servicing contract expiring within 30 days or already expired */
         $amc = [];
         $today = strtotime(date('Y-m-d'));
-        foreach ($pdo->query("SELECT id, name, type, location, vendor, contract_until FROM mall_assets WHERE status != 'Sold'") as $as) {
+        foreach ($pdo->query(mall_scope_sql("SELECT id, name, type, location, vendor, contract_until FROM mall_assets WHERE status != 'Sold'", $scope)) as $as) {
             $cu = trim($as['contract_until'] ?? '');
             if ($cu === '') continue;
             $ts = strtotime($cu);
@@ -17604,38 +17741,38 @@ case 'mall': {
 
     if ($a === 'dashboard') {
         $month = trim($body['month'] ?? date('Y-m'));
-        $kpi = $pdo->prepare("SELECT
+        $kpi = $pdo->prepare(mall_scope_sql("SELECT
                     COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) collected,
                     COALESCE(SUM(CASE WHEN status='Unpaid' THEN amount ELSE 0 END),0) outstanding,
                     COALESCE(SUM(amount),0) billed,
                     COUNT(CASE WHEN status='Unpaid' THEN 1 END) unpaid_bills
-                    FROM shop_bills WHERE month=?");
+                    FROM shop_bills WHERE month=?", $scope));
         $kpi->execute([$month]);
-        $defaulters = $pdo->prepare("SELECT s.id, s.no, s.floor, s.owner_name, s.owner_mobile,
+        $defaulters = $pdo->prepare(mall_scope_sql("SELECT s.id, s.no, s.floor, s.owner_name, s.owner_mobile,
                     COALESCE(SUM(b.amount),0) due FROM shops s JOIN shop_bills b ON b.shop=s.id
-                    WHERE b.month=? AND b.status='Unpaid' GROUP BY s.id ORDER BY due DESC LIMIT 10");
+                    WHERE b.month=? AND b.status='Unpaid' GROUP BY s.id ORDER BY due DESC LIMIT 10", $scope));
         $defaulters->execute([$month]);
-        $exC = $pdo->prepare("SELECT cat, COALESCE(SUM(amount),0) total FROM company_ledger
-                    WHERE kind='expense' AND substr(ts,1,7)=? GROUP BY cat ORDER BY total DESC LIMIT 10");
+        $exC = $pdo->prepare(mall_scope_sql("SELECT cat, COALESCE(SUM(amount),0) total FROM company_ledger
+                    WHERE kind='expense' AND substr(ts,1,7)=? GROUP BY cat ORDER BY total DESC LIMIT 10", $scope));
         $exC->execute([$month]);
         $expCats = $exC->fetchAll(PDO::FETCH_ASSOC);
         /* budget vs actual for the expense chart */
         $bud = [];
-        foreach ($pdo->query('SELECT cat, amount FROM mall_budget')->fetchAll(PDO::FETCH_ASSOC) as $r) $bud[$r['cat']] = (int)$r['amount'];
+        foreach ($pdo->query(mall_scope_sql('SELECT cat, amount FROM mall_budget', $scope))->fetchAll(PDO::FETCH_ASSOC) as $r) $bud[$r['cat']] = (int)$r['amount'];
         foreach ($expCats as $i => $c) $expCats[$i]['budget'] = $bud[$c['cat']] ?? null;
         $budUsed = 0; $budTotal = 0;
         foreach ($bud as $cat => $amt) { $budTotal += $amt; }
         foreach ($expCats as $c) if ($c['budget'] !== null) $budUsed += (int)$c['total'];
-        $exT = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=?");
+        $exT = $pdo->prepare(mall_scope_sql("SELECT COALESCE(SUM(amount),0) FROM company_ledger WHERE kind='expense' AND substr(ts,1,7)=?", $scope));
         $exT->execute([$month]);
         $expenseTotal = (int)$exT->fetchColumn();
-        $shopCount = (int)$pdo->query("SELECT COUNT(*) FROM shops")->fetchColumn();
-        $activeShops = (int)$pdo->query("SELECT COUNT(*) FROM shops WHERE status='Active'")->fetchColumn();
+        $shopCount = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM shops", $scope))->fetchColumn();
+        $activeShops = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM shops WHERE status='Active'", $scope))->fetchColumn();
         /* today's collections + ALL dues till today (any month) */
-        $todayC = (int)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE date(created_at)=date('now','localtime') AND (voided IS NULL OR voided=0)")->fetchColumn();
-        $todayR = (int)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE date(ts)=date('now','localtime')")->fetchColumn();
-        $todayN = (int)$pdo->query("SELECT COUNT(*) FROM shop_payments WHERE date(created_at)=date('now','localtime') AND (voided IS NULL OR voided=0)")->fetchColumn();
-        $allDue = $pdo->query("SELECT COALESCE(SUM(amount+fine),0), COUNT(*) FROM shop_bills WHERE status != 'Paid'")->fetch(PDO::FETCH_NUM);
+        $todayC = (int)$pdo->query(mall_scope_sql("SELECT COALESCE(SUM(amount),0) FROM shop_payments WHERE date(created_at)=date('now','localtime') AND (voided IS NULL OR voided=0)", $scope))->fetchColumn();
+        $todayR = (int)$pdo->query(mall_scope_sql("SELECT COALESCE(SUM(amount),0) FROM mall_rent_payments WHERE date(ts)=date('now','localtime')", $scope))->fetchColumn();
+        $todayN = (int)$pdo->query(mall_scope_sql("SELECT COUNT(*) FROM shop_payments WHERE date(created_at)=date('now','localtime') AND (voided IS NULL OR voided=0)", $scope))->fetchColumn();
+        $allDue = $pdo->query(mall_scope_sql("SELECT COALESCE(SUM(amount+fine),0), COUNT(*) FROM shop_bills WHERE status != 'Paid'", $scope))->fetch(PDO::FETCH_NUM);
         json_out(['ok' => true, 'month' => $month, 'kpi' => $kpi->fetch(PDO::FETCH_ASSOC),
                   'today' => ['collected' => $todayC + $todayR, 'count' => $todayN],
                   'all_due' => ['total' => round((float)$allDue[0], 2), 'bills' => (int)$allDue[1]],
@@ -17810,7 +17947,7 @@ case 'app-crud': {
            Staff (superadmin/manager/etc.) are unlimited; subscribers are counted by sub_email.
            SA1 v25.6: tenants stamped too — without sub_email the row-ownership guard treats
            the row as shared and a second subscriber could edit/delete it (real IDOR found). */
-        if (($u['kind'] ?? '') === 'sub' && in_array($collection, ['properties', 'units', 'tenants'], true)) {
+        if (($u['kind'] ?? '') === 'sub' && in_array($collection, ['properties', 'units', 'tenants', 'shops'], true)) {
             $email = strtolower(trim($u['email']));
             $lim = effective_limits($u);
             if ($collection === 'properties') {
