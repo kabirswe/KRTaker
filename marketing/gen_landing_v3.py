@@ -263,6 +263,7 @@ K('ft_market','বিপণনে:','Marketed by:')
 K('ft_bro','📄 ব্রোশিওর ডাউনলোড','📄 Download Brochure')
 K('ft_bro_sub','সম্পূর্ণ ফিচার, স্ক্রিনশট ও মূল্য — PDF/DOCX:','Full features, screenshots & pricing — PDF/DOCX:')
 K('ft_pdf','📕 PDF ডাউনলোড','📕 PDF Download')
+K('ft_pdf_bn','📕 ব্রোশিওর (বাংলা + English)','📕 Brochure (Bangla + English)')
 K('ft_docx','📘 DOCX','📘 DOCX')
 K('ft_links','দরকারি লিংক','Quick Links')
 K('ft_contact','যোগাযোগ','Contact')
@@ -612,6 +613,7 @@ section{{padding:64px 0}}
       <p style="margin-bottom:10px" {lang_attrs('ft_bro_sub')}>{esc(t('ft_bro_sub'))}</p>
       <a class="dl" href="brochure/mall_brochure.pdf" download style="display:inline-block;background:#fff;color:#7f1d1d;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;margin-right:8px" {lang_attrs('ft_pdf')}>{esc(t('ft_pdf'))}</a>
       <a class="dl" href="brochure/mall_brochure.docx" download style="display:inline-block;background:rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;border:1px solid #334155" {lang_attrs('ft_docx')}>{esc(t('ft_docx'))}</a>
+      <a class="dl" href="brochure/mall_brochure_bn.pdf" download style="display:inline-block;background:#f59e0b;color:#fff;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;margin-top:8px" {lang_attrs('ft_pdf_bn')}>{esc(t('ft_pdf_bn'))}</a>
     </div>
     <div>
       <h4 {lang_attrs('ft_links')}>{esc(t('ft_links'))}</h4>
