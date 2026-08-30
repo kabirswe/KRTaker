@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { lang } from '../lib/i18n'
 import hindFont from '../assets/HindSiliguri-Regular.ttf?inline'
+import hindBoldFont from '../assets/HindSiliguri-Bold.ttf?inline'
 
 const q = ref('')
 const open = ref({})   // section id -> set of open item ids (or 'all')
@@ -736,15 +737,27 @@ async function downloadPdf() {
   if (pdfBusy.value) return
   pdfBusy.value = true
   try {
-    const { jsPDF } = await import('jspdf')
-    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-    const L = 16, T = 20, R = 16, B = 18            // margins
-    const W = 210 - L - R                            // content width
+    const { jsPDF, GState } = await import('jspdf')
     const bn = lang.value === 'bn'
-    /* embedded Bengali-capable font (static TTF inlined at build time) */
+    /* ── palette ── */
+    const C = {
+      teal: [15, 118, 110], tealD: [13, 94, 88], navy: [15, 23, 42],
+      ink: [51, 65, 85], mut: [100, 116, 139], amber: [217, 119, 6],
+      red: [185, 28, 28], blue: [29, 78, 216], purple: [109, 40, 217], green: [4, 120, 87],
+      bg: [241, 245, 249], border: [203, 213, 225], white: [255, 255, 255], paper: [252, 253, 255],
+    }
+    const L = 16, T = 20, R = 16, B = 18
+    const W = 210 - L - R
+    const M = { tip: C.green, warn: C.red, info: C.blue, link: C.purple }
+    const NOTE_ICON = { tip: '💡', warn: '⚠️', info: '📌', link: '🔗' }
+    let doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+    /* embedded Bengali fonts (static TTFs inlined at build time) */
     const fontB64 = hindFont.split(',')[1] || hindFont
+    const fontBoldB64 = hindBoldFont.split(',')[1] || hindBoldFont
     doc.addFileToVFS('HindSiliguri.ttf', fontB64)
     doc.addFont('HindSiliguri.ttf', 'nsb', 'normal')
+    doc.addFileToVFS('HindSiliguri-Bold.ttf', fontBoldB64)
+    doc.addFont('HindSiliguri-Bold.ttf', 'nsb', 'bold')
     doc.setFont('nsb', 'normal')
 
     /* preload every wiki image once */
@@ -752,97 +765,216 @@ async function downloadPdf() {
     const allImgs = [...new Set(SECTIONS.flatMap(s => s.items.flatMap(it => it.imgs || [it.img]).filter(Boolean)))]
     for (const im of allImgs) { try { imgCache[im] = await loadImage('img/wiki/' + im) } catch (e) { console.warn('img fail', im) } }
 
-    let y = 0
-    const pageCount = () => doc.internal.getNumberOfPages()
-
-    /* ── cover page ── */
-    doc.setFillColor(15, 118, 110); doc.rect(0, 0, 210, 88, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(30); doc.text('Mall Manager', 105, 42, { align: 'center' })
-    doc.setFontSize(16); doc.text(bn ? 'উইকি ও সাহায্য — সম্পূর্ণ ডকুমেন্টেশন' : 'Wiki & Help — Complete Documentation', 105, 54, { align: 'center' })
-    doc.setFontSize(11); doc.text('মল ও কমার্শিয়াল বিল্ডিং ম্যানেজমেন্ট · Shopping Mall & Commercial Building Management', 105, 66, { align: 'center' })
-    doc.setTextColor(15, 118, 110); doc.setFontSize(11)
-    doc.text(`${bn ? 'ডকুমেন্ট ভার্সন' : 'Document version'}: ${PDF_VER}`, 105, 120, { align: 'center' })
-    doc.text(`${bn ? 'অ্যাপ ভার্সন' : 'App version'}: ${APP_VER}`, 105, 129, { align: 'center' })
-    doc.text(`${bn ? 'তৈরি' : 'Generated'}: ${new Date().toLocaleDateString(bn ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, 105, 138, { align: 'center' })
-    doc.setDrawColor(15, 118, 110); doc.setLineWidth(0.5); doc.line(60, 150, 150, 150)
-    doc.setTextColor(90, 90, 90); doc.setFontSize(9.5)
-    doc.text(bn ? 'এই ডকুমেন্টে মল ম্যানেজারের ১২টি সেকশন ও ৪১টি নিবন্ধ রয়েছে — ধাপে ধাপে নির্দেশনা, স্ক্রিনশট ও গ্রাফিক্সসহ।' : 'This document covers all 12 sections and 41 articles of Mall Manager — step-by-step guides with screenshots & graphics.', 105, 165, { align: 'center', maxWidth: 160 })
-    doc.addPage()
-    /* ── table of contents ── */
-    doc.setFontSize(16); doc.setTextColor(15, 118, 110)
-    doc.text(bn ? 'সূচিপত্র' : 'Table of Contents', L, T)
-    doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3); doc.line(L, T + 3, 210 - R, T + 3)
-    y = T + 12
-    doc.setFontSize(10.5); doc.setTextColor(30, 30, 30)
-    SECTIONS.forEach((s, i) => {
-      if (y > 270) { doc.addPage(); y = T }
-      doc.text(`${s.ico}  ${i + 1}. ${s.title[bn ? 'bn' : 'en']}  —  ${s.items.length} ${bn ? 'টি নিবন্ধ' : 'articles'}`, L, y)
-      y += 7
-    })
-
-    /* ── sections ── */
-    let first = true
-    for (const sec of SECTIONS) {
-      if (!first) { doc.addPage() } else { first = false }
-      y = T
-      doc.setFillColor(15, 118, 110); doc.rect(0, y - 7, 210, 12, 'F')
-      doc.setTextColor(255, 255, 255); doc.setFontSize(12.5)
-      doc.text(`${sec.ico}  ${sec.title[bn ? 'bn' : 'en']}`, L, y)
-      y += 10
-      doc.setTextColor(30, 30, 30)
-      for (const it of sec.items) {
-        const bodyLines = doc.splitTextToSize(it.b[bn ? 'bn' : 'en'], W)
-        const noteLines = (it.notes || []).flatMap(n => doc.splitTextToSize(`• ${n[bn ? 'bn' : 'en']}`, W - 6))
-        const seeLines = it.see && it.see.length ? [`${bn ? 'আরও দেখুন: ' : 'See also: '}${it.see.map(sg => sg.l[bn ? 'bn' : 'en']).join(' · ')}`] : []
-        const imgs = (it.imgs || (it.img ? [it.img] : [])).filter(im => imgCache[im])
-        let ih = 0
-        for (const im of imgs) ih += Math.min(85, imgCache[im].h * 175 / imgCache[im].w) + 6 + 5   // img height + caption + gap
-        const need = 16 + bodyLines.length * 4.6 + noteLines.length * 4 + seeLines.length * 4.6 + ih
-        if (y + need > 272) { doc.addPage(); y = T }
-        doc.setFontSize(11); doc.setTextColor(15, 118, 110)
-        doc.text(it.t[bn ? 'bn' : 'en'], L, y)
-        y += 5.5
-        doc.setFontSize(9.5); doc.setTextColor(50, 50, 50)
-        for (const ln of bodyLines) { doc.text(ln, L, y); y += 4.6 }
-        if (noteLines.length) {
-          y += 1
-          doc.setFontSize(9); doc.setTextColor(120, 80, 20)
-          for (const ln of noteLines) { doc.text(ln, L + 3, y); y += 4 }
-          y += 1
-        }
-        if (seeLines.length) {
-          doc.setFontSize(9); doc.setTextColor(15, 118, 110)
-          doc.text(seeLines[0], L, y); y += 4.8
-        }
-        for (const im of imgs) {
-          const c = imgCache[im]
-          const iw = Math.min(175, W)
-          const iht = c.h * iw / c.w
-          if (y + iht + 12 > 272) { doc.addPage(); y = T }
-          doc.addImage(c.data, c.data.startsWith('data:image/png') ? 'PNG' : 'JPEG', L + (W - iw) / 2, y, iw, iht)
-          y += iht + 3
-          doc.setFontSize(8.5); doc.setTextColor(120, 120, 120)
-          if (it.cap) doc.text(doc.splitTextToSize(it.cap[bn ? 'bn' : 'en'], W)[0], L + (W - iw) / 2 + iw / 2, y, { align: 'center' })
-          y += 8
-        }
-        y += 3
-        doc.setDrawColor(225, 225, 225); doc.setLineWidth(0.2)
-        doc.line(L, y - 1, 210 - R, y - 1)
-        y += 2
+    /* ── helpers ── */
+    const X = (v) => Math.round(v * 10) / 10
+    function setCol(c, a) { doc.setFillColor(c[0], c[1], c[2], a ?? 1) }
+    function setInk(c) { doc.setTextColor(c[0], c[1], c[2]) }
+    function text(t, x, y, opts) { doc.text(t, x, y, opts || {}) }
+    function wrap(t, size, width) { doc.setFontSize(size); return doc.splitTextToSize(t, width) }
+    function newPageIf(y, need) { if (y + need > 274) { doc.addPage(); return T } return y }
+    function footer(doc) {
+      const n = doc.internal.getNumberOfPages()
+      for (let p = 1; p <= n; p++) {
+        doc.setPage(p)
+        doc.setDrawColor(C.teal[0], C.teal[1], C.teal[2]); doc.setLineWidth(0.4)
+        doc.line(L, 287, 210 - R, 287)
+        doc.setFontSize(7.5); setInk(C.mut)
+        doc.text(`Mall Manager — Wiki & Help · App ${APP_VER} · Document ${PDF_VER}`, L, 291.5)
+        doc.text(`${bn ? 'পৃষ্ঠা' : 'Page'} ${p} ${bn ? 'এর' : 'of'} ${n}`, 210 - R, 291.5, { align: 'right' })
       }
     }
 
-    /* ── footer on every page: version + page numbers ── */
-    const n = pageCount()
-    for (let i = 1; i <= n; i++) {
-      doc.setPage(i)
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3)
-      doc.line(L, 287, 210 - R, 287)
-      doc.setFontSize(7.5); doc.setTextColor(140, 140, 140)
-      doc.text(`Mall Manager — Wiki & Help · App ${APP_VER} · Document ${PDF_VER}`, L, 291.5)
-      doc.text(`${bn ? 'পৃষ্ঠা' : 'Page'} ${i} ${bn ? 'এর' : 'of'} ${n}`, 210 - R, 291.5, { align: 'right' })
+    /* ── cover page ── */
+    function cover() {
+      doc.setFillColor(C.tealD[0], C.tealD[1], C.tealD[2]); doc.rect(0, 0, 210, 112, 'F')
+      doc.saveGraphicsState()
+      doc.setGState(new GState({ opacity: 0.07 }))
+      doc.setFillColor(255, 255, 255)
+      doc.circle(175, 26, 34, 'F'); doc.circle(24, 100, 26, 'F'); doc.circle(205, 78, 20, 'F'); doc.circle(8, 40, 12, 'F')
+      doc.restoreGraphicsState()
+      doc.setFillColor(C.teal[0], C.teal[1], C.teal[2]); doc.rect(0, 104, 210, 8, 'F')
+      /* monogram */
+      doc.saveGraphicsState(); doc.setGState(new GState({ opacity: 0.18 }))
+      doc.setFillColor(255, 255, 255); doc.circle(105, 34, 15, 'F')
+      doc.restoreGraphicsState()
+      doc.setFont('nsb', 'bold'); doc.setFontSize(17); setInk(C.white)
+      doc.text('MM', 105, 39.5, { align: 'center' })
+      doc.setFontSize(33); doc.text('Mall Manager', 105, 66, { align: 'center' })
+      doc.setFont('nsb', 'normal'); doc.setFontSize(14.5)
+      doc.text(bn ? 'উইকি ও সাহায্য — সম্পূর্ণ ডকুমেন্টেশন' : 'Wiki & Help — Complete Documentation', 105, 78, { align: 'center' })
+      doc.setFontSize(10); doc.setTextColor(255, 255, 255, 0.92)
+      doc.text('মল ও কমার্শিয়াল বিল্ডিং ম্যানেজমেন্ট · Shopping Mall & Commercial Building Management', 105, 89, { align: 'center' })
+      doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.6)
+      doc.line(64, 97, 146, 97)
+      /* version badges */
+      const badges = [
+        { lab: bn ? 'ডকুমেন্ট ভার্সন' : 'Document version', val: PDF_VER },
+        { lab: bn ? 'অ্যাপ ভার্সন' : 'App version', val: 'v2.2' },
+        { lab: bn ? 'তৈরি' : 'Generated', val: new Date().toLocaleDateString(bn ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) },
+      ]
+      badges.forEach((b, bi) => {
+        const bx = 14 + bi * 62, bw = 58, by = 122, bh = 17
+        setCol(C.bg); doc.roundedRect(bx, by, bw, bh, 3, 3, 'F')
+        doc.setFont('nsb', 'bold'); doc.setFontSize(6.8); setInk(C.mut)
+        doc.text(b.lab.toUpperCase(), bx + 4, by + 6.6)
+        doc.setFontSize(10.5); setInk(C.teal)
+        doc.text(b.val, bx + 4, by + 13.6)
+      })
+      /* screenshot collage 2x2 */
+      const shots = ['01_dashboard.jpg', '02_meters_panel.jpg', '04_collect_pay.jpg', '05_module_map.png']
+      const avail = shots.filter(s => imgCache[s])
+      if (avail.length) {
+        const cw = 88, ch = 30, gap = 6, sx = (210 - (cw * 2 + gap)) / 2, sy = 150
+        avail.slice(0, 4).forEach((s, si) => {
+          const c = imgCache[s]
+          const col = si % 2, row = Math.floor(si / 2)
+          const iw = cw - 2, iht = Math.min(ch - 2, c.h * iw / c.w)
+          const ix = sx + col * (cw + gap), iy = sy + row * (ch + gap)
+          setCol(C.border); doc.roundedRect(ix - 0.8, iy + 0.8, iw + 1.6, iht + 1.6, 2, 2, 'F')   // shadow
+          doc.setFillColor(255, 255, 255); doc.roundedRect(ix - 1, iy - 1, iw + 2, iht + 2, 2, 2, 'F')  // white frame
+          doc.addImage(c.data, c.data.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, iy, iw, iht)
+        })
+      }
+      /* bottom brand line */
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]); doc.setLineWidth(0.3)
+      doc.line(L, 268, 210 - R, 268)
+      doc.setFontSize(8); setInk(C.mut)
+      doc.text(bn ? 'প্রস্তুতকারক: কেআরটেকার (বিটিএসসিওএলের একটি প্রতিষ্ঠান) · মার্কেটিং: অ্যাপভ্যালি' : 'Prepared by: KRTaker (A concern of BITSCOL) · Marketed by Appvaley', 105, 275, { align: 'center' })
+      doc.addPage()
     }
+
+    /* ── table of contents (dotted leaders + page numbers) ── */
+    function toc(secPages, total) {
+      doc.setFont('nsb', 'bold'); doc.setFontSize(17); setInk(C.navy)
+      doc.text(bn ? 'সূচিপত্র' : 'Table of Contents', L, T + 2)
+      setCol(C.teal); doc.roundedRect(L, T + 5, 30, 1.6, 0.8, 0.8, 'F')
+      let y = T + 16
+      doc.setFont('nsb', 'normal')
+      SECTIONS.forEach((s, i) => {
+        if (y > 272) { doc.addPage(); y = T }
+        const num = i + 1
+        setCol(C.teal); doc.roundedRect(L, y - 4.2, 7, 7, 3.5, 3.5, 'F')
+        doc.setFont('nsb', 'bold'); doc.setFontSize(9); setInk(C.white)
+        doc.text(String(num), L + 3.5, y - 0.2, { align: 'center' })
+        doc.setFontSize(11); setInk(C.ink)
+        doc.text(`${s.ico}  ${s.title[bn ? 'bn' : 'en']}`, L + 12, y)
+        const pageNo = (secPages[s.id] ?? 0) + 2   // + cover + toc
+        doc.setFontSize(8.5); setInk(C.mut)
+        const pw2 = doc.getTextWidth(String(pageNo))
+        doc.setDrawColor(C.border[0], C.border[1], C.border[2]); doc.setLineWidth(0.25)
+        doc.setLineDashPattern([0.8, 0.9], 0)
+        doc.line(L + 78, y - 1.1, 210 - R - pw2 - 2, y - 1.1)
+        doc.setLineDashPattern([], 0)
+        doc.setFont('nsb', 'bold'); setInk(C.teal)
+        doc.text(String(pageNo), 210 - R, y, { align: 'right' })
+        doc.setFont('nsb', 'normal'); doc.setFontSize(8); setInk(C.mut)
+        doc.text(`— ${s.items.length} ${bn ? 'টি নিবন্ধ' : 'articles'}`, L + 78, y)
+        y += 10.5
+      })
+      doc.addPage()
+    }
+
+    /* ── one section (heading bar + articles) ── */
+    function section(sec, secNum) {
+      doc.addPage()
+      let y = T
+      /* heading bar */
+      setCol(C.teal); doc.roundedRect(L - 4, y - 7.5, W + 8, 13, 3, 3, 'F')
+      doc.setFont('nsb', 'bold'); doc.setFontSize(13.5); setInk(C.white)
+      doc.text(`${sec.ico}  ${secNum}. ${sec.title[bn ? 'bn' : 'en']}`, L, y + 0.5)
+      doc.setFont('nsb', 'normal'); doc.setFontSize(8); setInk(C.white)
+      doc.text(`${sec.items.length} ${bn ? 'টি নিবন্ধ' : 'articles'}`, 210 - R, y + 0.5, { align: 'right' })
+      y += 11
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]); doc.setLineWidth(0.25)
+      doc.line(L, y, 210 - R, y)
+      y += 4
+      sec.items.forEach((it, ix) => {
+        const itemNo = `${secNum}.${ix + 1}`
+        const bodyLines = wrap(it.b[bn ? 'bn' : 'en'], 9.5, W - 4)
+        const notes = (it.notes || []).map(nt => ({ type: nt.type, lines: wrap(`${NOTE_ICON[nt.type] || '•'} ${nt[bn ? 'bn' : 'en']}`, 8.6, W - 12) }))
+        const seeL = it.see && it.see.length ? [`${bn ? 'আরও দেখুন: ' : 'See also: '}${it.see.map(sg => sg.l[bn ? 'bn' : 'en']).join('  ·  ')}`] : []
+        const imgs = (it.imgs || (it.img ? [it.img] : [])).filter(im => imgCache[im])
+        let need = 12 + bodyLines.length * 4.6 + notes.reduce((a, n) => a + n.lines.length * 4 + 2.4, 0) + seeL.length * 4.8 + imgs.length * 14
+        for (const im of imgs) { const c = imgCache[im]; need += Math.min(88, c.h * 168 / c.w) }
+        y = newPageIf(y, need + 6)
+        /* item title row */
+        setCol(C.teal); doc.roundedRect(L, y - 3.4, 2.4, 4.4, 1, 1, 'F')
+        doc.setFont('nsb', 'bold'); doc.setFontSize(11.2); setInk(C.navy)
+        doc.text(`${itemNo}  ${it.t[bn ? 'bn' : 'en']}`, L + 5, y + 0.2)
+        if (it.tag) {
+          const tg = it.tag[bn ? 'bn' : 'en']
+          const tw = doc.getTextWidth(tg)
+          setCol(C.bg); doc.roundedRect(210 - R - tw - 7, y - 4.2, tw + 7, 6.6, 3.3, 3.3, 'F')
+          doc.setFont('nsb', 'normal'); doc.setFontSize(7.2); setInk(C.teal)
+          doc.text(tg, 210 - R - tw - 3.5, y + 0.4)
+        }
+        y += 5.6
+        doc.setFont('nsb', 'normal'); doc.setFontSize(9.5); setInk(C.ink)
+        for (const ln of bodyLines) { doc.text(ln, L + 2, y); y += 4.6 }
+        /* notes callouts */
+        for (const n of notes) {
+          y += 0.8
+          const col = M[n.type] || C.mut
+          const h = n.lines.length * 4 + 3.4
+          y = newPageIf(y, h + 2)
+          setCol(col, 0.07); doc.roundedRect(L + 2, y - 2.6, W - 4, h, 2, 2, 'F')
+          setCol(col); doc.roundedRect(L + 2, y - 2.6, 1.5, h, 0.6, 0.6, 'F')
+          doc.setFontSize(8.6); setInk(col)
+          for (const ln of n.lines) { doc.text(ln, L + 7, y); y += 4 }
+          y += 2.2
+        }
+        /* see-also */
+        if (seeL.length) {
+          doc.setFont('nsb', 'bold'); doc.setFontSize(8.8); setInk(C.teal)
+          doc.text(seeL[0], L + 2, y); y += 5
+        }
+        /* images */
+        for (const im of imgs) {
+          const c = imgCache[im]
+          const iw = Math.min(168, W - 8)
+          const iht = Math.min(88, c.h * iw / c.w)
+          if (y + iht + 12 > 274) { doc.addPage(); y = T }
+          const ix = L + (W - iw) / 2
+          setCol(C.border); doc.roundedRect(ix + 1, y + 1, iw, iht, 2, 2, 'F')
+          doc.setFillColor(255, 255, 255); doc.roundedRect(ix - 0.8, y - 0.8, iw + 1.6, iht + 1.6, 2, 2, 'F')
+          doc.addImage(c.data, c.data.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, y, iw, iht)
+          y += iht + 2.6
+          if (it.cap) {
+            doc.setFont('nsb', 'normal'); doc.setFontSize(8); setInk(C.mut)
+            doc.text(doc.splitTextToSize(it.cap[bn ? 'bn' : 'en'], iw)[0], ix + iw / 2, y, { align: 'center' })
+            y += 4.2
+          } else y += 2.4
+        }
+        y += 2.6
+        setCol(C.border, 0.6); doc.roundedRect(L, y, W, 0.3, 0.15, 0.15, 'F')
+        y += 5
+      })
+    }
+
+    /* ── pass 1: layout to learn section start pages ── */
+    let secPages = {}
+    let probe = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+    probe.addFileToVFS('HindSiliguri.ttf', fontB64)
+    probe.addFont('HindSiliguri.ttf', 'nsb', 'normal')
+    probe.addFileToVFS('HindSiliguri-Bold.ttf', fontBoldB64)
+    probe.addFont('HindSiliguri-Bold.ttf', 'nsb', 'bold')
+    const doc0 = probe
+    // reuse the same layout: temporarily point 'doc' at probe
+    const realDoc = doc
+    doc = doc0
+    SECTIONS.forEach((s, i) => {
+      const before = doc.internal.getNumberOfPages() + 1
+      section(s, i + 1)
+      secPages[s.id] = before
+    })
+    doc = realDoc
+    const totalPages = doc0.internal.getNumberOfPages()
+
+    /* ── pass 2: the real document ── */
+    cover()
+    toc(secPages, totalPages)
+    SECTIONS.forEach((s, i) => section(s, i + 1))
+    footer(doc)
     doc.save(`Mall-Manager-Wiki-${PDF_VER}.pdf`)
     window.__krToast?.(bn ? '✅ PDF ডকুমেন্ট ডাউনলোড হয়েছে' : '✅ PDF document downloaded', 'ok')
   } catch (e) {
