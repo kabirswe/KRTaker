@@ -19,7 +19,7 @@ const SECTIONS = [
 প্রতিটি মডিউলের বিস্তারিত নিচের সেকশনে ধাপে ধাপে।`, en: `All Mall Manager modules at a glance — spaces & owners, billing, meter readings, collections, accounting, SMS, tenants, assets, notices, audit, offline sync and settings.
 
 Each module is covered step-by-step in the sections below.` } },
-      { id: 'login', t: { bn: 'লগইন — কারা কী দেখতে পান', en: 'Logging in — who sees what' }, tag: { bn: 'ভূমিকা', en: 'roles' },
+      { id: 'login', notes: [{ type: 'info', bn: 'প্রতিটি ভূমিকা আলাদা কী দেখে — কালেক্টর শুধু আদায়/রিডিং, হিসাবরক্ষক হিসাব, সুপার অ্যাডমিন সবকিছু।', en: 'Each role sees different things — collector only collections/readings, accountant accounting, superadmin everything.' }], t: { bn: 'লগইন — কারা কী দেখতে পান', en: 'Logging in — who sees what' }, tag: { bn: 'ভূমিকা', en: 'roles' },
         b: { bn: `মল ম্যানেজারে ৫ ধরনের ব্যবহারকারী থাকে:
 
 • সুপার অ্যাডমিন (superadmin@razzakplaza.com) — সবকিছু: সেটিংস, অনুমোদন, অডিট
@@ -55,7 +55,7 @@ Top bar:
 • 🌙 dark mode
 
 Click any shop/owner/tenant name anywhere — its detail drawer slides open.` } },
-      { id: 'dash', img: '01_dashboard.jpg', cap: { bn: 'ড্যাশবোর্ড — আদায়, বকেয়া, এলার্ট ও ব্যালেন্স', en: 'Dashboard — collections, dues, alerts & balances' }, t: { bn: 'ড্যাশবোর্ড — এক নজরে মল', en: 'Dashboard — the mall at a glance' }, tag: { bn: 'রিপোর্ট', en: 'reports' },
+      { id: 'dash', see: [{ s: 'payments', i: 'history', l: { bn: '📅 আজকের আদায় ও পেমেন্ট ইতিহাস', en: "📅 Today's collections & payment history" } }, { s: 'alerts', i: 'alert-types', l: { bn: '🔔 এলার্টের ধরন', en: '🔔 Alert types' } }], img: '01_dashboard.jpg', cap: { bn: 'ড্যাশবোর্ড — আদায়, বকেয়া, এলার্ট ও ব্যালেন্স', en: 'Dashboard — collections, dues, alerts & balances' }, t: { bn: 'ড্যাশবোর্ড — এক নজরে মল', en: 'Dashboard — the mall at a glance' }, tag: { bn: 'রিপোর্ট', en: 'reports' },
         b: { bn: `ড্যাশবোর্ডে দেখা যায়:
 
 • 💵 এই মাসের আদায় + % বিলের (of billed)
@@ -93,7 +93,7 @@ Click any shop/owner/tenant name anywhere — its detail drawer slides open.` } 
 • Service rate (৳/sqft) — the monthly service bill is based on this
 
 Space ids are TEXT (SH-001), not numbers.` } },
-      { id: 'owner-profile', t: { bn: 'মালিক প্রোফাইল (কে.আর.টেকার-স্টাইল)', en: 'Owner profiles (KRTaker-style)' }, tag: { bn: 'প্রোফাইল', en: 'profile' },
+      { id: 'owner-profile', see: [{ s: 'spaces', i: 'owner-portal', l: { bn: '🔑 মালিক পোর্টাল', en: '🔑 Owner portal' } }], t: { bn: 'মালিক প্রোফাইল (কে.আর.টেকার-স্টাইল)', en: 'Owner profiles (KRTaker-style)' }, tag: { bn: 'প্রোফাইল', en: 'profile' },
         b: { bn: `মালিক/কোম্পানি প্রোফাইলে বিস্তারিত তথ্য থাকে:
 
 • ধরন — ব্যক্তি / কর্পোরেট / কোম্পানি
@@ -113,7 +113,7 @@ Space ids are TEXT (SH-001), not numbers.` } },
 • Notes
 
 Click any owner name anywhere → full profile drawer, ✏️ edit tab inside.` } },
-      { id: 'owner-portal', t: { bn: 'মালিক পোর্টাল', en: 'Owner portal' }, tag: { bn: 'পোর্টাল', en: 'portal' },
+      { id: 'owner-portal', notes: [{ type: 'link', bn: 'https://appvaley.com/mall/#/portal — মালিক পোর্টাল লিংক', en: 'https://appvaley.com/mall/#/portal — owner portal link', url: 'https://appvaley.com/mall/#/portal' }], t: { bn: 'মালিক পোর্টাল', en: 'Owner portal' }, tag: { bn: 'পোর্টাল', en: 'portal' },
         b: { bn: `মালিকেরা আলাদা পোর্টালে লগইন করে নিজেদের দোকান, বিল ও রসিদ দেখতে পারেন।
 
 লগইন স্ক্রিনে "মালিক পোর্টাল খুলুন →" লিংকে যান (যেমন rahim@razzakplaza.com)।
@@ -123,7 +123,7 @@ Click any owner name anywhere → full profile drawer, ✏️ edit tab inside.` 
 Use the "Owner portal →" link on the login screen (e.g. rahim@razzakplaza.com).
 
 The portal shows: their spaces, monthly bills, payment receipts, dues.` } },
-      { id: 'deep-links', t: { bn: 'যেকোনো নামে ক্লিক → ড্রয়ার', en: 'Click any name → drawer' }, tag: { bn: 'নেভিগেশন', en: 'navigation' },
+      { id: 'deep-links', notes: [{ type: 'tip', bn: 'নীল রঙের নামই ক্লিকযোগ্য — হোভারে আন্ডারলাইন আসে। টেবিলের সারি ক্লিক থেকে আলাদা করতে নামে ক্লিক করুন।', en: 'Names in blue are clickable — underline appears on hover. Click the name (not the row) to open the drawer.' }], t: { bn: 'যেকোনো নামে ক্লিক → ড্রয়ার', en: 'Click any name → drawer' }, tag: { bn: 'নেভিগেশন', en: 'navigation' },
         b: { bn: `সব জায়গায় এন্টিটির নাম ক্লিকযোগ্য (নীল রঙ, হোভারে আন্ডারলাইন):
 
 • 🏪 দোকান নং → দোকানের ড্রয়ার (ড্যাশবোর্ড, বিল, ইনভয়েস, পেমেন্ট, চুক্তি…)
@@ -159,7 +159,7 @@ Legacy data may store tenant NAMES in the id column — the system resolves it a
 • ⚠️ Fine — when paid after the due date
 
 Electricity/water collections are the mall's OWN income (spec 3.3) — DESCO/WASA bills are expenses in the same ledger.` } },
-      { id: 'auto-bill', t: { bn: 'মিটার রিডিং → অটো বিল', en: 'Meter reading → auto bill' }, tag: { bn: '⚡', en: '⚡' },
+      { id: 'auto-bill', see: [{ s: 'meters', i: 'shop-info', l: { bn: '💡 দোকানের তথ্য প্যানেল', en: '💡 Space info panel' } }], t: { bn: 'মিটার রিডিং → অটো বিল', en: 'Meter reading → auto bill' }, tag: { bn: '⚡', en: '⚡' },
         b: { bn: `⚡ সাব-মিটার রিডিং ট্যাবে:
 
 1. দোকান বাছুন — সাথে সাথে 💡 এই মাসের বিল, ⚠️ বকেয়া ও 📜 ৬ মাসের ইতিহাস দেখাবে
@@ -189,7 +189,7 @@ In Settings → ⚡ Utility costing, enter the DESCO bill + total units:
 • "Use" sets the rate instantly
 
 Example: ৳45,000 ÷ 9,173 units = ৳4.91 → ৳5/unit.` } },
-      { id: 'combined-bill', img: '07_invoice_preview.jpg', cap: { bn: 'ইনভয়েস প্রিভিউ — বিল-প্যাড লেআউট', en: 'Invoice preview — bill-pad layout' }, t: { bn: 'কম্বাইন্ড বিল — বিল-প্যাড প্রিন্ট', en: 'Combined bill — bill-pad print' }, tag: { bn: '🖨️', en: '🖨️' },
+      { id: 'combined-bill', see: [{ s: 'billing', i: 'bill-templates', l: { bn: '🖨️ প্রিন্ট টেমপ্লেট ও PDF', en: '🖨️ Print templates & PDF' } }, { s: 'payments', i: 'receipts', l: { bn: '🧾 রসিদ (RCT-)', en: '🧾 Receipts (RCT-)' } }], img: '07_invoice_preview.jpg', cap: { bn: 'ইনভয়েস প্রিভিউ — বিল-প্যাড লেআউট', en: 'Invoice preview — bill-pad layout' }, t: { bn: 'কম্বাইন্ড বিল — বিল-প্যাড প্রিন্ট', en: 'Combined bill — bill-pad print' }, tag: { bn: '🖨️', en: '🖨️' },
         b: { bn: `ইনভয়েস ট্যাব → 🖨️ — কাগজের বিল-প্যাডের মতো প্রিন্ট:
 
 • লাল ব্যানার: বিদ্যুৎ/সার্ভিস চার্জ এবং অন্যান্য বিল, নং- ও মাস:
@@ -239,7 +239,7 @@ Settings → Billing lets you change the thresholds (high_dues_months / disconne
     id: 'payments', ico: '💳',
     title: { bn: 'আদায় ও পেমেন্ট', en: 'Collections & payments' },
     items: [
-      { id: 'collect-flow', imgs: ['03_collect_step1.jpg', '04_collect_pay.jpg'], cap: { bn: 'ধাপ ১: দোকান ও বকেয়া → ধাপ ২: পেমেন্ট ফর্ম', en: 'Step 1: space & dues → Step 2: payment form' }, t: { bn: 'আদায় প্রক্রিয়া (২ ধাপ)', en: 'The collect flow (2 steps)' }, tag: { bn: '💵', en: '💵' },
+      { id: 'collect-flow', see: [{ s: 'payments', i: 'history', l: { bn: '📜 পেমেন্ট ইতিহাস', en: '📜 Payment history' } }, { s: 'payments', i: 'void-waiver', l: { bn: '🔒 ভয়েড ও মওকুফ', en: '🔒 Void & waiver' } }], imgs: ['03_collect_step1.jpg', '04_collect_pay.jpg'], cap: { bn: 'ধাপ ১: দোকান ও বকেয়া → ধাপ ২: পেমেন্ট ফর্ম', en: 'Step 1: space & dues → Step 2: payment form' }, t: { bn: 'আদায় প্রক্রিয়া (২ ধাপ)', en: 'The collect flow (2 steps)' }, tag: { bn: '💵', en: '💵' },
         b: { bn: `পেমেন্ট ট্যাব → 💵 আদায় করুন:
 
 ধাপ ১: দোকান বাছুন — সাথে সাথে ⚠️ মোট বকেয়া + কোন মাসের বিল বাকি দেখায়, নিচে অপরিশোধিত বিলের তালিকা
@@ -289,7 +289,7 @@ Receipt shows: space, payer, bill line, amount, method + exact account, receipt 
 🖨️ print / ⬇ PDF — same templates as invoices (A4/A5/½+½).
 
 Rent collections use RNT-YYYYMM-####.` } },
-      { id: 'history', img: '05_payment_history.jpg', cap: { bn: 'দোকান অনুযায়ী পেমেন্ট ইতিহাস', en: 'Per-space payment history' }, t: { bn: 'পেমেন্ট ইতিহাস — দোকান অনুযায়ী', en: 'Payment history — per space' }, tag: { bn: '📜', en: '📜' },
+      { id: 'history', see: [{ s: 'start', i: 'dash', l: { bn: '📊 ড্যাশবোর্ড — আজকের আদায়', en: "📊 Dashboard — today's collections" } }], img: '05_payment_history.jpg', cap: { bn: 'দোকান অনুযায়ী পেমেন্ট ইতিহাস', en: 'Per-space payment history' }, t: { bn: 'পেমেন্ট ইতিহাস — দোকান অনুযায়ী', en: 'Payment history — per space' }, tag: { bn: '📜', en: '📜' },
         b: { bn: `পেমেন্ট ট্যাবে দোকান ড্রপ-ডাউন থেকে যেকোনো দোকান বাছলে বর্তমান টেবিলের নিচে 📜 পেমেন্টের ইতিহাস দেখায় — সব মাসের (সার্ভিস + ভাড়া) রসিদ, তারিখ, মাস, পরিশোধকারী, পদ্ধতি, পরিমাণ, স্ট্যাটাস + মোট ও নিট।
 
 একই জায়গায় 📅 আজকের আদায় ও ⚠️ আজ পর্যন্ত মোট বকেয়া কার্ডও আছে।`, en: `In the Payments tab, pick a space from the drop-down and a 📜 payment-history panel appears under the current table — all months (service + rent): receipt, date, month, payer, method, amount, status + total & net.
@@ -313,7 +313,7 @@ Payments stay "Pending" until approved; voided ones are excluded from every sum 
     id: 'accounting', ico: '📊',
     title: { bn: 'হিসাব', en: 'Accounting' },
     items: [
-      { id: 'coa', img: '06_coa.jpg', cap: { bn: 'চার্ট অব অ্যাকাউন্টস — মাল্টি-লেভেল ট্রি', en: 'Chart of Accounts — multi-level tree' }, t: { bn: 'চার্ট অব অ্যাকাউন্টস (মাল্টি-লেভেল)', en: 'Chart of Accounts (multi-level)' }, tag: { bn: '📊', en: '📊' },
+      { id: 'coa', see: [{ s: 'accounting', i: 'journal', l: { bn: '📖 জার্নাল ভাউচার', en: '📖 Journal voucher' } }, { s: 'accounting', i: 'reports', l: { bn: '📊 রিপোর্ট', en: '📊 Reports' } }], img: '06_coa.jpg', cap: { bn: 'চার্ট অব অ্যাকাউন্টস — মাল্টি-লেভেল ট্রি', en: 'Chart of Accounts — multi-level tree' }, t: { bn: 'চার্ট অব অ্যাকাউন্টস (মাল্টি-লেভেল)', en: 'Chart of Accounts (multi-level)' }, tag: { bn: '📊', en: '📊' },
         b: { bn: `হিসাব → 🏦 চার্ট অব অ্যাকাউন্টস:
 
 • গ্রুপ হেডিং (সম্পদ, দায়, মালিকানা, আয়, ব্যয়) + সাব-গ্রুপ (স্থায়ী সম্পদ ইত্যাদি) — ▸/▾ কোলাপ্স
@@ -331,7 +331,7 @@ Payments stay "Pending" until approved; voided ones are excluded from every sum 
 • Only leaf (posting) accounts accept journal entries — posting to a group is rejected, groups with children can't be deleted
 
 Codes: 1000 Assets, 1100 Fixed Assets, 1010 Cash, 1020 Bank…` } },
-      { id: 'journal', img: '08_journal.jpg', cap: { bn: 'জার্নাল ভাউচার — ডাবল এন্ট্রি', en: 'Journal voucher — double entry' }, t: { bn: 'জার্নাল ভাউচার (ডাবল এন্ট্রি)', en: 'Journal voucher (double entry)' }, tag: { bn: '📖', en: '📖' },
+      { id: 'journal', notes: [{ type: 'warn', bn: 'গ্রুপ অ্যাকাউন্টে (যেমন 1000 Assets) পোস্ট করা যাবে না — সবসময় লিফ অ্যাকাউন্ট বাছুন।', en: 'You cannot post to a group account (e.g. 1000 Assets) — always pick a leaf account.' }], img: '08_journal.jpg', cap: { bn: 'জার্নাল ভাউচার — ডাবল এন্ট্রি', en: 'Journal voucher — double entry' }, t: { bn: 'জার্নাল ভাউচার (ডাবল এন্ট্রি)', en: 'Journal voucher (double entry)' }, tag: { bn: '📖', en: '📖' },
         b: { bn: `হিসাব → 📖 জার্নাল:
 
 • ডেবিট/ক্রেডিট লাইন যোগ করুন — অ্যাকাউন্ট পিকার সার্চযোগ্য (লিফ-অনলি, শ্রেণিবিন্যাস পথসহ: "1010 — Cash in Hand · Assets ›")
@@ -373,7 +373,7 @@ Click any party name and its drawer opens.` } },
 • 📊 P&L — income (service + utility) vs expenses (incl. DESCO/WASA) — the own-income utility model
 • 🔄 Cashflow — per-account in/out/balance cards + total
 • 🔁 Reconciliation — utility income-vs-cost P/L + cash/bank verdict (✅ reconciled / ⚠️ short or over)` } },
-      { id: 'bank-import', t: { bn: 'ব্যাংক স্টেটমেন্ট ইমপোর্ট', en: 'Bank statement import' }, tag: { bn: '🏦', en: '🏦' },
+      { id: 'bank-import', notes: [{ type: 'tip', bn: 'CSV কলাম অটো-ডিটেক্ট হয় — তারিখ, বিবরণ, আউট/ইন, ব্যালেন্স। ৳, কমা ও (123) নেগেটিভ সাপোর্টেড।', en: 'CSV columns are auto-detected — date, description, out/in, balance. ৳, commas and (123) negatives supported.' }], t: { bn: 'ব্যাংক স্টেটমেন্ট ইমপোর্ট', en: 'Bank statement import' }, tag: { bn: '🏦', en: '🏦' },
         b: { bn: `রিকনসিলিয়েশন → 📥 ব্যাংক স্টেটমেন্ট ইমপোর্ট:
 
 1. অ্যাকাউন্ট বাছুন → CSV ফাইল আপলোড (তারিখ, বিবরণ, আউট/ইন, ব্যালেন্স কলাম অটো-ডিটেক্ট; ৳/কমা/ব্র্যাকেট নেগেটিভ হ্যান্ডেল করে)
@@ -575,7 +575,7 @@ Every write operation is logged — trace any issue back to its source.` } },
     id: 'offline', ico: '📴',
     title: { bn: 'অফলাইন ও সিঙ্ক', en: 'Offline & sync' },
     items: [
-      { id: 'offline-mode', t: { bn: 'অফলাইন মোড', en: 'Offline mode' }, tag: { bn: '📴', en: '📴' },
+      { id: 'offline-mode', notes: [{ type: 'tip', bn: '📡 Sync (N) ব্যাজ দেখলে N সংখ্যক অপেক্ষমাণ লেখা আছে — ইন্টারনেট ফিরলে অটো চলে যাবে।', en: '📡 Sync (N) badge means N queued writes — they flush automatically when online.' }], t: { bn: 'অফলাইন মোড', en: 'Offline mode' }, tag: { bn: '📴', en: '📴' },
         b: { bn: `ইন্টারনেট চলে গেলেও অ্যাপ চলে:
 
 • সার্ভিস ওয়ার্কার শেল ক্যাশ করে — পাতা খোলে, আগের ডেটা দেখায়
@@ -653,14 +653,87 @@ function toggleAll(sec, force) {
   open.value = { ...open.value, [k]: on }
 }
 function allOpen(sec) { return !!open.value[sec.id + ':all'] }
+const pdfBusy = ref(false)
+
+/* ── cross-article links ── */
+function goTo(sid, iid) {
+  open.value = { ...open.value, [sid + ':' + iid]: true }
+  const el = document.getElementById('wiki-' + sid + '-' + iid)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+/* ── notation callout styles ── */
+function noteStyle(type) {
+  const m = {
+    tip:  { bg: '#f0fdf4', bd: '#bbf7d0' },
+    warn: { bg: '#fef2f2', bd: '#fecaca' },
+    info: { bg: '#eff6ff', bd: '#bfdbfe' },
+    link: { bg: '#faf5ff', bd: '#e9d5ff' },
+  }[type] || { bg: '#f8fafc', bd: '#e2e8f0' }
+  return `background:${m.bg};border:1px solid ${m.bd};border-radius:8px;padding:8px 11px;font-size:12px;line-height:1.55`
+}
+
+/* ── expand everything (for print / PDF) ── */
+async function expandAll() {
+  SECTIONS.forEach(s => toggleAll(s, true))
+  await new Promise(r => setTimeout(r, 400))
+}
+
+/* ── 🖨️ print the whole wiki ── */
+async function printWiki() {
+  await expandAll()
+  await new Promise(r => setTimeout(r, 800))   // let images settle
+  window.print()
+}
+
+/* ── ⬇ complete PDF download (html2canvas + jsPDF, page-sliced) ── */
+async function downloadPdf() {
+  if (pdfBusy.value) return
+  pdfBusy.value = true
+  try {
+    await expandAll()
+    await new Promise(r => setTimeout(r, 1500)) // images
+    const root = document.querySelector('.wiki-pdf-root')
+    if (!root) throw new Error('root not found')
+    const html2canvas = (await import('html2canvas')).default
+    const { jsPDF } = await import('jspdf')
+    const canvas = await html2canvas(root, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pw = 210, ph = 297
+    const imgH = canvas.height * pw / canvas.width
+    let pos = 0, page = 0
+    while (pos < imgH) {
+      const h = Math.min(ph, imgH - pos)
+      const slice = document.createElement('canvas')
+      slice.width = canvas.width
+      slice.height = Math.max(1, Math.round(canvas.height * h / imgH))
+      slice.getContext('2d').drawImage(canvas, 0, Math.round(canvas.height * pos / imgH), canvas.width, slice.height, 0, 0, canvas.width, slice.height)
+      if (page > 0) pdf.addPage()
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, h)
+      pos += h; page++
+    }
+    pdf.save('Mall-Manager-Wiki.pdf')
+    window.__krToast?.(lang.value === 'bn' ? '✅ PDF ডাউনলোড হয়েছে' : '✅ PDF downloaded', 'ok')
+  } catch (e) {
+    console.error('wiki pdf failed:', e)
+    window.__krToast?.(lang.value === 'bn' ? 'PDF তৈরি ব্যর্থ — প্রিন্ট → Save as PDF ব্যবহার করুন' : 'PDF render failed — use Print → Save as PDF', 'err')
+    window.print()
+  } finally {
+    pdfBusy.value = false
+  }
+}
 </script>
 
 <template>
-  <div>
+  <div class="wiki-pdf-root">
     <div class="page-head">
       <div>
         <h1>📚 {{ lang === 'bn' ? 'উইকি ও সাহায্য' : 'Wiki &amp; Help' }}</h1>
         <div class="sub">{{ lang === 'bn' ? 'মল ম্যানেজমেন্ট — ধাপে ধাপে গাইড, সেটিংস, হিসাব ও এসএমএস' : 'Mall management — step-by-step guides, settings, accounting & SMS' }}</div>
+      </div>
+      <div class="wiki-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn-ghost" @click="printWiki" style="padding:8px 13px;font-size:12px">🖨️ {{ lang === 'bn' ? 'প্রিন্ট' : 'Print' }}</button>
+        <button @click="downloadPdf" :disabled="pdfBusy" style="padding:8px 13px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:12px;font-weight:800;cursor:pointer">{{ pdfBusy ? (lang === 'bn' ? '⏳ তৈরি হচ্ছে…' : '⏳ Rendering…') : '⬇ ' + (lang === 'bn' ? 'সম্পূর্ণ PDF ডাউনলোড' : 'Download complete PDF') }}</button>
       </div>
     </div>
 
@@ -684,7 +757,7 @@ function allOpen(sec) { return !!open.value[sec.id + ':all'] }
         <button class="btn-ghost" style="padding:6px 12px;font-size:12px" @click="toggleAll(sec)">{{ allOpen(sec) ? (lang === 'bn' ? 'সঙ্কুচিত' : 'Collapse') : (lang === 'bn' ? 'সব খুলুন' : 'Expand all') }}</button>
       </div>
 
-      <div v-for="it in sec.items" :key="it.id" style="border-bottom:1px solid var(--border)">
+      <div v-for="it in sec.items" :id="'wiki-' + sec.id + '-' + it.id" :key="it.id" style="border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;gap:8px;padding:12px 4px;cursor:pointer;user-select:none" @click="toggle(sec.id, it.id)">
           <span style="font-size:12px;color:var(--text-mute);width:16px;flex-shrink:0">{{ isOpen(sec.id, it.id) ? '▾' : '▸' }}</span>
           <span style="font-weight:700;font-size:13.5px;flex:1">{{ it.t[lang] }}</span>
@@ -700,8 +773,29 @@ function allOpen(sec) { return !!open.value[sec.id + ':all'] }
             </template>
             <div v-if="it.cap" style="font-size:11.5px;color:var(--text-mute);margin-top:6px;text-align:center">{{ it.cap[lang] }}</div>
           </div>
+          <div v-if="it.notes && it.notes.length" style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
+            <div v-for="(nt, ni) in it.notes" :key="ni" :style="noteStyle(nt.type)">
+              <b>{{ nt.type === 'tip' ? '💡 ' + (lang === 'bn' ? 'টিপস' : 'Tip') : nt.type === 'warn' ? '⚠️ ' + (lang === 'bn' ? 'সতর্কতা' : 'Warning') : nt.type === 'link' ? '🔗 ' + (lang === 'bn' ? 'লিংক' : 'Link') : '📌 ' + (lang === 'bn' ? 'জেনে রাখুন' : 'Note') }}</b>
+              <template v-if="nt.url"><a :href="nt.url" target="_blank" style="color:var(--primary);font-weight:700;text-decoration:underline">{{ nt[lang] }}</a></template>
+              <template v-else> {{ nt[lang] }}</template>
+            </div>
+          </div>
+          <div v-if="it.see && it.see.length" style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:11.5px;color:var(--text-mute);font-weight:800">{{ lang === 'bn' ? 'আরও দেখুন:' : 'See also:' }}</span>
+            <a v-for="sg in it.see" :key="sg.s + ':' + sg.i" @click.prevent="goTo(sg.s, sg.i)" style="cursor:pointer;padding:4px 11px;border:1px solid var(--border);border-radius:20px;font-size:11.5px;background:var(--bg-alt);color:var(--primary);font-weight:700">{{ sg.l[lang] }}</a>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<style>
+@media print {
+  .sidebar, .topbar, .app-header, .banner, .wiki-actions { display: none !important; }
+  body { background: #fff !important; }
+  .wiki-pdf-root { position: absolute; left: 0; top: 0; width: 100%; }
+  .wiki-pdf-root .panel { break-inside: avoid; }
+  .wiki-pdf-root img { max-height: 260px; object-fit: contain; }
+}
+</style>
