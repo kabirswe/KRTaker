@@ -737,7 +737,8 @@ async function downloadPdf() {
   if (pdfBusy.value) return
   pdfBusy.value = true
   try {
-    const { jsPDF, GState } = await import('jspdf')
+    const { jsPDF } = await import('jspdf')
+    const html2canvas = (await import('html2canvas')).default
     const bn = lang.value === 'bn'
     /* ── palette ── */
     const C = {
@@ -750,232 +751,169 @@ async function downloadPdf() {
     const W = 210 - L - R
     const M = { tip: C.green, warn: C.red, info: C.blue, link: C.purple }
     const NOTE_ICON = { tip: '💡', warn: '⚠️', info: '📌', link: '🔗' }
-    let doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-    /* embedded Bengali fonts (static TTFs inlined at build time) */
-    const fontB64 = hindFont.split(',')[1] || hindFont
-    const fontBoldB64 = hindBoldFont.split(',')[1] || hindBoldFont
-    doc.addFileToVFS('HindSiliguri.ttf', fontB64)
-    doc.addFont('HindSiliguri.ttf', 'nsb', 'normal')
-    doc.addFileToVFS('HindSiliguri-Bold.ttf', fontBoldB64)
-    doc.addFont('HindSiliguri-Bold.ttf', 'nsb', 'bold')
-    doc.setFont('nsb', 'normal')
-
     /* preload every wiki image once */
     const imgCache = {}
     const allImgs = [...new Set(SECTIONS.flatMap(s => s.items.flatMap(it => it.imgs || [it.img]).filter(Boolean)))]
     for (const im of allImgs) { try { imgCache[im] = await loadImage('img/wiki/' + im) } catch (e) { console.warn('img fail', im) } }
 
-    /* ── helpers ── */
-    const X = (v) => Math.round(v * 10) / 10
-    function setCol(c, a) { doc.setFillColor(c[0], c[1], c[2], a ?? 1) }
-    function setInk(c) { doc.setTextColor(c[0], c[1], c[2]) }
-    function text(t, x, y, opts) { doc.text(t, x, y, opts || {}) }
-    function wrap(t, size, width) { doc.setFontSize(size); return doc.splitTextToSize(t, width) }
-    function newPageIf(y, need) { if (y + need > 274) { doc.addPage(); return T } return y }
-    function footer(doc) {
-      const n = doc.internal.getNumberOfPages()
-      for (let p = 1; p <= n; p++) {
-        doc.setPage(p)
-        doc.setDrawColor(C.teal[0], C.teal[1], C.teal[2]); doc.setLineWidth(0.4)
-        doc.line(L, 287, 210 - R, 287)
-        doc.setFontSize(7.5); setInk(C.mut)
-        doc.text(`Mall Manager — Wiki & Help · App ${APP_VER} · Document ${PDF_VER}`, L, 291.5)
-        doc.text(`${bn ? 'পৃষ্ঠা' : 'Page'} ${p} ${bn ? 'এর' : 'of'} ${n}`, 210 - R, 291.5, { align: 'right' })
-      }
-    }
+    /* ── design tokens (NO black — teal + amber + slate) ── */
+    const TEAL = '#0F766E', TEAL_D = '#115E59', TEAL_L = '#CCFBF1', AMBER = '#F59E0B', AMBER_D = '#B45309'
+    const SLATE = '#334155', MUTED = '#64748B', BG = '#F1F5F9', BORDER = '#E2E8F0', PAPER = '#FCFDFF'
+    const NOTE_C = { tip: ['#DCFCE7', '#166534'], warn: ['#FEF2F2', '#B91C1C'], info: ['#E0F2FE', '#0369A1'], link: ['#F3E8FF', '#7E22CE'] }
+
+    const PAGE_W = 210, PAGE_H = 297, PT = 16, PR = 14, PB = 20, PL = 14
+    const MM = 96 / 25.4                                   // mm → px
+    const PH = (PAGE_H - PT - PB) * MM                     // usable page height (px)
+
+    /* @font-face with the inlined Hind Siliguri data URIs — guaranteed shaping everywhere */
+    const FONTS_CSS = `<style>
+      @font-face{font-family:'HS';src:url(${hindFont}) format('truetype');font-weight:400;font-display:block}
+      @font-face{font-family:'HS';src:url(${hindBoldFont}) format('truetype');font-weight:700;font-display:block}
+      *{box-sizing:border-box;margin:0;padding:0}
+    </style>`
+
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
     /* ── cover page ── */
-    function cover() {
-      doc.setFillColor(C.tealD[0], C.tealD[1], C.tealD[2]); doc.rect(0, 0, 210, 112, 'F')
-      doc.saveGraphicsState()
-      doc.setGState(new GState({ opacity: 0.07 }))
-      doc.setFillColor(255, 255, 255)
-      doc.circle(175, 26, 34, 'F'); doc.circle(24, 100, 26, 'F'); doc.circle(205, 78, 20, 'F'); doc.circle(8, 40, 12, 'F')
-      doc.restoreGraphicsState()
-      doc.setFillColor(C.teal[0], C.teal[1], C.teal[2]); doc.rect(0, 104, 210, 8, 'F')
-      /* monogram */
-      doc.saveGraphicsState(); doc.setGState(new GState({ opacity: 0.18 }))
-      doc.setFillColor(255, 255, 255); doc.circle(105, 34, 15, 'F')
-      doc.restoreGraphicsState()
-      doc.setFont('nsb', 'bold'); doc.setFontSize(17); setInk(C.white)
-      doc.text('MM', 105, 39.5, { align: 'center' })
-      doc.setFontSize(33); doc.text('Mall Manager', 105, 66, { align: 'center' })
-      doc.setFont('nsb', 'normal'); doc.setFontSize(14.5)
-      doc.text(bn ? 'উইকি ও সাহায্য — সম্পূর্ণ ডকুমেন্টেশন' : 'Wiki & Help — Complete Documentation', 105, 78, { align: 'center' })
-      doc.setFontSize(10); doc.setTextColor(255, 255, 255, 0.92)
-      doc.text('মল ও কমার্শিয়াল বিল্ডিং ম্যানেজমেন্ট · Shopping Mall & Commercial Building Management', 105, 89, { align: 'center' })
-      doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.6)
-      doc.line(64, 97, 146, 97)
-      /* version badges */
-      const badges = [
-        { lab: bn ? 'ডকুমেন্ট ভার্সন' : 'Document version', val: PDF_VER },
-        { lab: bn ? 'অ্যাপ ভার্সন' : 'App version', val: 'v2.2' },
-        { lab: bn ? 'তৈরি' : 'Generated', val: new Date().toLocaleDateString(bn ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) },
-      ]
-      badges.forEach((b, bi) => {
-        const bx = 14 + bi * 62, bw = 58, by = 122, bh = 17
-        setCol(C.bg); doc.roundedRect(bx, by, bw, bh, 3, 3, 'F')
-        doc.setFont('nsb', 'bold'); doc.setFontSize(6.8); setInk(C.mut)
-        doc.text(b.lab.toUpperCase(), bx + 4, by + 6.6)
-        doc.setFontSize(10.5); setInk(C.teal)
-        doc.text(b.val, bx + 4, by + 13.6)
-      })
-      /* screenshot collage 2x2 */
-      const shots = ['01_dashboard.jpg', '02_meters_panel.jpg', '04_collect_pay.jpg', '05_module_map.png']
-      const avail = shots.filter(s => imgCache[s])
-      if (avail.length) {
-        const cw = 88, ch = 30, gap = 6, sx = (210 - (cw * 2 + gap)) / 2, sy = 150
-        avail.slice(0, 4).forEach((s, si) => {
-          const c = imgCache[s]
-          const col = si % 2, row = Math.floor(si / 2)
-          const iw = cw - 2, iht = Math.min(ch - 2, c.h * iw / c.w)
-          const ix = sx + col * (cw + gap), iy = sy + row * (ch + gap)
-          setCol(C.border); doc.roundedRect(ix - 0.8, iy + 0.8, iw + 1.6, iht + 1.6, 2, 2, 'F')   // shadow
-          doc.setFillColor(255, 255, 255); doc.roundedRect(ix - 1, iy - 1, iw + 2, iht + 2, 2, 2, 'F')  // white frame
-          doc.addImage(c.data, c.data.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, iy, iw, iht)
-        })
-      }
-      /* bottom brand line */
-      doc.setDrawColor(C.border[0], C.border[1], C.border[2]); doc.setLineWidth(0.3)
-      doc.line(L, 268, 210 - R, 268)
-      doc.setFontSize(8); setInk(C.mut)
-      doc.text(bn ? 'প্রস্তুতকারক: কেআরটেকার (বিটিএসসিওএলের একটি প্রতিষ্ঠান) · মার্কেটিং: অ্যাপভ্যালি' : 'Prepared by: KRTaker (A concern of BITSCOL) · Marketed by Appvaley', 105, 275, { align: 'center' })
-      doc.addPage()
-    }
+    const shots = ['01_dashboard.jpg', '02_meters_panel.jpg', '04_collect_pay.jpg', '05_module_map.png'].filter(s => imgCache[s])
+    const coll = shots.slice(0, 4).map(s => {
+      const c = imgCache[s]
+      const w = 84, h = Math.min(58, Math.round(c.h * w / c.w))
+      return `<div style="width:${w}mm;height:${h}mm;flex-shrink:0;padding:2mm;background:#fff;border-radius:2.5mm;box-shadow:0 1mm 3mm rgba(15,118,110,.18)"><img src="${c.data}" style="width:100%;height:100%;object-fit:cover;border-radius:1.5mm" /></div>`
+    }).join('')
+    const cover = `<div class="pg" data-t="cover">
+      <div style="height:118mm;background:linear-gradient(165deg,${TEAL} 0%,${TEAL_D} 100%);padding:14mm 16mm;position:relative;overflow:hidden">
+        <div style="position:absolute;right:-18mm;top:-20mm;width:70mm;height:70mm;border-radius:50%;background:rgba(255,255,255,.08)"></div>
+        <div style="position:absolute;right:26mm;top:30mm;width:26mm;height:26mm;border-radius:50%;background:rgba(255,255,255,.07)"></div>
+        <div style="position:absolute;left:-12mm;bottom:-16mm;width:50mm;height:50mm;border-radius:50%;background:rgba(255,255,255,.06)"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;position:relative">
+          <div style="width:18mm;height:18mm;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9mm;letter-spacing:1px">MM</div>
+          <div style="color:#fff;font-weight:700;font-size:11.5mm;margin-top:6mm;line-height:1.2">Mall Manager</div>
+          <div style="color:#fff;font-size:5.4mm;margin-top:3mm;font-weight:700">${esc(bn ? 'উইকি ও সাহায্য — সম্পূর্ণ ডকুমেন্টেশন' : 'Wiki & Help — Complete Documentation')}</div>
+          <div style="color:rgba(255,255,255,.88);font-size:3.4mm;margin-top:2.5mm">${esc(bn ? 'মল ও কমার্শিয়াল বিল্ডিং ম্যানেজমেন্ট · Shopping Mall & Commercial Building Management' : 'Shopping Mall & Commercial Building Management')}</div>
+          <div style="width:34mm;height:1mm;background:${AMBER};border-radius:1mm;margin-top:5mm"></div>
+        </div>
+      </div>
+      <div style="padding:8mm 16mm 0">
+        <div style="display:flex;gap:5mm;justify-content:center">
+          ${[['ডকুমেন্ট ভার্সন', 'Document version', PDF_VER], ['অ্যাপ ভার্সন', 'App version', 'v2.2'], ['তৈরি', 'Generated', new Date().toLocaleDateString(bn ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })]].map(b => `
+            <div style="flex:1;max-width:58mm;background:${BG};border:0.4mm solid ${BORDER};border-top:1.2mm solid ${TEAL};border-radius:2mm;padding:3mm 4mm">
+              <div style="font-size:2.8mm;color:${MUTED};font-weight:700;letter-spacing:.4px">${esc(b[bn ? 0 : 1]).toUpperCase()}</div>
+              <div style="font-size:4.6mm;color:${TEAL};font-weight:700;margin-top:1.5mm">${esc(b[2])}</div>
+            </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:4mm;justify-content:center;margin-top:7mm">${coll}</div>
+        <div style="border-top:0.4mm solid ${BORDER};margin-top:8mm;padding-top:3.5mm;text-align:center;color:${MUTED};font-size:3mm">${esc(bn ? 'প্রস্তুতকারক: কেআরটেকার (বিটিএসসিওএলের একটি প্রতিষ্ঠান) · মার্কেটিং: অ্যাপভ্যালি' : 'Prepared by: KRTaker (A concern of BITSCOL) · Marketed by Appvaley')}</div>
+      </div>
+    </div>`
 
-    /* ── table of contents (dotted leaders + page numbers) ── */
-    function toc(secPages, total) {
-      doc.setFont('nsb', 'bold'); doc.setFontSize(17); setInk(C.navy)
-      doc.text(bn ? 'সূচিপত্র' : 'Table of Contents', L, T + 2)
-      setCol(C.teal); doc.roundedRect(L, T + 5, 30, 1.6, 0.8, 0.8, 'F')
-      let y = T + 16
-      doc.setFont('nsb', 'normal')
-      SECTIONS.forEach((s, i) => {
-        if (y > 272) { doc.addPage(); y = T }
-        const num = i + 1
-        setCol(C.teal); doc.roundedRect(L, y - 4.2, 7, 7, 3.5, 3.5, 'F')
-        doc.setFont('nsb', 'bold'); doc.setFontSize(9); setInk(C.white)
-        doc.text(String(num), L + 3.5, y - 0.2, { align: 'center' })
-        doc.setFontSize(11); setInk(C.ink)
-        doc.text(`${s.ico}  ${s.title[bn ? 'bn' : 'en']}`, L + 12, y)
-        const pageNo = (secPages[s.id] ?? 0) + 2   // + cover + toc
-        doc.setFontSize(8.5); setInk(C.mut)
-        const pw2 = doc.getTextWidth(String(pageNo))
-        doc.setDrawColor(C.border[0], C.border[1], C.border[2]); doc.setLineWidth(0.25)
-        doc.setLineDashPattern([0.8, 0.9], 0)
-        doc.line(L + 78, y - 1.1, 210 - R - pw2 - 2, y - 1.1)
-        doc.setLineDashPattern([], 0)
-        doc.setFont('nsb', 'bold'); setInk(C.teal)
-        doc.text(String(pageNo), 210 - R, y, { align: 'right' })
-        doc.setFont('nsb', 'normal'); doc.setFontSize(8); setInk(C.mut)
-        doc.text(`— ${s.items.length} ${bn ? 'টি নিবন্ধ' : 'articles'}`, L + 78, y)
-        y += 10.5
-      })
-      doc.addPage()
+    /* ── holder + pagination ── */
+    const holder = document.createElement('div')
+    holder.style.cssText = `position:fixed;left:-99999px;top:0;width:${PAGE_W}mm;background:${PAPER};font-family:HS,'Hind Siliguri','Noto Sans Bengali',sans-serif`
+    holder.innerHTML = FONTS_CSS
+    document.body.appendChild(holder)
+    let page = null
+    const pages = []
+    function newPage() {
+      page = document.createElement('div')
+      page.className = 'pg'
+      page.style.cssText = `width:${PAGE_W}mm;height:${PAGE_H}mm;background:${PAPER};padding:${PT}mm ${PR}mm ${PB}mm ${PL}mm;position:relative;overflow:hidden;page-break-after:always`
+      holder.appendChild(page)
+      pages.push(page)
+      return page
     }
+    newPage()
+    const used = { px: 0 }
+    function addBlock(el) {
+      page.appendChild(el)
+      used.px += el.offsetHeight + 8
+      if (used.px > PH) { newPage(); page.appendChild(el); used.px = el.offsetHeight + 8 }
+    }
+    function addPageEl(html) { const d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild }
 
-    /* ── one section (heading bar + articles) ── */
-    function section(sec, secNum) {
-      doc.addPage()
-      let y = T
-      /* heading bar */
-      setCol(C.teal); doc.roundedRect(L - 4, y - 7.5, W + 8, 13, 3, 3, 'F')
-      doc.setFont('nsb', 'bold'); doc.setFontSize(13.5); setInk(C.white)
-      doc.text(`${sec.ico}  ${secNum}. ${sec.title[bn ? 'bn' : 'en']}`, L, y + 0.5)
-      doc.setFont('nsb', 'normal'); doc.setFontSize(8); setInk(C.white)
-      doc.text(`${sec.items.length} ${bn ? 'টি নিবন্ধ' : 'articles'}`, 210 - R, y + 0.5, { align: 'right' })
-      y += 11
-      doc.setDrawColor(C.border[0], C.border[1], C.border[2]); doc.setLineWidth(0.25)
-      doc.line(L, y, 210 - R, y)
-      y += 4
+    /* ── TOC ── */
+    const tocRows = []
+    /* ── sections ── */
+    const secStart = {}                                   // section id -> page index
+    SECTIONS.forEach((sec, si) => {
+      secStart[sec.id] = pages.length
+      const secHead = document.createElement('div')
+      secHead.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,${TEAL},${TEAL_D});border-radius:2.5mm;padding:3.2mm 5mm;color:#fff">
+        <div style="font-weight:700;font-size:5.2mm">${esc(sec.ico)} ${si + 1}. ${esc(sec.title[bn ? 'bn' : 'en'])}</div>
+        <div style="font-size:2.9mm;background:rgba(255,255,255,.18);border-radius:4mm;padding:1.2mm 3.5mm;font-weight:700">${sec.items.length} ${bn ? 'টি নিবন্ধ' : 'articles'}</div>
+      </div>`
+      addBlock(secHead.firstElementChild)
       sec.items.forEach((it, ix) => {
-        const itemNo = `${secNum}.${ix + 1}`
-        const bodyLines = wrap(it.b[bn ? 'bn' : 'en'], 9.5, W - 4)
-        const notes = (it.notes || []).map(nt => ({ type: nt.type, lines: wrap(`${NOTE_ICON[nt.type] || '•'} ${nt[bn ? 'bn' : 'en']}`, 8.6, W - 12) }))
-        const seeL = it.see && it.see.length ? [`${bn ? 'আরও দেখুন: ' : 'See also: '}${it.see.map(sg => sg.l[bn ? 'bn' : 'en']).join('  ·  ')}`] : []
-        const imgs = (it.imgs || (it.img ? [it.img] : [])).filter(im => imgCache[im])
-        let need = 12 + bodyLines.length * 4.6 + notes.reduce((a, n) => a + n.lines.length * 4 + 2.4, 0) + seeL.length * 4.8 + imgs.length * 14
-        for (const im of imgs) { const c = imgCache[im]; need += Math.min(88, c.h * 168 / c.w) }
-        y = newPageIf(y, need + 6)
-        /* item title row */
-        setCol(C.teal); doc.roundedRect(L, y - 3.4, 2.4, 4.4, 1, 1, 'F')
-        doc.setFont('nsb', 'bold'); doc.setFontSize(11.2); setInk(C.navy)
-        doc.text(`${itemNo}  ${it.t[bn ? 'bn' : 'en']}`, L + 5, y + 0.2)
-        if (it.tag) {
-          const tg = it.tag[bn ? 'bn' : 'en']
-          const tw = doc.getTextWidth(tg)
-          setCol(C.bg); doc.roundedRect(210 - R - tw - 7, y - 4.2, tw + 7, 6.6, 3.3, 3.3, 'F')
-          doc.setFont('nsb', 'normal'); doc.setFontSize(7.2); setInk(C.teal)
-          doc.text(tg, 210 - R - tw - 3.5, y + 0.4)
-        }
-        y += 5.6
-        doc.setFont('nsb', 'normal'); doc.setFontSize(9.5); setInk(C.ink)
-        for (const ln of bodyLines) { doc.text(ln, L + 2, y); y += 4.6 }
-        /* notes callouts */
-        for (const n of notes) {
-          y += 0.8
-          const col = M[n.type] || C.mut
-          const h = n.lines.length * 4 + 3.4
-          y = newPageIf(y, h + 2)
-          setCol(col, 0.07); doc.roundedRect(L + 2, y - 2.6, W - 4, h, 2, 2, 'F')
-          setCol(col); doc.roundedRect(L + 2, y - 2.6, 1.5, h, 0.6, 0.6, 'F')
-          doc.setFontSize(8.6); setInk(col)
-          for (const ln of n.lines) { doc.text(ln, L + 7, y); y += 4 }
-          y += 2.2
-        }
-        /* see-also */
-        if (seeL.length) {
-          doc.setFont('nsb', 'bold'); doc.setFontSize(8.8); setInk(C.teal)
-          doc.text(seeL[0], L + 2, y); y += 5
-        }
-        /* images */
-        for (const im of imgs) {
+        const itemNo = `${si + 1}.${ix + 1}`
+        const imgs = (it.imgs || (it.img ? [it.img] : [])).filter(im => imgCache[im]).map(im => {
           const c = imgCache[im]
-          const iw = Math.min(168, W - 8)
-          const iht = Math.min(88, c.h * iw / c.w)
-          if (y + iht + 12 > 274) { doc.addPage(); y = T }
-          const ix = L + (W - iw) / 2
-          setCol(C.border); doc.roundedRect(ix + 1, y + 1, iw, iht, 2, 2, 'F')
-          doc.setFillColor(255, 255, 255); doc.roundedRect(ix - 0.8, y - 0.8, iw + 1.6, iht + 1.6, 2, 2, 'F')
-          doc.addImage(c.data, c.data.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, y, iw, iht)
-          y += iht + 2.6
-          if (it.cap) {
-            doc.setFont('nsb', 'normal'); doc.setFontSize(8); setInk(C.mut)
-            doc.text(doc.splitTextToSize(it.cap[bn ? 'bn' : 'en'], iw)[0], ix + iw / 2, y, { align: 'center' })
-            y += 4.2
-          } else y += 2.4
-        }
-        y += 2.6
-        setCol(C.border, 0.6); doc.roundedRect(L, y, W, 0.3, 0.15, 0.15, 'F')
-        y += 5
+          const w = Math.min(150, 182), h = Math.min(92, Math.round(c.h * w / c.w))
+          return `<div style="text-align:center;margin-top:3mm">
+            <div style="display:inline-block;padding:1.5mm;background:#fff;border-radius:2mm;box-shadow:0 0.8mm 2.5mm rgba(15,118,110,.15);border:0.3mm solid ${BORDER}"><img src="${c.data}" style="width:${w}mm;height:${h}mm;object-fit:cover;border-radius:1.2mm" /></div>
+            ${it.cap ? `<div style="font-size:2.9mm;color:${MUTED};margin-top:1.5mm">${esc(it.cap[bn ? 'bn' : 'en'])}</div>` : ''}
+          </div>`
+        }).join('')
+        const notes = (it.notes || []).map(n => {
+          const [bg, fg] = NOTE_C[n.type] || NOTE_C.info
+          const ico = { tip: '💡', warn: '⚠️', info: '📌', link: '🔗' }[n.type] || '•'
+          const body = n.url ? `<a href="${esc(n.url)}" style="color:${fg};font-weight:700;text-decoration:underline">${esc(n[bn ? 'bn' : 'en'])}</a>` : esc(n[bn ? 'bn' : 'en'])
+          return `<div style="display:flex;gap:2mm;background:${bg};border-left:1.6mm solid ${fg};border-radius:1.5mm;padding:2.4mm 3.5mm;font-size:3.2mm;color:${fg};line-height:1.55;margin-top:2.2mm"><span>${ico}</span><div>${body}</div></div>`
+        }).join('')
+        const see = it.see && it.see.length ? `<div style="margin-top:2.4mm;font-size:3.2mm;color:${TEAL};font-weight:700">${bn ? 'আরও দেখুন: ' : 'See also: '}${esc(it.see.map(sg => sg.l[bn ? 'bn' : 'en']).join('  ·  '))}</div>` : ''
+        const tag = it.tag ? `<span style="font-size:2.7mm;color:${TEAL};background:${TEAL_L};border-radius:4mm;padding:0.8mm 3mm;font-weight:700;margin-left:2.5mm">${esc(it.tag[bn ? 'bn' : 'en'])}</span>` : ''
+        const art = document.createElement('div')
+        art.innerHTML = `<div style="margin-top:4mm;background:${BG};border-radius:2mm;padding:3.6mm 4.5mm;border-left:1.2mm solid ${AMBER}">
+          <div style="display:flex;align-items:center;font-weight:700;font-size:4.2mm;color:${TEAL_D}"><span style="color:${AMBER_D}">${itemNo}</span><span style="margin-left:2.5mm">${esc(it.t[bn ? 'bn' : 'en'])}</span>${tag}</div>
+          <div style="margin-top:2.2mm;font-size:3.5mm;color:${SLATE};line-height:1.7;white-space:pre-wrap">${esc(it.b[bn ? 'bn' : 'en'])}</div>
+          ${notes}${see}${imgs}
+        </div>`
+        addBlock(art.firstElementChild)
       })
-    }
-
-    /* ── pass 1: layout to learn section start pages ── */
-    let secPages = {}
-    let probe = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-    probe.addFileToVFS('HindSiliguri.ttf', fontB64)
-    probe.addFont('HindSiliguri.ttf', 'nsb', 'normal')
-    probe.addFileToVFS('HindSiliguri-Bold.ttf', fontBoldB64)
-    probe.addFont('HindSiliguri-Bold.ttf', 'nsb', 'bold')
-    const doc0 = probe
-    // reuse the same layout: temporarily point 'doc' at probe
-    const realDoc = doc
-    doc = doc0
-    SECTIONS.forEach((s, i) => {
-      const before = doc.internal.getNumberOfPages() + 1
-      section(s, i + 1)
-      secPages[s.id] = before
+      tocRows.push(`<div style="display:flex;align-items:center;gap:2.5mm;margin-top:2.2mm">
+        <span style="width:6mm;height:6mm;border-radius:3mm;background:${AMBER};color:#fff;font-weight:700;font-size:3.2mm;display:flex;align-items:center;justify-content:center">${si + 1}</span>
+        <span style="font-weight:700;font-size:4mm;color:${SLATE}">${esc(sec.ico)} ${esc(sec.title[bn ? 'bn' : 'en'])}</span>
+        <span style="flex:1;border-bottom:0.5mm dotted ${BORDER};transform:translateY(-1mm)"></span>
+        <span style="font-weight:700;font-size:4mm;color:${TEAL}">${secStart[sec.id] + 2}</span>
+      </div>`)
     })
-    doc = realDoc
-    const totalPages = doc0.internal.getNumberOfPages()
 
-    /* ── pass 2: the real document ── */
-    cover()
-    toc(secPages, totalPages)
-    SECTIONS.forEach((s, i) => section(s, i + 1))
-    footer(doc)
-    doc.save(`Mall-Manager-Wiki-${PDF_VER}.pdf`)
+    /* ── insert TOC page after the cover ── */
+    const tocPage = newPage()
+    tocPage.style.paddingTop = `${PT + 4}mm`
+    tocPage.innerHTML = `<div style="font-weight:700;font-size:6.5mm;color:${TEAL_D}">${bn ? 'সূচিপত্র' : 'Table of Contents'}</div>
+      <div style="width:16mm;height:1mm;background:${AMBER};border-radius:1mm;margin-top:2mm"></div>
+      <div style="margin-top:5mm">${tocRows.join('')}</div>
+      <div style="margin-top:8mm;font-size:2.9mm;color:${MUTED}">${bn ? 'এই ডকুমেন্টে মল ম্যানেজারের ১২টি সেকশন ও ৪১টি নিবন্ধ রয়েছে — স্ক্রিনশট ও গ্রাফিক্সসহ।' : 'This document covers all 12 sections and 41 articles — with screenshots & graphics.'}</div>`
+    /* move the toc page right after the cover (cover is inserted before it next) */
+    holder.insertBefore(tocPage, pages[0])
+
+    /* ── footers (version + page numbers) on every page (DOM order!) ── */
+    const allPg = holder.querySelectorAll('.pg')
+    const N = allPg.length
+    allPg.forEach((p, i) => {
+      const f = document.createElement('div')
+      f.style.cssText = `position:absolute;left:${PL}mm;right:${PR}mm;bottom:6mm;display:flex;justify-content:space-between;align-items:center;border-top:0.4mm solid ${TEAL};padding-top:2mm`
+      f.innerHTML = `<div style="font-size:2.7mm;color:${MUTED}">Mall Manager — Wiki &amp; Help · App ${APP_VER} · Document ${PDF_VER}</div>
+        <div style="font-size:2.7mm;color:${TEAL};font-weight:700">${bn ? 'পৃষ্ঠা' : 'Page'} ${i + 1} ${bn ? 'এর' : 'of'} ${N}</div>`
+      p.appendChild(f)
+    })
+
+    /* cover first (insert at the very beginning, before the toc page) */
+    holder.insertBefore(addPageEl(cover), holder.firstChild.nextSibling)
+    await document.fonts.ready
+    await new Promise(r => setTimeout(r, 1200))
+
+    /* ── render each page with the browser (perfect Bengali shaping) → PDF ── */
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+    const all = holder.querySelectorAll('.pg')
+    for (let i = 0; i < all.length; i++) {
+      const cv = await html2canvas(all[i], { scale: 2, backgroundColor: PAPER, useCORS: true, logging: false })
+      const img = cv.toDataURL('image/jpeg', 0.92)
+      if (i > 0) pdf.addPage()
+      pdf.addImage(img, 'JPEG', 0, 0, PAGE_W, PAGE_H)
+    }
+    document.body.removeChild(holder)
+    pdf.save(`Mall-Manager-Wiki-${PDF_VER}.pdf`)
     window.__krToast?.(bn ? '✅ PDF ডকুমেন্ট ডাউনলোড হয়েছে' : '✅ PDF document downloaded', 'ok')
   } catch (e) {
     console.error('wiki pdf failed:', e)
