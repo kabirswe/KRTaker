@@ -21,7 +21,7 @@ def page(inner):
 
 def footer():
     return f'''<div style="position:absolute;left:14mm;right:14mm;bottom:7mm;display:flex;justify-content:space-between;border-top:0.5mm solid {TEAL};padding-top:2.2mm;font-size:2.8mm;color:{MUT}">
-      <div>Mall Manager — Brochure · ব্রোশিওর · v1.0</div><div style="color:{TEAL};font-weight:700">প্রস্তুতকারক: কেআরটেকার (বিটিএসসিওএলের একটি প্রতিষ্ঠান) · মার্কেটিং: অ্যাপভ্যালি</div></div>'''
+      <div>Mall Manager — Brochure · ব্রোশিওর · v1.0</div><div style="color:{TEAL};font-weight:700">প্রস্তুতকারক: KRTaker (BITSCOL এর একটি প্রতিষ্ঠান) · মার্কেটিং: Appvaley</div></div>'''
 
 def h(n, bn, en, sub=None):
     s = f'''<div style="display:flex;align-items:center;gap:3mm"><span style="width:7mm;height:7mm;border-radius:3.5mm;background:{AMBER};color:#fff;font-weight:700;font-size:3.6mm;display:flex;align-items:center;justify-content:center">{n}</span>
@@ -312,7 +312,7 @@ PAGES.append(page(f'''
 
 # ── 14 contact ──
 CONTACT_BOXES = [
-    ('📞 যোগাযোগ / Contact', 'বিটিএসসিওএল — বেলাল আহমেদ\nbelal000bd@gmail.com · +88017*****769'),
+    ('📞 যোগাযোগ / Contact', 'BITSCOL — বেলাল আহমেদ\nbelal000bd@gmail.com · +88017*****769'),
     ('🌐 ওয়েবসাইট / Website', 'mall.krtaker.com — পণ্য, দাম ও ব্রোশিওর\nappvaley.com — মার্কেটিং পার্টনার'),
     ('💬 হোয়াটসঅ্যাপ / WhatsApp', 'ডেমো ও কোটেশনের জন্য সরাসরি মেসেজ করুন\nইনবক্সে নাম + মোবাইল পাঠালেই ফিরে কল'),
     ('📚 উইকি ও সাহায্য / Wiki & Help', 'অ্যাপের ভেতরে বাংলা + ইংরেজি উইকি\n৪১টি নিবন্ধ — ধাপে ধাপে, স্ক্রিনশটসহ'),
@@ -332,7 +332,7 @@ PAGES.append(page(f'''
   </div>
   <div style="margin-top:6mm;text-align:center;font-size:3mm;color:{MUT};line-height:1.8">
     মল ম্যানেজার v2.2 · মল ও কমার্শিয়াল এডিশন / Mall & Commercial Edition<br/>
-    © ২০২৬ কেআরটেকার (বিটিএসসিওএলের একটি প্রতিষ্ঠান) — মার্কেটিং: অ্যাপভ্যালি · Prepared by KRTaker (A concern of BITSCOL) · Marketed by Appvaley
+    © ২০২৬ KRTaker (BITSCOL এর একটি প্রতিষ্ঠান) — মার্কেটিং: Appvaley · Prepared by KRTaker (A concern of BITSCOL) · Marketed by Appvaley
   </div>
 </div>
 {footer()}

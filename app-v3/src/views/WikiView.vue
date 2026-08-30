@@ -803,7 +803,7 @@ async function downloadPdf() {
             </div>`).join('')}
         </div>
         <div style="display:flex;gap:4mm;justify-content:center;margin-top:7mm">${coll}</div>
-        <div style="border-top:0.4mm solid ${BORDER};margin-top:8mm;padding-top:3.5mm;text-align:center;color:${MUTED};font-size:3mm">${esc(bn ? 'প্রস্তুতকারক: কেআরটেকার (বিটিএসসিওএলের একটি প্রতিষ্ঠান) · মার্কেটিং: অ্যাপভ্যালি' : 'Prepared by: KRTaker (A concern of BITSCOL) · Marketed by Appvaley')}</div>
+        <div style="border-top:0.4mm solid ${BORDER};margin-top:8mm;padding-top:3.5mm;text-align:center;color:${MUTED};font-size:3mm">${esc(bn ? 'প্রস্তুতকারক: KRTaker (BITSCOL এর একটি প্রতিষ্ঠান) · মার্কেটিং: Appvaley' : 'Prepared by: KRTaker (A concern of BITSCOL) · Marketed by Appvaley')}</div>
       </div>
     </div>`
 
