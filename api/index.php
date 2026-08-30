@@ -15607,7 +15607,17 @@ case 'mall': {
                   ]]);
     }
 
-        /* space-bill-info — current month detail + history + dues for a space */
+        if ($a === 'shop-unpaid-bills') {
+        $shop = trim($body['shop'] ?? '');
+        if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
+        $st = $pdo->prepare("SELECT b.*, COALESCE(s.no, b.shop) AS shop_no, s.floor AS shop_floor,
+                        s.owner_name, s.owner_mobile FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop
+                     WHERE b.shop=? AND b.status != 'Paid' ORDER BY b.month DESC, b.kind");
+        $st->execute([$shop]);
+        json_out(['ok' => true, 'bills' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    }
+
+    /* space-bill-info — current month detail + history + dues for a space */
     if ($a === 'space-bill-info') {
         $shop = trim($body['shop'] ?? '');
         $month = trim($body['month'] ?? date('Y-m'));

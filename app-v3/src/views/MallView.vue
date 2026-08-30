@@ -332,8 +332,14 @@ async function openPayQuick() {
   refreshQuickBills()
   loadQuickInfo()
 }
-function refreshQuickBills() {
-  payQuickBills.value = payQuick.value ? (bills.value || []).filter(b => b.shop === payQuick.value && b.status !== 'Paid') : []
+async function refreshQuickBills() {
+  payQuickBills.value = []
+  if (!payQuick.value) return
+  try {
+    const r = await apiCall('mall', { action: 'shop-unpaid-bills', shop: payQuick.value })
+    if (r.ok && r.bills) { payQuickBills.value = r.bills; return }
+  } catch (e) { /* fall through */ }
+  payQuickBills.value = (bills.value || []).filter(b => b.shop === payQuick.value && b.status !== 'Paid')
 }
 function startCollectFromQuick(b) { payQuick.value = null; payQuickBills.value = []; openPay(b) }
 async function voidPayment(p) {
@@ -2826,7 +2832,7 @@ onBeforeUnmount(() => {
             <div v-if="payQuickBills.length" style="margin-top:14px">
               <div style="font-size:12px;color:var(--text-mute);font-weight:800;margin-bottom:6px">{{ t('Unpaid bills') }}</div>
               <div v-for="b in payQuickBills" :key="b.id" @click="startCollectFromQuick(b)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;background:var(--bg-alt)">
-                <span style="font-size:12.5px;font-weight:700">{{ b.kind === 'service' ? '🧾 ' + t('Service') : b.kind === 'elec' ? '⚡ ' + t('Electricity') : '💧 ' + t('Water') }}</span>
+                <span style="font-size:12.5px;font-weight:700">{{ b.kind === 'service' ? '🧾 ' + t('Service') : b.kind === 'elec' ? '⚡ ' + t('Electricity') : '💧 ' + t('Water') }} <small style="color:var(--text-mute);font-weight:600">· {{ monthLabel(b.month) }}</small></span>
                 <span style="font-size:12.5px;font-weight:800">{{ money(Number(b.amount) + Number(b.fine || 0)) }}</span>
               </div>
             </div>

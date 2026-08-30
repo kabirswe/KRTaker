@@ -12,6 +12,13 @@ const SECTIONS = [
     id: 'start', ico: '🚀',
     title: { bn: 'শুরু করা', en: 'Getting started' },
     items: [
+      { id: 'overview', img: '05_module_map.png', cap: { bn: 'মল ম্যানেজার — মডিউল মানচিত্র (১৩টি মডিউল)', en: 'Mall Manager — module map (13 modules)' },
+        t: { bn: 'সিস্টেম ওভারভিউ — মডিউল মানচিত্র', en: 'System overview — module map' }, tag: { bn: 'ম্যাপ', en: 'map' },
+        b: { bn: `মল ম্যানেজারের সব মডিউল এক নজরে — দোকান ও মালিক, বিলিং, মিটার রিডিং, আদায়, হিসাব, এসএমএস, ভাড়াটিয়া, সম্পদ, নোটিশ, অডিট, অফলাইন সিঙ্ক ও সেটিংস।
+
+প্রতিটি মডিউলের বিস্তারিত নিচের সেকশনে ধাপে ধাপে।`, en: `All Mall Manager modules at a glance — spaces & owners, billing, meter readings, collections, accounting, SMS, tenants, assets, notices, audit, offline sync and settings.
+
+Each module is covered step-by-step in the sections below.` } },
       { id: 'login', t: { bn: 'লগইন — কারা কী দেখতে পান', en: 'Logging in — who sees what' }, tag: { bn: 'ভূমিকা', en: 'roles' },
         b: { bn: `মল ম্যানেজারে ৫ ধরনের ব্যবহারকারী থাকে:
 
@@ -48,7 +55,7 @@ Top bar:
 • 🌙 dark mode
 
 Click any shop/owner/tenant name anywhere — its detail drawer slides open.` } },
-      { id: 'dash', t: { bn: 'ড্যাশবোর্ড — এক নজরে মল', en: 'Dashboard — the mall at a glance' }, tag: { bn: 'রিপোর্ট', en: 'reports' },
+      { id: 'dash', img: '01_dashboard.jpg', cap: { bn: 'ড্যাশবোর্ড — আদায়, বকেয়া, এলার্ট ও ব্যালেন্স', en: 'Dashboard — collections, dues, alerts & balances' }, t: { bn: 'ড্যাশবোর্ড — এক নজরে মল', en: 'Dashboard — the mall at a glance' }, tag: { bn: 'রিপোর্ট', en: 'reports' },
         b: { bn: `ড্যাশবোর্ডে দেখা যায়:
 
 • 💵 এই মাসের আদায় + % বিলের (of billed)
@@ -136,7 +143,7 @@ Legacy data may store tenant NAMES in the id column — the system resolves it a
     id: 'billing', ico: '🧾',
     title: { bn: 'বিলিং', en: 'Billing' },
     items: [
-      { id: 'bill-model', t: { bn: 'বিলের মডেল — সার্ভিস + ইউটিলিটি', en: 'Bill model — service + utilities' }, tag: { bn: 'মডেল', en: 'model' },
+      { id: 'bill-model', img: '04_bill_form.jpg', cap: { bn: 'বিল ফর্ম — সার্ভিস, বিদ্যুৎ ও পানি', en: 'Bill form — service, electricity & water' }, t: { bn: 'বিলের মডেল — সার্ভিস + ইউটিলিটি', en: 'Bill model — service + utilities' }, tag: { bn: 'মডেল', en: 'model' },
         b: { bn: `প্রতি দোকানের মাসিক বিলে ৩টি খাত থাকতে পারে:
 
 • 🧾 সার্ভিস চার্জ — দোকানের আয়তন (বর্গফুট) × সার্ভিস রেট
@@ -182,7 +189,7 @@ In Settings → ⚡ Utility costing, enter the DESCO bill + total units:
 • "Use" sets the rate instantly
 
 Example: ৳45,000 ÷ 9,173 units = ৳4.91 → ৳5/unit.` } },
-      { id: 'combined-bill', t: { bn: 'কম্বাইন্ড বিল — বিল-প্যাড প্রিন্ট', en: 'Combined bill — bill-pad print' }, tag: { bn: '🖨️', en: '🖨️' },
+      { id: 'combined-bill', img: '07_invoice_preview.jpg', cap: { bn: 'ইনভয়েস প্রিভিউ — বিল-প্যাড লেআউট', en: 'Invoice preview — bill-pad layout' }, t: { bn: 'কম্বাইন্ড বিল — বিল-প্যাড প্রিন্ট', en: 'Combined bill — bill-pad print' }, tag: { bn: '🖨️', en: '🖨️' },
         b: { bn: `ইনভয়েস ট্যাব → 🖨️ — কাগজের বিল-প্যাডের মতো প্রিন্ট:
 
 • লাল ব্যানার: বিদ্যুৎ/সার্ভিস চার্জ এবং অন্যান্য বিল, নং- ও মাস:
@@ -232,7 +239,7 @@ Settings → Billing lets you change the thresholds (high_dues_months / disconne
     id: 'payments', ico: '💳',
     title: { bn: 'আদায় ও পেমেন্ট', en: 'Collections & payments' },
     items: [
-      { id: 'collect-flow', t: { bn: 'আদায় প্রক্রিয়া (২ ধাপ)', en: 'The collect flow (2 steps)' }, tag: { bn: '💵', en: '💵' },
+      { id: 'collect-flow', imgs: ['03_collect_step1.jpg', '04_collect_pay.jpg'], cap: { bn: 'ধাপ ১: দোকান ও বকেয়া → ধাপ ২: পেমেন্ট ফর্ম', en: 'Step 1: space & dues → Step 2: payment form' }, t: { bn: 'আদায় প্রক্রিয়া (২ ধাপ)', en: 'The collect flow (2 steps)' }, tag: { bn: '💵', en: '💵' },
         b: { bn: `পেমেন্ট ট্যাব → 💵 আদায় করুন:
 
 ধাপ ১: দোকান বাছুন — সাথে সাথে ⚠️ মোট বকেয়া + কোন মাসের বিল বাকি দেখায়, নিচে অপরিশোধিত বিলের তালিকা
@@ -268,7 +275,7 @@ Step 2: click a bill → advanced payment form:
 • 📱 Nagad → 1032 Nagad
 
 Each payment row stores method_acct — receipts show "bank · Brac Bank Account". The double-entry journal posts to the exact account.` } },
-      { id: 'receipts', t: { bn: 'রসিদ (RCT-)', en: 'Receipts (RCT-)' }, tag: { bn: '🧾', en: '🧾' },
+      { id: 'receipts', img: '02_invoices.jpg', cap: { bn: 'ইনভয়েস ও রসিদ তালিকা', en: 'Invoices & receipts list' }, t: { bn: 'রসিদ (RCT-)', en: 'Receipts (RCT-)' }, tag: { bn: '🧾', en: '🧾' },
         b: { bn: `প্রতিটি আদায়ে রসিদ নম্বর RCT-YYYYMM-#### (সেটিংসে প্রিফিক্স/সিকোয়েন্স বদলানো যায়)।
 
 রসিদে: দোকান, পরিশোধকারী, বিলের খাত, পরিমাণ, পদ্ধতি + নির্দিষ্ট অ্যাকাউন্ট, রসিদ নং, তারিখ, মলের নাম/লোগো।
@@ -282,7 +289,7 @@ Receipt shows: space, payer, bill line, amount, method + exact account, receipt 
 🖨️ print / ⬇ PDF — same templates as invoices (A4/A5/½+½).
 
 Rent collections use RNT-YYYYMM-####.` } },
-      { id: 'history', t: { bn: 'পেমেন্ট ইতিহাস — দোকান অনুযায়ী', en: 'Payment history — per space' }, tag: { bn: '📜', en: '📜' },
+      { id: 'history', img: '05_payment_history.jpg', cap: { bn: 'দোকান অনুযায়ী পেমেন্ট ইতিহাস', en: 'Per-space payment history' }, t: { bn: 'পেমেন্ট ইতিহাস — দোকান অনুযায়ী', en: 'Payment history — per space' }, tag: { bn: '📜', en: '📜' },
         b: { bn: `পেমেন্ট ট্যাবে দোকান ড্রপ-ডাউন থেকে যেকোনো দোকান বাছলে বর্তমান টেবিলের নিচে 📜 পেমেন্টের ইতিহাস দেখায় — সব মাসের (সার্ভিস + ভাড়া) রসিদ, তারিখ, মাস, পরিশোধকারী, পদ্ধতি, পরিমাণ, স্ট্যাটাস + মোট ও নিট।
 
 একই জায়গায় 📅 আজকের আদায় ও ⚠️ আজ পর্যন্ত মোট বকেয়া কার্ডও আছে।`, en: `In the Payments tab, pick a space from the drop-down and a 📜 payment-history panel appears under the current table — all months (service + rent): receipt, date, month, payer, method, amount, status + total & net.
@@ -306,7 +313,7 @@ Payments stay "Pending" until approved; voided ones are excluded from every sum 
     id: 'accounting', ico: '📊',
     title: { bn: 'হিসাব', en: 'Accounting' },
     items: [
-      { id: 'coa', t: { bn: 'চার্ট অব অ্যাকাউন্টস (মাল্টি-লেভেল)', en: 'Chart of Accounts (multi-level)' }, tag: { bn: '📊', en: '📊' },
+      { id: 'coa', img: '06_coa.jpg', cap: { bn: 'চার্ট অব অ্যাকাউন্টস — মাল্টি-লেভেল ট্রি', en: 'Chart of Accounts — multi-level tree' }, t: { bn: 'চার্ট অব অ্যাকাউন্টস (মাল্টি-লেভেল)', en: 'Chart of Accounts (multi-level)' }, tag: { bn: '📊', en: '📊' },
         b: { bn: `হিসাব → 🏦 চার্ট অব অ্যাকাউন্টস:
 
 • গ্রুপ হেডিং (সম্পদ, দায়, মালিকানা, আয়, ব্যয়) + সাব-গ্রুপ (স্থায়ী সম্পদ ইত্যাদি) — ▸/▾ কোলাপ্স
@@ -324,7 +331,7 @@ Payments stay "Pending" until approved; voided ones are excluded from every sum 
 • Only leaf (posting) accounts accept journal entries — posting to a group is rejected, groups with children can't be deleted
 
 Codes: 1000 Assets, 1100 Fixed Assets, 1010 Cash, 1020 Bank…` } },
-      { id: 'journal', t: { bn: 'জার্নাল ভাউচার (ডাবল এন্ট্রি)', en: 'Journal voucher (double entry)' }, tag: { bn: '📖', en: '📖' },
+      { id: 'journal', img: '08_journal.jpg', cap: { bn: 'জার্নাল ভাউচার — ডাবল এন্ট্রি', en: 'Journal voucher — double entry' }, t: { bn: 'জার্নাল ভাউচার (ডাবল এন্ট্রি)', en: 'Journal voucher (double entry)' }, tag: { bn: '📖', en: '📖' },
         b: { bn: `হিসাব → 📖 জার্নাল:
 
 • ডেবিট/ক্রেডিট লাইন যোগ করুন — অ্যাকাউন্ট পিকার সার্চযোগ্য (লিফ-অনলি, শ্রেণিবিন্যাস পথসহ: "1010 — Cash in Hand · Assets ›")
@@ -402,7 +409,7 @@ Each batch can be deleted.` } },
 • readings jumping 200%+ are flagged as anomalies
 
 Saving auto-generates the bill from the units.` } },
-      { id: 'shop-info', t: { bn: 'দোকানের তথ্য প্যানেল', en: 'The space info panel' }, tag: { bn: '💡', en: '💡' },
+      { id: 'shop-info', img: '02_meters_panel.jpg', cap: { bn: 'রিডিং ফর্মে দোকানের তথ্য প্যানেল', en: 'Space info panel in the reading form' }, t: { bn: 'দোকানের তথ্য প্যানেল', en: 'The space info panel' }, tag: { bn: '💡', en: '💡' },
         b: { bn: `রিডিং ফর্মে দোকান বাছলেই পূর্ণ তথ্য প্যানেল (পুরো প্রস্থে, ডেস্কটপে এক সারিতে):
 
 • 💡 এই মাস — খাতভিত্তিক বিল (সার্ভিস/বিদ্যুৎ/পানি + ফাইন) প্রতিটির স্ট্যাটাসসহ + মোট
@@ -685,6 +692,14 @@ function allOpen(sec) { return !!open.value[sec.id + ':all'] }
         </div>
         <div v-if="isOpen(sec.id, it.id)" style="padding:2px 4px 14px 28px">
           <div style="white-space:pre-wrap;line-height:1.65;font-size:13px;color:var(--text)">{{ it.b[lang] }}</div>
+          <div v-if="it.img || it.imgs" style="margin-top:10px">
+            <template v-for="(im, ix) in (it.imgs || [it.img])" :key="ix">
+              <a :href="'img/wiki/' + im" target="_blank" style="display:block;margin-top:6px">
+                <img :src="'img/wiki/' + im" :alt="it.cap ? it.cap[lang] : ''" style="max-width:100%;border-radius:12px;border:1px solid var(--border);cursor:zoom-in" loading="lazy" />
+              </a>
+            </template>
+            <div v-if="it.cap" style="font-size:11.5px;color:var(--text-mute);margin-top:6px;text-align:center">{{ it.cap[lang] }}</div>
+          </div>
         </div>
       </div>
     </div>
