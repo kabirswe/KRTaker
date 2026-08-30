@@ -830,7 +830,17 @@ const BN = {
   "comma separated, e.g. vip, wholesale": "কমা দিয়ে, যেমন: ভিআইপি, পাইকারি",
   "e.g. Fatema Begum, Wife": "যেমন: ফাতেমা বেগম, স্ত্রী",
   "e.g. Trade license, TR-2026-1122": "যেমন: ট্রেড লাইসেন্স, TR-2026-1122",
-  "e.g. 01700-000000 (wife/brother)": "যেমন: ০১৭০০-০০০০০০ (স্ত্রী/ভাই)",/* ── Mall buttons & forms (sweep) ── */
+  "e.g. 01700-000000 (wife/brother)": "যেমন: ০১৭০০-০০০০০০ (স্ত্রী/ভাই)",
+  "This month": "এই মাস",
+  "Already billed": "ইতিমধ্যে বিল হয়েছে",
+  "No bill for this space in": "এই দোকানের জন্য বিল নেই",
+  "the reading will create one.": "রিডিং দিলে বিল তৈরি হবে।",
+  "Total due": "মোট বকেয়া",
+  "unpaid bill(s)": "টি অপরিশোধিত বিল",
+  "No dues — this space is fully paid.": "কোনো বকেয়া নেই — দোকানটি সম্পূর্ণ পরিশোধিত।",
+  "Bill history": "বিলের ইতিহাস",
+  "last 6 months": "সর্বশেষ ৬ মাস",
+  "Month": "মাস",/* ── Mall buttons & forms (sweep) ── */
   "Cancel": "বাতিল",
   "Close": "বন্ধ করুন",
   "Search": "সার্চ",

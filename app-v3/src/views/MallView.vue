@@ -1178,6 +1178,14 @@ function drawerStats(d, rows) {
   return d
 }
 /* meters: current billed amount for the selected space + month */
+const spaceBillInfo = ref(null)
+async function loadSpaceBillInfo() {
+  if (!meterForm.value.shop) { spaceBillInfo.value = null; return }
+  const r = await apiCall('mall', { action: 'space-bill-info', shop: meterForm.value.shop, month: month.value })
+  if (r.ok) spaceBillInfo.value = r
+}
+watch(() => meterForm.value.shop, () => { loadSpaceBillInfo() })
+watch(month, () => { if (meterForm.value.shop) loadSpaceBillInfo() })
 const meterBilled = computed(() => {
   if (!meterForm.value.shop) return null
   const rows = bills.value.filter(b => b.shop == meterForm.value.shop && b.month === month.value)
@@ -2786,13 +2794,46 @@ onBeforeUnmount(() => {
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
           <label style="font-size:12px;color:var(--text-mute)">{{ t('Space') }}
             <SearchableSelect v-model="meterForm.shop" :options="shops.filter(x => x.status === 'Active').map(s => ({ value: s.id, label: s.no + ' — ' + s.floor + ' (' + s.owner_name + ')' }))" :placeholder="t('Select space…')" allow-add add-label="New space" @add="setAfterAdd(meterForm, 'shop', () => data.list('shops').find(s => s.no === form.no?.trim())?.id); openAdd()" style="margin-top:4px" />
-            <div v-if="meterBilled" style="margin-top:6px;font-size:11.5px;color:var(--text-mute);background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;padding:7px 10px">
-              💡 <b>{{ t('Already billed') }}</b> this month: <b style="color:var(--primary)">{{ money(meterBilled.total) }}</b>
-              <template v-if="meterBilled.service"> · 🧾 {{ money(meterBilled.service) }}</template>
-              <template v-if="meterBilled.elec"> · ⚡ {{ money(meterBilled.elec) }}</template>
-              <template v-if="meterBilled.water"> · 💧 {{ money(meterBilled.water) }}</template>
+            <div v-if="spaceBillInfo" style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+              <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 11px">
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);margin-bottom:5px">💡 {{ t('This month') }} — {{ monthLabel(month) }} <template v-if="spaceBillInfo.shop">· {{ spaceBillInfo.shop.no }} <small>({{ spaceBillInfo.shop.owner_name }})</small></template></div>
+                <div v-if="spaceBillInfo.current.length" style="display:flex;flex-direction:column;gap:3px;font-size:12px">
+                  <div v-for="b in spaceBillInfo.current" :key="b.id" style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                    <span>{{ b.kind === 'service' ? '🧾 ' + t('Service') : b.kind === 'elec' ? '⚡ ' + t('Electricity') : '💧 ' + t('Water') }} <small v-if="b.fine" style="color:var(--danger)">+{{ money(b.fine) }} {{ t('fine') }}</small></span>
+                    <span style="font-weight:700">{{ money(Number(b.amount) + Number(b.fine || 0)) }} <span class="badge" :class="badge(b.status)" style="margin-left:4px">{{ bnd(b.status) }}</span></span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:4px;font-weight:800;font-size:12.5px">{{ t('Total') }} <span style="color:var(--primary)">{{ money(meterBilled ? meterBilled.total : 0) }}</span></div>
+                </div>
+                <div v-else style="font-size:12px;color:var(--text-mute)">{{ t('No bill for this space in') }} {{ monthLabel(month) }} — {{ t('the reading will create one.') }}</div>
+              </div>
+              <div v-if="spaceBillInfo.due.total > 0" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 11px;font-size:12px">
+                ⚠️ <b style="color:var(--danger)">{{ t('Total due') }}: {{ money(spaceBillInfo.due.total) }}</b>
+                <span style="color:var(--text-mute)"> — {{ spaceBillInfo.due.count }} {{ t('unpaid bill(s)') }}</span>
+                <div v-if="spaceBillInfo.due.unpaid_months.length" style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">
+                  <span v-for="m in spaceBillInfo.due.unpaid_months" :key="m" class="badge b-red">{{ monthLabel(m) }}</span>
+                </div>
+              </div>
+              <div v-else-if="spaceBillInfo.history.length" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:9px 11px;font-size:12px">✅ {{ t('No dues — this space is fully paid.') }}</div>
+              <div v-if="spaceBillInfo.history.length" style="background:var(--bg-alt);border:1px solid var(--border);border-radius:10px;padding:9px 11px">
+                <div style="font-size:11px;font-weight:800;color:var(--text-mute);margin-bottom:5px">📜 {{ t('Bill history') }} <small style="font-weight:600">({{ t('last 6 months') }})</small></div>
+                <div class="tbl-wrap" style="max-height:200px;overflow:auto">
+                  <table class="kr" style="font-size:11.5px">
+                    <thead><tr><th>{{ t('Month') }}</th><th style="text-align:right">🧾</th><th style="text-align:right">⚡</th><th style="text-align:right">💧</th><th style="text-align:right">⚠️</th><th style="text-align:right">{{ t('Total') }}</th><th>{{ t('Status') }}</th></tr></thead>
+                    <tbody>
+                      <tr v-for="h in spaceBillInfo.history.slice(0, 6)" :key="h.month">
+                        <td style="font-weight:700">{{ monthLabel(h.month) }}</td>
+                        <td style="text-align:right">{{ h.service ? money(h.service) : '—' }}</td>
+                        <td style="text-align:right">{{ h.elec ? money(h.elec) : '—' }}</td>
+                        <td style="text-align:right">{{ h.water ? money(h.water) : '—' }}</td>
+                        <td style="text-align:right">{{ h.fine ? money(h.fine) : '—' }}</td>
+                        <td style="text-align:right;font-weight:800">{{ money(h.total) }}</td>
+                        <td><span class="badge" :class="badge(h.status)">{{ bnd(h.status) }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-            <div v-else-if="meterForm.shop" style="margin-top:6px;font-size:11.5px;color:var(--text-mute)">No bill for this space in {{ monthLabel(month) }} yet — the reading will create one.</div>
           </label>
           <label style="font-size:12px;color:var(--text-mute)">{{ t('Type') }}
             <select v-model="meterForm.type" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-alt);color:var(--text);font-family:inherit;font-size:13px">

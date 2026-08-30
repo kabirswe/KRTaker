@@ -15607,8 +15607,42 @@ case 'mall': {
                   ]]);
     }
 
-    /* readings — list sub-meter readings for a month (with shop numbers) */
-    if ($a === 'readings') {
+        /* space-bill-info — current month detail + history + dues for a space */
+    if ($a === 'space-bill-info') {
+        $shop = trim($body['shop'] ?? '');
+        $month = trim($body['month'] ?? date('Y-m'));
+        if ($shop === '') json_out(['ok' => false, 'error' => 'shop required.'], 400);
+        $st = $pdo->prepare('SELECT b.*, COALESCE(s.no, b.shop) AS shop_no, s.floor AS shop_floor, s.owner_name, s.owner_mobile FROM shop_bills b LEFT JOIN shops s ON s.id=b.shop WHERE b.shop=? AND b.month=? ORDER BY b.kind');
+        $st->execute([$shop, $month]);
+        $current = $st->fetchAll(PDO::FETCH_ASSOC);
+        $st2 = $pdo->prepare("SELECT month, kind, amount, fine, status FROM shop_bills WHERE shop=? ORDER BY month DESC, kind");
+        $st2->execute([$shop]);
+        $all = $st2->fetchAll(PDO::FETCH_ASSOC);
+        $history = []; $dueCount = 0; $dueTotal = 0.0; $unpaidMonths = [];
+        foreach ($all as $b) {
+            $m = $b['month'];
+            if (!isset($history[$m])) $history[$m] = ['month' => $m, 'service' => 0, 'elec' => 0, 'water' => 0, 'fine' => 0.0, 'total' => 0.0, 'status' => 'Paid'];
+            $amt = (float)$b['amount']; $fn = (float)$b['fine'];
+            $history[$m][$b['kind']] = ($history[$m][$b['kind']] ?? 0) + $amt;
+            $history[$m]['fine'] += $fn;
+            $history[$m]['total'] += $amt + $fn;
+            if ($b['status'] !== 'Paid') {
+                $history[$m]['status'] = 'Unpaid';
+                $dueCount++; $dueTotal += $amt + $fn;
+                if (!in_array($m, $unpaidMonths, true)) $unpaidMonths[] = $m;
+            }
+        }
+        $st3 = $pdo->prepare('SELECT * FROM shops WHERE id=?');
+        $st3->execute([$shop]);
+        $shopRow = $st3->fetch(PDO::FETCH_ASSOC) ?: null;
+        json_out(['ok' => true, 'current' => $current, 'history' => array_values($history),
+                  'due' => ['count' => $dueCount, 'total' => round($dueTotal, 2), 'unpaid_months' => $unpaidMonths],
+                  'shop' => $shopRow]);
+    }
+
+/* readings — list sub-meter readings for a month (with shop numbers) */
+    if (
+    $a === 'readings') {
         $month = trim($body['month'] ?? date('Y-m'));
         $st = $pdo->prepare("SELECT r.*, s.no FROM mall_meter_readings r LEFT JOIN shops s ON s.id=r.shop
                              WHERE r.month=? ORDER BY r.id DESC LIMIT 100");
